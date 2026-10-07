@@ -1,0 +1,85 @@
+id: RQ-20261007-023
+title: 'Stage-0 record rebuild for trend_donchian_xrp_4h (REAL MONEY, bybit_2 + bybit_portfolio) on a 1460-day window: the
+  730d rebuild landed n=25, below the 30 floor (PI-20261004-P24XMV4V-0004)'
+status: queued
+cadence: once
+theme: live_strategy
+priority: 1
+kind: experiment
+question: 'The committed record comms/strategy_evidence/trend_donchian_xrp_4h.json (365d, n_trades_oos=16, net_r_oos +8.94,
+  3/4 folds, faithful, generated 2026-09-30) cannot decide either way: n=16 is below every floor this repo uses (MD-PROMOTE-S0-S1
+  min_n_closed 30; exit-refinement MIN_OOS_TRADES 25) and its p10 flips sign on a 3-day-newer window (PI-20261002-84ZIQNJD-0001).
+  The 730d rebuild lane PROP-ROSTER-EXPAND ran (comms/strategy_evidence/runs/2026-10-05-730d-expand/trend_donchian_xrp_4h.json:
+  n=25, net_r_oos +5.71, 3/4 folds, faithful) is STILL under 30. n is bounded by --days, not the calendar (25 trades / 730d
+  = 12.5/yr for this short-only 4h leg). Does the leg''s config-exact record, net of the full cost stack, clear the MD-PROMOTE-S0-S1
+  bar (n >= 30, expectancy > 0, fold majority) on a 1460-day window?'
+why_this_matters: 'Real money: the leg trades on bybit_2 and bybit_portfolio. If it fails the four-clause bar on a window
+  that reaches the floor, MD-DERISK-ONLY-ROSTER-CUT covers its removal without a popup; if it passes, the pin tests/test_mandate_resolver.py::test_real_stage2_thresholds_match_the_operators_pricing
+  is re-stated from the new record and the SIGNAL-0005 pricing is re-stated to the operator as a report, not a question. PI-20261002-84ZIQNJD-0001
+  closes on the same evidence.'
+power:
+  expected_n: 50
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: d=0.45 -> 39 at alpha 0.05 / power 0.8 (standing E35 floor). expected_n=50 is the COMMITTED 730d run's n=25 (comms/strategy_evidence/runs/2026-10-05-730d-expand/trend_donchian_xrp_4h.json,
+    counted 2026-10-07 by wc -l of its __trades.jsonl = 25) scaled linearly to 1460d. The decision floor the rule reads is
+    the mandate's 30, not 39; if n lands in [30, 39) the record decides under the mandate bar but is reported as below this
+    unit's own power floor.
+  feasibility:
+    source: none
+    accrual_basis: A fresh 1460d harness run; the two committed records (365d n=16, 730d n=25) are the observed rate (~12.5
+      trades/yr). Nothing accrues.
+decision_rule:
+  id: RULE-RQ1007-XRP4H-STAGE0-1460D
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: 'The record scripts/ops/build_strategy_evidence.py writes for trend_donchian_xrp_4h at --days 1460 --folds 4
+    (config-exact: 4h XRPUSDT, side_filter short, donchian 20, atr_stop_mult 2, trail_mult 5.0, tp_r 3, min_confidence 0.8,
+    stale_exit 8 bars, vol_skip_above_pctl 0.9, trail_decay 2.0/2.5, decision_bar closed): n_trades_oos, expectancy_r_oos,
+    net_r_oos, folds_positive/folds, fidelity, cost_stack (fees 7.5 bps roundtrip + slippage 3.0 bps roundtrip + funding 1.0
+    bps per 8h window (the committed record''s cost_stack; execution_costs.resolve_cost_policy venue defaults)), per-trade
+    rows at source_run.'
+  rule: 'PASS IF fidelity == faithful AND n_trades_oos >= 30 AND expectancy_r_oos > 0 AND folds_positive >= 3 of 4: the record
+    replaces the 365d one as the leg''s Stage-0 evidence; the mandate-resolver pin is re-stated from it (Tier-1 test edit,
+    separate PR) and SIGNAL-0005 is reported. FAIL IF n_trades_oos >= 30 AND (expectancy_r_oos <= 0 OR folds_positive < 3):
+    the leg fails the four-clause bar on a powered window; removing it from bybit_2 and bybit_portfolio (both, mirror equality)
+    is MD-DERISK-ONLY-ROSTER-CUT territory -- the manager applies it under the mandate with this record as the failing evidence;
+    no popup. UNDERPOWERED (indeterminate) IF n_trades_oos < 30 at 1460d: then the bound is the leg''s own trade rate; file
+    the bound on PI-20261004-P24XMV4V-0004 and escalate the keep/cut as a genuine preference (no window this harness can fetch
+    reaches the floor) -- do not lower the floor. fidelity != faithful on any branch -> indeterminate, name the omitted lever.
+    The 30 floor and 3-of-4 majority are MD-PROMOTE-S0-S1''s bar and are not changed after the run.'
+  what_it_does_not_do: Does not edit any roster or config. A PASS is not a promotion (the leg is already Stage 2); it re-states
+    the evidence the existing roster placement rests on. Says nothing about the trail4 exit cell (RQ-20261004-753/754).
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.5
+  est_minutes: 10
+  basis: One trend harness run over ~8,760 4h bars with 4 folds; ESTIMATED from bar count; the 730d run's wall time in lane
+    PROP-ROSTER-EXPAND was not recorded.
+run:
+  workflow: session-local
+  note: 'SESSION-LOCAL (precedent RQ-20261005-901): scripts/ops/build_strategy_evidence.py is under scripts/ops/, outside
+    research-script-run.yml''s allowlist, and its deliverable is the committed per-leg record under comms/strategy_evidence/,
+    which no dispatcher workflow lands (exit-cell-mandate.yml runs it only for a fired exit cell). Command: python3 scripts/ops/build_strategy_evidence.py
+    --strategy trend_donchian_xrp_4h --days 1460 --folds 4 --workdir comms/strategy_evidence/runs/2026-10-07-1460d ; commit
+    the workdir AND the replaced canonical record comms/strategy_evidence/trend_donchian_xrp_4h.json (measured -> measured
+    overwrite is the normal path; a harness_failed result is refused by the builder and leaves the record byte-identical --
+    land that refusal sidecar as the result, never a stub). Then land one research_result.py record under research/results/<this
+    unit>/ with the branch taken.'
+  inputs:
+    research_unit: RQ-20261007-023
+lands:
+  store: comms/strategy_evidence/
+  assert_field: coverage_state
+  min_rows: 1
+related:
+- PI-20261004-P24XMV4V-0004
+- PI-20261002-84ZIQNJD-0001
+- comms/strategy_evidence/trend_donchian_xrp_4h.json
+- comms/strategy_evidence/runs/2026-10-05-730d-expand/trend_donchian_xrp_4h.json
+- RQ-20261005-901
+- config/mandates.yaml (MD-PROMOTE-S0-S1 bar; MD-DERISK-ONLY-ROSTER-CUT)

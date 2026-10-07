@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 12,
+    "clears_when": "a strategy_tunes artifact for ada_pullback_2h is committed or served at /api/bot/strategies/ada_pullback_2h/tune AND the M7 packet re-grades the leg with the tuning attempt on record (keep / tune applied / demote under MD-DERISK-ONLY-ROSTER-CUT); or killed with a reason",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-P24XMV4V-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-16",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "DECISION-BRIEF lane session_01XGZZ1RZsfiUwKap24xMV4v, manager session_01MM8o5js6TcDFeNAPBY4Ntv, docs/plans/decision-brief-2026-10-04.md",
+    "rerun": "ls runtime_logs/strategy_tunes/*/ada_pullback_2h__*.json 2>/dev/null | wc -l; python3 -c \"import json;d=json.load(open('comms/reviews/performance-review-20261004-103845.json'));print(d['_proposed_tweaks_note'])\""
+  },
+  "routed_to": "RQ-20261007-022",
+  "state": "routed",
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('RESEARCH — ada_pullback_2h M8 tune sweep — a research-queue '); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "NEEDS-DATA (tune-before-demote): ada_pullback_2h is a real-money Stage-2 leg (bybit_2 + bybit_portfolio) that performance-review-20261004-103845 reads at 1/11 lifetime wins, expectancyR -0.70, full pnl coverage (/api/bot/performance), with the bybit_1 paper mirror -$4,335 over 32. No M8 tune sweep artifact exists on main for it (runtime_logs/strategy_tunes/<date>/ada_pullback_2h__*.json: zero files; checked 2026-10-04), so under docs/CLAUDE-RULES-CANONICAL.md 'Tune before demote' the proposal is RUN THE SWEEP, not a demotion. Data task: run scripts/ml/strategy_tune_sweep.py for ada_pullback_2h with its rule registered before the run, land the artifact, then grade the leg on the M7 matrix with the attempt on record. A demotion that follows is MD-DERISK-ONLY-ROSTER-CUT territory, not an operator popup. [RESEARCH-FOLLOWUPS 2026-10-07, lane of Manager Session 2026-10-01 session_01MM8o5js6TcDFeNAPBY4Ntv] routed to RQ-20261007-022 (M8 tune sweep, atr_stop_mult + adx_min, 730d, session-local because scripts/ml/strategy_tune_sweep.py is outside research-script-run's allowlist and the artifact lands under runtime_logs/strategy_tunes/). Dispatchable complements already registered: RQ-20260928-019 (M20 exit levers), -016 (E35 bracket), -030 (weekly WF)."
+}

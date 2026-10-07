@@ -245,13 +245,15 @@ class SubjectResolver:
         seen_any = False
         for rel in relpaths:
             path = self._root / rel
-            if not path.exists():
+            from src.runtime import checklist_store as _ck  # noqa: PLC0415
+            _is_ck = _ck.is_checklist_path(path)  # rows are the truth once seeded
+            if not (_ck.exists(path) if _is_ck else path.exists()):
                 # A register that is not present at all is a different fact
                 # from one we could not parse, but both are "we cannot say
                 # whether the row is there", so both refuse.
                 return None
             try:
-                data = json.loads(path.read_text(encoding="utf-8"))
+                data = _ck.load_path(path) if _is_ck else json.loads(path.read_text(encoding="utf-8"))
             except Exception:
                 return None
             rows = data if isinstance(data, list) else (

@@ -1,7 +1,7 @@
 id: RQ-20261006-070
 title: 'Impact of risk_pct 0.5% -> 1.0% on tradeify_1 (Tradeify 24/7 1-Step $10k): ETH+SOL trend_donchian book, 730d records,
   graded on the RULE-RQ1006-VELOTRADE-FIT clauses (operator 2026-10-06 09:20Z)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 1
@@ -106,8 +106,6 @@ lands:
   store: research/results/
   assert_field: read_state
   min_rows: 1
-grading:
-  auto: true
 related:
 - RQ-20261006-062
 - RQ-20261006-034
@@ -116,3 +114,13 @@ related:
 - comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop.json
 - claude/velotrade-risk-1pct
 last_dispatched_at: '2026-10-07T12:02:24+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-RQ1006-070-TRADEIFY-RISK-1PCT
+  evidence:
+  - research/results/RQ-20261006-070/37618205602.jsonl
+  graded_at: '2026-10-07'
+  grader: scripts/research/queue_grade.py
+  reason: 1 row(s), all measured, all pass
+  rows: 1
+  verdict: pass

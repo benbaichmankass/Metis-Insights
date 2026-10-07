@@ -1,0 +1,81 @@
+{
+  "strategy": "htf_pullback_trend_2h",
+  "symbol": "XRPUSDT",
+  "timeframe": "2h",
+  "params": {
+    "trend_lookback": 40,
+    "pullback_lookback": 10,
+    "pullback_frac": 0.5,
+    "atr_stop_mult": 2.5,
+    "trail_mult": 6.0,
+    "min_confidence": 0.0,
+    "adx_min": 25.0,
+    "adx_period": 14
+  },
+  "total_trades": 144,
+  "fee_bps_roundtrip": 7.5,
+  "slippage_bps_roundtrip": 3.0,
+  "funding_bps_per_window": 1.0,
+  "data_start": "2024-10-05 00:00:00+00:00",
+  "data_end": "2026-10-04 22:00:00+00:00",
+  "run_date": "2026-10-07",
+  "tp_r_effective_n": 144,
+  "tp_r_effective_median": 2.399,
+  "tp_r_effective_min": 0.444,
+  "tp_r_effective_max": 3.0,
+  "rr_floor_state": "off",
+  "rr_min_n": 144,
+  "rr_min_p10": 0.219,
+  "rr_min_median": 1.292,
+  "rr_min_p90": 2.597,
+  "rr_floor_exits": 0,
+  "win_rate_pct": 49.31,
+  "total_r": 3.4077,
+  "net_total_r": -2.9577,
+  "net_total_r_long": -9.3996,
+  "net_total_r_short": 6.4419,
+  "net_expectancy_r": -0.0205,
+  "net_total_r_fee_only": 0.7035,
+  "net_expectancy_r_fee_only": 0.0049,
+  "trades_long": 73,
+  "trades_short": 71,
+  "avg_win_r": 1.0641,
+  "max_mfe_r": 2.965,
+  "mean_cost_r": {
+    "fee_r": 0.01878,
+    "slippage_r": 0.00751,
+    "funding_r": 0.01791,
+    "total_cost_r": 0.0442,
+    "funding_windows": 7.96528
+  },
+  "max_drawdown_r": 16.8537,
+  "by_outcome": {
+    "stop": 71,
+    "take_profit": 31,
+    "trail_stop": 40,
+    "timeout": 2
+  },
+  "by_year": {
+    "2024": {
+      "trades": 19,
+      "net_r": 6.468
+    },
+    "2025": {
+      "trades": 73,
+      "net_r": -13.1449
+    },
+    "2026": {
+      "trades": 52,
+      "net_r": 3.7186
+    }
+  },
+  "bar_minutes": 120.0,
+  "position_days": 379.4167,
+  "capital_days": 379.4167,
+  "mean_bars_held": 31.618,
+  "net_r_per_position_day": -0.0078,
+  "net_r_per_capital_day": -0.0078,
+  "exit_grain": "leg",
+  "subbar_coverage": null,
+  "subbar_missing_bars": null
+}
