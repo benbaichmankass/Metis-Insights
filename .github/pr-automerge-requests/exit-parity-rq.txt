@@ -1,1 +1,0 @@
-auto-merge: research-queue units RQ-20261007-001/-002 + exit_lever_ablation.py (Tier-1 research tooling); lane EXIT-PARITY-RQ

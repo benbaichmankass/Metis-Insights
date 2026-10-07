@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "Research-queue units RQ-20261007-001/-002 (rule registered before run), the research driver scripts/research/exit_lever_ablation.py (Tier-1 research tooling, runner-only), its capability-index row, the two local run records under comms/research/, one pipeline item, this branch's landing declaration, arming file and merge-slot claim. No src/, no config/, no deploy/, no workflow, no order path; every verdict is a Tier-3 PROPOSAL carried back to the manager, nothing is applied."
+  "landing": "hold",
+  "why": "Research-queue units RQ-20261007-001/-002 (rule registered before run), the research driver scripts/research/exit_lever_ablation.py (Tier-1 research tooling, runner-only), its capability-index row, the two local run records under comms/research/, one pipeline item and this branch's merge-slot claim. No src/, no config/, no deploy/, no workflow, no order path; every verdict is a Tier-3 PROPOSAL carried back to the manager, nothing is applied. HOLD because pr-landing-guard R5 does not vouch for NEW hand-written queue units (E57: a registration is not a stamp) -- the manager lands it.",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "pr-landing-guard R5 does not vouch for NEW hand-written research-queue units (research/queue/RQ-20261007-001.yaml, -002.yaml): a registration is not a stamp (E57). Everything else in the diff is Tier-1 surface. The manager lands it with: gh api -X PUT repos/benbaichmankass/Metis-Insights/pulls/16970/merge -f merge_method=squash"
 }
