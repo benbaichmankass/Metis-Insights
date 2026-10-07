@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI tooling only: .github/actions/commit-to-main replays a caller's produced commit onto main's tip when its parent is not main's tip (previously only when the job ran off main), plus a test. No order path, strategy config, risk cap, src/, deploy/ or VM file."
+}
