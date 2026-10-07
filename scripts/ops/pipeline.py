@@ -950,8 +950,17 @@ def _check_git_merge_safety(check) -> None:
     import subprocess
 
     def git(*args: str, cwd: Path) -> subprocess.CompletedProcess:
+        # `-c gc.auto=0 -c maintenance.auto=false`: a `git merge` may fork a
+        # background `git gc --auto` into the throwaway repo, and that process
+        # can still be writing `.git/objects` while TemporaryDirectory tears
+        # the tree down -- MEASURED on PR #16964's guards job (run 37671602666,
+        # 2026-10-07): `OSError: [Errno 39] Directory not empty: 'objects'`
+        # from the cleanup, with every merge assertion already passed. The
+        # control is about merge semantics, not garbage collection, so
+        # background maintenance is switched off for these calls.
         return subprocess.run(
-            ["git", *args], cwd=str(cwd), capture_output=True, text=True)
+            ["git", "-c", "gc.auto=0", "-c", "maintenance.auto=false", *args],
+            cwd=str(cwd), capture_output=True, text=True)
 
     def base(**over: Any) -> dict:
         item = {
@@ -972,7 +981,9 @@ def _check_git_merge_safety(check) -> None:
         return
 
     for order in ("a-then-b", "b-then-a"):
-        with tempfile.TemporaryDirectory() as td:
+        # ignore_cleanup_errors: the assertions above are the control; a
+        # cleanup race on the throwaway repo must not read as a failed guard.
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
             repo = Path(td)
             git("init", "-q", "-b", "main", cwd=repo)
             git("config", "user.email", "test@example.invalid", cwd=repo)
