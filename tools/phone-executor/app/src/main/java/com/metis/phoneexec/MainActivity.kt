@@ -632,7 +632,7 @@ class MainActivity : Activity() {
             val goTxt = if (serverLive) "live token not redeemed (app dry)" else if (g == null) "go unreachable" else if (g.optBoolean("go")) "go=TRUE on a dry token" else "go=false (${g.optString("reason").take(40)})"
             if (g?.optBoolean("go") == true) api.event("mismatch", "server said go on a DRY token; not submitted", id)
             ledger.append(id, "dry_filled")
-            report(id, "dry_filled", (if (test) "test ticket (always dry)" else if (!armed()) "app not armed" else "server mode dry") + "; server verify ok, ${v.optString("mode")} token, $goTxt", tk)
+            report(id, "dry_filled", (if (test) "test ticket (always dry)" else if (t.optString("submit") != "live" || !serverLive) "server mode dry" else "app not armed") + "; server verify ok, ${v.optString("mode")} token, $goTxt", tk)
             api.event("dry_fill_ok", "filled + read back + SERVER verified (${v.optString("mode")} token, $goTxt), NOT submitted: $sideTab ${fmt(qty, qStep)} $venue lim ${fmt(entry, pStep)} tp ${fmt(tp, pStep)} sl ${fmt(sl, pStep)}", id)
             js("__ex.setByLabel('quantity', '', '')")
             setStatus("DRY ticket $id filled and read back; not submitted")

@@ -25,15 +25,15 @@ What this module owns, and why each piece is here and not on the phone:
   test ticket. Everything else is ``dry``: the phone fills the form, reads it
   back, and does NOT submit. The phone has its own "armed" switch on top
   (default off), so a live submit needs both sides.
-* **Server read-back + go-token (§ 3.4).** Before a live click the phone posts what the filled form shows;
-  :func:`verify_readback` re-checks it against the ticket and the instrument steps and issues ONE 30 s token
-  bound to the read-back hash; :func:`redeem_go_token` consumes it right before the click. See the section at
-  the end of this module.
 * **Report** wraps :func:`src.prop.prop_report.ingest_report`, overwriting
   ``account_id`` from the token so a device can never write another account.
 * **Events** (login ok / failed, logout seen, refusal, mismatch) ping the
   operator on Telegram. Event text is a fixed vocabulary plus a short reason;
   the phone never sends a link, token, email body or account number.
+* **Server read-back + go-token (§ 3.4).** Before a live click the phone posts what the filled form shows;
+  :func:`verify_readback` re-checks it against the ticket and the instrument steps and issues ONE 30 s token
+  bound to the read-back hash; :func:`redeem_go_token` consumes it right before the click. See the section at
+  the end of this module.
 """
 from __future__ import annotations
 
