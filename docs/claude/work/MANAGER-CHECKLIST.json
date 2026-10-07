@@ -5894,7 +5894,7 @@
       "phase": "W6",
       "state": "in_flight",
       "owner": "lane TRADEIFY-OWNERSHIP-NOTE",
-      "lane": null,
+      "lane": "session_01BwCfskE3ZscdutzLC3MtVD",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 6,
       "spend_usd": null,
@@ -5909,7 +5909,7 @@
       "phase": "W6",
       "state": "in_flight",
       "owner": "lane DXTRADE-PROBE",
-      "lane": null,
+      "lane": "session_01GQJBuULrkHyyzmX3Z42edG",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 10,
       "spend_usd": null,
@@ -5924,7 +5924,7 @@
       "phase": "W6",
       "state": "in_flight",
       "owner": "lane BREAKOUT1-RETIRE",
-      "lane": null,
+      "lane": "session_01Y2J2YaVPogBoJCqx748tfe",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 10,
       "spend_usd": null,
@@ -5932,6 +5932,21 @@
       "prs": [],
       "blocked_on": [],
       "note": "[2026-10-07T18:37Z manager] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): 'Dead: clear its roster, retire the row (Recommended)'. Tier-3 roster change on a dry_run account, operator-approved in the popup: PR held; the manager merges. Pipeline: PI-20261007-APBY4NTV-0002."
+    },
+    {
+      "id": "HIBERNATION-SKILL",
+      "title": "Manager skill: how to hibernate the work before a usage-limit outage and pick it up after (operator ask 2026-10-07)",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane HIBERNATION-SKILL",
+      "lane": "session_018paujgDwqD1DxKFy1tnWwN",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 8,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-07T18:41Z manager] Operator, verbatim: \"you did a good job of 'hibernating' the work ahead of the usage limit outage, so I want us to add to the manager skill instructions for how to prepare for that properly.\" Doc-only; written from the measured 2026-10-06/07 sequence (what worked: auto-merge armed, lanes told to self-land, pick-up reminder, routines paused; what broke: lanes died at the limit unlanded, queue ran but produced nothing, stranded register commits). Row written after dispatch (manager slip, corrected)."
     }
   ]
 }
