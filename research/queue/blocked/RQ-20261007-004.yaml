@@ -27,9 +27,10 @@ question: >-
   bar expensive?
 
 why_this_matters: >-
-  These legs are paper and shadow today (ict_scalp_xrp_5m / sol_15m / xrp_15m /
-  eth_15m live on bybit_1, the rest shadow), so this is the lowest money-at-stake
-  tier -- but it is the family whose bar horizon is shortest relative to its hold
+  No account in config/accounts.yaml rosters a crypto ict_scalp leg at 142ec79e
+  (grep, 2026-10-07; only ict_scalp_mgc_15m on ib_paper), and the 192 journal
+  closes above are bybit_1 / ib_paper paper records, so this is the lowest
+  money-at-stake tier -- but it is the family whose bar horizon is shortest relative to its hold
   time (the 2026-08-21 /system-review measured scalp legs held 10-100x their own
   bar horizon) and therefore the one where a target that cannot move is most
   often wrong by the time the trade is old. A result here also tells the
