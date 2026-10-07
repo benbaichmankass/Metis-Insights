@@ -135,3 +135,19 @@ def test_qualifying_day_gate_is_observable():
     q = sim.summarize([on, blocked], sim.PropRules())["qualifying_days"]
     assert q["p_target_reached_eval"] == 1.0 and q["p_pass_given_target_reached"] == 0.5
     assert q["p_target_reached_not_passed"] == 0.5
+
+
+def test_p_pass_by_days_is_a_cdf_over_all_lives():
+    """PI-20261006-TPQQDKFF-0001: P(pass by 30/90/180 d) is over ALL lives, so a life that
+    never passed counts against every horizon and the curve plateaus at p_pass_eval."""
+    def life(passed, days):
+        lf = sim.Life()
+        lf.passed, lf.days_to_pass = passed, days
+        return lf
+    lives = [life(True, 10.0), life(True, 30.0), life(True, 100.0), life(False, None)]
+    got = sim.p_pass_by_days(lives)
+    assert got == {"30": 0.5, "90": 0.5, "180": 0.75}, got      # day 30 is inclusive
+    assert list(got) == ["30", "90", "180"]
+    assert got["180"] <= sim.summarize(lives, sim.PropRules())["p_pass_eval"] == 0.75
+    assert sim.summarize(lives, sim.PropRules())["p_pass_by_days"] == got
+    assert sim.p_pass_by_days([life(False, None)] * 3) == {"30": 0.0, "90": 0.0, "180": 0.0}

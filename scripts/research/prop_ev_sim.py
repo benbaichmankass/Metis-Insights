@@ -864,6 +864,27 @@ def _pct(a: np.ndarray, q: float) -> float:
     return float(np.percentile(a, q)) if a.size else float("nan")
 
 
+#: The operator's pace horizons (PI-20261006-APBY4NTV-0001): P(pass by 30/90/180 d).
+PASS_BY_HORIZONS = (30, 90, 180)
+
+
+def p_pass_by_days(lives: Sequence[Life], horizons: Sequence[int] = PASS_BY_HORIZONS) -> Dict[str, float]:
+    """P(a life PASSES its eval within N days), over ALL lives.
+
+    The denominator is every simulated life, so a life that died or timed out before
+    passing counts as "not passed by N" -- this is a CDF of pass time that plateaus at
+    ``p_pass_eval``, NOT a conditional on passing (``days_to_pass`` p50/p90 is that, and
+    reads optimistic when few lives pass). A life with no ``days_to_pass`` never passed.
+    PI-20261006-TPQQDKFF-0001.
+    """
+    n = len(lives)
+    if n == 0:
+        return {str(h): float("nan") for h in horizons}
+    return {str(h): round(sum(1 for lf in lives
+                              if lf.passed and lf.days_to_pass is not None and lf.days_to_pass <= h) / n, 4)
+            for h in horizons}
+
+
 def summarize(lives: Sequence[Life], rules: PropRules) -> Dict[str, Any]:
     n = len(lives)
     net = np.array([lf.net(rules.fee) for lf in lives], dtype=float)
@@ -922,6 +943,7 @@ def summarize(lives: Sequence[Life], rules: PropRules) -> Dict[str, Any]:
                           "p90": round(_pct(life_days, 90), 1)},
         "days_to_pass": ({"p50": round(_pct(dtp, 50), 1), "p90": round(_pct(dtp, 90), 1)}
                          if dtp.size else None),
+        "p_pass_by_days": p_pass_by_days(lives),
         "qualifying_days": qual_block,
         "net_usd_percentiles": {f"p{q}": round(_pct(net, q), 2) for q in (5, 25, 50, 75, 95)},
         "mean_payouts_per_life": round(float(np.mean([lf.n_payouts for lf in lives])), 2),
@@ -1505,7 +1527,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             n=len(trades), workflow="manual (Claude session, lane w6-prop-ev)", run_id=run_id,
             commit_sha=doc["commit_sha"], tool=TOOL,
             measurement={m: {k: results[m].get(k) for k in (
-                "ev_net_usd_per_life", "evidence_ci", "p_pass_eval", "p_death_before_first_payout",
+                "ev_net_usd_per_life", "evidence_ci", "p_pass_eval", "p_pass_by_days", "p_death_before_first_payout",
                 "lifetime_days", "ev_net_usd_per_365d_with_rebuy")} for m in results},
             artifact_store=(args.out or "stdout only"),
             artifact_locator="the full JSON output of this tool; inputs listed under inputs.provenance",

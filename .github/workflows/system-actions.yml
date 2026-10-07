@@ -149,6 +149,7 @@ on:
           - supersede-reset-orphan-artifacts
           - supersede-intent-reduce-phantom-pnl
           - fix-prop-mislinked-close
+          - prop-ticket-expire
           - repair-prop-fill-direction
           - breakout-login-check
           - breakout-terminal-probe
@@ -429,6 +430,11 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*trade_id[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Tt]rade_id[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            # prop-ticket-expire: the ONE prop ticket to expire (prop-manual-<hex>).
+            ticket_id=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*ticket_id[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Tt]icket_id[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             symbol=$(printf '%s\n' "${ISSUE_BODY}" \
                      | grep -i -m1 '^[[:space:]]*symbol[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Ss]ymbol[[:space:]]*:[[:space:]]*//' \
@@ -658,6 +664,7 @@ jobs:
           echo "ACCOUNT_ID=${account_id}" >>"$GITHUB_ENV"
           echo "MODE=${mode}" >>"$GITHUB_ENV"
           echo "TRADE_ID=${trade_id:-}" >>"$GITHUB_ENV"
+          echo "ACTION_TICKET_ID=${ticket_id:-}" >>"$GITHUB_ENV"
           echo "ACTION_SYMBOL=${symbol:-}" >>"$GITHUB_ENV"
           echo "ACTION_SYMBOLS=${symbols:-}" >>"$GITHUB_ENV"
           echo "ACTION_DAYS=${days:-}" >>"$GITHUB_ENV"
@@ -737,7 +744,7 @@ jobs:
             status-check|verify-account-mode|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|bybit-bracket-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|phone-dry-test|generate-strategy-review-packets|grade-closed-trades|net-r-regrade|get-env)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|stop-bot-service|start-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|mark-operator-flattened|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-exit-labels|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-bybit-transaction-log|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|unset-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|switch-bybit-position-mode|flatten-alpaca-position|rearm-alpaca-protective|cancel-ib-order|attach-ib-target|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|repair-prop-fill-direction|breakout-login-check|breakout-terminal-probe|egress-landing-probe|velotrade-api-probe|velotrade-api-roundtrip|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids|reattach-stranded-package-legs)
+            pull-and-deploy|restart-bot-service|stop-bot-service|start-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|mark-operator-flattened|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-exit-labels|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-bybit-transaction-log|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|unset-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|switch-bybit-position-mode|flatten-alpaca-position|rearm-alpaca-protective|cancel-ib-order|attach-ib-target|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|prop-ticket-expire|repair-prop-fill-direction|breakout-login-check|breakout-terminal-probe|egress-landing-probe|velotrade-api-probe|velotrade-api-roundtrip|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids|reattach-stranded-package-legs)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -1612,6 +1619,7 @@ jobs:
             supersede-reset-orphan-artifacts)   SCRIPT="supersede_reset_orphan_artifacts_action.sh" ;;
             supersede-intent-reduce-phantom-pnl) SCRIPT="supersede_intent_reduce_phantom_pnl_action.sh" ;;
             fix-prop-mislinked-close)           SCRIPT="prop_fix_mislinked_close_action.sh" ;;
+            prop-ticket-expire)                 SCRIPT="prop_ticket_expire_action.sh" ;;
             reset-daily-risk-state)             SCRIPT="reset_daily_risk_state.sh" ;;
             repair-malformed-notes)             SCRIPT="repair_malformed_notes_action.sh" ;;
             repair-netted-rows)                 SCRIPT="repair_netted_rows_action.sh" ;;
@@ -1875,6 +1883,25 @@ jobs:
           fi
           if [ "${ACTION}" = "fix-prop-mislinked-close" ]; then
             REMOTE_CMD="ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
+          fi
+          # prop-ticket-expire: account + ticket_id are both required and are
+          # validated here, before anything reaches the VM. The helper itself
+          # refuses every transition but expiry_prompted / emitted-past-validity
+          # -> expired, and every non-REST account (VELOTRADE-TICKET 2026-10-07).
+          if [ "${ACTION}" = "prop-ticket-expire" ]; then
+            if [ -z "${ACCOUNT_ID// }" ] || [ -z "${ACTION_TICKET_ID// }" ]; then
+              echo "::error::prop-ticket-expire requires 'account: <id>' and 'ticket_id: <prop-manual-...>' lines."
+              exit 1
+            fi
+            if ! printf '%s' "${ACCOUNT_ID}" | grep -Eq '^[A-Za-z0-9_-]+$'; then
+              echo "::error::prop-ticket-expire account '${ACCOUNT_ID}' invalid (allowed: A-Z a-z 0-9 _ -)."
+              exit 1
+            fi
+            if ! printf '%s' "${ACTION_TICKET_ID}" | grep -Eq '^prop-[a-z]+-[0-9a-f]{6,64}$'; then
+              echo "::error::prop-ticket-expire ticket_id '${ACTION_TICKET_ID}' invalid (expected prop-<kind>-<hex>)."
+              exit 1
+            fi
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_TICKET_ID=$(printf '%q' "${ACTION_TICKET_ID}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "repair-malformed-notes" ]; then
             REMOTE_CMD="ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
