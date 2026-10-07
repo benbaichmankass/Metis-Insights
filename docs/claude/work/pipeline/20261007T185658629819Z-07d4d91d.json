@@ -5,6 +5,11 @@
   },
   "id": "PI-20260927-ZGQPHR3D-0007",
   "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-13",
+    "how_to_check": "git log origin/main --oneline -- <the script named in this item> shows the fix; python3 -m pytest the test file named in this item passes",
+    "what": "PR claude/harness-audit-fixes (#16952) merged to main and its guards green; fix for this finding present on main"
+  },
   "origin": {
     "kind": "audit",
     "ref": "docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-validate-robustness-stale-json-reuse",

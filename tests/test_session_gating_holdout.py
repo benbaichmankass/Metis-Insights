@@ -27,7 +27,7 @@ def _rows(seed, n=60, mean=-0.05):
 
 
 def test_holdout_present_and_in_sample_flip_rate_is_inflated():
-    flips_in = flips_oos = evaluable = 0
+    flips_oos = evaluable = 0
     for seed in range(200):
         rows = _rows(seed)
         h = sg._holdout_subset(rows, 7.5, 0.0)
