@@ -5678,16 +5678,23 @@
       "id": "PAIRS-STOCKTAKE",
       "title": "Pairs strategies stocktake: ladder stage + evidence per leg, which is live-ready under MD-PROMOTE-S1-S2, which is prop-feasible per venue",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "lane PAIRS-STOCKTAKE",
       "lane": "session_011BUSVxr9kPZvkNn6TXSaL6",
       "model": "claude-fable-5-1",
       "ceiling_usd": 20,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        16964
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0004. Operator 2026-10-06 ~08:15Z verbatim: 'where do we stand on all of the pairs strategies? Is anything there ready to go live, and is anything there feasible for a prop account?'. Report + any queue units it needs. Fable, auto."
+      "note": "[2026-10-07T18:58Z manager] VERDICT: nothing live-ready, nothing prop-feasible -- both data/build gaps: pairs_sol_eth and pairs_bnb_btc have NO Stage-0 record and no Gate-1 cost cell; no 2-leg prop order path on any venue; BTC/ETH legs floor at venue lot sizes at $25 risk. Units registered (renumbered to 005-009 after the id collision with #16955/#16960). Guard fix: check_roster_promotion_evidence.py now reads per-pair account_id (E36's premise stale). For the sync: Velotrade Terms 8.2 bans 'arbitrage' -- venue question, nothing blocks today. PR #16964 held; manager lands. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0004. Operator 2026-10-06 ~08:15Z verbatim: 'where do we stand on all of the pairs strategies? Is anything there ready to go live, and is anything there feasible for a prop account?'. Report + any queue units it needs. Fable, auto.",
+      "observation": {
+        "what": "PR #16964 lands (memo, pairs_configured_stage0.py, units renumbered 005-009, guard fix); the four units dispatch",
+        "how_to_check": "git ls-tree origin/main research/queue | grep RQ-20261007-00[5-8]; dispatcher dry run",
+        "due_by": "2026-10-09T18:00Z"
+      }
     },
     {
       "id": "ARB-RESEARCH",
@@ -5760,9 +5767,11 @@
       "ceiling_usd": 15,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        16962
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-YUVCGTMJ-0002. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:58Z manager] PR #16962 held Tier-2: accountPanel() label-anchored read (null unless exactly one match), kind=account_status every 5 min on the terminal with no ticket open, server stores unread as NULL, MEASURED. Real DOM labels NOT established (only 'Portfolio #,###.## USD' known): if Balance/Equity absent, balance NULL and equity = Portfolio tagged equity_label=portfolio -- operator compares to the terminal. Tier-3 room-sizing flip proposed only after a non-null balance matches the terminal. Manager merges; then one APK install covers SOL + screenshots + balance. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-YUVCGTMJ-0002. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "PROP-PER-LEG-SIZING",
@@ -5886,9 +5895,11 @@
       "ceiling_usd": 25,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        16963
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-APBY4NTV-0002, PI-20261005-APBY4NTV-0002, PI-20261005-MWOP8C4X-0002, PI-20261005-MWOP8C4X-0003. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:58Z manager] PR #16963 held (src diff): hourly read_state per account; alpaca held legs + held_legs_state; ?since= filter_state/422. ib_live 'API ERROR' = NOT a fault (dry_run, read path never dials the gateway). NEW: PI-20261007-5ZFJCTNR-0001 ib_paper could_not_look + watchdog inactive + stale ict-prop-executor.service failed -> row IB-GATEWAY-DOWN. Close the 4 items after the next Hourly Snapshot reads correctly post-deploy. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-APBY4NTV-0002, PI-20261005-APBY4NTV-0002, PI-20261005-MWOP8C4X-0002, PI-20261005-MWOP8C4X-0003. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "REGISTER-TOOLING",
@@ -5943,16 +5954,23 @@
       "id": "DXTRADE-PROBE",
       "title": "$0 read-only reachability probe from the VM: dx.tradeify247.co (Cloudflare/ASN block?) and /specs (does the DXtrade REST API answer?) \u2014 the precondition for moving tradeify_1 to the REST path",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "lane DXTRADE-PROBE",
       "lane": "session_01GQJBuULrkHyyzmX3Z42edG",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 10,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        16967
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:37Z manager] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): '$0 reachability probe only (Recommended)'. No account purchase; the trial-account question returns only if the probe passes. Pipeline: PI-20260930-WSTCE9FH-0001."
+      "note": "[2026-10-07T18:58Z manager] DONE pending merge: VM egress 200 real login page, no block; /specs 409 JSON; pilot account already exists (#14691). Follow-on row DXTRADE-REST-PILOT. || [2026-10-07T18:37Z manager] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): '$0 reachability probe only (Recommended)'. No account purchase; the trial-account question returns only if the probe passes. Pipeline: PI-20260930-WSTCE9FH-0001.",
+      "observation": {
+        "what": "PR #16967 merges (memo section + PI-20260930-WSTCE9FH-0001 done)",
+        "how_to_check": "gh api repos/benbaichmankass/Metis-Insights/pulls/16967 --jq .merged",
+        "due_by": "2026-10-08T06:00Z"
+      }
     },
     {
       "id": "BREAKOUT1-RETIRE",
@@ -6049,6 +6067,36 @@
       "prs": [],
       "blocked_on": [],
       "note": "[2026-10-07T18:57Z manager] Proposed by ACTIVE-GEOMETRY-PLAN. MEASURED 2026-10-07 (closed trades since 2026-09-01 with a package; amend = order_packages.sl/tp vs entry-time level > 0.05%): real money 4 SL / 0 TP of 32; mirror 16/0 of 52; paper 111/0 of 668; fleet 131/0 of 748; prop 0 closed rows. scripts/research/geometry_amend_census.py reproducing PLANNING.md \u00a7 5 from the diag surface + a pipeline row with weekly due_when."
+    },
+    {
+      "id": "DXTRADE-REST-PILOT",
+      "title": "Does the DXtrade REST API work for the existing Tradeify 247 pilot account (login verified #14691)? Read-only login + account read from the VM; the precondition for moving tradeify_1 off the browser executor",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane DXTRADE-REST-PILOT",
+      "lane": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-07T18:58Z manager] DXTRADE-PROBE (2026-10-07): dx.tradeify247.co reachable from the VM (200, no 1005/challenge), /specs 409 DXtrade JSON; the probe had already run 2026-09-30 and a pilot account was bought and its login verified (#14691) -- the manager's 'approve a $0 probe' popup was stale on that point. NOT established: whether the REST API answers for the pilot account. That is this row. Credentials: the pilot's, already on the VM per #14691 -- never ask the operator to paste; use the existing executor credential path."
+    },
+    {
+      "id": "IB-GATEWAY-DOWN",
+      "title": "ib_paper (mode live) could_not_look: IB gateway not answering, ict-ib-gateway-watchdog.timer inactive; stale non-templated ict-prop-executor.service 'failed'",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane IB-GATEWAY-DOWN",
+      "lane": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-07T18:58Z manager] Found by API-COLLAPSED-STATES (relay 2026-10-07 18:43Z; PI-20261007-5ZFJCTNR-0001): ib_paper's gateway read is could_not_look and its watchdog timer is inactive, so the IB paper book is not trading and nothing alarms; a leftover non-templated ict-prop-executor.service reads failed beside the templated per-account units. Tier-2 (timers/services) via the allowlisted system-actions; verify post-state through the relay."
     }
   ]
 }
