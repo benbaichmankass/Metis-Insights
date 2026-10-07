@@ -786,20 +786,24 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
             # GEOM-B1 target revision (off unless --tp-extend-r / --tp-retarget-mode).
             # On the bar's CLOSE, after its own stop/target test; the revised level
             # binds from the NEXT bar. NOT a levered exit: it only moves tp_price.
-            # Native thesis = the Donchian continuation test: the close still
-            # breaks the prior-N channel in the trade direction (a fresh extreme
-            # this bar), i.e. the breakout that triggered entry is still renewing.
+            # Native thesis = the Donchian continuation test, as REGISTERED in
+            # RQ-20261007-001/-002: "the channel extreme has moved further in the
+            # trade direction since the approach bar". At the approach bar itself
+            # nothing has moved yet, so the first approach can never extend --
+            # a conservative, literal reading, not an oversight.
             if _tpt is not None and tp_geom.revises:
-                def _donchian_thesis(_j=j, _long=(direction == "long")):
-                    _h, _l = df["dc_hi"].iloc[_j], df["dc_lo"].iloc[_j]
-                    if pd.isna(_h) or pd.isna(_l):
+                def _donchian_thesis(_ab, _j=j, _long=(direction == "long")):
+                    if _ab is None:
                         return None
-                    _c = float(df["close"].iloc[_j])
-                    return (_c > float(_h)) if _long else (_c < float(_l))
+                    _now = df["dc_hi" if _long else "dc_lo"].iloc[_j]
+                    _then = df["dc_hi" if _long else "dc_lo"].iloc[_ab]
+                    if pd.isna(_now) or pd.isna(_then):
+                        return None
+                    return (float(_now) > float(_then)) if _long else (float(_now) < float(_then))
                 _tpt.on_bar_close(close=float(df["close"].iloc[j]), ext=ext,
                                   bars_since_peak=j - peak_j,
                                   atr_now=float(df["atr"].iloc[j]),
-                                  thesis_fn=_donchian_thesis)
+                                  thesis_fn=_donchian_thesis, bar_index=j)
                 tp_price = _tpt.target
             # M20 giveback-stop lever (0 = off, byte-identical): once the trade has
             # SEEN >= giveback_min_mfe_r R of open profit, exit at CLOSE when it has

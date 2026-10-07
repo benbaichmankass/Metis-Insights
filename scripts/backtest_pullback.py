@@ -803,7 +803,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
             # thesis = the pullback's own trend filter: the close is still on the
             # trend side of the Donchian midline that qualified the entry.
             if _tpt is not None and tp_geom.revises:
-                def _trend_thesis(_j=j, _long=(direction == "long")):
+                def _trend_thesis(_ab, _j=j, _long=(direction == "long")):
                     _m = df["mid"].iloc[_j]
                     if pd.isna(_m):
                         return None
@@ -811,7 +811,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                     return (_c > float(_m)) if _long else (_c < float(_m))
                 _tpt.on_bar_close(close=bc, ext=ext, bars_since_peak=j - ext_j,
                                   atr_now=float(df["atr"].iloc[j]),
-                                  thesis_fn=_trend_thesis)
+                                  thesis_fn=_trend_thesis, bar_index=j)
                 tp_price = _tpt.target
         if _rest_hit is not None:
             exit_price, exit_reason = _rest_hit
