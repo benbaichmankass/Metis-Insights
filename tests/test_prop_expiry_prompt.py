@@ -107,7 +107,9 @@ def test_ancient_ticket_excluded_by_recency_guard(isolated_env: Path) -> None:
 
 # ── per-tick runner ───────────────────────────────────────────────────────
 
-def test_run_prompts_and_flips_status(isolated_env: Path) -> None:
+def test_run_notifies_once_and_expires_the_ticket(isolated_env: Path) -> None:
+    # Operator directive 2026-10-07: expired with no trade logged = not placed.
+    # The manual ticket ends `expired` (not `expiry_prompted`) after one notice.
     from src.prop.prop_expiry_prompt import run_prop_expiry_prompts
 
     _emit("prop-manual-1")
@@ -115,9 +117,9 @@ def test_run_prompts_and_flips_status(isolated_env: Path) -> None:
     stats = run_prop_expiry_prompts(emitter=lambda t: seen.append(t["ticket_id"]) or True)
     assert stats["prompted"] == 1
     assert seen == ["prop-manual-1"]
-    assert _status("prop-manual-1") == "expiry_prompted"
+    assert _status("prop-manual-1") == "expired"
 
-    # Second tick: the flip makes it idempotent — no re-prompt.
+    # Second tick: the ticket is terminal — no second notice.
     seen.clear()
     stats2 = run_prop_expiry_prompts(emitter=lambda t: seen.append(t["ticket_id"]) or True)
     assert stats2["prompted"] == 0
@@ -134,14 +136,18 @@ def test_send_failure_leaves_status_emitted_for_retry(isolated_env: Path) -> Non
     assert _status("prop-manual-1") == "emitted"  # NOT flipped → retries next tick
 
 
-def test_paused_via_env(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_paused_via_env_still_expires_silently(isolated_env: Path,
+                                              monkeypatch: pytest.MonkeyPatch) -> None:
+    # The pause knob pauses the NOTICE only; the not-placed disposition holds.
     from src.prop.prop_expiry_prompt import run_prop_expiry_prompts
 
     monkeypatch.setenv("PROP_EXPIRY_PROMPT_SECONDS", "0")
     _emit("prop-manual-1")
-    stats = run_prop_expiry_prompts(emitter=lambda t: True)
-    assert stats["paused"] is True
-    assert _status("prop-manual-1") == "emitted"
+    sent = []
+    stats = run_prop_expiry_prompts(emitter=lambda t: sent.append(t) or True)
+    assert stats["paused"] is True and sent == []
+    assert stats["expired"] == 1
+    assert _status("prop-manual-1") == "expired"
 
 
 # ── callback handler ──────────────────────────────────────────────────────
@@ -247,11 +253,12 @@ def test_yes_then_fill_links_back_to_ticket(isolated_env: Path) -> None:
 # ── VELOTRADE-TICKET: a REST-executed account has no human to ask ──────
 
 
-def _emit_for(ticket_id: str, account_id: str) -> None:
+def _emit_for(ticket_id: str, account_id: str, *, expired_ago: timedelta = timedelta(minutes=10),
+              status: str = "emitted") -> None:
     from src.prop import prop_journal
 
     now = datetime.now(timezone.utc)
-    vu = now - timedelta(minutes=30)
+    vu = now - expired_ago
     prop_journal.record_ticket({
         "ticket_id": ticket_id, "account_id": account_id,
         "strategy": "trend_donchian_eth_prop", "symbol": "ETHUSDT",
@@ -259,7 +266,7 @@ def _emit_for(ticket_id: str, account_id: str) -> None:
         "entry": 2672.0, "sl": 2701.107, "tp": 2497.357, "qty": 1.7178,
         "risk_usd": 50.0,
         "signal_time": (vu - timedelta(hours=1)).isoformat(),
-        "valid_until": vu.isoformat(), "status": "emitted",
+        "valid_until": vu.isoformat(), "status": status,
     })
 
 
@@ -276,8 +283,10 @@ def _platforms(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(plat, "PLATFORMS_PATH", p)
 
 
-def test_rest_account_ticket_is_not_prompted_and_stays_emitted(
+def test_rest_account_ticket_is_not_prompted_and_left_to_its_executor(
         isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Inside MACHINE_EXPIRY_GRACE the REST executor gets the first word (its
+    # `skipped expired unplaced; …` report, #16947); the ticket stays emitted.
     from src.prop.prop_expiry_prompt import run_prop_expiry_prompts
 
     _platforms(isolated_env, monkeypatch)
@@ -300,23 +309,52 @@ def test_rest_account_expired_ticket_no_longer_blocks_the_next_signal(
     assert _reticket_suppress_reason("velotrade_1", "ETHUSDT", "short") is None
 
 
-@pytest.mark.parametrize("account_id", ["breakout_1", "breakout_2"])
-def test_manual_and_phone_accounts_keep_the_expiry_prompt(
+@pytest.mark.parametrize("account_id", ["velotrade_1", "breakout_2"])
+def test_machine_account_ticket_past_the_grace_is_expired_without_telegram(
         isolated_env: Path, monkeypatch: pytest.MonkeyPatch, account_id: str) -> None:
+    # REST executor off/read_only, or a phone that never claimed: the trader
+    # ends the ticket `expired` (terminal, not placed) with no prompt.
+    from src.prop.breakout_executor import _reticket_suppress_reason
+    from src.prop.prop_expiry_prompt import MACHINE_EXPIRY_GRACE, run_prop_expiry_prompts
+
+    _platforms(isolated_env, monkeypatch)
+    _emit_for("prop-manual-m", account_id, expired_ago=MACHINE_EXPIRY_GRACE + timedelta(minutes=1))
+    sent = []
+    stats = run_prop_expiry_prompts(emitter=lambda t: sent.append(t) or True)
+    assert sent == [] and stats["machine_expired"] == 1
+    assert _status("prop-manual-m") == "expired"
+    assert _reticket_suppress_reason(account_id, "ETHUSDT", "short") is None
+
+
+@pytest.mark.parametrize("status", ["expiry_prompted", "invalidated_prompted"])
+def test_the_stuck_velotrade_prompt_is_released(
+        isolated_env: Path, monkeypatch: pytest.MonkeyPatch, status: str) -> None:
+    # The live case (prop-manual-4fa7266cfcf0): a REST ticket already parked in
+    # a prompt state before this change is ended `expired` on the next tick.
+    from src.prop.prop_expiry_prompt import run_prop_expiry_prompts
+
+    _platforms(isolated_env, monkeypatch)
+    _emit_for("prop-manual-4fa7266cfcf0", "velotrade_1", status=status)
+    stats = run_prop_expiry_prompts(emitter=lambda t: True)
+    assert stats["machine_expired"] == 1
+    assert _status("prop-manual-4fa7266cfcf0") == "expired"
+
+
+def test_manual_account_gets_the_notice_and_the_ticket_stops_blocking(
+        isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from src.prop.breakout_executor import _reticket_suppress_reason
     from src.prop.prop_expiry_prompt import run_prop_expiry_prompts
 
     _platforms(isolated_env, monkeypatch)
-    _emit_for("prop-manual-man", account_id)
+    _emit_for("prop-manual-man", "breakout_1")
     sent = []
     stats = run_prop_expiry_prompts(emitter=lambda t: sent.append(t) or True)
     assert [t["ticket_id"] for t in sent] == ["prop-manual-man"] and stats["prompted"] == 1
-    assert _status("prop-manual-man") == "expiry_prompted"
-    # unchanged manual-bridge semantics: the unanswered prompt still blocks
-    assert _reticket_suppress_reason(account_id, "ETHUSDT", "short") is not None
+    assert _status("prop-manual-man") == "expired"
+    assert _reticket_suppress_reason("breakout_1", "ETHUSDT", "short") is None
 
 
-def test_unreadable_platform_file_falls_back_to_prompting(
+def test_unreadable_platform_file_treats_every_account_as_manual(
         isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import src.prop.platform as plat
     from src.prop.prop_expiry_prompt import run_prop_expiry_prompts
@@ -324,4 +362,4 @@ def test_unreadable_platform_file_falls_back_to_prompting(
     monkeypatch.setattr(plat, "PLATFORMS_PATH", isolated_env / "missing.yaml")
     _emit_for("prop-manual-rest", "velotrade_1")
     stats = run_prop_expiry_prompts(emitter=lambda t: True)
-    assert stats["prompted"] == 1 and _status("prop-manual-rest") == "expiry_prompted"
+    assert stats["prompted"] == 1 and _status("prop-manual-rest") == "expired"

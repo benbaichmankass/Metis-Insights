@@ -10,14 +10,16 @@ answered, suppressed the 09-27 07:58Z / 08:01Z SOL longs and the 09-28 17:15Z
 ETH long — the same failure class as 2026-09-11, when two 08-28 / 08-30
 prompts had suppressed 37 signals until cleared by hand (fills #42 / #43).
 
-Now: ``placed`` (a working order) and ``awaiting_report`` (the operator said
-"yes, placed" and never reported — possibly a live position the fills journal
-cannot see) block until reported, with no time window (manager decision
-2026-09-29 17:24Z); ``expiry_prompted`` (the prompt was never answered, so
-nothing is known to have been placed) blocks only within ``valid_until`` +
-``STALE_PROMPT_GRACE``, or with no readable validity (fail-safe); ``emitted``
-blocks only within ``valid_until`` (unchanged). Every case here runs against
-an isolated ``trade_journal.db`` through the real journal read.
+Then (2026-09-29): ``expiry_prompted`` blocked within ``valid_until`` + a 24 h
+``STALE_PROMPT_GRACE``. Now (operator directive 2026-10-07, PROP-FLOW-
+SEPARATION): "if a ticket expires and I haven't logged a trade, the system
+should assume that the trade wasnt placed and the ticket should be kept alive"
+-- the grace is retired. ``expiry_prompted`` / ``invalidated_prompted`` block
+only while ``valid_until`` has not passed, or cannot be read (fail-safe), like
+``emitted``. ``placed`` / ``awaiting_report`` / ``claimed`` (possibly a live
+position) block until resolved, with no time window (manager decision
+2026-09-29 17:24Z). Every case here runs against an isolated
+``trade_journal.db`` through the real journal read.
 """
 from __future__ import annotations
 
@@ -63,15 +65,11 @@ def _reason(now: datetime, symbol: str = "SOLUSDT", direction: str = "long"):
 
 # ── the negative control: the probe can still find a positive ────────────
 
-def test_a_prompt_inside_its_grace_window_still_blocks(isolated_env):
-    from src.prop.breakout_executor import STALE_PROMPT_GRACE
-
-    _ticket("prop-manual-2209e50e9bfc", status="expiry_prompted")
-    just_inside = VALID_UNTIL + STALE_PROMPT_GRACE - timedelta(minutes=1)
-    assert _reason(VALID_UNTIL + timedelta(hours=1)) == \
-        "outstanding_ticket:expiry_prompted: prop-manual-2209e50e9bfc"
-    assert _reason(just_inside) == \
-        "outstanding_ticket:expiry_prompted: prop-manual-2209e50e9bfc"
+@pytest.mark.parametrize("status", ["expiry_prompted", "invalidated_prompted"])
+def test_a_prompted_ticket_inside_its_validity_still_blocks(isolated_env, status):
+    _ticket("prop-manual-2209e50e9bfc", status=status)
+    assert _reason(VALID_UNTIL - timedelta(minutes=1)) == \
+        f"outstanding_ticket:{status}: prop-manual-2209e50e9bfc"
 
 
 # ── the fix ──────────────────────────────────────────────────────────────
@@ -83,40 +81,34 @@ def test_the_0925_prompt_no_longer_blocks_the_0927_signal(isolated_env):
     assert _reason(SIGNAL_0927) is None
 
 
-def test_a_prompt_three_days_past_its_validity_no_longer_blocks(isolated_env):
-    _ticket("prop-manual-2209e50e9bfc", status="expiry_prompted")
-    assert _reason(VALID_UNTIL + timedelta(days=3)) is None
-
-
-def test_the_window_edge_is_exact(isolated_env):
-    from src.prop.breakout_executor import STALE_PROMPT_GRACE
-
-    _ticket("prop-manual-2209e50e9bfc", status="expiry_prompted")
-    edge = VALID_UNTIL + STALE_PROMPT_GRACE
-    assert _reason(edge - timedelta(seconds=1)) is not None
-    assert _reason(edge) is None                       # `>` not `>=`: at the edge it is stale
+@pytest.mark.parametrize("status", ["expiry_prompted", "invalidated_prompted"])
+def test_an_unanswered_prompt_stops_blocking_at_its_validity(isolated_env, status):
+    # 2026-10-07: velotrade_1's expiry_prompted ETH short suppressed four
+    # signals for 17 h under the old 24 h grace. The edge is now valid_until.
+    _ticket("prop-manual-2209e50e9bfc", status=status)
+    assert _reason(VALID_UNTIL - timedelta(seconds=1)) is not None
+    assert _reason(VALID_UNTIL) is None                 # `>` not `>=`
+    assert _reason(VALID_UNTIL + timedelta(hours=1)) is None
 
 
 def test_the_eth_prompt_follows_the_same_rule(isolated_env):
     _ticket("prop-manual-693bb30f7638", status="expiry_prompted", symbol="ETHUSDT")
-    assert _reason(VALID_UNTIL + timedelta(hours=2), symbol="ETHUSDT") == \
+    assert _reason(VALID_UNTIL - timedelta(minutes=5), symbol="ETHUSDT") == \
         "outstanding_ticket:expiry_prompted: prop-manual-693bb30f7638"
-    assert _reason(VALID_UNTIL + timedelta(days=2), symbol="ETHUSDT") is None
+    assert _reason(VALID_UNTIL + timedelta(hours=2), symbol="ETHUSDT") is None
 
 
 # ── what does NOT change ─────────────────────────────────────────────────
 
-@pytest.mark.parametrize("status", ["placed", "awaiting_report"])
+@pytest.mark.parametrize("status", ["placed", "awaiting_report", "claimed"])
 def test_a_working_order_or_a_yes_placed_blocks_however_old(isolated_env, status):
     # placed: a working order on the terminal. awaiting_report: the operator
     # answered "yes, placed" and never reported the fill — either may be a
     # live position the fills journal cannot see, so NO time window (manager
     # decision 2026-09-29 17:24Z): a doubled prop position costs more than
-    # one lost signal
-    from src.prop.breakout_executor import STALE_PROMPT_GRACE
-
+    # one lost signal. claimed: a phone attempt in flight (2026-10-07).
     _ticket("prop-manual-held", status=status)
-    assert _reason(VALID_UNTIL + STALE_PROMPT_GRACE + timedelta(seconds=1)) == \
+    assert _reason(VALID_UNTIL + timedelta(days=1, seconds=1)) == \
         f"outstanding_ticket:{status}: prop-manual-held"
     assert _reason(VALID_UNTIL + timedelta(days=30)) == \
         f"outstanding_ticket:{status}: prop-manual-held"

@@ -26,16 +26,29 @@ callbacks → :func:`handle_expiry_callback`):
   ``prop_report.ingest_report`` chokepoint and link back to this ticket
   (``match_fill_to_ticket`` accepts ``awaiting_report``).
 
-Lifecycle (status on the ``prop_tickets`` row):
+⚠️ **Superseded in part by the operator directive of 2026-10-07** ("if a
+ticket expires and I haven't logged a trade, the system should assume that the
+trade wasnt placed and the ticket should be kept alive. And the prop accounts
+should have their own separate flow that isn't contaminated by the telegram
+channels activity"). The canonical per-executor state machine is
+``docs/ARCHITECTURE-CANONICAL.md`` § "Prop ticket flow". What this module does
+on every trader tick now (:func:`run_prop_expiry_prompts`):
 
-    emitted ──(stale, prompt sent)──▶ expiry_prompted ──┬─ No ──▶ expired
-                                                         └─ Yes ─▶ awaiting_report ──(fill)─▶ filled/closed
+- **manual** account, ticket just expired with no fill → one NOTICE ("recorded
+  as NOT placed") with a single ✅ "I did place it" button, then the ticket is
+  set ``expired``. It never waits in ``expiry_prompted``.
+- **rest / phone** account → no Telegram at all. A ticket still ``emitted``
+  ``MACHINE_EXPIRY_GRACE`` after its ``valid_until`` is set ``expired`` (the
+  REST executor normally reports its own terminal ``skipped`` first).
+- unanswered ``expiry_prompted`` / ``invalidated_prompted`` tickets past their
+  validity (legacy rows, or a manual invalidation warning) → ``expired``.
 
-Idempotency is the status flip itself: the detector reuses
-``find_unacted_tickets`` (status == ``emitted`` only), so once a ticket is flipped
-to ``expiry_prompted`` it is never re-detected — no separate state file. The flip
-happens **only after a confirmed send**, so a delivery failure simply retries next
-tick.
+Every write is a compare-and-set on the status read, so a fill, a claim or a
+placement that lands in between is never overwritten.
+
+    manual:  emitted ──(expired, no fill; notice sent)──▶ expired ──(✅ late)──▶ awaiting_report ──(fill)─▶ filled
+    rest:    emitted ──(executor intake)──▶ skipped "expired unplaced; …"   (or ──(T + grace)──▶ expired)
+    phone:   emitted ──(never claimed; T + grace)──▶ expired
 
 Baseline, not gated (Prime Directive — no default-off flag in front of a required
 capability). Knobs: ``PROP_EXPIRY_PROMPT_MAX_AGE_HOURS`` (default 12) bounds how
@@ -60,6 +73,19 @@ logger = logging.getLogger(__name__)
 EXPIRY_CB_PREFIX = "propexp"
 _DEFAULT_MAX_AGE_HOURS = 12.0
 _PROMPTED_STATUS = "expiry_prompted"
+_EXPIRED_STATUS = "expired"
+#: Statuses the expiry sweep may end as ``expired`` once validity has passed
+#: with no fill logged.
+_SWEEPABLE = ("emitted", _PROMPTED_STATUS, "invalidated_prompted")
+#: Statuses a ``propexp:*`` tap may move from. Anything else (placed, filled,
+#: closed, skipped, claimed, ...) is a later state a tap must never overwrite.
+_TAPPABLE_FROM = ("emitted", _PROMPTED_STATUS, "invalidated_prompted", _EXPIRED_STATUS)
+#: How long after ``valid_until`` a machine account's still-``emitted`` ticket
+#: waits before the trader ends it. The REST executor's timer runs every few
+#: minutes and reports its own terminal ``skipped`` (with its verdict) first;
+#: this only ends the ticket when that executor was off or read_only, or a phone
+#: never claimed it.
+MACHINE_EXPIRY_GRACE = timedelta(minutes=30)
 
 
 def _now() -> datetime:
@@ -128,6 +154,28 @@ def build_place_decision_keyboard(ticket_id: str) -> Dict[str, Any]:
     return build_expiry_keyboard(ticket_id)
 
 
+def build_late_fill_keyboard(ticket_id: str) -> Dict[str, Any]:
+    """The single "I did place it" button on a manual-account expiry notice.
+    The ticket is already ``expired``; the tap moves it to ``awaiting_report``
+    and sends the report prompt (same ``propexp:y`` handler)."""
+    return {
+        "inline_keyboard": [[
+            {"text": "✅ I did place it",
+             "callback_data": f"{EXPIRY_CB_PREFIX}:y:{ticket_id}"},
+        ]]
+    }
+
+
+def _flows() -> Dict[str, str]:
+    try:
+        from src.prop.platform import ticket_flows
+
+        return ticket_flows()
+    except Exception as exc:  # noqa: BLE001 — every account reads as manual
+        logger.warning("prop_expiry_prompt: platform read failed: %s", exc)
+        return {}
+
+
 def find_tickets_to_prompt(
     *, account_id: Optional[str] = None, now: Optional[datetime] = None,
     max_age_hours: Optional[float] = None,
@@ -158,58 +206,90 @@ def find_tickets_to_prompt(
     return out
 
 
+def _expire(ticket: Dict[str, Any], why: str) -> int:
+    """CAS one swept ticket to ``expired``; 0 when it moved on first."""
+    tid = str(ticket.get("ticket_id") or "")
+    try:
+        n = prop_journal.transition_ticket_status(
+            tid, _EXPIRED_STATUS, from_statuses=(ticket.get("status"),),
+            account_id=ticket.get("account_id") or None)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("prop_expiry_prompt: expire failed for %s: %s", tid, exc)
+        return 0
+    if n:
+        logger.info("prop_expiry_prompt: %s %s %s [%s] %s -> expired (%s)",
+                    tid, ticket.get("symbol"), ticket.get("direction"),
+                    ticket.get("account_id"), ticket.get("status"), why)
+    return n
+
+
 def run_prop_expiry_prompts(
     *, now: Optional[datetime] = None,
     emitter: Optional[Callable[[Dict[str, Any]], bool]] = None,
 ) -> Dict[str, Any]:
-    """Send a Yes/No 'did you place this?' prompt for any just-expired ticket.
+    """End every expired, unfilled ticket as ``expired`` (not placed), per
+    executor type. Called once per trader tick; never raises.
 
-    Called once per trader tick. For each newly-expired un-acted ticket it sends
-    the prompt and — only on a confirmed send — flips the ticket to
-    ``expiry_prompted`` so it is never prompted twice. Returns a stats dict
-    ``{candidates, prompted, failed, paused}``. Never raises.
+    ``emitter`` sends the manual-account notice (default
+    :func:`breakout_notify.emit_prop_expiry_notice`); a manual ticket is set
+    ``expired`` only after a confirmed send, so a failed send retries next tick.
+    Past the recency window, or while paused, it is set ``expired`` silently.
+    Machine accounts never reach the emitter.
+
+    Stats: ``candidates`` (manual notices due), ``prompted`` (sent and
+    expired), ``failed``, ``expired`` (silent manual / legacy), ``machine_expired``,
+    ``rest_left_to_executor`` (REST tickets inside the grace), ``paused``.
     """
-    stats = {"candidates": 0, "prompted": 0, "failed": 0, "paused": False}
-    if not _enabled():
-        stats["paused"] = True
-        return stats
-
+    stats = {"candidates": 0, "prompted": 0, "failed": 0, "paused": False,
+             "expired": 0, "machine_expired": 0, "rest_left_to_executor": 0}
+    stats["paused"] = paused = not _enabled()
     now = now or _now()
     try:
-        tickets = find_tickets_to_prompt(now=now)
+        stale = prop_reconcile.find_unacted_tickets(
+            now=now, limit=200, statuses=_SWEEPABLE)
     except Exception as exc:  # noqa: BLE001
         logger.warning("prop_expiry_prompt: scan failed: %s", exc)
         return stats
-    # A REST-executed account has no human placing its tickets, so "did you
-    # place this?" has nobody to answer it, and the `expiry_prompted` flip
-    # would block that account's next same-key signal for STALE_PROMPT_GRACE.
-    # MEASURED 2026-10-07: velotrade_1 ETH-short prop-manual-4fa7266cfcf0 sat
-    # in band_wait its whole validity, was flipped to expiry_prompted at
-    # expiry, and suppressed 4 later ETH-short signals. Such a ticket is left
-    # `emitted`: past valid_until it no longer blocks a re-ticket, and the
-    # executor's own intake reports it terminal (`skipped`, reason `expired …`
-    # with its last verdict). Phone + browser/manual accounts are unchanged.
-    try:
-        from src.prop.platform import rest_executed_accounts
-        rest = rest_executed_accounts()
-    except Exception as exc:  # noqa: BLE001 — fall back to prompting everyone
-        logger.warning("prop_expiry_prompt: platform read failed: %s", exc)
-        rest = set()
-    if rest:
-        kept = [t for t in tickets if t.get("account_id") not in rest]
-        stats["rest_left_to_executor"] = len(tickets) - len(kept)
-        tickets = kept
-    stats["candidates"] = len(tickets)
-    if not tickets:
-        return stats
 
-    if emitter is None:
-        from src.prop.breakout_notify import emit_prop_expiry_prompt as emitter  # type: ignore
+    from src.prop.platform import FLOW_MANUAL, FLOW_REST, MACHINE_FLOWS
+    flows = _flows()
+    max_age = _max_age_hours()
+    cutoff = now - timedelta(hours=max_age) if max_age > 0 else None
 
-    for t in tickets:
-        ticket_id = t.get("ticket_id")
-        if not ticket_id:
+    notices: List[Dict[str, Any]] = []
+    for t in stale:
+        if not t.get("ticket_id"):
             continue
+        vu = _parse_iso(t.get("valid_until"))
+        if vu is None:
+            continue  # validity unreadable: not known to have passed (fail-safe)
+        flow = flows.get(str(t.get("account_id") or ""), FLOW_MANUAL)
+        status = t.get("status")
+        if flow in MACHINE_FLOWS:
+            if status == "emitted" and now < vu + MACHINE_EXPIRY_GRACE:
+                if flow == FLOW_REST:
+                    stats["rest_left_to_executor"] += 1
+                continue  # its executor gets the first word; it blocks nothing
+            stats["machine_expired"] += _expire(t, f"{flow} account, no fill logged")
+            continue
+        if status != "emitted":
+            # An unanswered prompt past validity: not placed (directive 2026-10-07).
+            stats["expired"] += _expire(t, f"unanswered {status}, no fill logged")
+            continue
+        if paused or (cutoff is not None and vu < cutoff):
+            stats["expired"] += _expire(t, "no fill logged; notice " +
+                                        ("paused" if paused else "past the recency window"))
+            continue
+        notices.append(t)
+
+    stats["candidates"] = len(notices)
+    if not notices:
+        return stats
+    if emitter is None:
+        from src.prop.breakout_notify import emit_prop_expiry_notice as emitter  # type: ignore
+
+    for t in notices:
+        ticket_id = t.get("ticket_id")
         try:
             sent = bool(emitter(t))
         except Exception as exc:  # noqa: BLE001 — emission never fatal
@@ -218,19 +298,16 @@ def run_prop_expiry_prompts(
             sent = False
         if not sent:
             stats["failed"] += 1
-            continue  # leave status 'emitted' so it retries next tick
-        try:
-            prop_journal.set_ticket_status(ticket_id, _PROMPTED_STATUS)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("prop_expiry_prompt: status flip failed for %s: %s",
-                           ticket_id, exc)
+            continue  # stays 'emitted' (blocks nothing past validity); retries
+        _expire(t, "no fill logged; notice sent")
         stats["prompted"] += 1
-        logger.info(
-            "prop_expiry_prompt: prompted %s %s [%s] (ticket=%s) — awaiting Y/N",
-            t.get("symbol"), t.get("direction"), t.get("account_id"), ticket_id,
-        )
 
     return stats
+
+
+def _refusal(ticket_id: str, why: str) -> Dict[str, Any]:
+    return {"answer": "refused", "ticket_id": ticket_id,
+            "ack": f"⚠️ Nothing changed — {why}\n({ticket_id})", "send_prompt": False}
 
 
 def handle_expiry_callback(callback_data: str) -> Optional[Dict[str, Any]]:
@@ -238,13 +315,17 @@ def handle_expiry_callback(callback_data: str) -> Optional[Dict[str, Any]]:
 
     Performs the ticket-status DB write and returns what the bot should show:
 
-        {"answer": "yes"|"no", "ticket_id": str,
+        {"answer": "yes"|"no"|"refused", "ticket_id": str,
          "ack": str,                 # short text to replace the prompt message
          "send_prompt": bool}        # True → also send REPORT_PROMPT (Yes path)
 
+    Each write is a compare-and-set from :data:`_TAPPABLE_FROM`, so a tap can
+    never overwrite a placed / filled / closed ticket, and a tap on a REST- or
+    phone-executed account's ticket is refused without a write (operator
+    directive 2026-10-07: those flows are not driven from Telegram).
+
     Returns ``None`` when ``callback_data`` is not a prop-expiry callback (the
-    caller falls through to its other handlers). Raises nothing the caller must
-    handle beyond the normal try/except around a callback.
+    caller falls through to its other handlers).
     """
     if not callback_data or not callback_data.startswith(EXPIRY_CB_PREFIX + ":"):
         return None
@@ -253,38 +334,49 @@ def handle_expiry_callback(callback_data: str) -> Optional[Dict[str, Any]]:
         return None
     _, verb, ticket_id = parts
     ticket_id = ticket_id.strip()
-    if not ticket_id:
+    if not ticket_id or verb not in ("y", "n"):
         return None
 
+    try:
+        ticket = prop_journal.get_ticket(ticket_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("prop_expiry_prompt: ticket read failed for %s: %s", ticket_id, exc)
+        return _refusal(ticket_id, "the ticket could not be read.")
+    if ticket is None:
+        return _refusal(ticket_id, "no such ticket.")
+    account_id = str(ticket.get("account_id") or "")
+    from src.prop.platform import MACHINE_FLOWS
+    flow = _flows().get(account_id)
+    if flow in MACHINE_FLOWS:
+        return _refusal(ticket_id, f"{account_id} is executed by its {flow} executor; "
+                                   "its tickets are not changed from Telegram.")
+
+    to_status = _EXPIRED_STATUS if verb == "n" else "awaiting_report"
+    try:
+        n = prop_journal.transition_ticket_status(
+            ticket_id, to_status, from_statuses=_TAPPABLE_FROM,
+            account_id=account_id or None)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("prop_expiry_prompt: %r flip failed for %s: %s",
+                       to_status, ticket_id, exc)
+        n = 0
+    if n != 1:
+        return _refusal(ticket_id, f"the ticket is already {ticket.get('status')!r}.")
+
     if verb == "n":  # operator says: NOT placed
-        try:
-            prop_journal.set_ticket_status(ticket_id, "expired")
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("prop_expiry_prompt: 'expired' flip failed for %s: %s",
-                           ticket_id, exc)
         return {
             "answer": "no",
             "ticket_id": ticket_id,
             "ack": f"❌ Logged — you did not place this trade. Nothing to track.\n({ticket_id})",
             "send_prompt": False,
         }
-
-    if verb == "y":  # operator says: I placed it → collect the fill details
-        try:
-            prop_journal.set_ticket_status(ticket_id, "awaiting_report")
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "prop_expiry_prompt: 'awaiting_report' flip failed for %s: %s",
-                ticket_id, exc)
-        return {
-            "answer": "yes",
-            "ticket_id": ticket_id,
-            "ack": ("✅ Got it — you placed it. Send the trade details so I can "
-                    "log + monitor it (prompt below)."),
-            "send_prompt": True,
-        }
-
-    return None
+    return {  # operator says: I placed it → collect the fill details
+        "answer": "yes",
+        "ticket_id": ticket_id,
+        "ack": ("✅ Got it — you placed it. Send the trade details so I can "
+                "log + monitor it (prompt below)."),
+        "send_prompt": True,
+    }
 
 
 def send_test_prompt(
@@ -333,6 +425,8 @@ __all__ = [
     "EXPIRY_CB_PREFIX",
     "build_expiry_keyboard",
     "build_place_decision_keyboard",
+    "build_late_fill_keyboard",
+    "MACHINE_EXPIRY_GRACE",
     "find_tickets_to_prompt",
     "run_prop_expiry_prompts",
     "handle_expiry_callback",

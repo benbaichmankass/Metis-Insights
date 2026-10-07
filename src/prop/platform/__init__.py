@@ -103,6 +103,36 @@ def rest_executed_accounts(path: Optional[Path] = None) -> set:
             if isinstance(e, dict) and str(e.get("platform") or "").strip() in API_PLATFORMS}
 
 
+#: The three prop ticket flows (docs/ARCHITECTURE-CANONICAL.md § "Prop ticket
+#: flow", operator directive 2026-10-07). ``rest`` and ``phone`` are machine-
+#: executed: their tickets are never driven from Telegram.
+FLOW_REST = "rest"
+FLOW_PHONE = "phone"
+FLOW_MANUAL = "manual"
+MACHINE_FLOWS = (FLOW_REST, FLOW_PHONE)
+
+
+def ticket_flows(path: Optional[Path] = None) -> Dict[str, str]:
+    """``{account_id: rest|phone}`` for every machine-executed prop account.
+    An account absent from the map is ``manual``. An unreadable file -> ``{}``,
+    so every account is ``manual``: safe, because no manual-flow state blocks a
+    re-ticket once the ticket's validity has passed."""
+    p = Path(path) if path else PLATFORMS_PATH
+    try:
+        data = yaml.safe_load(p.read_text()) or {}
+    except Exception:
+        return {}
+    out = {aid: FLOW_REST for aid, e in (data.get("accounts") or {}).items()
+           if isinstance(e, dict) and str(e.get("platform") or "").strip() in API_PLATFORMS}
+    out.update({aid: FLOW_PHONE for aid in (data.get("phone_accounts") or {})})
+    return out
+
+
+def ticket_flow(account_id: Any, path: Optional[Path] = None) -> str:
+    """``rest`` / ``phone`` / ``manual`` for one prop account."""
+    return ticket_flows(path).get(str(account_id or ""), FLOW_MANUAL)
+
+
 def adapter_for_platform(platform: str) -> PropPlatformAdapter:
     if platform == "dxtrade":
         from src.prop.platform.dxtrade import DXtradeAdapter

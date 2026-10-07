@@ -1973,15 +1973,17 @@ def _alert_unattempted_expiries(res: "CycleResult", state: "ExecutorState", st: 
 
     The executor's own ``expired`` report branch cannot cover this: intake is
     ``/api/bot/prop/tickets?status=emitted``, and the manual bridge's expiry
-    prompter flips a stale ticket to ``expiry_prompted`` at its ``valid_until``
-    -- so the ticket leaves intake before any tick sees it past its validity.
+    sweep ends a stale manual-account ticket as ``expired`` at its
+    ``valid_until`` (PROP-FLOW-SEPARATION, 2026-10-07; ``expiry_prompted``
+    before that) -- so the ticket leaves intake before any tick sees it past
+    its validity.
     This sweep reads the executor's OWN state instead, so it is independent of
     the ticket's status, and it only ALERTS: it posts no report and writes no
     ticket status, because a ``skipped`` report would flip the ticket off
     ``emitted`` and pull it out of every manual-bridge path that keys on it
     (the price-invalidation warning, the expiry prompt, the reticket guard).
-    On a REST-executed account the prompter does not flip the ticket, so it
-    stays in intake and the ``expired`` branch there reports it terminal,
+    On a REST-executed account the trader leaves the ticket ``emitted`` for
+    ``MACHINE_EXPIRY_GRACE`` (30 min) past its validity, so it stays in intake and the ``expired`` branch there reports it terminal,
     reusing the verdict this sweep keeps under ``_UNATTEMPTED_LAST_KEY``.
     """
     rows = dict(st.get(_UNATTEMPTED_KEY) or {})
