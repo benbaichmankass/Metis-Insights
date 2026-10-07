@@ -292,7 +292,7 @@ def test_each_landing_returns_to_the_checked_out_base():
     """Stamp PR #16770 carried the receipt json and went `dirty` when the next
     run's receipt merged; each commit-to-main call must start from BASE_SHA."""
     wf = yaml.safe_load((REPO / ".github/workflows/research-queue-dispatch.yml").read_text())
-    steps = wf["jobs"]["dispatch"]["steps"]
+    steps = wf["jobs"]["land"]["steps"]
     names = [str(s.get("name", "")) for s in steps]
     record = [i for i, s in enumerate(steps) if "BASE_SHA=" in str(s.get("run", ""))]
     assert len(record) == 1, "exactly one step records BASE_SHA"

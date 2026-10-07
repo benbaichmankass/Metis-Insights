@@ -1,0 +1,128 @@
+id: RQ-20261007-003
+title: >-
+  Active geometry, live roster: is a target RE-ESTIMATED through the trade (ATR-rescaled
+  each bar, pulled in on stall) better CALIBRATED than the entry-time target, and does
+  it clear the P2 gate on the e35-sweepable live legs?
+status: blocked
+cadence: once
+kind: experiment
+theme: live_strategy
+priority: 2
+
+question: >-
+  TP-doctrine clause 2: the TP is a live prediction, re-estimated through the trade's
+  life from current market conditions. Every target the fleet places is fixed at entry
+  (tp_r x the entry-time ATR stop), and the only mid-trade geometry levers that exist
+  act on the STOP side (chandelier trail, trail_decay, stale_stop, giveback, vol_trail)
+  or end the trade (e35 `timeout` axis, which no live unit implements --
+  BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES).
+  Two revision modes the operator named (PI-20261006-APBY4NTV-0003 DO 4: vol-scaled TP,
+  TP pull-in on stall): (i) atr_rescale -- the target is re-priced every closed bar as
+  entry +/- target_r x risk x (ATR_t / ATR_entry), bounded to [0.5x, 2.0x] the entry
+  target; (ii) stall_pull_in -- after S bars without a new since-entry extreme the
+  target is pulled to the since-entry extreme (banks the move on stall instead of
+  waiting for a trail to give it back). On the e35-sweepable live roster (plan_legs
+  runnable set, 2026-10-07: the bybit_2/alpaca_live legs, the two _prop legs and the
+  paper donchian/pullback legs; mirrors carried by roster equality), does either mode
+  improve calibration (exit within +/-20% of the final target) over the entry-time
+  target, and does it clear the P2 gate net of costs?
+
+why_this_matters: >-
+  This is the operator's "critical for shorter timeframes" clause applied to the whole
+  roster: conditions change inside a 2h/4h trade and the target never follows.
+  MEASURED 2026-10-07 (journal, closed trades since 2026-09-01, see RQ-20261007-001's
+  population): 0 of 748 TP amends fleet-wide. Revising a resting level is free (E3.6
+  point 3), so a mode that only re-prices the TP costs nothing to run live and can be
+  frequent; the question is whether it predicts better, before whether it pays. Mode
+  (ii) also has a stop-side cousin already shipped on real money (trail_decay stall
+  arm) -- if the TP-side pull-in dominates it on the same legs the two can be compared
+  on one harness run.
+
+power:
+  expected_n: 146
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Both modes touch EVERY trade (the target is re-priced each bar), so n per leg is
+    the base book. The real-money minimum from mi307 (2026-09-18, uncapped) is
+    trend_donchian_xrp_4h at 146; d=0.3 needs (1.96+0.8416)^2/0.3^2 = 87.2 -> 88,
+    cleared. Paper 1d equity legs below 88 grade insufficient_base per leg and are
+    reported, never failed.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Counts from the committed mi307 artifact and the e35 corpus base_oos_trades
+      (research_disposition --report); the run re-fetches free-lane candles. Nothing
+      accrues forward.
+
+decision_rule:
+  id: RULE-RQ1007-003-TP-RETARGET-CALIBRATION
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: >-
+    Per leg, per cell of {mode in (atr_rescale, stall_pull_in), target_r in (the
+    leg's declared tp_r if finite else the REACH_GRID value nearest a 0.25 uncapped
+    reach-rate), stall_bars in (6, 10) for mode (ii), rescale bounds fixed [0.5x,
+    2.0x]} on the config-exact base (declared stop-side levers kept): (a) calibration
+    share and the dispersion of exit/target ratio, vs the entry-time-target base; (b)
+    the P2 gate (IS/OOS Path A/B, MIN_OOS_TRADES 25, grant cap, yearly walk-forward),
+    net of the venue-aware cost stack.
+  rule: >-
+    PASS IF a cell improves (a) AND clears (b) in both IS and OOS -> Tier-3 proposal
+    per leg, real-money legs first, shipped only once BUILD B1's producer can emit the
+    re-priced `tp` verdict each bar. CALIBRATION-ONLY IF a cell improves (a) and is
+    gate-neutral (within the grant cap, net_R not lower): recorded as the
+    doctrine-preferred geometry at no measured P&L cost, Tier-3 proposal still owed.
+    honest_negative IF no cell improves (a): re-pricing the target from vol/stall
+    alone predicts no better than the entry-time target on this leg -- the revision
+    the doctrine wants must come from the strategy thesis (RQ-20261007-001), not from
+    the path. insufficient_base below 25 OOS trades.
+  what_it_does_not_do: >-
+    Ships nothing, touches no config. Does not test TP extension (RQ-20261007-001 /
+    -002). Does not grade mirrors separately. A cell that passes (b) while worsening
+    (a) is "P&L without prediction" and does not pass.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 4.0
+  est_minutes: 240
+  basis: >-
+    Runner, sharded one leg per job by m20-exit-lever-sweep.yml once the lever exists;
+    ~6 cells x ~25 legs. Estimate, not a measurement.
+
+blocked_on:
+  - what: >-
+      No harness re-prices a target after entry (scripts/backtest_trend.py /
+      backtest_pullback.py argparse read 2026-10-07) and no live monitor produces a
+      `tp` verdict (AST-read, check_tp_doctrine producer_state=no_tp_verdict on 52 of
+      52 routings at 142ec79e).
+    ref: PI-20261006-5FUGHVX8-0001 (BUILD B1) -- proposed checklist row GEOM-B1-HARNESS (retarget modes are the second lever family of the same build)
+    clears_when: >-
+      scripts/backtest_trend.py and scripts/backtest_pullback.py accept
+      --tp-retarget-mode {atr_rescale,stall_pull_in} and --tp-retarget-stall-bars, the
+      emitted trades carry final_target_r, AND m20-exit-lever-sweep.yml accepts
+      `tp_retarget` in `levers` with a matching coverage-matrix column. Then: move to
+      research/queue/, status queued, run.workflow: m20-exit-lever-sweep.yml with
+      inputs {legs: '' (census default = every runnable live leg), levers:
+      tp_retarget, tp_cap_pct: '0.099', split_mode: oos-trades, research_unit:
+      RQ-20261007-003}.
+
+run:
+  workflow: null
+  note: Null until the harness lever lands (blocked_on); the dispatch shape is in clears_when.
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+related:
+  - 'PI-20261006-APBY4NTV-0003 (operator framing; DO 4 names vol-scaled TP and TP pull-in on stall)'
+  - 'docs/ARCHITECTURE-CANONICAL.md § "TP doctrine" clause 2 (the TP is a LIVE prediction, re-estimated through the trade)'
+  - 'RQ-20261007-001 / -002 (the thesis-conditioned extension; this unit is the path-conditioned complement and must not be read as a substitute for it -- E3.6 point 4)'
+  - 'docs/research/exit-refinement-coverage.json (trail_decay stall arm: the stop-side cousin of mode ii)'
+last_dispatched_at: null

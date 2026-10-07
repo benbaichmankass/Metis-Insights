@@ -411,6 +411,25 @@ def declared_levers_present(cfg: dict) -> list[str]:
             if any(cfg.get(k) is not None for k in keys)]
 
 
+def _forward_side(a: list, cfg: dict) -> None:
+    """Forward the leg's live direction gate to the harness (donchian, pullback).
+
+    Live honours ``side_filter: long|short|both`` (legacy ``long_only: true`` ->
+    long). This wrapper forwarded ONLY ``long_only``, so a ``side_filter: short``
+    leg (``trend_donchian_xrp_4h`` since 2026-07-30, ``sol_pullback_2h``) was swept
+    on a TWO-SIDED book -- trades the live leg never takes. Found 2026-10-07 by
+    lane EXIT-PARITY-CHECK: the 2026-10-04 ``trail4`` pass on
+    ``trend_donchian_xrp_4h`` rests on such a book. ``both``/absent passes no
+    flag (harness default), so every non-filtered leg's base is unchanged.
+    """
+    if cfg.get("long_only"):
+        a.append("--long-only")
+        return
+    sf = cfg.get("side_filter")
+    if sf in ("long", "short"):
+        a.extend(["--side-filter", sf])
+
+
 def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  # inert: `name` — the leg id, kept because FIVE external callers pass it positionally (m20_flip_replay_sweep, m21_entry_head_round, m20_exit_head_round, m21_entry_sweep, and this module); every arg is built from `cfg`, so dropping it would be a cross-script signature break for no behavioural gain. It affects NOTHING here — do not add a doc claiming otherwise.
               tp_cap_pct: float = 0.0,
               fee_bps_roundtrip: float | None = None,
@@ -486,8 +505,7 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  
         opt("--vol-skip-below-pctl", "vol_skip_below_pctl")
         opt("--vol-pctl-window", "vol_pctl_window")
         declared_levers()
-        if cfg.get("long_only"):
-            a.append("--long-only")
+        _forward_side(a, cfg)
     elif fam == "squeeze":
         for flag, key in (("--bb-period", "bb_period"), ("--bb-std", "bb_std"),
                           ("--kc-mult", "kc_mult"), ("--atr-period", "atr_period"),
@@ -550,6 +568,7 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  
         opt("--vol-skip-below-pctl", "vol_skip_below_pctl")
         opt("--vol-pctl-window", "vol_pctl_window")
         declared_levers()
+        _forward_side(a, cfg)
     # FEE BAND. Passed through verbatim when set, so a fee-survival A/B measures
     # the SAME base at two cost levels rather than two different books. None means
     # "the harness's own default" and is recorded as such -- never silently stamped

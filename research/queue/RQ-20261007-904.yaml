@@ -1,0 +1,59 @@
+id: RQ-20261007-904
+title: 'Re-run XRP exit candidate on the LIVE direction gate: trend_donchian_xrp_4h trail4 with side_filter=short
+  forwarded (split_target_oos=60)'
+status: queued
+cadence: once
+theme: live_strategy
+priority: 2
+kind: experiment
+question: 'trail4 passed the P2 gate on trend_donchian_xrp_4h on 2026-10-02 and 2026-10-04, but both runs were measured
+  on a TWO-SIDED book: m20_fleet_exit_sweep.base_args forwarded only long_only, never the leg''s live side_filter:
+  short. Does trail4 still clear the gate on the book live actually trades (short-only)?'
+why_this_matters: 'EXIT-PARITY-CHECK (2026-10-07) failed the live-parity step for this candidate on exactly this
+  point. No Tier-3 declare can rest on a book the leg never trades. Cheap: one leg, one lever family.'
+power:
+  expected_n: 30
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: Short-only halves the trade count; expect base OOS below 60. MIN_OOS_TRADES=25 is the gate floor; below
+    it the cell grades insufficient_base, which is 'could not answer', not 'no lever'.
+  feasibility:
+    source: none
+    accrual_basis: Runs on whatever history the trainer holds for the leg; nothing waits.
+decision_rule:
+  id: RULE-RQ1007-XRP-TRAIL4-SHORTONLY-A
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: 'For cell trail4 of trend_donchian_xrp_4h in the landed m20 sweep record produced AFTER the side_filter
+    forwarding fix: is_oos_pass, d_net_r_OOS, wf_wins_effective (inert folds excluded), base OOS trade count.'
+  rule: CONFIRMED IF the run's base args carry --side-filter short AND trail4 is_oos_pass AND d_net_r_OOS > 0 AND
+    wf_wins_effective >= 5 of 6 AND base OOS trades >= 25. NOT CONFIRMED (kill the Tier-3 proposal, record honest_negative)
+    IF the cell fails the gate or d_net_r_OOS <= 0 with base OOS >= 25. INDETERMINATE IF base OOS < 25. A CONFIRMED
+    result is Stage-0 exit evidence only; the Tier-3 declare (trail_mult 5.0 -> 4.0) stays the operator's.
+  what_it_does_not_do: Does not touch config/strategies.yaml. Does not declare the trail geometry live.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 4.0
+  est_minutes: 40
+  basis: one leg, one lever family; the workflow scp's the leg's frames from the trainer and sweeps on the runner.
+run:
+  workflow: m20-exit-lever-sweep.yml
+  inputs:
+    legs: trend_donchian_xrp_4h
+    levers: trail_geometry
+    tp_cap_pct: '0.099'
+    split_mode: oos-trades
+    split_target_oos: '60'
+    research_unit: RQ-20261007-904
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- PI-20261004-UQ9JJPRQ-0004
+- RQ-20261004-753
+- scripts/research/m20_fleet_exit_sweep.py::_forward_side

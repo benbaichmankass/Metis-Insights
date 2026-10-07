@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-10",
+    "kind": "date"
+  },
+  "id": "PI-20261007-71Y2H2VZ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane RQ-RESULTS session_01WDrcQFx7E9o11H71Y2h2VZ, dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv (checklist row RQ-FIX, PI-20261006-APBY4NTV-0010)",
+    "rerun": "python3 -c \"import json;r=[json.loads(l) for l in open('comms/strategy_evidence/runs/2026-10-07-stage0-prop/fade_slv_1h__trades.jsonl')];print(sorted(set().union(*[x.keys() for x in r])))\"  # 'exit_time' absent => still blocked; then: ls research/queue | grep -c fade_slv  # 0 => no fit unit seeded yet"
+  },
+  "state": "queued",
+  "what": "SLV fade 1h PASSED Stage-0 (RQ-20261006-031, net_total_r 6.6521, n=136, re-graded 2026-10-07) but CANNOT be priced under a prop ruleset: scripts/backtest_fade.py's --emit-trades rows carried no exit_time/entry/sl (MEASURED on run 37651573600's artifact: fields = strategy, entry_time, direction, gross_r, net_r, net_r_fee_only, cost_*_r, funding_windows, confidence), and prop_ev_sim.py requires exit_time on every row and entry/sl/gross_r for --costs breakout. The emitter is fixed in the same PR as this item (additive fields, mirrors pullback/squeeze). STILL OPEN: (1) re-dispatch fade on SLV 1h (a Stage-0 confirmatory unit, same rule as RQ-20261006-031) so an artifact with exit_time exists; (2) commit its trades.jsonl + sidecar under comms/strategy_evidence/runs/<date>-stage0-prop/ as RQ-RESULTS did for the four crypto PASS legs; (3) seed ONE prop-bar fit unit for fade_slv_1h modelled on RQ-20261007-001..004 (Breakout lists SILVER at 5x; the SLV ETF is its proxy, so the fit's cost stack must say which venue's costs it prices). The record kept at comms/strategy_evidence/runs/2026-10-07-stage0-prop/fade_slv_1h__trades.jsonl is the PASS's rows without geometry and is NOT usable by the sim. CORRECTION 2026-10-07 18:58Z: the four crypto fit units were RENUMBERED RQ-20261007-001..004 -> RQ-20261007-007..010 (id collision: #16955 and claude/arb-research-20261007 minted 001..004 / 001..006 the same day); an SLV fit unit should be modelled on RQ-20261007-007..010. CORRECTION 2 (2026-10-07 19:00Z, manager's binding allocation: #16955 geometry 001-004, #16964 pairs 005-009): the four crypto fit units are RQ-20261007-010..013 (ADA pullback, DOGE pullback, DOGE squeeze, LINK pullback); model the SLV fit on those."
+}

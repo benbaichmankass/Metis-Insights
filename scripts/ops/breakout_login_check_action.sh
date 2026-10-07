@@ -179,7 +179,9 @@
 #                              (which also stops reconciling in-flight
 #                              `submitted` rows: containment is manual after).
 #   Per-account feed timer (TRADEIFY-WIRE 2026-09-30; any account EXCEPT
-#   breakout_1, whose feed is the non-templated ict-prop-feed.timer):
+#   breakout_1, whose feed is the non-templated ict-prop-feed.timer. For
+#   breakout_1 ONLY feed-disable-timer is accepted, and only once the account
+#   is RETIRED: strategies == [] and mode != live in config/accounts.yaml):
 #     feed-enable-timer   — install deploy/ict-prop-feed@.service +
 #                           deploy/opt-in/ict-prop-feed@.timer and
 #                           `systemctl enable --now ict-prop-feed@<account>.timer`
@@ -383,15 +385,29 @@ fi
 if [ "${EXEC_MODE}" = "feed-enable-timer" ] || [ "${EXEC_MODE}" = "feed-disable-timer" ]; then
     # Per-account account_status feed (templated unit, TRADEIFY-WIRE). breakout_1
     # keeps its own non-templated ict-prop-feed.timer, untouched by this.
+    FEED_UNIT="ict-prop-feed@${ACCOUNT}"
     if [ "${ACCOUNT}" = "breakout_1" ]; then
-        log "${EXEC_MODE}: refused for breakout_1 — its feed is ict-prop-feed.timer (unchanged)"
-        exit 1
+        # breakout_1's feed is the non-templated ict-prop-feed.timer. It may be
+        # DISABLED (never enabled here) once the account is RETIRED: roster
+        # cleared in config/accounts.yaml (BREAKOUT1-RETIRE, 2026-10-07).
+        if [ "${EXEC_MODE}" = "feed-disable-timer" ] \
+           && (cd "${REPO_DIR}" && python3 - <<'PY'
+import sys, yaml
+a = (yaml.safe_load(open("config/accounts.yaml")) or {})
+a = a.get("accounts", a)["breakout_1"]
+sys.exit(0 if (a.get("strategies") or []) == [] and a.get("mode") != "live" else 1)
+PY
+           ); then
+            FEED_UNIT="ict-prop-feed"
+        else
+            log "${EXEC_MODE}: refused for breakout_1 — its feed is ict-prop-feed.timer (unchanged); only feed-disable-timer is allowed, and only once breakout_1 is retired (empty roster, not live)"
+            exit 1
+        fi
     fi
     if ! sudo -n true >/dev/null 2>&1; then
         log "environment: ${EXEC_MODE} needs passwordless sudo"
         exit 5
     fi
-    FEED_UNIT="ict-prop-feed@${ACCOUNT}"
     if [ "${EXEC_MODE}" = "feed-enable-timer" ]; then
         [ -f "${REPO_DIR}/deploy/opt-in/ict-prop-feed@.timer" ] || { log "missing deploy/opt-in/ict-prop-feed@.timer"; exit 1; }
         sudo -n install -m 0644 "${REPO_DIR}/deploy/ict-prop-feed@.service" /etc/systemd/system/ict-prop-feed@.service
