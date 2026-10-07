@@ -242,3 +242,86 @@ def test_yes_then_fill_links_back_to_ticket(isolated_env: Path) -> None:
         "account_id": "breakout_1", "symbol": "ETHUSDT", "direction": "short",
     })
     assert matched == "prop-manual-1"
+
+
+# ── VELOTRADE-TICKET: a REST-executed account has no human to ask ──────
+
+
+def _emit_for(ticket_id: str, account_id: str) -> None:
+    from src.prop import prop_journal
+
+    now = datetime.now(timezone.utc)
+    vu = now - timedelta(minutes=30)
+    prop_journal.record_ticket({
+        "ticket_id": ticket_id, "account_id": account_id,
+        "strategy": "trend_donchian_eth_prop", "symbol": "ETHUSDT",
+        "direction": "short", "side": "Sell",
+        "entry": 2672.0, "sl": 2701.107, "tp": 2497.357, "qty": 1.7178,
+        "risk_usd": 50.0,
+        "signal_time": (vu - timedelta(hours=1)).isoformat(),
+        "valid_until": vu.isoformat(), "status": "emitted",
+    })
+
+
+def _platforms(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import src.prop.platform as plat
+
+    p = tmp_path / "prop_platforms.yaml"
+    p.write_text(
+        "accounts:\n"
+        "  breakout_1: {platform: dxtrade}\n"
+        "  velotrade_1: {platform: dxtrade_api, login_url: https://x.example/dxsca-web}\n"
+        "phone_accounts:\n"
+        "  breakout_2: {platform: breakout_phone}\n")
+    monkeypatch.setattr(plat, "PLATFORMS_PATH", p)
+
+
+def test_rest_account_ticket_is_not_prompted_and_stays_emitted(
+        isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.prop.prop_expiry_prompt import run_prop_expiry_prompts
+
+    _platforms(isolated_env, monkeypatch)
+    _emit_for("prop-manual-rest", "velotrade_1")
+    sent = []
+    stats = run_prop_expiry_prompts(emitter=lambda t: sent.append(t) or True)
+    assert sent == [] and stats["prompted"] == 0
+    assert stats["rest_left_to_executor"] == 1
+    assert _status("prop-manual-rest") == "emitted"
+
+
+def test_rest_account_expired_ticket_no_longer_blocks_the_next_signal(
+        isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.prop.breakout_executor import _reticket_suppress_reason
+    from src.prop.prop_expiry_prompt import run_prop_expiry_prompts
+
+    _platforms(isolated_env, monkeypatch)
+    _emit_for("prop-manual-rest", "velotrade_1")
+    run_prop_expiry_prompts(emitter=lambda t: True)
+    assert _reticket_suppress_reason("velotrade_1", "ETHUSDT", "short") is None
+
+
+@pytest.mark.parametrize("account_id", ["breakout_1", "breakout_2"])
+def test_manual_and_phone_accounts_keep_the_expiry_prompt(
+        isolated_env: Path, monkeypatch: pytest.MonkeyPatch, account_id: str) -> None:
+    from src.prop.breakout_executor import _reticket_suppress_reason
+    from src.prop.prop_expiry_prompt import run_prop_expiry_prompts
+
+    _platforms(isolated_env, monkeypatch)
+    _emit_for("prop-manual-man", account_id)
+    sent = []
+    stats = run_prop_expiry_prompts(emitter=lambda t: sent.append(t) or True)
+    assert [t["ticket_id"] for t in sent] == ["prop-manual-man"] and stats["prompted"] == 1
+    assert _status("prop-manual-man") == "expiry_prompted"
+    # unchanged manual-bridge semantics: the unanswered prompt still blocks
+    assert _reticket_suppress_reason(account_id, "ETHUSDT", "short") is not None
+
+
+def test_unreadable_platform_file_falls_back_to_prompting(
+        isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import src.prop.platform as plat
+    from src.prop.prop_expiry_prompt import run_prop_expiry_prompts
+
+    monkeypatch.setattr(plat, "PLATFORMS_PATH", isolated_env / "missing.yaml")
+    _emit_for("prop-manual-rest", "velotrade_1")
+    stats = run_prop_expiry_prompts(emitter=lambda t: True)
+    assert stats["prompted"] == 1 and _status("prop-manual-rest") == "expiry_prompted"
