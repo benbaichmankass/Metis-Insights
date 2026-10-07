@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "kind": "date",
+    "due_date": "2026-10-08"
+  },
+  "id": "PI-20261006-APBY4NTV-0009",
+  "next_action": "none",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv, operator 2026-10-06 ~12:30Z",
+    "rerun": "grep -n 'phone-dry-test' docs/claude/system-actions.md .github/workflows/system-actions.yml"
+  },
+  "state": "done",
+  "what": "PHONE DRY TEST WITHOUT A CONFIG PR (operator 2026-10-06 ~12:30Z, verbatim: \"is there no way to get around doing the full test suite each time? It's a lot of time to check a one line change\"). Today the only operator-free way to send the phone an always-dry test ticket is bumping config/prop_platforms.yaml phone_accounts.<acct>.dry_test_request, which runs full CI (~32 min pytest-run) + ~5 min git-sync per test (bg-1: merged 12:02Z, filled 12:24Z). Build a Tier-1 system-action `phone-dry-test` (allowlist in docs/claude/system-actions.md + system-actions.yml) that calls src/prop/phone_executor.py's test-ticket writer on the VM for a named phone account (always meta.test -> forced dry, same as the in-app button), so a test reaches the phone in ~1-2 min. Keep dry_test_request working. DONE = an issue-dispatched phone-dry-test produces a dry_filled ticket on breakout_2 with no config commit.",
+  "terminal_reason": "phone-dry-test system-action merged (#16782) and observed 2026-10-07 18:11Z: issue #16939 -> phone-test-72f5bfc0942e dry_filled from the background; ~1 min issue-to-ticket"
+}
