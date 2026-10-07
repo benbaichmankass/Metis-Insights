@@ -1283,10 +1283,12 @@ def _selftest() -> int:
         check("redate() with a real observation lands and moves next-due",
               next_due_date(out) == date(2026, 10, 20) and read_log(rs).items["R"]["redate"]["observed_at"] == "2026-10-07")
         again = json.loads(json.dumps(read_log(rs).items["R"]))
-        again["due_when"]["last_checked"] = "2026-10-20"; again["due_when"]["check_every_days"] = 30
+        again["due_when"]["last_checked"] = "2026-10-20"
+        again["due_when"]["check_every_days"] = 30
         check("repeating the previous observation verbatim is refused",
               any("repeats" in p for p in redate_problems(read_log(rs).items["R"], again)))
-        shut = json.loads(json.dumps(prior)); shut.update(state="killed", terminal_reason="r")
+        shut = json.loads(json.dumps(prior))
+        shut.update(state="killed", terminal_reason="r")
         check("closing is not a re-date (needs no observation)", redate_problems(prior, shut) == [])
         append(base(id="O", observation={"what": "w", "how_to_check": "h", "due_by": "2026-10-08"},
                     due_when={"kind": "observation", "clears_when": "x", "check_every_days": 7,

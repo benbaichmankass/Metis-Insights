@@ -39,7 +39,7 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess:
 
 def _latest_at_base(repo: Path, base: str, item_id: str) -> Optional[dict]:
     hit = _git(repo, "grep", "-l", f'"id": "{item_id}"', base, "--", PIPE_DIR)
-    files = sorted(l.split(":", 1)[1] for l in hit.stdout.splitlines() if ":" in l)
+    files = sorted(ln.split(":", 1)[1] for ln in hit.stdout.splitlines() if ":" in ln)
     for f in reversed(files):
         try:
             rec = json.loads(_git(repo, "show", f"{base}:{f}").stdout)
@@ -92,15 +92,20 @@ def _self_test() -> int:
 
         def sh(*a):
             subprocess.run(a, cwd=td, capture_output=True, text=True, check=True)
-        sh("git", "init", "-q", "-b", "main"); sh("git", "config", "user.email", "t@t"); sh("git", "config", "user.name", "t")
+        sh("git", "init", "-q", "-b", "main")
+        sh("git", "config", "user.email", "t@t")
+        sh("git", "config", "user.name", "t")
         (repo / PIPE_DIR).mkdir(parents=True)
         (repo / PIPE_DIR / "20261001T000000000000Z-aaaaaaaa.json").write_text(json.dumps(item()))
-        sh("git", "add", "-A"); sh("git", "commit", "-qm", "base"); sh("git", "branch", "base")
+        sh("git", "add", "-A")
+        sh("git", "commit", "-qm", "base")
+        sh("git", "branch", "base")
         sh("git", "checkout", "-q", "-b", "work")
 
         def land(n, rec):
             (repo / PIPE_DIR / f"2026100{n}T000000000000Z-bbbbbbbb.json").write_text(json.dumps(rec))
-            sh("git", "add", "-A"); sh("git", "commit", "-qm", f"c{n}")
+            sh("git", "add", "-A")
+            sh("git", "commit", "-qm", f"c{n}")
         bare = item(due_when={"kind": "observation", "clears_when": "c", "check_every_days": 14,
                               "last_checked": "2026-10-07"})
         land(2, bare)
@@ -110,14 +115,16 @@ def _self_test() -> int:
         land(3, good)
         res = findings(repo, "base")
         ck("the earlier bare record in the same diff is still refused", len(res) == 1)
-        sh("git", "checkout", "-q", "base"); sh("git", "checkout", "-q", "-b", "w2")
+        sh("git", "checkout", "-q", "base")
+        sh("git", "checkout", "-q", "-b", "w2")
         land(4, good)
         ck("a re-date WITH a real observation passes (positive control)", findings(repo, "base") == [])
         land(5, item(due_when={"kind": "observation", "clears_when": "c", "check_every_days": 30,
                                "last_checked": "2026-10-20"}, redate=good["redate"]))
         ck("repeating the same observation for a second re-date is refused",
            any("repeats" in f for f in findings(repo, "base")))
-        sh("git", "checkout", "-q", "base"); sh("git", "checkout", "-q", "-b", "w3")
+        sh("git", "checkout", "-q", "base")
+        sh("git", "checkout", "-q", "-b", "w3")
         land(6, item(state="killed", terminal_reason="no longer applies"))
         ck("closing an item needs no observation", findings(repo, "base") == [])
     print("redate-guard self-test:", "PASS" if ok else "FAIL")

@@ -100,7 +100,7 @@ def _prior_next_action(base: str, item_id: str) -> Optional[str]:
     (same fold as pipeline.read_log). `git grep` keeps this one call per added
     record rather than a read of the ~4.8k-file store."""
     hit = _git("grep", "-l", f'"id": "{item_id}"', base, "--", PIPE_DIR)
-    files = sorted(l.split(":", 1)[1] for l in hit.stdout.splitlines() if ":" in l)
+    files = sorted(ln.split(":", 1)[1] for ln in hit.stdout.splitlines() if ":" in ln)
     for f in reversed(files):
         blob = _git("show", f"{base}:{f}")
         try:
@@ -192,11 +192,15 @@ def _self_test() -> int:
     with tempfile.TemporaryDirectory() as td:
         def sh(*a):
             return subprocess.run(a, cwd=td, capture_output=True, text=True, check=True)
-        sh("git", "init", "-q", "-b", "main"); sh("git", "config", "user.email", "t@t"); sh("git", "config", "user.name", "t")
-        d = Path(td) / PIPE_DIR; d.mkdir(parents=True)
+        sh("git", "init", "-q", "-b", "main")
+        sh("git", "config", "user.email", "t@t")
+        sh("git", "config", "user.name", "t")
+        d = Path(td) / PIPE_DIR
+        d.mkdir(parents=True)
         (d / "1.json").write_text(json.dumps({"id": "OLD", "next_action": "check_observation"}))
         (d / "2.json").write_text(json.dumps({"id": "ROUTED", "next_action": "dispatch_lane"}))
-        sh("git", "add", "-A"); sh("git", "commit", "-qm", "b")
+        sh("git", "add", "-A")
+        sh("git", "commit", "-qm", "b")
         global REPO
         saved = REPO
         REPO = Path(td)
