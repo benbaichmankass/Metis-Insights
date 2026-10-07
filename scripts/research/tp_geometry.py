@@ -30,8 +30,10 @@ is bit-for-bit what it was before this file existed
                       volatility, both ways).
     ``stall_pull_in`` after `retarget_stall_bars` bars with no new favourable
                       extreme the target is pulled in to the best price reached
-                      +/- `retarget_pull_r` R (momentum ran out; the prediction
-                      says where it ended). It only ever TIGHTENS.
+                      (as REGISTERED in RQ-20261007-003: "pulled to the since-entry
+                      extreme"), +/- `retarget_pull_r` R if one is asked for
+                      (default 0). Momentum ran out; the prediction says where it
+                      ended. It only ever TIGHTENS.
 
 Bar-close semantics, deliberately conservative: the target is evaluated for
 revision on a bar's CLOSE, after the bar's own stop/target test, and the revised
@@ -77,7 +79,7 @@ class TPGeometrySpec:
     thesis: str = "native"
     retarget_mode: Optional[str] = None
     retarget_stall_bars: int = 3
-    retarget_pull_r: float = 0.5
+    retarget_pull_r: float = 0.0
     #: REPORT-ONLY: change no exit, but emit the per-trade target fields and the
     #: `tp_geometry` summary for the harness's OWN target. The sweep runs the
     #: config-exact base this way so a cell's calibration share has a base to be
@@ -166,9 +168,10 @@ def add_cli_flags(p: Any) -> None:
                    help="GEOM-B1: change NO exit; emit the per-trade final_target_r / "
                         "exit_r fields and the tp_geometry summary for the run's own "
                         "target, so a base can be read beside a lever cell.")
-    p.add_argument("--tp-retarget-pull-r", type=float, default=0.5,
+    p.add_argument("--tp-retarget-pull-r", type=float, default=0.0,
                    help="stall_pull_in: the pulled-in target sits this many R "
-                        "beyond the best price reached (default 0.5).")
+                        "beyond the best price reached (default 0 = AT the "
+                        "since-entry extreme, as the units register it).")
 
 
 def refusal(spec: TPGeometrySpec, *, has_target: bool) -> Optional[str]:
