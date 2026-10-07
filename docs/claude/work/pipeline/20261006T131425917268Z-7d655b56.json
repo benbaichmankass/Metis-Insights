@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261006-1VPYTX8E-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "lane RQ-FIX 2026-10-06 (PI-20261006-APBY4NTV-0010); research/templates/roster-walkforward.yaml decision_rule",
+    "rerun": "python3 scripts/research/regrade_wiring_only_results.py && grep -l 'net-of-cost OOS R' research/queue/*.yaml | xargs grep -l 'research-harness-dispatch.yml'"
+  },
+  "state": "queued",
+  "what": "ROSTER-WALKFORWARD UNITS CAN NEVER AUTO-GRADE: research/templates/roster-walkforward.yaml registers RULE-TPL-ROSTER-WALKFORWARD-NET-OF-COST on 'net-of-cost OOS R', but routes every unit to research-harness-dispatch.yml, whose mapper (scripts/research/harness_dispatch_result.py) grades only the mechanical 'net_total_r > 0 AND n_trades >= N' shape and refuses a rule naming another statistic (the harness measures full-window in-sample net_total_r, not OOS R). MEASURED 2026-10-06 (lane RQ-FIX): 6 of the 8 PyYAML-discarded rows belong to 5 such weekly units (RQ-20260928-030/-031, RQ-20261004-660/-661, RQ-20261005-010); re-graded with the unit file readable they STILL land wiring_only -> needs_review, and will every week. If the template's rule were read against the in-sample statistic the rows would read: 030 n=35 indeterminate, 031 n=38 indeterminate, 660 n=38 indeterminate, 661 n=46 net +11.24R PASS, 010 n=38 indeterminate (x2) -- NOT verdicts, a rule change is a research-governance decision. DECIDE one of: (a) re-register the template rule in the mechanical shape for FUTURE runs (and the 5 live units), or (b) route the template to a producer that measures OOS R (a walk-forward harness) and keep the rule. Then the 5 units stop parking in needs_review."
+}

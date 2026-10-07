@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "Lane RQ-FIX (PI-20261006-APBY4NTV-0010): CI/research tooling only -- pyyaml installed in research-harness-dispatch.yml's result job and the mapper now fails loudly without it; dispatch_queue.py gains result-based + open-stamp-PR idempotence; research-queue-dispatch.yml lands each throwaway branch from the checked-out base; queue_grade lets a re-graded row supersede its wiring_only original; 8 corrected result rows appended (append-only). No src/ order path, no config/accounts.yaml, no strategies.yaml, no deploy. The guard's R12 counts scripts/research/queue_grade.py as landing machinery (the grade PRs' --verify reads it), so this holds for one human read: the manager merges (lane brief: 'If the self-land route is refused by the classifier, just report the PR numbers and the manager merges').",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Holding for one human read because the diff touches scripts/research/queue_grade.py, which the landing guard counts as landing machinery (the grade PRs' --verify reproduces grades from it). Tier-1 CI/research tooling only; the manager merges per the lane brief."
+}

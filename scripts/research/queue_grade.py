@@ -146,6 +146,21 @@ def grade_e5(rows: List[Tuple[str, Dict[str, Any]]], min_rows: int) -> Dict[str,
     superseded = n - len(measured) if measured else 0
     if measured:
         rows = measured
+    # ⚠️ A `wiring_only` row RE-GRADED by a later row of the SAME run is superseded by
+    # it. `wiring_only` means "measured, but the producer could not apply the unit's
+    # rule"; when a later row for the same `produced_by.run_id` carries a mechanical
+    # verdict (scripts/research/regrade_wiring_only_results.py appends one from the
+    # landed measurement, never editing the original), the original is the record of
+    # the producer's failure, not a second opinion on the measurement. MEASURED
+    # 2026-10-06: 8 rows across 6 units landed wiring_only because the result job had
+    # no PyYAML; without this, {wiring_only, fail} read "not unanimous" forever.
+    regraded = {str((r.get("produced_by") or {}).get("run_id") or "") for _, r in rows
+                if str(r.get("verdict")) in MECHANICAL + ("indeterminate",)}
+    kept = [(f, r) for f, r in rows
+            if not (str(r.get("verdict")) == "wiring_only"
+                    and str((r.get("produced_by") or {}).get("run_id") or "") in regraded)]
+    superseded += len(rows) - len(kept)
+    rows = kept
     n = len(rows)
     states = sorted({str(r.get("read_state")) for _, r in rows})
     verdicts = sorted({str(r.get("verdict")) for _, r in rows})
@@ -153,7 +168,7 @@ def grade_e5(rows: List[Tuple[str, Dict[str, Any]]], min_rows: int) -> Dict[str,
         return {"verdict": None, "reason": f"read_state not unanimously measured: {states}", "rows": n, "files": files}
     if len(verdicts) != 1 or verdicts[0] not in MECHANICAL + ("indeterminate",):
         return {"verdict": None, "reason": f"verdicts not unanimous-mechanical: {verdicts}", "rows": n, "files": files}
-    tail = f" ({superseded} earlier producer_failed row(s) superseded)" if superseded else ""
+    tail = f" ({superseded} earlier producer_failed / re-graded wiring_only row(s) superseded)" if superseded else ""
     return {"verdict": verdicts[0], "reason": f"{n} row(s), all measured, all {verdicts[0]}{tail}", "rows": n, "files": files}
 
 
