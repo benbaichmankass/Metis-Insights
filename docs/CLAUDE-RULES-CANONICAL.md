@@ -458,6 +458,8 @@ to stop admitting un-workable rows and to give every row an exit.
    the reset, so nothing ran it at all. **The rule survives the reset; its
    subject moved.** The live register whose open count the operator reads is
    [`docs/claude/work/MANAGER-CHECKLIST.json`](claude/work/MANAGER-CHECKLIST.json)
+   (after the per-row cutover: `docs/claude/work/checklist/<ROW-ID>.json`, read
+   through `src/runtime/checklist_store.py`)
    — it *is* the Workflow page — and its field is `state`. That is what the
    guard now grades, whole-file, and it additionally fails when the file's own
    `states` block and the enum disagree (*field beats comment*).
@@ -1007,7 +1009,10 @@ it).
 3. `docs/plans/OPERATING-PLAN-2026-09-21.md` — the promotion ladder, the
    research loop, and how work is chosen. Adopted 2026-09-21.
 4. `docs/claude/work/MANAGER-CHECKLIST.json` — what is actually being worked
-   right now, and by whom.
+   right now, and by whom. Once `docs/claude/work/checklist/` exists the rows live
+   there, one file per row, and are edited ONLY through
+   `scripts/ops/checklist.py add|set|note|archive-lane` and read through
+   `src/runtime/checklist_store.py` (guard: `checklist-readers-guard`).
 5. Skills under `.claude/skills/` (binding, composable workflows) — the manager
    contract is `.claude/skills/manager/SKILL.md`.
 6. The root `CLAUDE.md` — repo orientation and pointers.
