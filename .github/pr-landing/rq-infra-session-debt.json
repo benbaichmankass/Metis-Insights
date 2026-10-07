@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Observability only: scripts/ops/work_report.py gains a read-only session-debt section (queued research units the dispatcher can never fire or the grader can never close) in the daily work report. No order path, strategy config, risk cap, src/, deploy/ or live-VM runtime file."
+}

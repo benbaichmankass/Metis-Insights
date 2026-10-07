@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2: adds an allowlisted system-action (prop-ticket-expire) that WRITES the live trade_journal.db prop_tickets table on the live VM. Requested by Manager Session 2026-10-01 (session_01MM8o5js6TcDFeNAPBY4Ntv) as a follow-up in lane VELOTRADE-TICKET (session_01BbBqjBgks6BVLgjoHnSxdJ): 'a dead ticket on a REST account must never again need a human or a raw SQL'. The manager merges. Scope of the write: ONE ticket, ONE guarded UPDATE to `expired`, only from expiry_prompted or emitted-past-valid_until, only on a REST-executed account (prop_platforms.yaml API_PLATFORMS), never when a prop_fills row references the ticket; dry-run by default, SQLite backup before apply. Merging changes no runtime behaviour; nothing runs until someone opens a labelled issue for it. Revert: git revert of the merge commit.",
+  "why": "VELOTRADE-TICKET follow-up: velotrade_1 ETH-short prop-manual-4fa7266cfcf0 sat in expiry_prompted, suppressing 4 later ETH-short signals, with only raw SQL or a Telegram button to end it."
+}

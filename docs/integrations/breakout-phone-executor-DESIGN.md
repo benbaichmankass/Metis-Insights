@@ -278,7 +278,7 @@ The go-live rules for the VM executor (`prop_executor.py`, and the manager's reg
 | **Fail closed** | Any unread, null, stale, unparsed or unexpected state is a refusal, never a guess or a `0`. | Collapsed-state guard analogue. |
 | **Kill switch** | Server mode, default `read_only`, typo ⇒ `read_only`. | As `executor_mode`. |
 | **One executor per account** | The server refuses a phone claim while the VM executor is `live` for that account, and vice versa. | Test. |
-| **No private data in logs** | Never log: the device token, pairing code, Breakout credentials, cookies, URL paths, position or order ids, balances, account ids or IP addresses. Logs carry ticket id, state, and refusal code only. Crash reports and screenshots are off by default (Android `FLAG_SECURE` on the WebView window). The WebView's storage is app-private; `android:allowBackup=false`. | A CI grep over the build for logging calls; a log-capture test during the soak that scans for the account id and any 6+ digit id. |
+| **No private data in logs** | Never log: the device token, pairing code, Breakout credentials, cookies, URL paths, position or order ids, balances, account ids or IP addresses. Logs carry ticket id, state, and refusal code only. Screenshots are blocked (Android `FLAG_SECURE`) on every credential-bearing screen -- login, code step, challenge, unread state, Setup dialog -- and allowed ONLY on the logged-in trading terminal (balances/positions, never a credential; operator 2026-10-06). `FLAG_SECURE` is set fail-closed (on at create, on at any page off the trade host) and cleared only after the state machine reads `logged_in`. The WebView's storage is app-private; `android:allowBackup=false`. | A CI grep over the build for logging calls; a log-capture test during the soak that scans for the account id and any 6+ digit id. |
 | **No challenge handling** | Challenge/captcha/2FA/email-code ⇒ stop and alert; no automated solve, no UA change, no reload loop. | Test with a challenge fixture page. |
 | **No credentials in the app** | The operator types the password and any code **in the WebView by hand**. The app does not save, autofill or read them. | Review + test. |
 | **Public repo hygiene** | The APK repo and this repo carry no secret, address, package signing key or account id. | `run_secret_scanning` + review. |
@@ -628,7 +628,7 @@ By the criteria registered before the run, that is 2 of 4: **NOT-YET** by the le
 |---|---|---|
 | Per-device auth | `config/prop_phone_devices.yaml`, `src/prop/phone_executor.py::authenticate` | The phone mints a 256-bit token. Only its SHA-256 **fingerprint** leaves the phone (the "Share ID" button) and is committed; a fingerprint is not a secret. Each device is pinned to one account. Revoke = `revoked: true`. This **replaces the § 3.2 pairing-code / new-table design**: no `prop_devices` table, no Telegram code and no new secret, and pairing is a git-visible change. |
 | Routes | `POST /api/bot/prop/phone/{claim,report,event,test-ticket}` (`routers/prop.py`, `docs/api-tier-policy.md`) | `claim` is the atomic `emitted -> claimed`, and it runs the 3-minute watchdog. `report` forces `account_id` from the token. `ticket_result` keeps the phone's form dump in `meta.phone.result`, which is how the unread TP/SL labels will be read. `event` pings Telegram with links, emails and 6+ digit runs scrubbed. `test-ticket` is always dry. |
-| Submit decision | `phone_executor.submit_mode` | `live` only if the account's `accounts.yaml` mode is `live`, `PROP_PHONE_MODE_<ACCOUNT>` is not `off` or `dry` (an unparseable value counts as `dry`), and the ticket is not a test. This is the **only** live/dry decision: the phone's device-local ARMED switch was removed on 2026-10-06 (operator: *"not have the feature on the app where I need to arm it manually … extra gates that are unnecessary … actually less safe than we think"*; § 7.13). |
+| Submit decision | `phone_executor.submit_mode` | `live` only if the account's `accounts.yaml` mode is `live`, `PROP_PHONE_MODE_<ACCOUNT>` is not `off` or `dry` (an unparseable value counts as `dry`), and the ticket is not a test. This is the **only** live/dry decision: the phone's device-local ARMED switch was removed on 2026-10-06 (operator: *"not have the feature on the app where I need to arm it manually … extra gates that are unnecessary … actually less safe than we think"*; § 7.14). |
 | Account | `config/accounts.yaml::breakout_2` (`mode: dry_run`), `config/prop_platforms.yaml::phone_accounts.breakout_2`, `config/prop_rulesets/breakout_turbo_1step.yaml` | `phone_accounts` is a separate section, so the VM executor and the login check never load it. |
 | App | `tools/phone-executor/` (`com.metis.phoneexec`), CI `phone-executor-apk.yml` | Kiosk WebView, stock UA. Claim every 30 s. Fill: Limit tab, side tab, limit price, quantity (unit must name the base asset), TP/SL. Read every field back; the submit label must carry the side. In dry mode it does not submit; in live mode it submits, then reads Open orders / Positions back and flattens any opposite-side position. Fsynced intent ledger with no retry after a restart. Auto re-login: dedicated inbox, newest `breakoutprop.com` mail, the ONE link whose text equals the page's number, opened in the same WebView, 2 failures then latch and ping. Foreground service + boot receiver + "display over other apps" to come back after a reboot. |
 | Stable signing | `phone-executor-apk.yml` | The first run generates a keystore into Actions secrets (`PHONE_EXEC_KEYSTORE_*`) through the existing `BRANCH_PROTECTION_TOKEN`; it is never printed and never in git. Later builds install over the old app and keep the session. **New applicationId**, so the 1a probe and its session under measurement are untouched. |
@@ -670,7 +670,7 @@ Every one of these is a **refusal with the form dump**, never a guess, so the fi
 4. Leave the app open. It loads the terminal and should log itself in through the inbox; that first login is the first test of auto re-login. If it latches, log in by hand in the app and tap "Reset login".
 5. Tap **Share ID** and send the line to the manager. It is a fingerprint, not a secret. We commit it, which pairs the phone.
 6. Tap **Dry test**. The app fills one ETH ticket, reads it back, does **not** submit, and the VM pings the result.
-7. Keep the phone on charge with the app on screen. *(Superseded 2026-10-06, § 7.13: there is no ARMED button any more; live vs dry is decided by the server.)*
+7. Keep the phone on charge with the app on screen. *(Superseded 2026-10-06, § 7.14: there is no ARMED button any more; live vs dry is decided by the server.)*
 
 ### 7.12 First dry ticket on the phone (2026-10-05 22:20Z): refused on the symbol, and what that measured
 
@@ -704,7 +704,31 @@ still unmeasured: the next dry test is what measures it, and its refusal reason,
 overnight and claims every 30 s, so a bump merged before the install would be claimed and refused the old way within minutes. This PR
 leaves `dry_test_request: 2026-10-05-night-1` (already served); the manager bumps it in a separate PR once the install is confirmed.
 
-### 7.13 The device-local ARMED switch is removed: live vs dry is decided only by the server (2026-10-06, lane ARMED-GATE)
+### 7.13 The "Select market" picker route (2026-10-07, lane SOL-PICKER, PI-20261006-APBY4NTV-0007)
+
+**MEASURED** (the 2026-10-06 dry-fill dumps on `GET /api/bot/prop/tickets?account_id=breakout_2`, `form.controls` and
+`form.symbolCandidates`, digits masked by the app): the terminal's instrument picker is ONE `div role=button` with
+`aria-label "Select market"` and text `"ETH #x"` (base + leverage); the watchlist buttons read `"SOL ###.## -#.##%"` (base,
+price, change). Two consequences in the code before this fix: `chipSymbol()` only matched `"ETH x"` (no digits), so the chip
+was never read; and `watchControls()` only matched `"<BASE> <signed %>"`, so the watchlist route missed whenever the price was
+shown. A SOL ticket (breakout_2 carries `trend_donchian_sol_prop`) with the terminal on ETH therefore refused
+`symbol SOL not on the submit label` — safe, but a missed trade. (INFERRED from the code paths; no SOL ticket has been served.)
+
+**Fix:** `symbolStep()` route 0 = the chip: open it once per symbol, then pick exactly ONE row whose text starts with the base as
+a whole word (`SOL`, `SOL/USD`, `SOLUSD`; never `SOLV…`). The list it opens is **UNMEASURED**, so rows are found by text: inside
+a `dialog`/`listbox`/`menu` when the page marks one, else among elements that APPEARED after the click (snapshot taken just
+before it), so the always-visible watchlist never competes. One typed search of the base is allowed if the list has a search box
+and no row. Two rows = `market_ambiguous`, none = `market_no_row`: nothing is clicked, the list is closed (Escape) and the
+watchlist route (regex now accepts the price) runs next. The app then verifies exactly as before — the submit label must name the
+base before anything is typed — and additionally refuses if the chip, when there is exactly one, names a different base.
+`symbolReset()` clears the picker state at the start of each ticket; `selectSymbol` allows 8 moves (was 6).
+
+`exec_check.js` fixtures H–K (dialog rows / unmarked rows with SOL first / chip opens nothing / two SOL rows) all start on ETH,
+end on SOL with the chip and the submit label agreeing, make exactly one selection click, and submit nothing. They prove
+mechanics on synthetic DOM, **not** Breakout's real list: the proof is one `phone-dry-test` for `SOLUSDT` on breakout_2 with
+the terminal on ETH, after the operator installs the APK built from this change; its refusal reason, if any, names the route.
+
+### 7.14 The device-local ARMED switch is removed: live vs dry is decided only by the server (2026-10-06, lane ARMED-GATE)
 
 **Operator decision (2026-10-06 ~07:50Z, verbatim):** *"not have the feature on the app where I need to arm it manually. That falls
 into the category of extra gates that are unnecessary and then make it harder to manage the system correctly and are actually less
