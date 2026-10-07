@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research tooling + records only: forwards the leg's side_filter in the M20 fleet-sweep harness wrapper (scripts/research, no src/, no config, no order path) with a test; exit-coverage matrix annotations; one queued research unit; pipeline records. No strategies.yaml change - the Tier-3 outcomes are in the lane report, not applied."
+}
