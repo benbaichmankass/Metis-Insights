@@ -222,5 +222,43 @@ document.getElementById('cb').onclick=function(){window.__cbClicks=(window.__cbC
   eq(await pG.evaluate("__ex.openTpsl(1)"), "switched", "switch layout: the text-less switch beside it is clicked");
   eq(await pG.evaluate("__ex.openTpsl(2)"), "ok", "switch layout: TP/SL inputs now shown");
   eq(await pG.evaluate("__ex.tpslArea()[0].node.text"), "TP/SL", "tpslArea dump names the TP/SL element");
+  // Fixture H (SOL-PICKER, MEASURED 2026-10-06 dry-fill dumps): the real "Select market" chip (div role=button,
+  // aria-label "Select market", text "ETH 20x"), watchlist buttons WITH a price ("SOL 150.23 -1.23%"), the ticket open on
+  // ETH. The list the chip opens is UNMEASURED: H = a role=dialog of plain div rows (handler on the row, symbol in a
+  // leaf span, a "SOLV" decoy); I = the same rows with NO popup role, SOL first (found as "appeared after the click");
+  // J = the chip opens nothing -> watchlist fallback; K = two SOL rows -> ambiguous, nothing picked, watchlist fallback.
+  const market = (mode) => `<!doctype html><html><body>
+<div role=button id=chip aria-label="Select market">ETH 20x</div><button>Order form</button><button>Open orders</button><button>Positions</button>
+<div id=wl><button data-s=BTC>BTC 62,410.5 -1.20%</button><button data-s=ETH>ETH 2,612.40 -0.50%</button><button data-s=SOL>SOL 150.23 -1.23%</button></div>
+<div id=list></div>
+<form id=f><div role=tablist><button type=button role=tab aria-selected=false>Market</button><button type=button role=tab aria-selected=true>Limit</button></div>
+<div role=tablist><button type=button role=tab aria-selected=true>Buy</button><button type=button role=tab aria-selected=false>Sell</button></div>
+<label for=lp>Limit price</label><input id=lp type=text><label for=q>Quantity</label><input id=q type=text>
+<button type=button aria-label="Toggle quantity unit">USD</button><button type=submit id=sub>Long (buy) ETH</button></form>
+<script>var MODE='${mode}';var LEV={BTC:50,ETH:20,SOL:10,SOLV:5,XRP:5};
+function pick(s){document.getElementById('chip').textContent=s+' '+LEV[s]+'x';document.getElementById('sub').textContent='Long (buy) '+s;close();}
+function close(){document.getElementById('list').innerHTML='';}
+function row(s,name){var d=document.createElement('div');d.className='r';d.innerHTML='<span>'+s+'</span><span>'+name+'</span>';d.onclick=function(){window.__picks=(window.__picks||0)+1;pick(s.split(/[-\/]/)[0])};return d;}
+document.getElementById('chip').onclick=function(){if(MODE==='J')return;var l=document.getElementById('list');var box=l;
+ if(MODE!=='I'){box=document.createElement('div');box.setAttribute('role','dialog');l.appendChild(box);}
+ var rs=MODE==='I'?[['SOL','Solana'],['BTC','Bitcoin'],['ETH','Ethereum']]:[['BTC','Bitcoin'],['ETH','Ethereum'],['SOLV','Solv'],['SOL','Solana'],['XRP','Ripple']];
+ if(MODE==='K')rs.push(['SOL-PERP','Solana perp']);
+ rs.forEach(function(r){box.appendChild(row(r[0],r[1]))});};
+document.addEventListener('keydown',function(e){if(e.key==='Escape')close();});
+document.querySelectorAll('#wl button').forEach(function(b){b.onclick=function(){window.__wl=(window.__wl||0)+1;pick(b.getAttribute('data-s'));};});
+document.getElementById('f').onsubmit=function(e){e.preventDefault();window.__submitted=(window.__submitted||0)+1};</script></body></html>`;
+  for (const [mode, route] of [["H", ["opened_market", "picked_market"]], ["I", ["opened_market", "picked_market"]],
+    ["J", ["opened_market", "market_no_row", "clicked_watch"]], ["K", ["opened_market", "market_ambiguous", "clicked_watch"]]]) {
+    const pM = await onHost(market(mode)); const rM = (code) => pM.evaluate(code);
+    eq([await rM("__ex.marketShown()"), await rM("__ex.symbolShown()")], ["ETH", "ETH"], `market ${mode}: chip 'ETH 20x' read as ETH, ticket on ETH`);
+    eq(await rM("__ex.symbolReset()"), "ok", `market ${mode}: picker state reset per ticket`);
+    const got = []; for (let i = 0; i < route.length; i++) got.push(await rM("__ex.symbolStep('SOLUSD')"));
+    eq(got, route, `market ${mode}: route ${route.join(">")}`);
+    eq(await rM("__ex.symbolStep('SOLUSD')"), "done", `market ${mode}: then done`);
+    eq([await rM("__ex.symbolOnTicket()"), await rM("__ex.marketShown()")], ["SOL", "SOL"], `market ${mode}: submit label AND chip name SOL`);
+    eq([await rM("window.__picks || 0"), await rM("window.__wl || 0")], mode === "J" || mode === "K" ? [0, 1] : [1, 0], `market ${mode}: exactly one selection click (${mode === "J" || mode === "K" ? "watchlist" : "picker row"})`);
+    eq(await rM("window.__submitted || 0"), 0, `market ${mode}: nothing submitted`);
+    eq(await rM("[__ex.symbolStep('ETHUSD'), __ex.symbolStep('ETHUSD')]"), ["opened_market", mode === "J" ? "market_no_row" : "picked_market"], `market ${mode}: and back to ETH from SOL`);
+  }
   await b.close(); console.log("exec_check: all passed");
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -553,6 +553,24 @@ _ATTENTION_WATCH_RECEIPT = (
     Path(repo_root()) / "runtime_logs" / "attention_watch_receipt.json"
 )
 
+# TRAIL-OBSERVABILITY (2026-10-07, PI-20261006-KX6ZKFNA-0003). The prop trail's
+# pause latch (`modify_rollout.json`) and per-ticket replay state
+# (`trail_state.json`) live in the executor's state dir on the VM, outside
+# runtime_logs/, so a relay-bound session could not tell "the trail is paused
+# awaiting executor-clear-rollout" from "the trail is running". The path mirrors
+# the WRITER's resolver (scripts/prop/prop_executor_tick.py::default_state_dir
+# and scripts/ops/prop_executor_tick.sh): breakout_1 keeps `<base>/executor`,
+# every other account is `<base>/accounts/<account>/executor`. Contents carry no
+# secret: the latch is {state, at, symbol, side, from_sl, to_sl, quote | why |
+# sl} (why is _mask_public_text-masked) and the state is per-ticket flags.
+def _prop_executor_state_dir(account: str) -> Path:
+    base = Path(os.environ.get("PROP_BROWSER_BASE")
+                or Path.home() / ".cache" / "metis-prop-browser")
+    if account == "breakout_1":
+        return base / "executor"
+    return base / "accounts" / account / "executor"
+
+
 _LOG_FILES: dict[str, Path] = {
     "audit": _AUDIT_LOG,
     # MI-83. "Has the hourly digest actually fired?" — answerable by READING,
@@ -961,6 +979,22 @@ _LOG_FILES: dict[str, Path] = {
         runtime_logs_dir() / "silent_refusal_alert_state.json",
     "prop_fills_staleness_state":
         runtime_logs_dir() / "prop_fills_staleness_state.json",
+    "prop_trail_latch_breakout_1":
+        _prop_executor_state_dir("breakout_1") / "modify_rollout.json",
+    "prop_trail_state_breakout_1":
+        _prop_executor_state_dir("breakout_1") / "trail_state.json",
+    "prop_trail_latch_breakout_2":
+        _prop_executor_state_dir("breakout_2") / "modify_rollout.json",
+    "prop_trail_state_breakout_2":
+        _prop_executor_state_dir("breakout_2") / "trail_state.json",
+    "prop_trail_latch_tradeify_1":
+        _prop_executor_state_dir("tradeify_1") / "modify_rollout.json",
+    "prop_trail_state_tradeify_1":
+        _prop_executor_state_dir("tradeify_1") / "trail_state.json",
+    "prop_trail_latch_velotrade_1":
+        _prop_executor_state_dir("velotrade_1") / "modify_rollout.json",
+    "prop_trail_state_velotrade_1":
+        _prop_executor_state_dir("velotrade_1") / "trail_state.json",
     "target_naked_alert_state":
         runtime_logs_dir() / "target_naked_alert_state.json",
     # Registered IN THE SAME COMMIT that ships its writer. #8778 shipped
