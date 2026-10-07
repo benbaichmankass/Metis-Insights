@@ -5520,14 +5520,16 @@
       "id": "ARMED-GATE",
       "title": "Phone executor: delete the device-local ARMED switch; live submit decided only by the server (accounts.yaml mode + strategies.yaml execution)",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "lane ARMED-GATE",
       "lane": "session_01KzcqmCjLJv1CShwiCnBDrB",
       "model": "claude-opus-5-5",
       "ceiling_usd": 25,
-      "spend_usd": null,
+      "spend_usd": 3.9,
       "tier": 3,
-      "prs": [],
+      "prs": [
+        17005
+      ],
       "blocked_on": [
         {
           "kind": "operator_decision",
@@ -5535,7 +5537,12 @@
           "what": "Claude Code's security classifier refused the MainActivity.kt edit that removes the ARMED switch ('security weaken'); only a human can approve inside the lane session"
         }
       ],
-      "note": "[2026-10-07T19:42Z manager] UNBLOCKED: the operator took the lane off auto mode and approved the edits in-session (operator popup answer 2026-10-07: 'I'll approve it inside the lane'). Branch claude/armed-gate pushed (head eeb65103): ARMED button, Store.ARMED and armed() removed; the phone submits live iff claim submit=='live' && !meta.test. Landing tier 3 hold quoting the operator decision. PR not yet opened: claude-pr-automerge run 37671277465 queued since 19:01Z. Manager merges on green (operator-approved Tier-3), then the APK after it carries the change. || [2026-10-07T18:37Z] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): 'I'll approve it inside the lane (Recommended)' \u2014 the operator clears the classifier prompt in session_01KzcqmCjLJv1CShwiCnBDrB; the lane then opens the PR + APK. || [2026-10-07T18:30Z manager] BLOCKED at 18:25Z on the classifier prompt (needs_action: 'operator approval to override security weaken classification on MainActivity.kt edit'). Surfaced to the operator with the session id; not cleared by the manager (manager skill: a blocked lane is surfaced, never cleared). || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0002. Operator 2026-10-06 ~07:50Z verbatim: 'not have the feature on the app where I need to arm it manually ... extra gates ... less safe'. Third gate contrary to CLAUDE.md 'There is no third gate'. Opus (live submit path), default mode. Test tickets stay always-dry; PROP_PHONE_MODE off/dry stays the server kill switch. APK build on merge; the operator installs once together with SOL-PICKER/PHONE-SCREENSHOTS."
+      "note": "[2026-10-07T19:48Z manager] PR #17005 opened by the manager from claude/armed-gate (claude-pr-automerge run 37671277465 sat queued 40+ min); marked ready; tier-3 hold, merge on green as the operator-approved Tier-3. Lane archived 19:47Z, spend $3.90 final (Opus, default mode after the operator's in-lane approval). || [2026-10-07T19:42Z manager] UNBLOCKED: the operator took the lane off auto mode and approved the edits in-session (operator popup answer 2026-10-07: 'I'll approve it inside the lane'). Branch claude/armed-gate pushed (head eeb65103): ARMED button, Store.ARMED and armed() removed; the phone submits live iff claim submit=='live' && !meta.test. Landing tier 3 hold quoting the operator decision. PR not yet opened: claude-pr-automerge run 37671277465 queued since 19:01Z. Manager merges on green (operator-approved Tier-3), then the APK after it carries the change. || [2026-10-07T18:37Z] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): 'I'll approve it inside the lane (Recommended)' \u2014 the operator clears the classifier prompt in session_01KzcqmCjLJv1CShwiCnBDrB; the lane then opens the PR + APK. || [2026-10-07T18:30Z manager] BLOCKED at 18:25Z on the classifier prompt (needs_action: 'operator approval to override security weaken classification on MainActivity.kt edit'). Surfaced to the operator with the session id; not cleared by the manager (manager skill: a blocked lane is surfaced, never cleared). || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0002. Operator 2026-10-06 ~07:50Z verbatim: 'not have the feature on the app where I need to arm it manually ... extra gates ... less safe'. Third gate contrary to CLAUDE.md 'There is no third gate'. Opus (live submit path), default mode. Test tickets stay always-dry; PROP_PHONE_MODE off/dry stays the server kill switch. APK build on merge; the operator installs once together with SOL-PICKER/PHONE-SCREENSHOTS.",
+      "observation": {
+        "what": "#17005 merged, a main APK carrying it installed, and one phone-dry-test shows the live path gated only by the server claim (no ARMED state in the heartbeat)",
+        "how_to_check": "GET /api/bot/prop/status (phone heartbeat fields) after the install; phone-dry-test issue result",
+        "due_by": "2026-10-09T18:00Z"
+      }
     },
     {
       "id": "SOL-PICKER",
