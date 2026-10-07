@@ -68,14 +68,61 @@
   // "Order" (older layout) or "Order form" (the panel toggle, MEASURED 08:58Z).
   var ORDER_RE = /^order( form)?$/i;
   // Watchlist button "<BASE> <signed %>" (MEASURED 08:58Z: "ETH -0.5%", "BTC -1.2%" ...), outside the ticket.
+  // Fix 2026-10-07 (SOL-PICKER): MEASURED 2026-10-06 dumps also show the price between them ("SOL ###.## -#.##%").
   function watchControls(sym) {
-    var rx = new RegExp("^" + base(sym) + "\\s+[-+]?\\d[\\d.,]*\\s*%$", "i");
+    var rx = new RegExp("^" + base(sym) + "(\\s+[\\d.,]+)?\\s+[-+]?\\d[\\d.,]*\\s*%$", "i");
     return innermost(clickables("button,[role=button],[role=tab],[role=option],a,li").filter(function (x) { return !inForm(x) && rx.test(t(x)); }));
   }
   // The open-instrument chip "<BASE> x" (MEASURED 08:58Z: "ETH x"): the shown symbol only when exactly ONE chip exists.
   function chipSymbol() {
+    var mc = marketChip(); if (mc) { var m = CHIP_RE.exec(t(mc)); return m ? m[1].toUpperCase() : ""; }
     var c = all("button,[role=button],[role=tab]").map(t).filter(function (x) { return /^[A-Za-z]{2,6}\s*[x\u00d7]$/.test(x); });
     return c.length === 1 ? c[0].replace(/\s*[x\u00d7]$/, "") : "";
+  }
+  // ---- the "Select market" picker (fix 2026-10-07, lane SOL-PICKER, PI-20261006-APBY4NTV-0007) ----
+  // MEASURED (2026-10-06 dry-fill dumps on /api/bot/prop/tickets?account_id=breakout_2): the terminal's instrument
+  // picker is ONE div role=button, aria-label "Select market", text "<BASE> <leverage>x" ("ETH #x", digits masked).
+  // UNMEASURED: the list it opens. So the row is found by what it says, not by its markup: inside an open
+  // dialog/listbox/menu when the page marks one, else among the elements that APPEARED after the chip was clicked
+  // (a snapshot taken just before the click), so the always-visible watchlist ("SOL ###.## -#.##%") never competes.
+  // A row is the nearest clickable ancestor of text that starts with the base as a whole word ("SOL", "SOL/USD",
+  // "SOLUSD", "SOL Solana"; never "SOLANA..."). Exactly one row is clicked; two = ambiguous, refuse; none = fall back
+  // to the watchlist. Every move is a selection; the app still refuses unless the submit label names the asset.
+  var CHIP_RE = /^([A-Za-z]{2,6})(\s*\d+(\.\d+)?\s*[x\u00d7]|\s*[x\u00d7])?$/;
+  var ROW_SEL = "button,[role=button],[role=option],[role=menuitem],[role=menuitemradio],[role=row],[role=gridcell],li,a,tr";
+  function marketChip() {
+    var c = all("button,[role=button],[role=combobox]").filter(function (x) { return /^select market$/i.test(x.getAttribute("aria-label") || "") && !inForm(x); });
+    return c.length === 1 ? c[0] : null;
+  }
+  function startsWithBase(s, b) {
+    var u = (s || "").trim().toUpperCase();
+    return new RegExp("^" + b + "(?![A-Z])").test(u) || /^(USD[TC]?|PERP)/.test(norm(u).slice(b.length)) && norm(u).indexOf(b) === 0;
+  }
+  function popupRoots(chip) {
+    var r = all("[role=dialog],[role=listbox],[role=menu],[aria-modal=true],[data-radix-popper-content-wrapper]");
+    var ctl = chip && chip.getAttribute("aria-controls"); if (ctl) { var e = document.getElementById(ctl); if (e && vis(e) && r.indexOf(e) < 0) r.push(e); }
+    return r.filter(function (x) { return !inForm(x); });
+  }
+  function marketCandidates(sym) {
+    var b = base(sym), chip = marketChip();
+    var leaves = all("span,div,p,strong,b,td,li,a,button,[role]").filter(function (x) {
+      return !inForm(x) && !(chip && (chip === x || chip.contains(x) || x.contains(chip))) && t(x).length <= 40 && startsWithBase(t(x), b);
+    });
+    var roots = popupRoots(chip), pk = window.__ex._mk;
+    if (roots.length) leaves = leaves.filter(function (x) { return roots.some(function (r) { return r.contains(x); }); });
+    else if (pk && pk.pre) leaves = leaves.filter(function (x) { return pk.pre.indexOf(x) < 0; });
+    else return [];
+    var rows = [];
+    leaves.forEach(function (x) { var r = x.closest(ROW_SEL) || x; if (chip && r.contains(chip)) r = x; if (rows.indexOf(r) < 0) rows.push(r); });
+    return innermost(rows);
+  }
+  function marketSearch() {
+    var chip = marketChip(), roots = popupRoots(chip), pk = window.__ex._mk;
+    return inputs(document).filter(function (i) {
+      if (inForm(i) || !(i.type === "text" || i.type === "search")) return false;
+      if (roots.length) return roots.some(function (r) { return r.contains(i); });
+      return !!(pk && pk.preInputs && pk.preInputs.indexOf(i) < 0);
+    })[0] || null;
   }
   function tpslBox() {
     var cb = all("input[type=checkbox]").filter(function (c) { return /tp\s*\/\s*sl/i.test(labelFor(c) + " " + t(c.parentElement)); })[0];
@@ -280,7 +327,25 @@
       if (!hostOk()) return "bad_host";
       if (!looksLikeSymbol(sym)) return "not_a_symbol";   // ETHUSD, ETH/USD, SOLUSDT ...; never a bare word like "Market"
       var n = norm(sym), b = base(sym), shown = norm(window.__ex.symbolShown());
-      if (shown && (shown === n || shown === n + "T" || shown === b)) return "done";
+      if (shown && (shown === n || shown === n + "T" || shown === b)) { window.__ex._mk = null; return "done"; }
+      // Route 0 (SOL-PICKER): the "Select market" chip. Opened once per symbol, then ONE row picked from what it shows.
+      var mk = window.__ex._mk; if (mk && (mk.sym !== n || Date.now() - mk.at > 120000)) mk = window.__ex._mk = null;
+      if (mk && mk.phase === "opened") {
+        var rows = marketCandidates(sym);
+        if (rows.length === 1) { mk.phase = "picked"; rows[0].click(); return "picked_market"; }
+        var ms = rows.length ? null : marketSearch();
+        if (ms && norm(ms.value) !== b && !mk.typed) { mk.typed = 1; ms.focus(); setVal(ms, b); return "typed_market_search"; }
+        // nothing clicked: close the list and let the next call take the watchlist route
+        mk.phase = "failed";
+        document.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}));
+        return rows.length > 1 ? "market_ambiguous" : "market_no_row";
+      }
+      var chip = marketChip();
+      if (chip && !mk) {
+        window.__ex._mk = {sym: n, at: Date.now(), phase: "opened",
+          pre: all("span,div,p,strong,b,td,li,a,button,[role]"), preInputs: inputs(document)};
+        chip.click(); return "opened_market";
+      }
       var ex = exactSymbolControls(sym); if (ex.length) { ex[0].click(); return "clicked_symbol"; }
       var sb = searchBox();
       if (sb) {
@@ -294,6 +359,10 @@
       var pk = currentSymbolControl(); if (pk) { pk.click(); return "opened_picker"; }
       return "none";
     },
+    // Forget the picker state: the app calls this once at the start of each ticket.
+    symbolReset: function () { window.__ex._mk = null; return "ok"; },
+    // The "Select market" chip's base ("ETH" from "ETH 20x"); "" when there is not exactly one such chip.
+    marketShown: function () { var mc = marketChip(); if (!mc) return ""; var m = CHIP_RE.exec(t(mc)); return m ? m[1].toUpperCase() : "?"; },
     // Kept for the Dry test button / older callers: one exact-text click, else "none".
     selectSymbol: function (sym) { var ex = exactSymbolControls(sym); if (!ex.length) return "none"; ex[0].click(); return "clicked"; },
     // Read the whole ticket back: tabs, labelled inputs with values, the TP/SL box, the submit label.
