@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-13",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ZGQPHR3D-0005",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-session-gating-in-sample-best-subset",
+    "rerun": "read docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl and re-check the finding AUD-20260927-CA-B04-session-gating-in-sample-best-subset against current scripts/research/session_gating.py:166"
+  },
+  "state": "queued",
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('RESEARCH (re-pointed from RESEARCH (BACKLOG-BURNDOWN-2 2026-'); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "CA-B04 audit finding (high): scripts/research/session_gating.py:166 — Docstring frames best_subset killzone selection as testing whether restricting a fee-cursed small-TF cell to high-liquidity hours \"flips\" it net-positive: \"If nothing flips even he || HARNESS-AUDIT-FIXES 2026-10-07: FIXED on branch claude/harness-audit-fixes (best_subset kept but labelled in-sample/selection-biased; new holdout block selects killzones on the first half of trades and measures the second; 'flips OOS?' column; tests/test_session_gating_holdout.py). MUST RE-READ: docs/research/small-tf-directions-2026-07-15.md D1a session/killzone gating -- any 'flips' claim there is in-sample and must be re-scored with the holdout column before it supports a decision. No record under research/results or comms/strategy_evidence names session_gating.py."
+}

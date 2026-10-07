@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-13",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ZGQPHR3D-0003",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-pair-funding-drag-silent-empty-pass",
+    "rerun": "read docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl and re-check the finding AUD-20260927-CA-B04-pair-funding-drag-silent-empty-pass against current scripts/research/pair_funding_drag.py:64"
+  },
+  "state": "queued",
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('RESEARCH (re-pointed from RESEARCH (BACKLOG-BURNDOWN-2 2026-'); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "CA-B04 audit finding (high): scripts/research/pair_funding_drag.py:64 — main() runs analyze() and reports funding-drag metrics for a symbol pair, exiting 0 on success and 1 only on an exception. || HARNESS-AUDIT-FIXES 2026-10-07: FIXED on branch claude/harness-audit-fixes (main() exits 1 with an ERROR line when no funding intervals overlap; test added to tests/test_pair_funding_drag.py). BLAST RADIUS: docs/research/small-tf-directions-2026-07-15.md cites trainer #6509 funding-drag figures; they carry real numbers (not the empty-overlap path) so they most likely stand, but the run output is not committed: unverified."
+}

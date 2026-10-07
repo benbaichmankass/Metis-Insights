@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-13",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ZGQPHR3D-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-ict-scalp-exit-sweep-inert-fold",
+    "rerun": "read docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl and re-check the finding AUD-20260927-CA-B04-ict-scalp-exit-sweep-inert-fold against current scripts/research/m27/ict_scalp_exit_sweep.py:162"
+  },
+  "state": "queued",
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('RESEARCH (re-pointed from RESEARCH (BACKLOG-BURNDOWN-2 2026-'); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "CA-B04 audit finding (high): scripts/research/m27/ict_scalp_exit_sweep.py:162 — walk_forward()'s own docstring: a cell PASSES the M20 confirmation gate if it beats-or-ties baseline on net_R and maxDD in >=ceil(2/3) of usable folds. || HARNESS-AUDIT-FIXES 2026-10-07: FIXED on branch claude/harness-audit-fixes (walk_forward now also reports inert_folds/effective_* and verdict_effective beside the raw verdict; tests/test_ict_scalp_exit_sweep_wf_effective.py). BLAST RADIUS: no landed record under research/results or comms/strategy_evidence names ict_scalp_exit_sweep.py; docs/research/exit-refinement-coverage.json cites it (run 30384837775) only for cells graded honest_negative, which inert-fold inflation could not have produced; its one wf_pass (3/4) is from m20_fleet_exit_sweep, which already reports wins_effective. m21_entry_sweep.py (the audit's sibling critical finding) was ALREADY fixed on main (grade_walkforward -> walkforward_effective). Run artifacts for 30384837775 expired, so per-fold inertness of its candidates is not re-derivable: unverified, not 'none'."
+}
