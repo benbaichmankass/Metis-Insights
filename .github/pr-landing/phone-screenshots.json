@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Phone-executor Android app only (tools/phone-executor): scopes FLAG_SECURE to credential screens and adds 5xx backoff on claim. No VM runtime, order path, config or strategy change; the claim route and its one-attempt-per-ticket server contract are untouched."
+}
