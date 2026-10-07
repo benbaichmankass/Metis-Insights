@@ -1,0 +1,199 @@
+id: RQ-20261007-221
+title: 'PROP BOOK COMPOSITION under Velotrade Classic 1-Step $5k: book ''mixed6'' (6 legs) at flat 0.5% / 0.75% / 1.0% per
+  leg -- does stacking raise pace to +target in <= 60 d without breaching (PI-20261006-APBY4NTV-0001 batch 2)'
+status: queued
+cadence: once
+theme: new_strategy_prop
+priority: 1
+requires_result:
+  unit: RQ-20261007-201
+kind: experiment
+question: 'On ONE Velotrade Classic 1-Step $5k account (4% daily (00:30 UTC reset, equity) / 7% static max-DD, +10% target
+  plus 5 qualifying days at >= +0.8%), does the book ''mixed6'' -- three trend_donchian 1h legs (ETH, SOL, XRP) + three ict_scalp
+  15m legs (ONDO, AAVE, SUI): the current book plus three fast legs on other symbols, the low-correlation mix -- traded together
+  (overlapping in calendar time exactly as the 730 d histories overlapped, one shared balance, re-entry on a busy leg skipped)
+  clear clause (R) of the go-live gate (E[net $ per account life] > 0 on every seed) at a flat per-leg risk of 0.5% (A), 0.75%
+  (B) or 1.0% (C) of balance, and at which arm does the simulator''s median days_to_pass fall to <= 60 d while p_breach_daily_loss
+  stays <= 0.05 per life? Legs: trend_donchian_eth_prop, trend_donchian_sol_prop, p2_trend_xrpusdt, p2_ict15_ondousdt, p2_ict15_aaveusdt,
+  p2_ict15_suiusdt. ETH/SOL use the committed 2026-10-05-730d records; every other leg is re-run from a fresh 730 d fetch
+  by p2_breakout_symbol_screen.py --census-only in the same job (the P2r2 cells committed no rows). Multi-leg books ride prop_ev_grid
+  exactly as RQ-20261006-070 did: the first leg on --leg, the rest as --trades inside --common, so one sim prices the whole
+  book. Venue reachability is per docs/integrations/breakout-instruments-2026-09-27.md (operator screenshot, unverified against
+  the live page), Tradeify "100+ cryptocurrency pairs" and Velotrade "104 crypto instruments on KuCoin perp feeds" (docs/research/prop-firm-deepdive-2026-10-04.md);
+  only ETH/SOL/XRP/BTC/ADA have measured lots on any prop terminal, so every other symbol is a candidate for research, not
+  yet an executable leg.'
+why_this_matters: 'Operator 2026-10-06 (verbatim, in PI-20261006-APBY4NTV-0001): "continue searching for new strategies ...
+  specifically for the prop accounts, with an emphasis on shorter-timeframe strategies, or at least strategies that turn a
+  profit faster (we would ideally want +10% monthly, not over more than 6 months)" and "we shouldn''t be stuck on eth and
+  sol - anything that we''re able to trade is fair game". Batch 1 (RQ-20261006-005..031, Stage-0 net of each harness''s cost
+  stack, research/results/RQ-20261006-0NN/*.jsonl, measurement block; the `wiring_only` verdict field is a grader bug being
+  fixed by lane RQ-RESULTS): 5 PASS, all at 1h (ADA/DOGE/LINK pullback, DOGE squeeze, SLV fade); 17 FAIL including every 15m
+  and 5m cell (BTC 15m fade -1820R over 4214 trades); the 5m/15m chop scalps indeterminate (n<39). READ: with these harnesses
+  the cost stack kills 5m/15m; pace has to come from BREADTH (more 1h-4h legs on more instruments) and from stacking legs,
+  not from faster bars. The P2r2 screen (RQ-20261001-001..049, research/results/RQ-20261001-0NN/p2r2-session-2.jsonl, 730
+  d ending 2026-10-01, LIVE donor params re-pointed at the symbol, net of fee+slippage+funding) found 16 cells with harness
+  net_r > 0 pooled AND in both chronological halves: trend_donchian 1h on SOL +20.0R, XRP +31.0R, HYPE +15.0R, ADA +16.0R,
+  FIL +22.5R, LINK +27.0R, SUI +10.3R, UNI +23.4R, ZEC +40.7R; ict_scalp 15m on HYPE +8.4R, AAVE +13.6R, ONDO +17.5R, DOGE
+  +8.1R, SUI +12.3R, ZEC +7.3R; pullback 2h on XRP +14.7R. Every one of them graded NULL under Breakout CLASSIC at 1.5% risk
+  (ev > 0 on all seeds, P(net>0) < 0.70 somewhere) and NONE has committed per-trade rows (the session ran them locally; comms/research/
+  holds no RQ-20261001 directory). The bar that failed was the 1.5% Breakout edge bar, not the operator''s go-live gate (2026-10-06
+  06:40Z: the risk requirements), and the question never asked was PACE. This is the THIRD new family the batch registers
+  -- book STACKING for daily resolution: a single 1h trend leg at 0.5% risk is structurally too slow (velotrade_1 median ~220
+  d to +10%, RQ-20261006-002), so the pace lever that does not need faster bars is more uncorrelated legs at the same per-trade
+  risk. RQ-20261005-902/-903 searched 2-3 leg books of the admitted ETH/SOL/XRP legs and found no PASS at the 0.70 edge bar;
+  this asks the pace question over 6-leg books on the three rulesets the operator named, with the go-live gate the operator
+  re-scoped on 2026-10-06.'
+power:
+  expected_n: 132
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: d=0.3 needs ~87-90 observations at alpha 0.05 / power 0.8 (the floor RQ-20260928-011/-012 registered and every prop
+    fit since has used). expected_n=132 is the SMALLEST leg's measured 730 d trade count (research/results/RQ-20261001-0NN/p2r2-session-2.jsonl
+    and comms/strategy_evidence/runs/2026-10-05-730d/); the grid grades on the --leg leg's n, and the book's pooled trade
+    count is several times larger. Below 88 the grid grades UNDERPOWERED (indeterminate), never FAIL.
+  feasibility:
+    source: none
+    accrual_basis: A 730 d window fetched from data.binance.vision at run time and re-priced; nothing accrues.
+decision_rule:
+  id: RULE-RQ1007-221-BOOK-MIXED6-VELOTRADE
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: 'Per seed and arm: prop_ev_sim path-mode ev_net_usd_per_life, p_net_positive, p_breach_daily_loss, p_breach_max_dd,
+    p_pass_eval, days_to_pass p50/p90 and mean_trades_skipped_leg_busy_per_life over the 6-leg book under config/prop_rulesets/velotrade_classic_1step.yaml,
+    Velotrade''s own stack (ruleset header, first-party 2026-10-04; scripts/research/velotrade_fit_sweep.py COSTS): 0.03%/side
+    = 6 bps round trip, 3 bps slippage, 0.05%/night swap at 00:30 UTC (dxtrade model), per-leg --lev-cap from the ruleset
+    (trend_donchian_eth_prop=5, trend_donchian_sol_prop=5, p2_trend_xrpusdt=2, p2_ict15_ondousdt=2, p2_ict15_aaveusdt=2, p2_ict15_suiusdt=2),
+    --no-hedge.'
+  rule: 'The grid''s verdict.json is the MECHANICAL half and closes the unit (grading.auto): PASS IF ev_net_usd_per_life >
+    0 on ALL 5 seeds at any arm (--p-floor 0.0: clause (R) of the operator''s 2026-10-06 06:40Z go-live gate, as RQ-20261006-070/071);
+    UNDERPOWERED (indeterminate) IF n < 88; FAIL IF ev <= 0 on any seed at every arm; NULL (indeterminate) otherwise. The
+    RANKING half is read from the landed sims/*.json by the grading session and never changes the verdict: per arm, days_to_pass
+    p50 and p90, p_pass_eval, p_breach_daily_loss, p_breach_max_dd and p_net_positive. A PASS arm with p_breach_daily_loss
+    <= 0.05 on every seed AND days_to_pass p50 <= 60 d is a ''PACE CANDIDATE'' for the ranked list in PI-20261006-APBY4NTV-0001;
+    a PASS with p50 > 180 d is ''too slow'' (still a PASS); p_breach_daily_loss > 0.05 on any seed is ''breach-bound'' (still
+    a PASS on the mechanical rule, never a placement). Any placement is a Tier-3 roster proposal for the matching prop account,
+    NOT applied by this unit. A FAIL is one pass and re-queues once before it is read as a kill. Across the three book units
+    on the same ruleset the ranked list reads the fastest PACE CANDIDATE arm; the book that reaches p50 <= 60 d at the lowest
+    per-leg risk is the proposal.'
+  what_it_does_not_do: 'Does not touch config/accounts.yaml, config/strategies.yaml or any prop roster. Re-prices a 730 d
+    backtest at the donor leg''s LIVE parameters (fee + slippage + funding in the harness, then the venue''s own commission/slippage/swap
+    in the sim); not a live-parity check and not a per-symbol lot/leverage check on any terminal. P(pass by 30/90/180 d) is
+    not emitted by prop_ev_sim (PI-20261006-TPQQDKFF-0001); days_to_pass p50/p90 stands in. Does not vary per-leg risk independently
+    (one flat fraction per arm) and does not search leg subsets: the three registered books are the population.'
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 120
+  basis: 4 binance-vision fetch + harness runs (~5-20 min each) then 3 arms x 5 seeds of a 6-leg prop_ev_sim (~5-8 min per
+    cell over 4 jobs).
+run:
+  workflow: research-script-run.yml
+  timeout_minutes: 300
+  commands:
+  - - python3
+    - scripts/research/p2_breakout_symbol_screen.py
+    - --symbol
+    - XRPUSDT
+    - --family
+    - trend
+    - --days
+    - '730'
+    - --workdir
+    - '{out_dir}/screen_xrpusdt'
+    - --census-only
+    - --jobs
+    - '4'
+  - - python3
+    - scripts/research/p2_breakout_symbol_screen.py
+    - --symbol
+    - ONDOUSDT
+    - --family
+    - ict15
+    - --days
+    - '730'
+    - --workdir
+    - '{out_dir}/screen_ondousdt'
+    - --census-only
+    - --jobs
+    - '4'
+  - - python3
+    - scripts/research/p2_breakout_symbol_screen.py
+    - --symbol
+    - AAVEUSDT
+    - --family
+    - ict15
+    - --days
+    - '730'
+    - --workdir
+    - '{out_dir}/screen_aaveusdt'
+    - --census-only
+    - --jobs
+    - '4'
+  - - python3
+    - scripts/research/p2_breakout_symbol_screen.py
+    - --symbol
+    - SUIUSDT
+    - --family
+    - ict15
+    - --days
+    - '730'
+    - --workdir
+    - '{out_dir}/screen_suiusdt'
+    - --census-only
+    - --jobs
+    - '4'
+  - - python3
+    - scripts/research/prop_ev_grid.py
+    - --leg
+    - trend_donchian_eth_prop=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl
+    - --arm
+    - A=--sizing balance --risk-pct 0.005
+    - --arm
+    - B=--sizing balance --risk-pct 0.0075
+    - --arm
+    - C=--sizing balance --risk-pct 0.01
+    - --common
+    - --trades trend_donchian_sol_prop=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop__trades.jsonl
+      --trades p2_trend_xrpusdt={out_dir}/screen_xrpusdt/p2_trend_xrpusdt__trades.jsonl --trades p2_ict15_ondousdt={out_dir}/screen_ondousdt/p2_ict15_ondousdt__trades.jsonl
+      --trades p2_ict15_aaveusdt={out_dir}/screen_aaveusdt/p2_ict15_aaveusdt__trades.jsonl --trades p2_ict15_suiusdt={out_dir}/screen_suiusdt/p2_ict15_suiusdt__trades.jsonl
+      --ruleset config/prop_rulesets/velotrade_classic_1step.yaml --costs breakout --commission-bps-rt 6 --slippage-bps-rt
+      3 --swap-daily 0.0005 --swap-model dxtrade --no-hedge --funded-start fresh --lev-cap trend_donchian_eth_prop=5 --lev-cap
+      trend_donchian_sol_prop=5 --lev-cap p2_trend_xrpusdt=2 --lev-cap p2_ict15_ondousdt=2 --lev-cap p2_ict15_aaveusdt=2 --lev-cap
+      p2_ict15_suiusdt=2
+    - --seeds
+    - 1,2,3,4,5
+    - --grade
+    - pass_all_seeds
+    - --p-floor
+    - '0.0'
+    - --n-floor
+    - '88'
+    - --out
+    - '{out_dir}'
+    - --jobs
+    - '4'
+    - --note
+    - 'RQ-20261007-221: book mixed6 under velotrade, flat 0.5% / 0.75% / 1.0% per leg of balance'
+  inputs:
+    research_unit: RQ-20261007-221
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+grading:
+  auto: true
+related:
+- PI-20261006-APBY4NTV-0001
+- config/prop_rulesets/velotrade_classic_1step.yaml
+- RQ-20261006-070
+- RQ-20261005-902
+- RQ-20261005-903
+- RQ-20261006-062
+- RQ-20261007-201
+- scripts/research/prop_ev_grid.py
+- scripts/research/p2_breakout_symbol_screen.py
+last_dispatched_at: null

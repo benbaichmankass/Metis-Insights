@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "why": "Adds an opt-in per-leg flat risk override to the prop sizing path (src/prop/prop_sizing.py, breakout_executor.py). With no per_leg_risk_usd declared, behaviour is unchanged (golden byte-identical test passes). Sizing on a live prop book is Tier-3.",
+  "hold_text": "HELD Tier-3 proposal, NOT applied here: breakout_2 per-leg risk ETH $25 / SOL $50 (turbo ruleset sizing.flat.max_risk_usd 25->50 plus per_leg_risk_usd {trend_donchian_eth_prop: 25, trend_donchian_sol_prop: 50}). Cited records: RQ-20261005-853 (ETH, flat $25 arm, verdict indeterminate, n=355) and RQ-20261005-854 (SOL, verdict indeterminate, n=132; per PI-20261005-YUVCGTMJ-0006 min ev +$26.67 at $50 vs +$12.67 at $25). Both are NULL on the registered rule (P(net>0)<0.7 on a seed), so the data does not clear a promotion bar. Manager/operator decide.",
+  "hold_reason": "tier_2_3_needs_approval"
+}

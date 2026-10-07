@@ -97,6 +97,12 @@ def main(argv: List[str]) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     out["pair"] = f"{args.symbol_a}/{args.symbol_b}"
+    # No overlap => no figure was computed. All-None output with exit 0 reads as
+    # "funding drag is negligible" (CA-B04), so it is a hard failure.
+    if out.get("error") or not out.get("intervals"):
+        print(f"ERROR: {out.get('error') or 'no funding intervals'} — {out['pair']}: "
+              "no funding-drag figure was computed", file=sys.stderr)
+        return 1
     print(f"funding-drag — {out['pair']}")
     for k in ("intervals", "leg_a_mean_abs_bps_8h", "leg_b_mean_abs_bps_8h",
               "net_diff_mean_bps_8h", "net_diff_mean_abs_bps_8h",

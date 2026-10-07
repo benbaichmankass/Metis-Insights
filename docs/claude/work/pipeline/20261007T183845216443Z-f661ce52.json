@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261007-JOHNSXDJ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane VELOTRADE-TICKET session_01BbBqjBgks6BVLgjoHnSxdJ, manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-07",
+    "rerun": "scripts/ops/diag_fetch.sh 'journalctl?unit=ict-prop-executor@velotrade_1.service&since=2026-10-07T01:55:00Z&until=2026-10-07T03:10:00Z&lines=2000' | grep band_wait ; GET /api/bot/prop/tickets?account_id=velotrade_1 (entry vs first band_wait quote)"
+  },
+  "state": "queued",
+  "what": "velotrade_1 ETH-short ticket prop-manual-4fa7266cfcf0 (trend_donchian_eth_prop, created 2026-10-07 01:59:22Z) carried entry 2672.0 while the executor's first quote at 02:03:15Z was bid 2615.72 (~2.1% below entry, a SHORT); every one of its 12 ticks read bid 2608.97..2618.41, so it could never enter its band. Question: was the entry stale at emission (e.g. a Donchian channel level or a closed-bar price far from the live price) rather than market moving after? Read the order package / signal row for the 01:59Z signal and the ETH 2h candle it fired on; if the ticket entry is systematically far from the live price at emission, every such ticket band-waits and expires unplaced (same shape as fb466451fd1f on 2026-10-02). Population: all velotrade_1 + breakout_1 ETH tickets since 2026-10-01 — share whose first executor quote is outside the band."
+}

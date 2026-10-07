@@ -5528,6 +5528,30 @@
         "due_by": "2026-10-14"
       },
       "note": "[2026-10-07 lane] Built src/prop/qualifying_days.py (counter over prop_fills closed pnl by 00:30Z day; threshold = qualifying_day_profit_pct 0.008 x account_size_usd 5000 = $40, both read from velotrade_classic_1step.yaml; population: velotrade_1 closed fills; n=0 fills at build time, tested on fixtures only), qualifying_days key on rule_distance, ack-line suffix. Closes when merged+deployed and GET /api/bot/prop/status?account_id=velotrade_1 on the VM shows rule_distance.qualifying_days.state=measured. NOT built: the digest carries no prop status line today (grep of work_digest/render_daily_brief: none), so the ack line is the only status line extended; payout scheduler and Overexposure cap (PI-20261004-KQIWJZWX-0002 b,c) remain open."
+    },
+    {
+      "id": "PROP-TRAIL-PHONE",
+      "title": "Give the phone-executed prop account (breakout_2) the chandelier trail its Stage-0 record assumed: server plans, phone amends on the terminal",
+      "phase": "E",
+      "state": "blocked",
+      "owner": "build lane",
+      "lane": "session_01YT5VE5mnD6LfbHaVMK2Q5Y",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 45,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        16959,
+        16980
+      ],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "MANAGER-MERGE",
+          "what": "#16959 (server) and #16980 (app) are Tier-2 HELD for the manager; then deploy (git-sync) + build/install the APK from phone-executor-apk on the merged head"
+        }
+      ],
+      "note": "[2026-10-07 lane session_01YT5VE5mnD6LfbHaVMK2Q5Y] BUILT, not merged. Pipeline PI-20261006-KX6ZKFNA-0002 (routed here). #16959: src/prop/phone_trail.py reuses prop_trail.plan_trail once per closed bar per placed ticket; ONE amend slot in prop_tickets.meta.phone_trail; served only to an app posting accepts:[amend]; mismatch/human_moved/2nd refusal/unreported claim lock + ping, never retried; request_tp_amend for TP-DOCTRINE. #16980: executeAmend (unique Positions row, resting stop must match else human_moved, one edit control never a close, one dialog, fields by label, read back, dry=cancel, live=one save then terminal re-read). UNMEASURED: Breakout's position edit UI was never captured; the first amend either passes or refuses with the dump. landed_unproven observation (after merge+deploy+install): the first live breakout_2 position receives one amend with meta.phone_trail.amend.status=='amended'. Related gap filed: PI-20261007-AVMK2Q5Y-0001 (phone fills never journaled open)."
     }
   ]
 }

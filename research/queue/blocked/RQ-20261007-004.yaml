@@ -1,0 +1,121 @@
+id: RQ-20261007-004
+title: >-
+  Active geometry, shorter timeframes: on the ict_scalp 5m/15m family (tp_at_r 1.5
+  fixed, SL amended on 72 of 192 closes since 2026-09-01, TP on 0), does a re-estimated
+  or thesis-extended target beat the fixed 1.5R target?
+status: blocked
+cadence: once
+kind: experiment
+theme: live_strategy
+priority: 2
+
+question: >-
+  The operator's framing singles out shorter timeframes as where mid-trade adjustment
+  matters most. MEASURED 2026-10-07 from the live journal (closed trades since
+  2026-09-01 with a matching order_package, diag journal?table=trades +
+  order_packages pulled 2026-10-07 ~17:30Z): the seven crypto ict_scalp legs closed
+  192 trades, the SL was amended on 72 of them (avax_5m 25/53, xrp_5m 10/20, sol_5m
+  10/32, eth_15m 7/19, xrp_15m 6/19, sol_15m 5/24, mgc_15m 4/14 on ib_paper) and the TP
+  on 0 -- a fixed 1.5R target (tp_at_r) placed at entry. The partial-TP ladder was
+  already asked and answered on this family (docs/research/exit-refinement-coverage.json
+  exit_ladder: honest_negative on 6 of 7 legs, passed_unshipped on ict_scalp_sol_15m,
+  run 31344328313, 2026-08-10). The unasked question is the revision one: on the 5m
+  and 15m horizon, does a target re-estimated through the trade (ATR-rescaled or
+  stall-pulled, RQ-20261007-003's modes) or extended while the scalp's own
+  displacement thesis holds (RQ-20261007-001's lever) beat the fixed 1.5R target on
+  calibration and on the P2 gate, net of the scalp fee stack that makes every extra
+  bar expensive?
+
+why_this_matters: >-
+  No account in config/accounts.yaml rosters a crypto ict_scalp leg at 142ec79e
+  (grep, 2026-10-07; only ict_scalp_mgc_15m on ib_paper), and the 192 journal
+  closes above are bybit_1 / ib_paper paper records, so this is the lowest
+  money-at-stake tier -- but it is the family whose bar horizon is shortest relative to its hold
+  time (the 2026-08-21 /system-review measured scalp legs held 10-100x their own
+  bar horizon) and therefore the one where a target that cannot move is most
+  often wrong by the time the trade is old. A result here also tells the
+  shorter-timeframe prop search (PI-20261006-APBY4NTV-0001) which geometry to
+  design in from the start.
+
+power:
+  expected_n: 177
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Re-pricing touches every trade, so n per leg is the base book. The smallest
+    committed per-leg record for a crypto scalp leg is ict_scalp_avax_5m at 177
+    trades (comms/strategy_evidence/runs/2026-10-02/ict_scalp_avax_5m__trades.jsonl,
+    `wc -l` 2026-10-07; 257-261 on the three earlier runs); d=0.3 needs 88, cleared.
+    ict_scalp_mgc_15m is excluded (no free-lane 15m feed, coverage matrix
+    blocked:native-history-thin).
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Counts from committed trade records; the ict-scalp-exit-sweep workflow
+      re-fetches the free-lane candles. Nothing accrues forward.
+
+decision_rule:
+  id: RULE-RQ1007-004-SCALP-TARGET-REVISION
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: >-
+    Per leg (the 6 free-lane crypto scalp legs), per cell of {mode in (atr_rescale,
+    stall_pull_in with stall_bars in (3, 6), extend_on_thesis with approach_frac 0.85
+    and extend_r in (0.5, 1.0), thesis = the entry displacement leg's extreme not yet
+    retraced 50%)} against the config-exact base (tp_at_r 1.5, declared levers kept):
+    (a) calibration share (exit within +/-20% of the final target) vs base; (b) the P2
+    gate (IS/OOS Path A/B, MIN_OOS_TRADES 25, grant cap, walk-forward), net of the
+    scalp fee + slippage stack the ict-scalp harness resolves.
+  rule: >-
+    PASS IF a cell improves (a) AND clears (b) in both IS and OOS on a leg -> a
+    Tier-3 proposal for that leg (paper/shadow routings; no real-money routing
+    carries a scalp leg today, re-check config/accounts.yaml at proposal time), and
+    the geometry is written into the shorter-timeframe prop search's design brief.
+    honest_negative IF no cell improves (a) on any leg: at this horizon the fixed
+    1.5R target predicts as well as any revision, recorded on the coverage matrix.
+    insufficient_base below 25 OOS trades.
+  what_it_does_not_do: >-
+    Ships nothing. Does not re-run the exit_ladder question. Does not grade
+    ict_scalp_mgc_15m (no feed). A cell passing (b) while worsening (a) does not pass.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 4.0
+  est_minutes: 150
+  basis: >-
+    Runner: ict-scalp-exit-sweep.yml already runs the 7 legs on 7 parallel runners
+    (timeout-minutes 150) once it exposes the new cells. Estimate, not a measurement.
+
+blocked_on:
+  - what: >-
+      scripts/backtest_ict_scalp.py exposes --no-tp, --tp-cap-pct, stale/giveback and
+      a vol spec, no target revision (argparse read 2026-10-07), and mi307 grades the
+      family not_capped_capable for the clamp question. Same build as RQ-20261007-001/-003
+      extended to the scalp harness.
+    ref: PI-20261006-5FUGHVX8-0001 (BUILD B1) -- proposed checklist row GEOM-B1-HARNESS (scalp harness half)
+    clears_when: >-
+      scripts/backtest_ict_scalp.py accepts the --tp-retarget-* and --tp-extend-* flags
+      and .github/workflows/ict-scalp-exit-sweep.yml accepts `tp_revision` in `cells`.
+      Then: move to research/queue/, status queued, run.workflow:
+      ict-scalp-exit-sweep.yml with inputs {cells: tp_revision, research_unit:
+      RQ-20261007-004}.
+
+run:
+  workflow: null
+  note: Null until the scalp harness lever lands (blocked_on); the dispatch shape is in clears_when.
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+related:
+  - 'PI-20261006-APBY4NTV-0003 (operator framing: critical for shorter timeframes)'
+  - 'PI-20261006-APBY4NTV-0001 (the shorter-timeframe prop search this result feeds)'
+  - 'docs/research/exit-refinement-coverage.json (exit_ladder verdicts on this family, 2026-08-10)'
+  - 'RQ-20261007-001 / -003 (the two revision lever families, defined there)'
+last_dispatched_at: null
