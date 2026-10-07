@@ -6,7 +6,7 @@
   "filed_by_2026_10_07": "lane DXTRADE-PROBE session_01GQJBuULrkHyyzmX3Z42edG",
   "id": "PI-20260930-WSTCE9FH-0001",
   "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-14",
-  "next_action": "none",
+  "next_action": "check_observation",
   "origin": {
     "kind": "research",
     "ref": "docs/research/prop-dxtrade-firms-2026-09-30.md",
