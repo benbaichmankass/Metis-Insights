@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CHECKLIST step (b1): move the loader core to src/runtime/checklist_store.py and make the pure-data checklist readers (API route via manager_status.read_json_file, decision_subject, manager_wake, render_daily_brief, session_registry and its 3 downstream scripts, owner_liveness, lane_reconcile, soak_report, vocabulary guard) path-aware: monolith today, seeded rows after cutover. Identical data both ways (tests). Read paths only; no order path, no strategy/risk/sizing."
+}

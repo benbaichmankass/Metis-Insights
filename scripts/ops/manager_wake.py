@@ -199,6 +199,16 @@ def _load_json(path: Path) -> tuple[Any, bool]:
     is a deploy fact, "the file is corrupt" means we did not look. Collapsing
     them is how a broken register gets reported as an empty one.
     """
+    if str(REPO) not in sys.path:
+        sys.path.insert(0, str(REPO))
+    from src.runtime import checklist_store as _ck  # noqa: PLC0415
+    if _ck.is_checklist_path(path):  # rows are the truth once the store is seeded
+        if not _ck.exists(path):
+            return None, True
+        try:
+            return _ck.load_path(path), True
+        except (OSError, ValueError):
+            return None, False
     if not path.is_file():
         return None, True
     try:
