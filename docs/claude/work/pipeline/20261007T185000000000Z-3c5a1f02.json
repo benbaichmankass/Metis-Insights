@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "clears_when": "PR #16958 merged AND the operator decides the held breakout_2 per-leg config (ETH $25 / SOL $50; both source records RQ-20261005-853/854 are indeterminate) - applied, or killed with a reason",
+    "kind": "event"
+  },
+  "id": "PI-20261005-YUVCGTMJ-0006",
+  "next_action": "operator_decision",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PHONE-EXEC-1B session_01Ce3EyP4Z9A4P4MyUvcgtmJ; research/results/RQ-20261005-814",
+    "rerun": "cat research/queue/RQ-20261005-813.yaml research/queue/RQ-20261005-814.yaml | grep result; grep -n risk_pct src/prop/account_rulesets.py"
+  },
+  "routed_to": "PR #16958 (support built, held) -> manager/operator decision on the breakout_2 ETH $25 / SOL $50 config",
+  "state": "routed",
+  "what": "PER-LEG PROP SIZING: breakout_2's pre-registered Turbo fit picks $25 for trend_donchian_eth_prop (RQ-20261005-813) but $50 for trend_donchian_sol_prop (RQ-20261005-814: min ev +$26.67 vs +$12.67 at $25). risk_pct is account-level, so the account runs $25 for both. Build a per-strategy risk override for prop accounts (accounts.yaml strategies entry or ruleset sizing.per_leg) and apply SOL $50, or kill with a stated reason. [ID NOTE 2026-10-05 16:20Z: the research units cited here were renumbered RQ-20261005-811/812/813/814 -> 851/852/853/854 when main took 811-814 for E35/M20 sweeps; read 851-854.] [2026-10-07 lane PROP-PER-LEG-SIZING: per-leg support built in PR #16958; the $25/$50 config is a HELD Tier-3 proposal, not applied.]"
+}
