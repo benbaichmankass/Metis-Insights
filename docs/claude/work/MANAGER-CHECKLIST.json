@@ -4959,7 +4959,7 @@
       "lane": "session_01FuWi5xUmKJf6ps9HEp9LyP",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 15,
-      "spend_usd": null,
+      "spend_usd": 30.98,
       "tier": 1,
       "prs": [
         16215,
@@ -5646,7 +5646,7 @@
       "tier": 3,
       "prs": [],
       "blocked_on": [],
-      "note": "[2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-5FUGHVX8-0001. Operator directive 2026-10-06 (canonical in ARCHITECTURE-CANONICAL \u00a7 TP doctrine; guard check_tp_doctrine.py). MEASURED at 233c9c28: 0 of 52 routings compliant; tp_revision FAIL 52/52 (no monitor() ever returns a tp verdict; prop path passes TP=None). Build the revision mechanism (B1) behind the existing exit-refinement pipeline; the sentinel fixes are research (RQ-20261006-060/061 queued). Strategy logic = Tier-3: PR held, manager/operator merge. Opus, default mode."
+      "note": "[2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-5FUGHVX8-0001. Operator directive 2026-10-06 (canonical in ARCHITECTURE-CANONICAL \u00a7 TP doctrine; guard check_tp_doctrine.py). MEASURED at 233c9c28: 0 of 52 routings compliant; tp_revision FAIL 52/52 (no monitor() ever returns a tp verdict; prop path passes TP=None). Build the revision mechanism (B1) behind the existing exit-refinement pipeline; the sentinel fixes are research (RQ-20261006-060/061 queued). Strategy logic = Tier-3: PR held, manager/operator merge. Opus, default mode. || [2026-10-07T18:33Z] The 2026-10-06 TP-DOCTRINE lane (session_01ED511AxTFsssBE5FUGhvX8, #16739 canonical section + guard) archived, $24.50 final; this row now tracks build B1."
     },
     {
       "id": "PAIRS-STOCKTAKE",
@@ -5699,14 +5699,14 @@
       "phase": "W6",
       "state": "in_flight",
       "owner": "lane PROP-SILENCE-ALERTS",
-      "lane": null,
+      "lane": "session_01Fhry4ikKEvC4LNBqESw7m2",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 20,
       "spend_usd": null,
       "tier": 2,
       "prs": [],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-XJSGZG1X-0001, PI-20261005-YUVCGTMJ-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-XJSGZG1X-0001, PI-20261005-YUVCGTMJ-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "PHONE-GO-TOKEN",
@@ -5714,14 +5714,14 @@
       "phase": "W6",
       "state": "in_flight",
       "owner": "lane PHONE-GO-TOKEN",
-      "lane": null,
+      "lane": "session_01GwGBXfse86d27eHXvzCnvS",
       "model": "claude-opus-5-5",
       "ceiling_usd": 30,
       "spend_usd": null,
       "tier": 2,
       "prs": [],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-YUVCGTMJ-0003. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-YUVCGTMJ-0003. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "PHONE-BALANCE-READ",
@@ -5729,14 +5729,14 @@
       "phase": "W6",
       "state": "in_flight",
       "owner": "lane PHONE-BALANCE-READ",
-      "lane": null,
+      "lane": "session_01PZMASvu7ertVZeHdx56jrf",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 15,
       "spend_usd": null,
       "tier": 2,
       "prs": [],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-YUVCGTMJ-0002. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-YUVCGTMJ-0002. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "PROP-PER-LEG-SIZING",
@@ -5744,14 +5744,14 @@
       "phase": "W6",
       "state": "in_flight",
       "owner": "lane PROP-PER-LEG-SIZING",
-      "lane": null,
+      "lane": "session_01FG9ybJ2kGjQXfg7rE3NpDs",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 25,
       "spend_usd": null,
       "tier": 3,
       "prs": [],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-YUVCGTMJ-0006. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-YUVCGTMJ-0006. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "VELOTRADE-RECON",
@@ -5759,14 +5759,14 @@
       "phase": "W6",
       "state": "in_flight",
       "owner": "lane VELOTRADE-RECON",
-      "lane": null,
+      "lane": "session_01DZSAXAAYAWhKdcWpbhwthS",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 20,
       "spend_usd": null,
       "tier": 2,
       "prs": [],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261006-ZRM27CBW-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261006-ZRM27CBW-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "VELOTRADE-QUALDAYS",
@@ -5774,14 +5774,14 @@
       "phase": "W6",
       "state": "in_flight",
       "owner": "lane VELOTRADE-QUALDAYS",
-      "lane": null,
+      "lane": "session_01VdUmHTU3XjyH6mnEZL5Jfv",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 20,
       "spend_usd": null,
       "tier": 2,
       "prs": [],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-KQIWJZWX-0002. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-KQIWJZWX-0002. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "MIRROR-LEGACY-SHORTS",
@@ -5789,14 +5789,14 @@
       "phase": "W6",
       "state": "in_flight",
       "owner": "lane MIRROR-LEGACY-SHORTS",
-      "lane": null,
+      "lane": "session_01FBnP34nkWQZrBTHTvXgdYJ",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 15,
       "spend_usd": null,
       "tier": 2,
       "prs": [],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-J4SFBKU9-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-J4SFBKU9-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "EXIT-PARITY-CHECK",
@@ -5804,14 +5804,14 @@
       "phase": "W6",
       "state": "in_flight",
       "owner": "lane EXIT-PARITY-CHECK",
-      "lane": null,
+      "lane": "session_0112fGb4EsirPgfhqtS5tKFo",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 25,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-UQ9JJPRQ-0004. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-UQ9JJPRQ-0004. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "RESEARCH-FOLLOWUPS",
@@ -5819,14 +5819,14 @@
       "phase": "W6",
       "state": "in_flight",
       "owner": "lane RESEARCH-FOLLOWUPS",
-      "lane": null,
+      "lane": "session_014K2a33t9kVxxK9cjt6J2s9",
       "model": "claude-fable-5-1",
       "ceiling_usd": 25,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-P24XMV4V-0001, PI-20261004-P24XMV4V-0002, PI-20261004-P24XMV4V-0003, PI-20261004-P24XMV4V-0004, PI-20261004-UQ9JJPRQ-0001, PI-20261004-UQ9JJPRQ-0002, PI-20261004-APBY4NTV-0001, PI-20261005-XJSGZG1X-0002, PI-20261006-1BPXEUJR-0001, PI-20261005-OAKGATE1-0002. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-P24XMV4V-0001, PI-20261004-P24XMV4V-0002, PI-20261004-P24XMV4V-0003, PI-20261004-P24XMV4V-0004, PI-20261004-UQ9JJPRQ-0001, PI-20261004-UQ9JJPRQ-0002, PI-20261004-APBY4NTV-0001, PI-20261005-XJSGZG1X-0002, PI-20261006-1BPXEUJR-0001, PI-20261005-OAKGATE1-0002. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "RQ-INFRA",
@@ -5834,14 +5834,14 @@
       "phase": "W6",
       "state": "in_flight",
       "owner": "lane RQ-INFRA",
-      "lane": null,
+      "lane": "session_01AkBwsnKEM8iz4BeP1ghUHC",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 30,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261006-TPQQDKFF-0001, PI-20261006-TPQQDKFF-0002, PI-20261006-LCEVL8D5-0001, PI-20261006-LCEVL8D5-0002, PI-20261006-LCEVL8D5-0003, PI-20261005-RQ-ID-RACE-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261006-TPQQDKFF-0001, PI-20261006-TPQQDKFF-0002, PI-20261006-LCEVL8D5-0001, PI-20261006-LCEVL8D5-0002, PI-20261006-LCEVL8D5-0003, PI-20261005-RQ-ID-RACE-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "API-COLLAPSED-STATES",
@@ -5849,14 +5849,14 @@
       "phase": "W6",
       "state": "in_flight",
       "owner": "lane API-COLLAPSED-STATES",
-      "lane": null,
+      "lane": "session_01LTcc4ccHr2rcL85zFjcTnR",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 25,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-APBY4NTV-0002, PI-20261005-APBY4NTV-0002, PI-20261005-MWOP8C4X-0002, PI-20261005-MWOP8C4X-0003. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-APBY4NTV-0002, PI-20261005-APBY4NTV-0002, PI-20261005-MWOP8C4X-0002, PI-20261005-MWOP8C4X-0003. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "REGISTER-TOOLING",
@@ -5864,14 +5864,14 @@
       "phase": "W6",
       "state": "in_flight",
       "owner": "lane REGISTER-TOOLING",
-      "lane": null,
+      "lane": "session_012xSAmZaaxVR3W8bFoai4zM",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 25,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-4GA8WQPA-0002, PI-20261004-4GA8WQPA-0003, PI-20261004-APBY4NTV-0003, PI-20261005-4GA8WQPA-0002, PI-20261005-WFBREDQP-0001, PI-20261005-WFBREDQP-0002, PI-20261005-KQIWJZWX-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-4GA8WQPA-0002, PI-20261004-4GA8WQPA-0003, PI-20261004-APBY4NTV-0003, PI-20261005-4GA8WQPA-0002, PI-20261005-WFBREDQP-0001, PI-20261005-WFBREDQP-0002, PI-20261005-KQIWJZWX-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "HARNESS-AUDIT-FIXES",
@@ -5879,14 +5879,14 @@
       "phase": "W6",
       "state": "in_flight",
       "owner": "lane HARNESS-AUDIT-FIXES",
-      "lane": null,
+      "lane": "session_019vKPsvXoNhVaJT1f8ainK1",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 20,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-IRWQEEXT-0004. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-IRWQEEXT-0004. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     }
   ]
 }
