@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Observability only: scripts/ops/attention_watch.py gains a read-only needs_review reader over research/queue/*.yaml, a loud digest line and an edge-triggered ping. No order path, strategy config, risk cap, src/, deploy/ or live-VM runtime file."
+}

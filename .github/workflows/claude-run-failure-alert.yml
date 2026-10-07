@@ -245,6 +245,7 @@ on:
       #    research-queue-dispatch is the research queue's scheduler and
       #    had already failed twice unobserved when this was measured.
       - alpaca-settlement-soak-watch
+      - mirror-orphan-watch
       - research-queue-dispatch
       # RQ-RUN (2026-09-28): the queue's replenisher and mechanical grader are
       # what keep it running without a session; a dead scheduled run on either

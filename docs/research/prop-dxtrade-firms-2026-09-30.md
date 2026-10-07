@@ -297,6 +297,47 @@ remaining decision is Option B (a small paid account for a login-only trial).
 The manager's note cites a $120 pilot; this memo's ~$100 is third-party
 only, so the price is to be read off the firm's checkout before the operator decides.
 
+### 4.2 Re-measurement 2026-10-07 (lane DXTRADE-PROBE; landing-only GETs, no credentials)
+
+Asked by the manager after the operator's 2026-10-07 popup ("$0 reachability probe
+only"). **Read § 4.1 first: this repeats it.** The VM probe had already run on
+2026-09-30, and the operator then bought the $10k pilot (2026-09-30, checklist
+row PROP-DXTRADE-FIRMS) and the login was verified from the VM (issue #14691,
+run 36702582805); the Tradeify executor (`tradeify_1`, dry) has been built and
+exercised since. So this probe is a freshness check, not a gate.
+
+Dispatched as issue #16949, run 37668721703, 18:43Z, via `egress-landing-probe`
+(wrapper exit 0). Sandbox = this session's egress, curl at 18:41Z.
+
+| URL | egress | HTTP | server | cf-mitigated | Cloudflare error / challenge | body bytes |
+|---|---|---|---|---|---|---|
+| `https://dx.tradeify247.co/` | **VM** | 200 | cloudflare | (none) | none / none | 437,935 |
+| `https://dx.tradeify247.co/` | sandbox | 200 | cloudflare | (none) | none / none (`loginForm-main` present) | 437,935 |
+| `https://dx.tradeify247.co/specs` | **VM** | 409 JSON (keys `error`, `fieldValidationErrors`, `id`, `message`) | cloudflare | (none) | none / none | 102 |
+| `https://dx.tradeify247.co/specs` | sandbox | 409 JSON | cloudflare | (none) | none | 102 |
+| `https://tradeify247.co/` | **VM** | 200 | cloudflare | (none) | none / `turnstile` string | 295,995 |
+| `https://tradeify247.co/` | sandbox | 200 | cloudflare | n/a | none | 295,995 |
+| `https://dx.tradeify247.co/dxsca-web/` | sandbox only (not in the VM allowlist) | 400 (34 bytes) | cloudflare | (none) | none | 34 |
+
+Population: one request per URL per egress, one moment each. The VM and sandbox
+byte counts match on every shared URL, so the VM was served the same pages, not a
+block page. The same run also gave `trade.breakoutprop.com` (and `/app/`) HTTP 403
+`text/plain`, 17 bytes, from the VM: that is Breakout's new host, unrelated to
+Tradeify, and it is a block-shaped answer where Tradeify's is not.
+
+**Answer.** (a) Reachable: the landing is the real terminal page from the VM
+with no Error 1005, challenge or `cf-mitigated`. (b) `/specs` is not API docs
+(a DXtrade backend 409 JSON from both egresses, identical to 2026-09-30);
+`/dxsca-web/` answers with a DXtrade-shaped 400, measured from the sandbox only.
+Whether the REST API works for an account is **not established** by any
+credential-free request, and no REST login has been tried for Tradeify.
+
+**Not done.** (c) The GitHub-runner comparison the task asked for was not run: no
+allowlisted workflow runs `curl` on a runner, and adding one is a new workflow
+for a question that no longer gates anything. The sandbox is the comparison
+egress, as in § 4.1. The VM ASN is not blocked by Tradeify, which is
+established from the VM result alone.
+
 ## 5. Decision for the operator (2 to 4 options)
 
 | option | what it is | cost / risk | what it buys |
