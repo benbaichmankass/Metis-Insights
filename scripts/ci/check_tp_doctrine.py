@@ -168,8 +168,7 @@ BASELINE_2026_10_06: dict[str, frozenset[str]] = {
     "bybit_2/trend_donchian_xrp_4h": R,
     "bybit_2/xrp_pullback_2h": R,
     # ── prop ────────────────────────────────────────────────────────────────
-    "breakout_1/trend_donchian_eth_prop": R,
-    "breakout_1/trend_donchian_sol_prop": R,
+    # breakout_1 legs removed 2026-10-07 (account retired, roster cleared).
     "breakout_2/trend_donchian_eth_prop": R,
     "breakout_2/trend_donchian_sol_prop": R,
     "tradeify_1/trend_donchian_eth_prop": R,
