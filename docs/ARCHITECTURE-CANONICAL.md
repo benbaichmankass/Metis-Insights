@@ -567,6 +567,141 @@ usual evidence standard — this section makes the gap measurable, it does not
 license closing it without a record.
 
 
+## Prop ticket flow — one state machine per executor type (operator directive 2026-10-07, binding)
+
+The operator's words (2026-10-07, verbatim):
+
+> "In general, if a ticket expires and I haven't logged a trade, the system
+> should assume that the trade wasnt placed and the ticket should be kept
+> alive. And the prop accounts should have their own separate flow that isn't
+> contaminated by the telegram channels activity."
+
+**Why this exists (MEASURED, 2026-10-07).** velotrade_1's first live signal
+(ETH short, 01:59Z) waited on its entry band for all 12 executor ticks. At
+expiry the trader's Telegram prompter flipped it to `expiry_prompted`. That
+state waits for a human answer, but nobody places tickets on a REST account.
+The reticket guard counted it as outstanding for `valid_until` + 24 h, so it
+suppressed the next four ETH-short signals for 17 h.
+
+**Every prop account has one executor type.** It is read from
+`config/prop_platforms.yaml` by `src.prop.platform.ticket_flow()`:
+
+| type | which accounts | who places the order | how a fill is learned |
+|---|---|---|---|
+| `rest` | `accounts.<id>.platform` in `API_PLATFORMS` (today: velotrade_1) | the VM executor (`src/prop/prop_executor.py`) over REST | the executor's own read-back → `POST /api/bot/prop/report` |
+| `phone` | `phone_accounts.<id>` (today: breakout_2) | the app on the operator's phone (`src/prop/phone_executor.py`) | the phone's read-back → `phone/report` |
+| `manual` | every other prop account (today: breakout_1, tradeify_1) | a human at the terminal, or the browser executor assisting one | the human's report: Telegram button, pasted report, or the executor |
+
+`rest` and `phone` are the **machine** types. If the file cannot be read,
+every account is `manual`. That fallback is safe, because no state in the
+`manual` flow blocks a re-ticket once the ticket's validity has passed.
+
+### The rules
+
+1. **Expiry with no logged fill is TERMINAL "not placed", on every path.**
+   A ticket that reaches `valid_until` with no fill reported ends in
+   `expired`, or on a REST account in `skipped` with reason
+   `expired unplaced; last verdict …`. No path parks an expired ticket in a
+   state that waits for a human.
+2. **The opportunity stays alive.** An expired ticket never blocks. The next
+   valid signal for the same (account, symbol, direction) is ticketed normally.
+3. **The busy-symbol guard is unchanged.** It still blocks while the key has:
+   - an open prop position (newest `prop_fills` row `open`/`filled`);
+   - a ticket `placed` or `awaiting_report` (it may be a live position, so
+     there is no time limit);
+   - a phone ticket `claimed` (an attempt is in flight; the claim watchdog
+     ends it within `CLAIM_TIMEOUT_S`);
+   - an `emitted` ticket whose validity has not passed, or cannot be read
+     (fail-safe).
+
+   This is what keeps one account from ever having two live tickets for one
+   symbol and direction.
+4. **Machine accounts are not driven from Telegram.** `rest` and `phone`
+   tickets never enter `expiry_prompted`, `invalidated_prompted` or
+   `awaiting_report`. They get no Yes/No keyboard: not on the ticket, not at
+   expiry, not on price invalidation. A `propexp:*` tap naming such a ticket
+   is refused and writes nothing. Telegram only notifies for them: the ticket
+   itself, fills, refusals, the executor's NOT PLACED alert and the phone
+   alerts.
+5. **A Telegram tap never overwrites a later state.** `propexp:n` moves a
+   ticket to `expired`, and `propexp:y` moves it to `awaiting_report`, only
+   from `emitted`, `expiry_prompted`, `invalidated_prompted` or `expired`. Each
+   is a compare-and-set on the status read. A tap on a `filled`, `placed` or
+   `closed` ticket is refused.
+
+### The states, per type
+
+`T` = the trader tick (`src/prop/prop_expiry_prompt.py::run_prop_expiry_prompts`, once per trader loop).
+
+**manual**
+
+```
+emitted ──(human reports open/placed)──────────────▶ filled / placed ─▶ closed
+   │ ──(human taps ❌ on the ticket)───────────────▶ expired
+   │ ──(human taps ✅ on the ticket)───────────────▶ awaiting_report ─(fill)─▶ filled
+   │ ──(T: price left [SL,TP]; warn + ask)─────────▶ invalidated_prompted ─┐
+   └──(T: valid_until passed, no fill)─────────────▶ expired ◀────────────┘ (T, at valid_until)
+                                                        │
+                                       (human taps ✅ "I did place it", or pastes
+                                        the fill with the ticket's id) ──▶ awaiting_report / filled
+```
+
+At expiry the trader sends one notice: "expired — recorded as NOT placed".
+It carries a single ✅ "I did place it" button. The ticket is already
+`expired` and blocks nothing. Legacy `expiry_prompted` rows are retired the
+same way at the next tick: an unanswered prompt means not placed.
+
+**A late fill on a manual account** is reconciled in one of two ways:
+- The human taps ✅ on the expiry notice. The ticket moves `expired →
+  awaiting_report` and the report prompt follows.
+- The human pastes the fill with the ticket's id, which every rendered ticket
+  pre-fills in its report-back block. `match_fill_to_ticket` honours an
+  explicit id in any status, so `ingest_report` links the fill and advances
+  the ticket to `filled`.
+
+From then on the open `prop_fills` row is what blocks the key. A pasted fill
+with no ticket id is journaled but stays unlinked, because the fallback match
+never links to an `expired` ticket. The position still blocks re-tickets,
+because the guard reads `prop_fills`.
+
+**rest**
+
+```
+emitted ──(executor: band ok, guards fit, click + read-back)──▶ filled ─▶ closed
+   │ ──(executor: refused / unconfirmed)─────────────────────▶ skipped
+   │ ──(executor intake, past valid_until)───────────────────▶ skipped  "expired unplaced; last verdict …"
+   └──(T: still emitted at valid_until + MACHINE_EXPIRY_GRACE)─▶ expired  (the executor was off / read_only)
+```
+
+**phone**
+
+```
+emitted ──(phone claim, before valid_until)──▶ claimed ──(report open)────────▶ placed ─▶ filled / closed
+   │                                              │ ──(ticket_result)──────────▶ dry_filled / refused / skipped / mismatch_flattened
+   │                                              └──(no report in CLAIM_TIMEOUT_S)─▶ skipped + alert
+   └──(T: still emitted at valid_until + MACHINE_EXPIRY_GRACE)──▶ expired  (never claimed)
+```
+
+`MACHINE_EXPIRY_GRACE` (30 min) gives the REST executor time to post its own
+`skipped` report with its verdict first. Its timer runs every few minutes. The
+trader's `expired` write is a compare-and-set on `emitted`, so it cannot
+overwrite a claim, a placement or a report.
+
+**Who makes each transition** (no other writer exists):
+- the bridge (`breakout_executor.emit_prop_ticket`): `emitted` or `suppressed`;
+- the trader tick (`prop_expiry_prompt`, `prop_invalidation_prompt`): the
+  expiry and invalidation transitions shown above;
+- the Telegram callback (`handle_expiry_callback`): manual accounts only;
+- `ingest_report`: fill-driven statuses;
+- the REST executor: `skipped`, through `ingest_report`;
+- the phone endpoints: `claimed`, the `ticket_result` statuses, `placed`;
+- the `prop-ticket-expire` system-action: a REST-only operator escape hatch.
+
+**Observation that closes it:** the next ticket on velotrade_1 or breakout_2
+that expires unplaced reaches a terminal status, gets no Yes/No prompt, and
+does not suppress the next signal for the same key.
+
+
 ## Operator Communication Pipeline
 
 The flow is repo-driven and auditable.
