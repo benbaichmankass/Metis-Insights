@@ -5509,10 +5509,11 @@
       "spend_usd": 12.4,
       "tier": 1,
       "prs": [
-        16791
+        16791,
+        16960
       ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:15Z manager] First lane (session_01MZC82v4c5CnXkZ1vpYtx8e, Fable, $12.40 final) pushed branch claude/rq-fix-queue-verdicts (477521ee8: pyyaml on the result job, dispatcher idempotence, regrade tool, tests) and hit the weekly limit before landing it; PR #16791 is RED (pytest-run + guards). Re-dispatched as lane RQ-RESULTS (Fable, $20): fix #16791 CI, run the regrade over EVERY discarded row (MEASURED 45 of 54 results since 2026-10-06 13:00Z are wiring_only; 17 units fired 2-3x), seed prop-bar units for the 5 PASS legs. || [2026-10-06T13:05Z manager] Found while surveying the 41 prop units for the operator's 'push prop roster research' ask. PI-20261006-APBY4NTV-0010 has the measurements (8 of 358 result rows discarded across 6 units; 005 and 659 each fired twice). The double-fire is a consequence of my own #16736 (hourly cadence); the yaml bug predates it (#16388). Closes when a fresh harness result carries a real verdict and two consecutive cycles fire nothing twice."
+      "note": "[2026-10-07T18:57Z manager] #16791 fixed (c88755e5: opt-in --check-open-stamp-prs; ruff) and auto-merging; #16960 (prop-bar fits for the 4 crypto PASS legs on the Breakout ruleset + committed Stage-0 trades artifacts) held for me; its ids collide with #16955 -> renumbering. Verdict table confirmed by the regrade dry run. SLV fade (031) unpriceable until the fade emitter fix lands (PI-20261007-71Y2H2VZ-0001). || [2026-10-07T18:15Z manager] First lane (session_01MZC82v4c5CnXkZ1vpYtx8e, Fable, $12.40 final) pushed branch claude/rq-fix-queue-verdicts (477521ee8: pyyaml on the result job, dispatcher idempotence, regrade tool, tests) and hit the weekly limit before landing it; PR #16791 is RED (pytest-run + guards). Re-dispatched as lane RQ-RESULTS (Fable, $20): fix #16791 CI, run the regrade over EVERY discarded row (MEASURED 45 of 54 results since 2026-10-06 13:00Z are wiring_only; 17 units fired 2-3x), seed prop-bar units for the 5 PASS legs. || [2026-10-06T13:05Z manager] Found while surveying the 41 prop units for the operator's 'push prop roster research' ask. PI-20261006-APBY4NTV-0010 has the measurements (8 of 358 result rows discarded across 6 units; 005 and 659 each fired twice). The double-fire is a consequence of my own #16736 (hourly cadence); the yaml bug predates it (#16388). Closes when a fresh harness result carries a real verdict and two consecutive cycles fire nothing twice."
     },
     {
       "id": "ARMED-GATE",
@@ -5590,9 +5591,11 @@
       "ceiling_usd": 20,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        16955
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0003. Operator 2026-10-06: 'turning active management into active geometry ... TPs never seem to be moving ... for all the accounts'. ACTIVE-GEOMETRY-SCAN measured SL moved on 126/734 trades, TP on 0. This lane produces the plan: queue units (rule before run) + proposed build rows, ranked by money at stake, consistent with the TP doctrine. Fable (analysis, cheap to verify), auto."
+      "note": "[2026-10-07T18:57Z manager] PR #16955 held (new queue units cannot self-land by design); the manager lands. Units RQ-20261007-001..004 COLLIDE with #16960's ids -> RQ-RESULTS renumbers its own; #16955 lands first. Plan accepted: rows GEOM-B1-HARNESS + GEOM-CENSUS written. The 6R-vs-doctrine question is a data task (RQ-20261007-002 costed-null branch), not a popup. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0003. Operator 2026-10-06: 'turning active management into active geometry ... TPs never seem to be moving ... for all the accounts'. ACTIVE-GEOMETRY-SCAN measured SL moved on 126/734 trades, TP on 0. This lane produces the plan: queue units (rule before run) + proposed build rows, ranked by money at stake, consistent with the TP doctrine. Fable (analysis, cheap to verify), auto."
     },
     {
       "id": "PROP-TRAIL-PHONE",
@@ -5772,9 +5775,11 @@
       "ceiling_usd": 25,
       "spend_usd": null,
       "tier": 3,
-      "prs": [],
+      "prs": [
+        16958
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-YUVCGTMJ-0006. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:57Z manager] PR #16958 held: opt-in sizing.flat.per_leg_risk_usd, fail-closed, unset = unchanged. Lane's own recommendation HOLD the breakout_2 $25/$50 proposal: RQ-20261005-853/854 are indeterminate (P(net>0) < 0.7). ACCEPTED: mechanism merges on green; no per-leg config change on any prop account now. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-YUVCGTMJ-0006. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "VELOTRADE-RECON",
@@ -5817,9 +5822,11 @@
       "ceiling_usd": 15,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        16951
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-J4SFBKU9-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:57Z manager] PR #16951 held Tier-2: alpaca_portfolio IEF short 152 (trade 4195, +661.96) and TLT short 738 (trade 5912, +3131.51), both stop-protected; alpaca_live none. No closes (operator 2026-10-05 decision cited by the lane); PR excludes both from the Gate-2 window + daily mirror-orphan watch. Manager merges on green. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-J4SFBKU9-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "EXIT-PARITY-CHECK",
@@ -6012,6 +6019,36 @@
       ],
       "blocked_on": [],
       "note": "[2026-10-07T18:55Z manager] FACT 1: band_wait on all 12 ticks 02:03-02:58Z (bid 2608.97-2618.41 vs short entry 2672.0), never attempted. PR #16947 held Tier-2 (expiry prompter leaves REST accounts to the executor; expired unplaced -> terminal skipped with last verdict); I merge on green + restart the trader. Stuck ticket: operator taps the Telegram \u274c (asked) or self-clears 2026-10-08 02:59Z. Follow-up: allowlisted prop-ticket-expire. Findings PI-20261007-JOHNSXDJ-0001 (stale-at-emission, 2.1% from market) / -0002. || [2026-10-07T18:15Z manager] MEASURED on /api/bot/prop/tickets: first live signal 01:59:22Z (trend_donchian_eth_prop ETH SHORT, entry 2672, risk_usd 50.0 = the 1% sizing OBSERVED) was never placed; status expiry_prompted after valid_until 02:59Z; the 02:01, 03:02, 10:08 and 11:01Z re-tickets were all 'reticket suppressed -- outstanding_ticket:expiry_prompted'. Balance 4999.97 unchanged; executor alive (status posted 18:08Z). The manual bridge's expiry_prompted state waits for a human report; the REST path has none, so the account cannot trade until the ticket is terminal. Opus (live order path), default mode. Fix = terminal state for unplaced-expired tickets on REST accounts + unblock the stuck ticket in tier."
+    },
+    {
+      "id": "GEOM-B1-HARNESS",
+      "title": "Active geometry: TP-revision levers in the backtest harnesses (--tp-target-r/--tp-extend-r/--tp-approach-frac/--tp-max-extends/--tp-thesis, --tp-retarget-mode) on backtest_trend/pullback/ict_scalp + the sweep/coverage plumbing; unblocks RQ-20261007 geometry units",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane GEOM-B1-HARNESS",
+      "lane": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-07T18:57Z manager] Proposed by lane ACTIVE-GEOMETRY-PLAN (PR #16955, research/queue/PLANNING.md \u00a7 5): every TP-revision research question is blocked on this one Tier-1 harness build (no backtest_*.py extends or re-prices a target). Done when the flags exist (--help lists them), m20-exit-lever-sweep.yml and ict-scalp-exit-sweep.yml accept the lever, and the four blocked geometry units are dispatchable. Distinct from TP-DOCTRINE (the live producer in monitor())."
+    },
+    {
+      "id": "GEOM-CENSUS",
+      "title": "Active geometry: commit the SL-vs-TP amend census as a script with a weekly pipeline rerun, so 'TP never moves' stays a measured number",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane GEOM-CENSUS",
+      "lane": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 10,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-07T18:57Z manager] Proposed by ACTIVE-GEOMETRY-PLAN. MEASURED 2026-10-07 (closed trades since 2026-09-01 with a package; amend = order_packages.sl/tp vs entry-time level > 0.05%): real money 4 SL / 0 TP of 32; mirror 16/0 of 52; paper 111/0 of 668; fleet 131/0 of 748; prop 0 closed rows. scripts/research/geometry_amend_census.py reproducing PLANNING.md \u00a7 5 from the diag surface + a pipeline row with weekly due_when."
     }
   ]
 }
