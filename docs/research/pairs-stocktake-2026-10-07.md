@@ -16,10 +16,10 @@ than quoting the figures.
 
 | leg | stage | committed Stage-0 evidence | live / soak record | live-ready (S1→S2)? | prop-feasible? | the gap → unit |
 |---|---|---|---|---|---|---|
-| `pairs_sol_eth` (SOL/ETH 1h) | Stage 1, `execution: live` on `bybit_1` paper | **none** — no `comms/strategy_evidence/pairs_*` record (E37). Only prior numbers: G2 2026-07-16, fee-free fixed-β **+$1279**, at 7.5 bps taker **−$3443** (sprint log, not a record) | 305 closed legs since 2026-08-01, 153 a / 152 b; soak 09-30→10-07: 19 opens, 17 closes, 1 `half_open` | **NO** — no Stage-0 record; no Gate-1 cost-fidelity cell; not on any `accounts.yaml` roster so the mandate resolver cannot see it | **NO** on all three venues — no 2-leg prop order path; legs size to ~0.30 SOL / 0.013 ETH at $25 risk (ETH floors to 0.01, ~23 % hedge error) | Stage-0 at configured params: **RQ-20261007-001**; prop fit: **blocked/RQ-20261007-005** |
-| `pairs_bnb_btc` (BNB/BTC 1h) | Stage 1, `execution: live` on `bybit_1` paper | **none**. G2: fee-free **+$357**, at taker **−$3409** | 286 closed legs since 08-01, **145 a / 141 b** (4 unmatched); soak 09-30→10-07: 23 opens, 22 closes, 2 `open_failed`, 4 `skip_size` | **NO** — same gaps | **NO** — BTC leg sizes to ~$1 notional at $25 risk (0.00001 BTC); BTCUSD is not in `breakout_2` / `tradeify_1` lot tables and is below `velotrade_1`'s 0.001 min | **RQ-20261007-002**; prop: **blocked/RQ-20261007-005** |
-| `pairs_sol_btc` (SOL/BTC 1h) | Stage 1 **shadow** (`execution: shadow`) | **none**. G2: fee-free **−$295**, at taker **−$3179** | no placements by design; soak 09-30→10-07: 18 `shadow_open` | **NO** — no record, no soak placements | **NO** — BTC leg unplaceable at prop risk (as above) | **RQ-20261007-003** |
-| `pairs_eth_btc` (ETH/BTC 1h) | Stage 1 **shadow** | **none**. G2: fee-free **−$855**, at taker **−$5194** | soak 09-30→10-07: 4 `shadow_open` | **NO** | **NO** — BTC leg unplaceable at prop risk | **RQ-20261007-004** |
+| `pairs_sol_eth` (SOL/ETH 1h) | Stage 1, `execution: live` on `bybit_1` paper | **none** — no `comms/strategy_evidence/pairs_*` record (E37). Only prior numbers: G2 2026-07-16, fee-free fixed-β **+$1279**, at 7.5 bps taker **−$3443** (sprint log, not a record) | 305 closed legs since 2026-08-01, 153 a / 152 b; soak 09-30→10-07: 19 opens, 17 closes, 1 `half_open` | **NO** — no Stage-0 record; no Gate-1 cost-fidelity cell; not on any `accounts.yaml` roster so the mandate resolver cannot see it | **NO** on all three venues — no 2-leg prop order path; legs size to ~0.30 SOL / 0.013 ETH at $25 risk (ETH floors to 0.01, ~23 % hedge error) | Stage-0 at configured params: **RQ-20261007-005**; prop fit: **blocked/RQ-20261007-009** |
+| `pairs_bnb_btc` (BNB/BTC 1h) | Stage 1, `execution: live` on `bybit_1` paper | **none**. G2: fee-free **+$357**, at taker **−$3409** | 286 closed legs since 08-01, **145 a / 141 b** (4 unmatched); soak 09-30→10-07: 23 opens, 22 closes, 2 `open_failed`, 4 `skip_size` | **NO** — same gaps | **NO** — BTC leg sizes to ~$1 notional at $25 risk (0.00001 BTC); BTCUSD is not in `breakout_2` / `tradeify_1` lot tables and is below `velotrade_1`'s 0.001 min | **RQ-20261007-006**; prop: **blocked/RQ-20261007-009** |
+| `pairs_sol_btc` (SOL/BTC 1h) | Stage 1 **shadow** (`execution: shadow`) | **none**. G2: fee-free **−$295**, at taker **−$3179** | no placements by design; soak 09-30→10-07: 18 `shadow_open` | **NO** — no record, no soak placements | **NO** — BTC leg unplaceable at prop risk (as above) | **RQ-20261007-007** |
+| `pairs_eth_btc` (ETH/BTC 1h) | Stage 1 **shadow** | **none**. G2: fee-free **−$855**, at taker **−$5194** | soak 09-30→10-07: 4 `shadow_open` | **NO** | **NO** — BTC leg unplaceable at prop risk | **RQ-20261007-008** |
 | GLD/GDX 1d (not a configured leg) | Stage 0 only | `research/results/RQ-20260929-105/37188716030.jsonl`: net **+18.72 R**, n 144, harness defaults, one pooled 10-year window | none — no equity pairs executor exists | **NO** — not a leg; one pass at defaults, no IS/OOS, no executor | n/a (equities; no prop venue here trades GLD/GDX) | confirmatory IS/OOS unit is owed: `PI-20261004-P24XMV4V-0003` / `PI-20261004-UQ9JJPRQ-0002` (already filed) |
 | SPY/QQQ 1h (not a configured leg) | Stage 0 only | `research/results/RQ-20260929-106/37205970522.jsonl`: net **−121.96 R**, n 178 (FAIL, first pass) | none | **NO** | n/a | confirmatory run owed per convention (same rows as above) |
 
@@ -69,7 +69,7 @@ screens cointegration at an ADF critical value of −2.86 instead of the
 Engle-Granger 2-variable ~−3.34 and fits its OOS vector on the full sample, so
 `RQ-20260922-011` **must not run until the HARNESS-AUDIT-FIXES PR lands**; no
 landed pairs verdict used that script (0 of 334 `produced_by` records), and
-nothing registered here does either — `RQ-20261007-001..004` use
+nothing registered here does either — `RQ-20261007-005..008` use
 `scripts/backtest_pairs.py` only.
 
 **Live record (MEASURED, `GET /api/bot/trades/closed?account_id=bybit_1&since=2026-08-01&include_paper=true&include_demo=true`, paged, read 2026-10-07 ~18:10Z):**
@@ -100,7 +100,7 @@ a `real_money` account and its mirror. For every pair:
 1. **No Stage-0 record** (clause fails as `no_record`, which is not a pass).
    The 2026-07-16 numbers are fee-free, in dollars, at the then-balance, and
    live in a sprint log; at taker fees every pair was deeply negative. **The
-   data task:** `RQ-20261007-001..004` — one unit per pair, the pairs engine at
+   data task:** `RQ-20261007-005..008` — one unit per pair, the pairs engine at
    the **configured** parameters, net of fee + slippage + per-leg funding,
    rule registered before the run (PASS iff net_total_r > 0 and n ≥ 39),
    mechanically graded, and landing a committed per-pair-trade ledger. Routed
@@ -123,7 +123,7 @@ a `real_money` account and its mirror. For every pair:
 configured sleeve's gross edge at fixed-β execution is thin (~$0.5/trade at the
 2026-07 basis) against ~$1.1–1.8/trade of two-leg taker fees. The
 configured-parameter runs will measure whether the rolling-β harness edge
-survives the full cost stack at all; if `RQ-20261007-001..004` FAIL twice, the
+survives the full cost stack at all; if `RQ-20261007-005..008` FAIL twice, the
 right proposal is to move the two live paper pairs to `shadow` (Tier-3,
 operator) and let `RQ-20260922-011` (universe scan / maker arm) decide the
 sleeve's future.
@@ -146,9 +146,9 @@ every venue is **(c)** — there is no 2-leg order path for a prop account, and
 building one is a Tier-3 build, not a config edit. The BTC-quote pairs are
 additionally **(a)/(d)**-infeasible at prop risk. `pairs_sol_eth` is the only
 pair whose two legs are listed on all three venues; its prop economics are the
-data task `blocked/RQ-20261007-005` (prop_ev_sim arms for the three rulesets at
+data task `blocked/RQ-20261007-009` (prop_ev_sim arms for the three rulesets at
 the accounts' flat risk, plus a per-leg lot clause the simulator cannot see),
-blocked on a Stage-0 PASS ledger from `RQ-20261007-001`.
+blocked on a Stage-0 PASS ledger from `RQ-20261007-005`.
 
 ## 4. What goes to the operator, and why only this
 
@@ -177,9 +177,9 @@ sync's "decisions for you", not raised as a popup.
 - **FILED (pipeline):** Gate-1 cost-fidelity cell absent for pairs legs while
   fills exist; pairs leg-close asymmetry (145 a / 141 b, 153 / 152) and 80
   `reconciler` closes on the paper pairs since 08-01; the pairs paper soak's
-  alarm (`clears_when` tied to `RQ-20261007-001..004` landing).
-- **REGISTERED (research/queue):** `RQ-20261007-001..004`,
-  `blocked/RQ-20261007-005`.
+  alarm (`clears_when` tied to `RQ-20261007-005..008` landing).
+- **REGISTERED (research/queue):** `RQ-20261007-005..008`,
+  `blocked/RQ-20261007-009`.
 
 ## Locators
 

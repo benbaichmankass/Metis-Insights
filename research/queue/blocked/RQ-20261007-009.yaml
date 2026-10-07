@@ -1,4 +1,4 @@
-id: RQ-20261007-005
+id: RQ-20261007-009
 title: 'Prop fit of a Stage-0-passing pair: does any configured M22 pair clear breakout_turbo_1step / tradeify_247_1step / velotrade_classic_1step at the account flat risk, and is the 2-leg route placeable there? -- PAIRS-STOCKTAKE'
 status: blocked
 cadence: once
@@ -10,7 +10,7 @@ question: >-
   OPERATOR 2026-10-06 ~08:15Z (verbatim): "is anything there feasible for a
   prop account?" The stocktake (docs/research/pairs-stocktake-2026-10-07.md)
   found three independent gaps, and this unit is the DATA half of the answer:
-  for each pair whose RQ-20261007-001..004 record reads `pass`, priced from
+  for each pair whose RQ-20261007-005..008 record reads `pass`, priced from
   that run's COMMITTED per-pair-trade ledger
   (comms/research/RQ-20261007-00N/<run_id>/trades.jsonl: entry_time /
   exit_time / net_r per pair trade, costed fee+slippage+funding), under each
@@ -44,17 +44,17 @@ power:
   basis: >-
     d=0.3 needs ~88 trades at alpha 0.05 / power 0.8 (the floor RQ-20260928-011/-012
     registered and every prop-fit unit since has used). expected_n is the n
-    the Stage-0 ledger lands (RQ-20261007-001..004 expect ~400 on the
+    the Stage-0 ledger lands (RQ-20261007-005..008 expect ~400 on the
     180-day 1h corpus); below 88 this unit grades UNDERPOWERED, never FAIL.
   feasibility:
     source: none
     accrual_basis: >-
-      The ledger this unit prices does not exist until a RQ-20261007-001..004
+      The ledger this unit prices does not exist until a RQ-20261007-005..008
       run lands `pass`; that is the first blocker below and the reason this
       unit sits in blocked/. Nothing accrues from live trading.
 
 decision_rule:
-  id: RULE-RQ1007-005-PAIRS-PROP-FIT
+  id: RULE-RQ1007-009-PAIRS-PROP-FIT
   registered_at: '2026-10-07'
   registered_before_run: true
   statistic: >-
@@ -105,14 +105,14 @@ decision_rule:
 
 blocked_on:
   - kind: research_result
-    ref: RQ-20261007-001..004
+    ref: RQ-20261007-005..008
     what: >-
       No committed pair-trade ledger exists yet. This unit's `--leg` path is
-      the trades.jsonl a PASS run of RQ-20261007-001..004 lands under
+      the trades.jsonl a PASS run of RQ-20261007-005..008 lands under
       comms/research/RQ-20261007-00N/<run_id>/; the run_id is unknown until
       the run lands, so the command below carries `<ledger>` placeholders.
     clears_when: >-
-      At least one of RQ-20261007-001..004 has a research/results record with
+      At least one of RQ-20261007-005..008 has a research/results record with
       verdict=pass; promote this file to research/queue/ with each `<ledger>`
       replaced by that run's committed trades.jsonl path (one --leg per
       passing pair) and set status: queued.
@@ -167,7 +167,7 @@ run:
   - --jobs
   - '4'
   inputs:
-    research_unit: RQ-20261007-005
+    research_unit: RQ-20261007-009
 
 lands:
   store: research/results/
@@ -175,10 +175,10 @@ lands:
   min_rows: 1
 
 related:
-- RQ-20261007-001
-- RQ-20261007-002
-- RQ-20261007-003
-- RQ-20261007-004
+- RQ-20261007-005
+- RQ-20261007-006
+- RQ-20261007-007
+- RQ-20261007-008
 - RQ-20261006-062
 - RQ-20261006-071
 - 'docs/research/pairs-stocktake-2026-10-07.md'

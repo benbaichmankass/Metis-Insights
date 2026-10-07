@@ -1,5 +1,5 @@
-id: RQ-20261007-004
-title: 'Stage-0 at the CONFIGURED parameters, net of the full cost stack: pairs_eth_btc (ETHUSDT/BTCUSDT 1h, lookback 15, rolling beta) -- PAIRS-STOCKTAKE'
+id: RQ-20261007-005
+title: 'Stage-0 at the CONFIGURED parameters, net of the full cost stack: pairs_sol_eth (SOLUSDT/ETHUSDT 1h, lookback 15, rolling beta) -- PAIRS-STOCKTAKE'
 status: queued
 cadence: once
 theme: new_strategy_prop
@@ -10,7 +10,7 @@ question: >-
   OPERATOR 2026-10-06 ~08:15Z (verbatim): "where do we stand on all of the
   pairs strategies? Is anything there ready to go live, and is anything there
   feasible for a prop account?" MEASURED 2026-10-07 by the PAIRS-STOCKTAKE
-  lane (docs/research/pairs-stocktake-2026-10-07.md): pairs_eth_btc is execution: shadow (G2 2026-07-16 fee-free -$855);
+  lane (docs/research/pairs-stocktake-2026-10-07.md): pairs_sol_eth is live on bybit_1 paper (operator-approved 2026-07-16 on the fee-free +$1279 figure);
   it has NO committed Stage-0 evidence record (`ls comms/strategy_evidence |
   grep -i pairs` is empty, checklist E37), so MD-PROMOTE-S1-S2 cannot read it
   and the only numbers that exist are the 2026-07-16 G2 dollar figures in a
@@ -21,7 +21,7 @@ question: >-
   one config/pairs.yaml trades (lookback 15, hedge_beta=rolling, entry_z 2.0,
   exit_z 0.5, stop_z 2.0, max_hold_bars 20). This unit asks the exact
   question: at the CONFIGURED parameters, over the full Binance-vision 1h
-  corpus both legs share, is pairs_eth_btc's net_total_r -- net of fee + slippage +
+  corpus both legs share, is pairs_sol_eth's net_total_r -- net of fee + slippage +
   per-leg perp funding, resolved through execution_costs.resolve_cost_policy
   exactly as the harness CLI does -- positive at n >= 39?
 
@@ -33,9 +33,9 @@ why_this_matters: >-
   paper is for execution validation, not PnL") with a measurement at the
   live parameters instead of an inference from the fee-free number. Either
   way the result lands a COMMITTED per-pair-trade ledger (entry_time /
-  exit_time / net_r) under comms/research/RQ-20261007-004/<run_id>/trades.jsonl,
+  exit_time / net_r) under comms/research/RQ-20261007-005/<run_id>/trades.jsonl,
   which is the input the prop-fit question (research/queue/blocked/
-  RQ-20261007-005.yaml) is blocked on. Pre-cost selection is the failure
+  RQ-20261007-009.yaml) is blocked on. Pre-cost selection is the failure
   RQ-20260922-011 names; the fee-only arm is reported here and never graded.
 
 power:
@@ -66,12 +66,12 @@ power:
       longer 1h history) would be the confirmatory one.
 
 decision_rule:
-  id: RULE-RQ1007-004-ETH-BTC-CONFIGURED-STAGE0
+  id: RULE-RQ1007-005-SOL-ETH-CONFIGURED-STAGE0
   registered_at: '2026-10-07'
   registered_before_run: true
   statistic: >-
     `measurement.net_total_r` and `n` from the verdict.json that
-    scripts/research/pairs_configured_stage0.py writes for --pair pairs_eth_btc:
+    scripts/research/pairs_configured_stage0.py writes for --pair pairs_sol_eth:
     the pairs engine (scripts/backtest_pairs.run_backtest, never
     re-implemented) at the config/pairs.yaml parameters, net_total_r net of
     fee (DEFAULT_FEE_BPS_ROUNDTRIP per leg, two legs) + slippage (venue-aware,
@@ -83,10 +83,10 @@ decision_rule:
     n >= 39 -- a first FAIL re-queues once for a confirmatory run (repo
     convention), a second FAIL is final. indeterminate iff n < 39. The script
     grades these clauses itself (grading.auto below). DECISION MAPPING, fixed
-    before the run: PASS -> (a) write the Stage-0 evidence record for pairs_eth_btc
+    before the run: PASS -> (a) write the Stage-0 evidence record for pairs_sol_eth
     (checklist E37) from this run's result.json + trades.jsonl, citing the
-    comms/research/RQ-20261007-004/<run_id>/ path as source_run; (b) promote
-    research/queue/blocked/RQ-20261007-005.yaml (prop fit) with that ledger
+    comms/research/RQ-20261007-005/<run_id>/ path as source_run; (b) promote
+    research/queue/blocked/RQ-20261007-009.yaml (prop fit) with that ledger
     path filled in. A PASS is Stage-0 evidence ONLY: MD-PROMOTE-S1-S2 still
     needs the Gate-1 cost-fidelity verdict `consistent` from the paper soak
     and the account-class/cap clauses, and nothing here edits a roster.
@@ -101,7 +101,7 @@ decision_rule:
     separate unit). Binance-vision futures candles are a PROXY for Bybit (the
     venue is geoblocked from GitHub runners); fee/slippage are the venue-aware
     defaults, not realised bybit_1 fills -- that is Gate 1's question. Says
-    nothing about prop fit (RQ-20261007-005) or about any parameter other
+    nothing about prop fit (RQ-20261007-009) or about any parameter other
     than the configured ones.
 
 routing:
@@ -122,12 +122,12 @@ run:
   - python3
   - scripts/research/pairs_configured_stage0.py
   - --pair
-  - pairs_eth_btc
+  - pairs_sol_eth
   - --fetch
   - --out
   - '{out_dir}'
   inputs:
-    research_unit: RQ-20261007-004
+    research_unit: RQ-20261007-005
 
 lands:
   store: research/results/
@@ -141,7 +141,7 @@ related:
 - 'config/pairs.yaml -- the entry this unit prices, at its own parameters'
 - 'docs/research/pairs-stocktake-2026-10-07.md -- the stocktake that registered this unit'
 - 'docs/sprint-logs/S-M22-D2-PAIRS-READINESS-2026-07-16.md section G2 -- the only prior measurement (fee-free, dollars, trainer-diag #6612/#6615)'
-- 'research/queue/blocked/RQ-20261007-005.yaml -- the prop-fit question this unit''s ledger unblocks'
+- 'research/queue/blocked/RQ-20261007-009.yaml -- the prop-fit question this unit''s ledger unblocks'
 - 'research/queue/blocked/RQ-20260922-011.yaml -- the universe-scan question (any pair surviving fees)'
 - 'E37 (docs/claude/work/MANAGER-CHECKLIST.json) -- the evidence record a PASS lets a session write'
 - RQ-20260929-105
