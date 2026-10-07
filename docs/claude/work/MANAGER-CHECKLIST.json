@@ -5835,13 +5835,13 @@
       "lane": "session_01FG9ybJ2kGjQXfg7rE3NpDs",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 25,
-      "spend_usd": null,
+      "spend_usd": 2.48,
       "tier": 3,
       "prs": [
         16958
       ],
       "blocked_on": [],
-      "note": "[2026-10-07T20:14Z manager] #16958 MERGED 20:12Z (699f4b118): mechanism only (sizing.flat.per_leg_risk_usd, fail-closed, unset = unchanged; breakout_1 golden byte-identical). NO per-leg config applied anywhere: the breakout_2 ETH $25 / SOL $50 proposal stays HELD because RQ-20261005-853/854 are indeterminate (P(net>0) < 0.7) and the velotrade/tradeify records are book-level at uniform risk. Data task if wanted: a prop_ev_grid run with a mixed-risk arm. Deploy = the executors pick it up on their next tick after ict-git-sync; no restart needed for a sizing read path. Lane archived. || [2026-10-07T18:57Z manager] PR #16958 held: opt-in sizing.flat.per_leg_risk_usd, fail-closed, unset = unchanged. Lane's own recommendation HOLD the breakout_2 $25/$50 proposal: RQ-20261005-853/854 are indeterminate (P(net>0) < 0.7). ACCEPTED: mechanism merges on green; no per-leg config change on any prop account now. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-YUVCGTMJ-0006. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+      "note": "[2026-10-07T20:14Z manager] #16958 MERGED 20:12Z (699f4b118): mechanism only (sizing.flat.per_leg_risk_usd, fail-closed, unset = unchanged; breakout_1 golden byte-identical). NO per-leg config applied anywhere: the breakout_2 ETH $25 / SOL $50 proposal stays HELD because RQ-20261005-853/854 are indeterminate (P(net>0) < 0.7) and the velotrade/tradeify records are book-level at uniform risk. Data task if wanted: a prop_ev_grid run with a mixed-risk arm. Deploy = the executors pick it up on their next tick after ict-git-sync; no restart needed for a sizing read path. Lane archived 20:14Z, spend $2.48 final. || [2026-10-07T18:57Z manager] PR #16958 held: opt-in sizing.flat.per_leg_risk_usd, fail-closed, unset = unchanged. Lane's own recommendation HOLD the breakout_2 $25/$50 proposal: RQ-20261005-853/854 are indeterminate (P(net>0) < 0.7). ACCEPTED: mechanism merges on green; no per-leg config change on any prop account now. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-YUVCGTMJ-0006. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
       "observation": {
         "what": "next breakout_2/velotrade_1/tradeify_1 tickets still size at the account risk_pct (no per_leg_risk_usd declared) and the journal meta.sizing shows no override; the executor timers run the new code without a load-time error",
         "how_to_check": "GET /api/bot/prop/tickets?account_id=breakout_2 -> risk_usd 25 on the next ticket; executor journal via diag: no ValueError at ruleset load",
