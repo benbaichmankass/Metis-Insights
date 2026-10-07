@@ -159,6 +159,7 @@ REGISTERS: Tuple[str, ...] = (
     "docs/claude/OPEN-ITEMS.json",
     "docs/claude/work/SESSIONS.json",
     "docs/claude/work/MANAGER-CHECKLIST.json",
+    "docs/claude/work/checklist",
     "docs/claude/work/OPEN-PRS.json",
     "docs/claude/work/MANAGER-LEASE.json",
     "docs/claude/health-review-backlog.json",

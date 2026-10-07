@@ -240,6 +240,18 @@ def _load(path: Path) -> Tuple[str, Optional[Any], str]:
     — which is the one thing this guard exists to prevent — so reading it as a
     clean pass is the worst available answer.
     """
+    if path.name == "MANAGER-CHECKLIST.json":  # monolith, or the per-row store once cut over
+        import sys as _sys  # noqa: PLC0415
+        _repo = str(Path(__file__).resolve().parents[2])
+        if _repo not in _sys.path:
+            _sys.path.insert(0, _repo)
+        from src.runtime import checklist_store  # noqa: PLC0415
+        if not checklist_store.exists(path):
+            return ABSENT, None, ""
+        try:
+            return PRESENT, checklist_store.load_path(path), ""
+        except (OSError, ValueError) as exc:
+            return UNPARSEABLE, None, f"did not parse: {exc}"
     try:
         raw = path.read_text(encoding="utf-8")
     except FileNotFoundError:
@@ -276,6 +288,17 @@ def _load_at_base(path: str, base: str) -> Tuple[str, Optional[Any], str]:
     it stops hiding inside "no readable base at {base}", which describes a
     different failure.
     """
+    if path.endswith("MANAGER-CHECKLIST.json"):  # monolith at base, or its per-row store
+        import sys as _sys  # noqa: PLC0415
+        _repo = str(Path(__file__).resolve().parents[2])
+        if _repo not in _sys.path:
+            _sys.path.insert(0, _repo)
+        from src.runtime import checklist_store  # noqa: PLC0415
+        try:
+            doc = checklist_store.load_at(".", base)
+        except (ValueError, OSError) as exc:
+            return UNPARSEABLE, None, f"did not parse: {exc}"
+        return (ABSENT, None, "no checklist at that ref") if doc is None else (PRESENT, doc, "")
     try:
         out = subprocess.run(["git", "show", f"{base}:{path}"],
                              capture_output=True, text=True, timeout=60)

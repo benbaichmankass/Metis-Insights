@@ -373,14 +373,32 @@ def probe_inflight(now: datetime, shallow: bool | None) -> dict:
     which makes a stale row look FRESH — so a shallow clone reads ``unknown``.
     """
     try:
-        d = json.loads(CHECKLIST.read_text(encoding="utf-8"))
-        text_lines = CHECKLIST.read_text(encoding="utf-8").splitlines()
+        from src.runtime import checklist_store as _ck  # noqa: PLC0415
+        d = _ck.load_path(CHECKLIST)
+        text_lines = ([] if _ck.seeded(CHECKLIST)
+                      else CHECKLIST.read_text(encoding="utf-8").splitlines())
     except (OSError, ValueError) as exc:
         return {"status": UNKNOWN, "detail": f"checklist unreadable: {exc}", "rows": []}
     inflight = [r for r in d.get("items", []) if r.get("state") == "in_flight"]
     if shallow:
         return {"status": UNKNOWN, "detail": f"{len(inflight)} in_flight rows; clone is "
                 "shallow so row age cannot be read", "rows": []}
+    if not text_lines:  # per-row store: a row's activity is the last commit on ITS file
+        stale = []
+        for r in inflight:
+            out = _git("log", "-1", "--format=%ct", "--",
+                       f"docs/claude/work/checklist/{r.get('id')}.json")
+            if not out or not out.strip().isdigit():
+                continue
+            age = (now - datetime.fromtimestamp(int(out.strip()), tz=timezone.utc)).total_seconds() / 86400
+            if age >= INFLIGHT_STALE_DAYS:
+                stale.append({"id": r.get("id"), "days": round(age, 1), "lane": r.get("lane")})
+        stale.sort(key=lambda x: -x["days"])
+        return {"status": BREACHED if stale else OK, "rows": stale,
+                "detail": f"{len(stale)} of {len(inflight)} in_flight rows untouched "
+                          f">= {INFLIGHT_STALE_DAYS}d (per-row history)"
+                          + (": " + ", ".join(f"{s['id']} {s['days']:.0f}d" for s in stale[:6])
+                             if stale else "")}
     blame = _git("blame", "--line-porcelain", "--", str(CHECKLIST.relative_to(REPO_ROOT)))
     if blame is None:
         return {"status": UNKNOWN, "detail": "git blame failed", "rows": []}
