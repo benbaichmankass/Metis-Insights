@@ -1,0 +1,149 @@
+id: RQ-20261007-001
+title: 'Exit parity, prop real money: trend_donchian_eth_prop WITHOUT the stale_exit close lever the prop path
+  cannot fire (vs the 2026-10-05-730d record WITH it) -- build the close op, or strip the lever?'
+status: queued
+cadence: once
+kind: experiment
+theme: new_strategy_prop
+priority: 1
+question: 'PI-20261006-KX6ZKFNA-0001 (lane ACTIVE-GEOMETRY-SCAN, 2026-10-06): trend_donchian_eth_prop -- rostered live
+  on tradeify_1 and velotrade_1, and on breakout_1/breakout_2 -- declares stale_exit_bars: 12 / stale_exit_below_r: 0.0,
+  a bar-CLOSE exit. Its Stage-0 record (comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop.json, fidelity
+  faithful, 355 trades, net_r_oos 13.0214 net of fee+slippage+funding) was measured WITH it: by_outcome stale_stop 79 of
+  355 exits (22%). src/prop/prop_trail.py lists stale_exit_bars in _CLOSE_LEVERS and, by its docstring, raises one alert
+  per ticket when the lever WOULD fire and does nothing else; EXCHANGE_MANAGEMENT_CAPS["breakout"] (src/units/accounts/clients.py)
+  is an empty set, so no close op exists for a prop row. So the live prop book trades a DIFFERENT exit than the one measured.
+  The one question: on the SAME 730d corpus (ETHUSDT 1h, 2024-10-05 .. 2026-10-03, the same cost stack), what does the
+  leg''s evidence look like WITHOUT the stale exit -- the lever set the prop path can actually execute (ATR stop, chandelier
+  trail with trail-decay via prop_trail''s SL amend, static tp_r 6.0, no harness timeout) -- and is the difference large
+  enough that BUILDING a close verb for close-type levers is cheaper than living without them? NOT asked here: trend_donchian_sol_prop.
+  MEASURED 2026-10-07 by parsing config/strategies.yaml (the rerun on the pipeline row): sol_prop declares NO close-type
+  lever (no stale_exit_*, no giveback_*; its 730d record by_outcome is trail_stop 85 / stop 35 / take_profit 12), so its
+  with-vs-without arms would be byte-identical and a unit for it would measure nothing.'
+why_this_matters: 'A live or paper book never establishes edge; the Stage-0 record does -- and the record for this REAL-MONEY
+  prop leg models 79 exits the live path cannot perform. Until this is measured the leg''s promotion evidence describes
+  a strategy the venue is not running. The pipeline row names two fixes, both Tier-3: (A) build a close verb for close-type
+  levers through the adapter (dxtrade "Close Position" control measured ENABLED in DIALOG-MEASURE #15657), gated like the
+  trail rollout; or (B) strip stale_exit_* from the _prop legs and re-run the record without it so declared == executable.
+  "Decide with the Stage-0 delta between A and B" -- this unit IS that delta, with the bar registered before the run.
+  No money has been lost to the gap yet (tradeify_1''s one filled trade since 2026-09-01 closed at the SL after 6h, too
+  short for a 12-bar stale exit), so the decision is made on evidence, not on an incident.'
+power:
+  expected_n: 355
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: 'd=0.3 at alpha 0.05 / power 0.8 needs ~88 trades (the floor RQ-20260928-011/-012 and RQ-20261006-070/-071 registered).
+    expected_n = 355 = `wc -l comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl`, counted
+    2026-10-07 before this unit was registered; the baseline arm must reproduce that count within 2% (the positive control)
+    or the unit grades indeterminate, never fail. Below 88 the unit grades UNDERPOWERED (indeterminate), never FAIL. The
+    unit of analysis is the trade; the two arms share their entry stream until a stale exit diverges them, so the paired
+    noise on the delta is far below the pooled sd -- the rule''s 2.0 R bar is a MATERIALITY bar (about 1 R per year on
+    a 13 R / 730d book), stated as such, not a significance test, and the fold-majority clause is what separates a real
+    lever from a one-period artifact.'
+  feasibility:
+    source: none
+    accrual_basis: 'Re-run of the committed 730d corpus (Binance Vision ETHUSDT 1h, keyless, not geoblocked from a GitHub
+      runner -- the same feed the record was fetched from); nothing accrues and nothing waits.'
+decision_rule:
+  id: RULE-RQ1007-001-PROP-CLOSE-LEVER-PARITY
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: 'Two config-exact arms of scripts/backtest_trend.py, both built by regime_debt_matrix.build_harness_cmd (the
+    evidence builder''s own argv) on the same freshly fetched ETHUSDT 1h candles pinned to --start 2024-10-05 --end 2026-10-03
+    23:59 (the record''s data_start/data_end), net of the harness''s venue-aware fee (7.5 bps rt) + slippage (3.0) + funding
+    (1.0 bps/window): W = the leg as declared (stale_exit_bars 12 / below_r 0.0, trail_decay 2.99/10/1.8, tp_r 6.0 under
+    the 9.9% venue cap, trail 3.5, stop 2.5, min_confidence 0.6); X = W minus stale_exit_bars and stale_exit_below_r, with
+    --timeout-bars 100000 so no harness-only close op remains (the prop path has no timeout; the record''s by_outcome shows
+    0 timeouts at the default 200 bars, and X''s by_outcome is reported so any timeout count stays visible). Per arm, read
+    from the harness''s own --json: total_trades, net_total_r, max_drawdown_r, by_outcome, mean_bars_held, net_r_per_capital_day;
+    plus net_r per fold over FOUR equal CALENDAR spans of the window (a trade binned by entry_time), the same four date
+    boundaries for both arms. POSITIVE CONTROL, checked first: W must reproduce the committed record (total_trades 355
+    within 2%, net_total_r 13.0223 within 0.5 R). Deltas: dR = net_r(W) - net_r(X); dDD = maxDD(X) - maxDD(W); fold_wins
+    = number of the 4 folds in which W out-earns X.'
+  rule: 'indeterminate / control_failed IF W does not reproduce the record (the corpus differs; nothing is read).
+    indeterminate / underpowered IF n(W) < 88.
+    PASS / stage0_fails_without IF net_r(X) <= 0: the lever set the prop path can execute carries NO Stage-0 edge on this
+    corpus -- a Gate-2 / roster INPUT handed to the manager with the record, never a roster act by this unit.
+    PASS / build_close_verb IF (dR >= 2.0 R OR dDD >= 2.0 R) AND fold_wins >= 3 of 4: the stale exit is worth at least
+    the bar and the sign holds across the window, so the cheaper fix is fix (A) -- a BUILD-ROW PROPOSAL to give prop_trail
+    a close verb for _CLOSE_LEVERS through the adapter close path, gated like the trail rollout (Tier-3, proposed to the
+    manager citing this record; not built by this unit).
+    FAIL / live_without_lever OTHERWISE (dR and dDD both under 2.0 R, or the sign does not hold in 3 of 4 folds): the
+    lever''s measured value is inside the materiality bar, so the cheaper fix is fix (B) -- a Tier-3 proposal to strip
+    stale_exit_bars / stale_exit_below_r from trend_donchian_eth_prop and re-run its Stage-0 record so declared == executable
+    (proposed to the manager citing this record; not applied by this unit). A FAIL here is a legitimate terminal answer;
+    the grader''s confirmatory re-run repeats the same deterministic measurement.
+    The 2.0 R bar, the 3-of-4 fold majority and the 88 floor are NOT changed after seeing any result.'
+  what_it_does_not_do: 'Edits no config and no code path: both fixes are Tier-3 proposals the manager carries. Does not
+    grade the trail''s own live parity (prop_trail amends the SL under a one-step-per-reviewed-clear ROLLOUT latch, so
+    live the trail may lag the replay -- a mechanics question, PROP-TRAIL''s, not an evidence question). Does not model
+    the entry-side gap (the breakout legs fire on the forming bar; the harness decides on the closed bar). Does not
+    grade trend_donchian_sol_prop (no close lever declared, see question). Measures the stale exit only; giveback_* is
+    not declared on either prop leg (MEASURED 2026-10-07, the pipeline row''s rerun).'
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 15
+  basis: 'One Binance Vision fetch of ~760 days of ETHUSDT 1h (~18k rows, the daily zips; 1-3 min measured on the evidence
+    builder''s runs) and two backtest_trend.py passes over it (seconds each, 1h bars). Runner.'
+run:
+  workflow: research-script-run.yml
+  timeout_minutes: 60
+  command:
+  - python3
+  - scripts/research/exit_lever_ablation.py
+  - --leg
+  - trend_donchian_eth_prop
+  - --arm
+  - W=
+  - --arm
+  - X=-stale_exit_bars;-stale_exit_below_r;--timeout-bars=100000
+  - --days
+  - '760'
+  - --start
+  - '2024-10-05'
+  - --end
+  - '2026-10-03 23:59'
+  - --control
+  - W=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__bt.json
+  - --control-tol-n
+  - '0.02'
+  - --control-tol-r
+  - '0.5'
+  - --grade
+  - parity
+  - --baseline
+  - W
+  - --candidate
+  - X
+  - --delta-r
+  - '2.0'
+  - --fold-majority
+  - '3'
+  - --n-floor
+  - '88'
+  - --out
+  - '{out_dir}'
+  inputs:
+    research_unit: RQ-20261007-001
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+  note: 'research/results/RQ-20261007-001/<run_id>.jsonl (E5 contract via the batch collector); the per-arm harness summaries,
+    trade ledgers, exact argv and verdict.json land under comms/research/RQ-20261007-001/<run_id>/.'
+grading:
+  auto: true
+related:
+- PI-20261006-KX6ZKFNA-0001
+- comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop.json
+- comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__bt.json
+- src/prop/prop_trail.py (_CLOSE_LEVERS; PROP-TRAIL, operator decision 2026-10-01 "Build the trail instead")
+- src/units/accounts/clients.py (EXCHANGE_MANAGEMENT_CAPS["breakout"] is empty)
+- scripts/research/prop_bracket_exit_model.py (the earlier SL+TP-only arm, before the trail existed)
+- RQ-20261007-002 (the same question for xrp_pullback_2h's dead trail-decay arm)
+last_dispatched_at: null

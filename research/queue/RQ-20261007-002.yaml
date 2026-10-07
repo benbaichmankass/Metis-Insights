@@ -1,0 +1,154 @@
+id: RQ-20261007-002
+title: 'Dead lever, Bybit real money: xrp_pullback_2h''s trail_decay_arm_r 4.49 can never arm under tp_r 3.0 -- remove
+  it, or re-arm it below 3 R? Same 730d corpus, rule before run'
+status: queued
+cadence: once
+kind: experiment
+theme: live_strategy
+priority: 1
+question: 'PI-20261006-KX6ZKFNA-0004 (lane ACTIVE-GEOMETRY-SCAN, 2026-10-06): xrp_pullback_2h (bybit_2 REAL MONEY, mirrored
+  on bybit_portfolio and bybit_1) declares trail_decay_arm_r: 4.49 / trail_decay_tight_mult: 2.5 with no trail_decay_stall_bars,
+  while tp_r was cut 50.0 -> 3.0 on 2026-08-23 (Tier-3, operator-approved). The decay arms only when peak open R >= 4.49;
+  the resting TP closes every trade at 3 R first, so the lever can never fire (MEASURED 2026-10-07 by the pipeline row''s
+  rerun: tp_r 3.0, arm 4.49, stall None, tight 2.5; the only such case across the 9 live real-money/prop legs). The committed
+  record already says which branch of "modelled-but-never-fires vs run-without-it" is true: every committed harness run
+  of this leg (runs/2026-09-24-e55, 2026-09-25, 2026-10-05-730d-expand) carries fidelity approximate with omitted_levers
+  [trail_decay_arm_r, trail_decay_tight_mult], because regime_debt_matrix._PB_LEVER_FLAG does not forward --trail-decay-*
+  to scripts/backtest_pullback.py even though the harness models them (M20 P4.1). So the Stage-0 record was run WITHOUT
+  the decay, and max_mfe_r 2.965 on the 730d-expand run confirms no trade ever reached 3 R, let alone 4.49. The one question:
+  on the same 730d corpus (XRPUSDT 2h, 2024-10-05 .. 2026-10-04, same cost stack), (i) does the shipped config (decay
+  declared at 4.49) measure byte-identical to the decay removed -- the premise that the lever is dead -- and (ii) does
+  any REACHABLE arm (1.0, 1.5, 2.0 or 2.5 R, tight_mult 2.5 as declared) beat the no-decay book, so that a real lever
+  replaces the dead one rather than the two lines simply being deleted?'
+why_this_matters: 'A declared lever that cannot fire is a live-vs-evidence mismatch on a real-money leg: the YAML claims
+  an exit behaviour the trade never sees, and the next reader of the config inherits that claim. No money is lost to it
+  (the decay only tightens) -- the cost is a config that lies, and a possible unmeasured improvement if a reachable arm
+  helps. The pipeline row names two Tier-3 fixes: strip the two trail_decay_* lines, or re-sweep the arm against min(cap_R,
+  tp_r 3) and declare a reachable one. "Decide from the sweep delta" -- this unit is that sweep, rule registered before
+  the run, on the corpus the record used rather than the 365d window the 2026-09-25 record used.'
+power:
+  expected_n: 122
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: 'd=0.45 at alpha 0.05 / power 0.8 needs 38.76 -> 39 trades (the E35 floor used by RQ-20261006-002/-004/-060).
+    expected_n = 122 = total_trades in comms/strategy_evidence/runs/2026-10-05-730d-expand/xrp_pullback_2h__bt.json, read
+    2026-10-07 before this unit was registered; the no-decay arm must reproduce that count within 2% (positive control)
+    or the unit grades indeterminate. Below 39 the unit grades UNDERPOWERED (indeterminate), never FAIL. The 1.0 R bar
+    on a candidate''s pooled delta is a MATERIALITY bar (about 0.5 R per year on a 14.7 R / 730d book), not a significance
+    test; the fold-majority clause (3 of 4 calendar folds) is what refuses a one-period artifact. A tightening lever can
+    only change exits of trades that reach its arm, so its effect is bounded by how many trades see >= arm R of open
+    profit -- reported per arm via by_outcome and mean_bars_held.'
+  feasibility:
+    source: none
+    accrual_basis: 'Re-run of the committed 730d corpus (Binance Vision XRPUSDT 2h, keyless, not geoblocked from a GitHub
+      runner -- the feed the record was fetched from); nothing accrues.'
+decision_rule:
+  id: RULE-RQ1007-002-XRP-DEAD-DECAY-ARM
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: 'Six config-exact arms of scripts/backtest_pullback.py, all built by regime_debt_matrix.build_harness_cmd (the
+    evidence builder''s own argv: trend_lookback 40, pullback_lookback 10, pullback_frac 0.5, atr_stop_mult 2.5, trail_mult
+    6.0, adx_min 25, min_confidence 0.0, --tp-cap-pct 0.099 --tp-r 3.0) on the same freshly fetched XRPUSDT 2h candles
+    pinned to --start 2024-10-05 --end 2026-10-04 23:59 (the record''s data_start/data_end), net of fee (7.5 bps rt) +
+    slippage (3.0) + funding (1.0 bps/window): N = the builder''s argv as-is (no --trail-decay-*: what the committed record
+    measured); S = N plus --trail-decay-arm-r 4.49 --trail-decay-tight-mult 2.5 (the shipped config, declared in full);
+    R10 / R15 / R20 / R25 = N plus --trail-decay-arm-r {1.0, 1.5, 2.0, 2.5} --trail-decay-tight-mult 2.5. Per arm, from
+    the harness''s own --json: total_trades, net_total_r, max_drawdown_r, by_outcome, mean_bars_held, net_r_per_capital_day,
+    plus net_r per fold over FOUR equal CALENDAR spans of the window, the same four date boundaries for every arm. PREMISE
+    CHECK, first: S and N must be IDENTICAL in total_trades and net_total_r. POSITIVE CONTROL, second: N must reproduce
+    the committed 730d-expand record (total_trades 122 within 2%, net_total_r 14.6686 within 0.5 R). Per candidate C in
+    {R10, R15, R20, R25}: dR = net_r(C) - net_r(N); dDD = maxDD(C) - maxDD(N); fold_wins = folds in which C out-earns N.'
+  rule: 'indeterminate / premise_failed IF S != N (the decay CAN arm below the TP on this corpus: the dead-lever premise
+    is wrong and nothing below is read; the finding goes back to the manager as "the lever is live, re-examine").
+    indeterminate / control_failed IF N does not reproduce the record. indeterminate / underpowered IF n(N) < 39.
+    A candidate C PASSES iff dR >= 1.0 R AND dDD <= 0 (drawdown not worse) AND fold_wins >= 3 of 4.
+    PASS / reachable_lever_beats_removed IF any candidate passes: a Tier-3 proposal to the manager to declare the best
+    passing arm (highest dR) as trail_decay_arm_r on xrp_pullback_2h, applied to bybit_2, bybit_portfolio and bybit_1
+    in one PR because the mirror tests require trade-shaping equality (test_mirror_trade_shaping_fields_equal_live);
+    NOT applied by this unit. One passing cell is a data-backed Tier-3 decision under the 2026-09-27 standing authorization;
+    two passing cells within 0.5 R of each other is a preference and goes to the operator as a popup.
+    FAIL / no_reachable_lever_beats_removed IF no candidate passes: the two trail_decay_* lines are dead config and nothing
+    reachable earns its place -- a Tier-3 proposal to strip them (same three routings, one PR), NOT applied here. A FAIL
+    is a legitimate terminal answer; the grader''s confirmatory re-run repeats the same deterministic measurement.
+    The 1.0 R bar, the drawdown clause, the 3-of-4 fold majority and the 39 floor are NOT changed after seeing any result.'
+  what_it_does_not_do: 'Edits no config. Does not re-grade the tp_r 3.0 cut itself (RQ-20261006-004''s walk-forward and
+    the e35 bracket family own the bracket). Does not sweep tight_mult or a stall arm (one lever axis per unit; combos
+    after singles). Does not fix regime_debt_matrix._PB_LEVER_FLAG''s omission of --trail-decay-* (filed separately as
+    a pipeline item by lane EXIT-PARITY-RQ; nine pullback legs declare trail_decay_* and all grade approximate for that
+    wiring reason). Says nothing about any Bybit leg other than xrp_pullback_2h.'
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 15
+  basis: 'One Binance Vision fetch of ~760 days of XRPUSDT 2h (~9k rows) and six backtest_pullback.py passes over it (seconds
+    each). Runner.'
+run:
+  workflow: research-script-run.yml
+  timeout_minutes: 60
+  command:
+  - python3
+  - scripts/research/exit_lever_ablation.py
+  - --leg
+  - xrp_pullback_2h
+  - --arm
+  - N=
+  - --arm
+  - S=--trail-decay-arm-r=4.49;--trail-decay-tight-mult=2.5
+  - --arm
+  - R10=--trail-decay-arm-r=1.0;--trail-decay-tight-mult=2.5
+  - --arm
+  - R15=--trail-decay-arm-r=1.5;--trail-decay-tight-mult=2.5
+  - --arm
+  - R20=--trail-decay-arm-r=2.0;--trail-decay-tight-mult=2.5
+  - --arm
+  - R25=--trail-decay-arm-r=2.5;--trail-decay-tight-mult=2.5
+  - --days
+  - '760'
+  - --start
+  - '2024-10-05'
+  - --end
+  - '2026-10-04 23:59'
+  - --control
+  - N=comms/strategy_evidence/runs/2026-10-05-730d-expand/xrp_pullback_2h__bt.json
+  - --control-tol-n
+  - '0.02'
+  - --control-tol-r
+  - '0.5'
+  - --grade
+  - sweep
+  - --baseline
+  - N
+  - --same-as
+  - S=N
+  - --delta-r
+  - '1.0'
+  - --fold-majority
+  - '3'
+  - --n-floor
+  - '39'
+  - --out
+  - '{out_dir}'
+  inputs:
+    research_unit: RQ-20261007-002
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+  note: 'research/results/RQ-20261007-002/<run_id>.jsonl (E5 contract via the batch collector); per-arm harness summaries,
+    trade ledgers, exact argv and verdict.json under comms/research/RQ-20261007-002/<run_id>/.'
+grading:
+  auto: true
+related:
+- PI-20261006-KX6ZKFNA-0004
+- comms/strategy_evidence/runs/2026-10-05-730d-expand/xrp_pullback_2h.json
+- comms/strategy_evidence/runs/2026-10-05-730d-expand/xrp_pullback_2h__bt.json
+- comms/strategy_evidence/xrp_pullback_2h.json (the 2026-09-25 365d record behind the roster, fidelity approximate)
+- scripts/research/regime_debt_matrix.py (_PB_LEVER_FLAG omits trail_decay_*; _tp_r_flags forwards tp_r)
+- scripts/backtest_pullback.py (M20 P4.1 trail-decay lever)
+- RQ-20261006-004 (weekly walk-forward of the same leg)
+- RQ-20261007-001 (the same question for trend_donchian_eth_prop's close lever)
+last_dispatched_at: null
