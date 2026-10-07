@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 by path: src/prop/prop_executor.py is the live REST order path for velotrade_1 (real-money prop evaluation) and src/prop/prop_expiry_prompt.py runs in the live trader tick. Dispatched by Manager Session 2026-10-01 (session_01MM8o5js6TcDFeNAPBY4Ntv) as lane VELOTRADE-TICKET (session_01BbBqjBgks6BVLgjoHnSxdJ), which says: prepare, validate, open non-draft; the manager merges. What changes: (1) the trader's expiry prompter no longer asks a human 'did you place this?' for a ticket on a REST-executed account (prop_platforms.yaml platform in API_PLATFORMS, i.e. velotrade_1 today) and no longer flips it to expiry_prompted, which blocked that account's next same-key signal for valid_until + 24h; the ticket stays emitted, and an expired emitted ticket already does not block a re-ticket. (2) The executor's existing intake `expired` branch, which now sees such a ticket, reports it terminal (`skipped`) with reason `expired unplaced; last verdict <kind>: <why>`. Manual browser (breakout_1, tradeify_1) and phone (breakout_2) accounts are unchanged. The busy-symbol guard is untouched. Deploy needs a restart of the live trader (prompter) and picks up on the next prop-executor timer tick. Revert: git revert of the merge commit.",
+  "why": "VELOTRADE-TICKET 2026-10-07: velotrade_1 ETH-short prop-manual-4fa7266cfcf0 sat in band_wait its whole validity, was flipped to expiry_prompted by a prompter that assumes a human, and suppressed 4 later ETH-short signals."
+}
