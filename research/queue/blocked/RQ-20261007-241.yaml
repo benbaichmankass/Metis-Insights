@@ -1,0 +1,85 @@
+id: RQ-20261007-241
+title: 'NEW FAMILY (pace): volatility-breakout with a TIME STOP -- the squeeze harness at --timeout-bars 6 / 12 / 24 on DOGE,
+  ADA and LINK 1h -- blocked on the dispatch workflow passing harness arguments'
+status: blocked
+cadence: once
+theme: new_strategy_prop
+priority: 1
+kind: experiment
+question: 'The squeeze harness IS a volatility breakout (Bollinger/Keltner squeeze -> breakout, ATR stop, ATR trail, timeout
+  backstop); its harness default lets a trade run for 48 bars. Does a TIME STOP of 6, 12 or 24 bars at 1h (--timeout-bars)
+  on the batch-1 cells where the family cleared the cost stack or came close -- DOGE 1h (+65R, n=549, PASS), ADA 1h (-47R,
+  n=514), LINK 1h (-7R, n=526) -- keep net_total_r > 0 while cutting the mean bars held, so that the SAME edge resolves in
+  a day instead of two? Pace for a prop account is net R per calendar day, not net R per trade: a time stop raises the daily
+  resolution and frees the leg to re-enter. Nine cells (3 symbols x 3 timeouts), each judged against the batch-1 default-timeout
+  cell on the same symbol.'
+why_this_matters: 'Operator 2026-10-06 (verbatim, in PI-20261006-APBY4NTV-0001): "continue searching for new strategies ...
+  specifically for the prop accounts, with an emphasis on shorter-timeframe strategies, or at least strategies that turn a
+  profit faster (we would ideally want +10% monthly, not over more than 6 months)" and "we shouldn''t be stuck on eth and
+  sol - anything that we''re able to trade is fair game". Batch 1 (RQ-20261006-005..031, Stage-0 net of each harness''s cost
+  stack, research/results/RQ-20261006-0NN/*.jsonl, measurement block; the `wiring_only` verdict field is a grader bug being
+  fixed by lane RQ-RESULTS): 5 PASS, all at 1h (ADA/DOGE/LINK pullback, DOGE squeeze, SLV fade); 17 FAIL including every 15m
+  and 5m cell (BTC 15m fade -1820R over 4214 trades); the 5m/15m chop scalps indeterminate (n<39). READ: with these harnesses
+  the cost stack kills 5m/15m; pace has to come from BREADTH (more 1h-4h legs on more instruments) and from stacking legs,
+  not from faster bars. The harness and the data (CANDIDATE_PAIRS DOGE/ADA/LINK 1h, 1095 d) exist; what does not exist is
+  a dispatch route that passes a harness ARGUMENT: research-harness-dispatch.yml invokes every harness with --symbol/--timeframe
+  only, and research-script-run.yml needs a verdict.json the harness does not write. The cheapest fix is an `extra_args` input
+  on research-harness-dispatch.yml appended to the harness argv (one line in the case statement plus an input), filed as PI-20261007-ZKGGKTAG-0002.
+  Until then this is a pre-registered question with no instrument, which is what research/queue/blocked/ is for.'
+power:
+  expected_n: 500
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: 'd=0.45 -> 39 trades (the standing E35 floor). expected_n=500 is MEASURED on the default-timeout cells this unit
+    varies: research/results/RQ-20261006-018 (DOGE, n=549), -010 (ADA, n=514), -022 (LINK, n=526); a shorter timeout cannot
+    lower n (the entry set is unchanged) and frees the leg to re-enter sooner.'
+  feasibility:
+    source: none
+    accrual_basis: A 1095 d window re-fetched at run time; nothing accrues. The instrument (an argument pass-through) does
+      not exist yet (blocked_on).
+decision_rule:
+  id: RULE-RQ1007-241-SQUEEZE-TIME-STOP-1h
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: 'Per (symbol, timeout) cell: net_total_r, total_trades and the harness''s mean bars held from its --json (harness-default
+    parameters except --timeout-bars), net of the full cost stack, versus the batch-1 default cell on the same symbol.'
+  rule: PASS IF net_total_r > 0 AND n_trades >= 39 AND mean bars held < the default cell's -- a FASTER cell with edge; it
+    is a Stage-0 PASS and the next unit commits its rows for the prop fit. IMPROVED-BUT-NEGATIVE IF net_total_r <= 0 but higher
+    than the default cell's net_total_r (reported, not a pass). FAIL IF net_total_r <= 0 AND net_total_r <= the default cell's
+    AND n_trades >= 39. indeterminate IF n_trades < 39. The timeout is graded per cell; no timeout is chosen across symbols
+    by this unit.
+  what_it_does_not_do: Does not touch config/strategies.yaml's squeeze_breakout timeout_bars and does not propose a leg; a
+    PASS feeds the prop fit, not a roster.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 15
+  basis: Nine single-symbol GitHub-runner harness dispatches (one per cell) once extra_args exists; same shape as RQ-20261006-018.
+blocked_on:
+- what: research-harness-dispatch.yml passes every harness only --symbol/--timeframe (the case statement at lines 138-200);
+    there is no input through which a unit can set --timeout-bars, and research-script-run.yml lands producer_failed for a
+    command that writes no verdict.json (backtest_squeeze.py writes result.json).
+  ref: PI-20261007-ZKGGKTAG-0002 (docs/claude/work/pipeline/); sibling of PI-20261006-TPQQDKFF-0002
+  clears_when: 'research-harness-dispatch.yml accepts an `extra_args` input appended to the harness argv (and harness_dispatch_result.py
+    records it on the result), OR a research-script-run grader exists that turns a harness result.json into verdict.json;
+    then `git mv` this file to research/queue/ as nine units (or one unit per symbol with three timeouts if extra_args allows
+    a sweep) with run.workflow: research-harness-dispatch.yml, inputs {harness: squeeze, symbol, timeframe: 1h, extra_args:
+    ''--timeout-bars N''}, lands.store: research/results/.'
+run:
+  workflow: null
+  note: Deliberately null until blocked_on clears; a dispatch today would run the default 48-bar timeout and re-measure batch
+    1.
+lands:
+  store: research/results/ (once promoted)
+related:
+- PI-20261006-APBY4NTV-0001
+- RQ-20261006-018
+- RQ-20261006-010
+- RQ-20261006-022
+- scripts/backtest_squeeze.py
+- PI-20261006-TPQQDKFF-0002
+last_dispatched_at: null
