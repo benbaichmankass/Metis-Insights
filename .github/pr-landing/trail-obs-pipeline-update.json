@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "TRAIL-OBSERVABILITY lane, close-out. Held so the manager merges it; an earlier self-land attempt by this lane was denied by the harness's classifier, so this lane does not self-land anything further.",
+  "why": "One append-only pipeline record updating PI-20261006-KX6ZKFNA-0003: first half (readable latch/state) merged, deployed and observed; second half (trail_paused_since on prop_monitor_pulse) remains. Docs/pipeline data only, no runtime, order-path or config change."
+}

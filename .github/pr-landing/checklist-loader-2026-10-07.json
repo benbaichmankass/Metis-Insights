@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CHECKLIST step (a): scripts/ops/checklist.py (per-row store loader/generator/seed/check) + tests + self-test guard. No readers migrated, monolith untouched, no rows seeded. Tooling only."
+}

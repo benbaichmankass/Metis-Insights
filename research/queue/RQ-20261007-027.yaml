@@ -1,0 +1,99 @@
+id: RQ-20261007-027
+title: 'Tradeify 247 1-Step prop fit on the 730d record: ict_scalp_xrp_15m at flat 0.5% and 0.75% of balance, n=132 (re-price
+  of the UNDERPOWERED 2026-10-04 unit; PI-20261004-UQ9JJPRQ-0001)'
+status: queued
+cadence: once
+theme: new_strategy_prop
+priority: 1
+kind: experiment
+question: 'The 2026-10-04 Tradeify fits for ict_scalp_xrp_15m graded UNDERPOWERED because prop_ev_grid priced the 365d committed
+  record (n below the 88 floor) while the unit''s expected_n was copied from a memo. A 730d trade record for this leg is committed
+  at comms/strategy_evidence/runs/2026-10-02-730d/ict_scalp_xrp_15m__trades.jsonl (132 rows, counted by wc -l on 2026-10-07;
+  full cost stack per its sibling record''s cost_stack: fees 7.5 bps roundtrip + slippage 3.0 bps roundtrip + funding 1.0
+  bps per 8h window (the committed record''s cost_stack; execution_costs.resolve_cost_policy venue defaults)). Under config/prop_rulesets/tradeify_247_1step.yaml
+  with --lev-cap ict_scalp_xrp_15m=2 --no-hedge --swap-model prorated --funded-start fresh, at flat 0.5% (arm A, the sizing
+  the 2026-10-04 units tested) and 0.75% (arm B), is ev_net_usd_per_life > 0 on all 5 seeds with P(net>0) >= 0.70? The 2026-10-04
+  units RQ-20261004-759/760 priced the 365d record (n=76). The 730d record reads net_r_oos -4.60 R (1/4 folds), so a FAIL
+  is a live possibility and would be a determinate answer.'
+why_this_matters: Prop first (operator 2026-10-05). The pool of admitted prop legs is thin; this turns a 'could not answer'
+  into an answer on a record that clears the floor, sized from the committed file rather than a memo.
+power:
+  expected_n: 132
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: d=0.3 needs ~87-90 observations at alpha 0.05 / power 0.8 (floor registered by RQ-20260928-011/-012 and used by RULE-TRADEIFY-FIT).
+    expected_n=132 is `wc -l comms/strategy_evidence/runs/2026-10-02-730d/ict_scalp_xrp_15m__trades.jsonl` counted 2026-10-07,
+    i.e. the committed record this unit prices -- not a memo. Below 88 the unit grades UNDERPOWERED, never FAIL.
+  feasibility:
+    source: none
+    accrual_basis: Re-grading of a committed 730d trade record; nothing accrues.
+decision_rule:
+  id: RULE-RQ1007-TRADEIFY-FIT-730D-ict_scalp_xrp_15m
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: 'Per arm (A: --sizing balance --risk-pct 0.005; B: --sizing balance --risk-pct 0.0075) and per seed 1-5: prop_ev_sim
+    path-mode ev_net_usd_per_life and p_net_positive over the committed 730d trades of ict_scalp_xrp_15m, under config/prop_rulesets/tradeify_247_1step.yaml,
+    --lev-cap ict_scalp_xrp_15m=2, --no-hedge, --swap-model prorated, --funded-start fresh. Also reported, never graded on:
+    days_to_pass p50/p90, P(daily-loss breach), P(max-DD breach).'
+  rule: 'Per arm: PASS IF ev_net_usd_per_life > 0 on ALL 5 seeds AND P(net>0) >= 0.70 on ALL 5 seeds. UNDERPOWERED (indeterminate)
+    IF n < 88. FAIL IF ev <= 0 on any seed. NULL (indeterminate) otherwise. MACHINE verdict (prop_ev_grid --grade pass_all_seeds
+    --p-floor 0.70 --n-floor 88) pools BOTH arms: pass iff every (arm, seed) cell clears, fail iff any cell has ev <= 0; the
+    per-arm reading is taken from grid.json by the reader. Decision mapping: arm A PASS -> ict_scalp_xrp_15m is a Tier-3 roster
+    proposal for tradeify_1 at 0.5%, NOT applied by this unit; arm B PASS with arm A PASS -> the proposal names 0.75% as the
+    sizing candidate; FAIL on arm A -> one pass, re-queue a confirmatory run on a disjoint window before it is read as a kill;
+    two consecutive FAILs retire the leg from the Tradeify candidate pool. The 0.70 floor and the 88 floor are not changed
+    after seeing any result.'
+  what_it_does_not_do: Does not touch config/accounts.yaml, config/strategies.yaml or the tradeify_1 roster. Prices committed
+    trades; it is not a fresh backtest and not a live-parity check.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 40
+  basis: 1 leg x 2 arms x 5 seeds of prop_ev_sim, twice RQ-20261004-759's shape (20 min for 1 x 1 x 5).
+run:
+  workflow: research-script-run.yml
+  timeout_minutes: 120
+  command:
+  - python3
+  - scripts/research/prop_ev_grid.py
+  - --leg
+  - ict_scalp_xrp_15m=comms/strategy_evidence/runs/2026-10-02-730d/ict_scalp_xrp_15m__trades.jsonl
+  - --arm
+  - A=--sizing balance --risk-pct 0.005
+  - --arm
+  - B=--sizing balance --risk-pct 0.0075
+  - --common
+  - --ruleset config/prop_rulesets/tradeify_247_1step.yaml --lev-cap ict_scalp_xrp_15m=2 --no-hedge --swap-model prorated
+    --funded-start fresh
+  - --seeds
+  - 1,2,3,4,5
+  - --grade
+  - pass_all_seeds
+  - --p-floor
+  - '0.70'
+  - --n-floor
+  - '88'
+  - --out
+  - '{out_dir}'
+  - --jobs
+  - '4'
+  inputs:
+    research_unit: RQ-20261007-027
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+grading:
+  auto: true
+related:
+- PI-20261004-UQ9JJPRQ-0001
+- comms/strategy_evidence/runs/2026-10-02-730d/ict_scalp_xrp_15m.json
+- RQ-20261004-757
+- RQ-20261004-759
+- RQ-20261004-761
+- RQ-20261004-763
+- config/prop_rulesets/tradeify_247_1step.yaml

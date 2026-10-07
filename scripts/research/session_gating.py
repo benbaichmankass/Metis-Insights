@@ -143,6 +143,34 @@ def _net_at(rows: List[dict], bps: float, taker_bps: float) -> Dict[str, Any]:
             "gross_total_r": round(gross, 2)}
 
 
+def _holdout_subset(rows: List[dict], taker_bps: float, maker_both_bps: float) -> Dict[str, Any]:
+    """Out-of-sample version of best_subset (CA-B04).
+
+    ``best_subset`` picks the net-positive killzones IN THE SAME SAMPLE it then
+    reports — with no true hour effect and a losing strategy that "flips" a cell
+    in ~59% of trials. Here the killzones are SELECTED on the chronologically
+    first half of the trades and MEASURED on the second half only. A flip that
+    is real survives; one manufactured by picking winning bins does not.
+    """
+    dated = [(r.get("entry_time"), r) for r in rows if _hour_of(r.get("entry_time")) is not None]
+    dated.sort(key=lambda x: str(x[0]))
+    if len(dated) < 20:
+        return {"evaluable": False, "reason": f"only {len(dated)} dated trades (<20)"}
+    half = len(dated) // 2
+    train = [r for _, r in dated[:half]]
+    test = [r for _, r in dated[half:]]
+    tr_kz: Dict[str, List[dict]] = {}
+    for r in train:
+        tr_kz.setdefault(_kz_of_hour(_hour_of(r.get("entry_time"))), []).append(r)
+    chosen = [n for n, rr in tr_kz.items()
+              if n not in ("off", "unknown") and _net_at(rr, taker_bps, taker_bps)["net_total_r"] > 0]
+    test_rows = [r for r in test if _kz_of_hour(_hour_of(r.get("entry_time"))) in chosen]
+    return {"evaluable": True, "selected_on_first_half": chosen,
+            "all_hours_second_half": _net_at(test, taker_bps, taker_bps),
+            "subset_second_half": _net_at(test_rows, taker_bps, taker_bps),
+            "subset_second_half_maker_both": _net_at(test_rows, maker_both_bps, taker_bps)}
+
+
 def _score_cell(path: str, taker_bps: float, maker_both_bps: float) -> Dict[str, Any]:
     rows = _read(path)
     label = Path(path).stem
@@ -174,7 +202,8 @@ def _score_cell(path: str, taker_bps: float, maker_both_bps: float) -> Dict[str,
     }
     return {"cell": label, "tf": tf, "trades": all_taker["trades"],
             "entry_time_coverage_pct": round(100 * parsed / len(rows), 1) if rows else 0.0,
-            "all_hours": all_taker, "by_killzone": kz_stats, "best_subset": best_subset}
+            "all_hours": all_taker, "by_killzone": kz_stats, "best_subset": best_subset,
+            "holdout": _holdout_subset(rows, taker_bps, maker_both_bps)}
 
 
 def _fmt(results: List[Dict[str, Any]], taker_bps: float, maker_both_bps: float) -> str:
@@ -185,8 +214,8 @@ def _fmt(results: List[Dict[str, Any]], taker_bps: float, maker_both_bps: float)
         "(the 'restrict to these hours' result). A cell flips via session gating "
         "if the subset is net-positive at the REALISTIC (taker) bound.",
         "",
-        "| cell | tf | all-hrs trades | all-hrs net_R taker | subset KZs | subset trades | subset net_R taker | subset net_R maker | flips? |",
-        "|---|--:|--:|--:|---|--:|--:|--:|:-:|",
+        "| cell | tf | all-hrs trades | all-hrs net_R taker | subset KZs | subset trades | subset net_R taker (IN-SAMPLE, selection-biased) | subset net_R maker | flips (in-sample)? | holdout subset net_R (2nd half) | holdout all-hrs (2nd half) | flips OOS? |",
+        "|---|--:|--:|--:|---|--:|--:|--:|:-:|--:|--:|:-:|",
     ]
     for r in results:
         a = r["all_hours"]
@@ -195,10 +224,21 @@ def _fmt(results: List[Dict[str, Any]], taker_bps: float, maker_both_bps: float)
         flips = "✅" if st["net_total_r"] > 0 and a["net_total_r"] <= 0 else (
             "=" if st["net_total_r"] > 0 else "❌")
         kzs = "+".join(s["killzones"]) if s["killzones"] else "—"
+        h = r.get("holdout") or {}
+        if h.get("evaluable"):
+            hs, ha = h["subset_second_half"], h["all_hours_second_half"]
+            oos = "✅" if hs["net_total_r"] > 0 and ha["net_total_r"] <= 0 else (
+                "=" if hs["net_total_r"] > 0 else "❌")
+            hcols = f"{hs['net_total_r']} | {ha['net_total_r']} | {oos}"
+        else:
+            hcols = "— | — | —"
         lines.append(
             f"| {r['cell']} | {r['tf']} | {a['trades']} | {a['net_total_r']} | {kzs} | "
-            f"{st['trades']} | {st['net_total_r']} | {s['maker_both']['net_total_r']} | {flips} |")
+            f"{st['trades']} | {st['net_total_r']} | {s['maker_both']['net_total_r']} | {flips} | {hcols} |")
     lines += ["",
+              "The in-sample 'flips?' column picks the winning killzones from the same trades it "
+              "scores (CA-B04: flips a truly-losing cell ~59% of the time on pure noise) — treat "
+              "only 'flips OOS?' (selected on the first half, measured on the second) as evidence.",
               "Legend: ✅ the killzone subset is net-positive where all-hours was NOT "
               "(session gating flips it) · = already positive all-hours (gate not needed) · "
               "❌ no killzone subset is net-positive (frequency-reduction can't save it).",

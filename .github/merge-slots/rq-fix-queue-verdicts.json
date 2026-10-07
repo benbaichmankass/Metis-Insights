@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01MZC82v4c5CnXkZ1vpYtx8e",
+  "branch": "claude/rq-fix-queue-verdicts",
+  "claimed_at": "2026-10-06T13:14:26Z",
+  "purpose": "lane RQ-FIX: research-queue verdicts discarded (no PyYAML) + hourly double-fire; Tier-1 self-landing"
+}

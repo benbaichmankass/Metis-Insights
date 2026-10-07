@@ -825,7 +825,10 @@ def main() -> int:
     if a.self_test:
         return _self_test()
     try:
-        rows = json.loads(Path(a.checklist).read_text(encoding="utf-8"))["items"]
+        if str(REPO) not in sys.path:
+            sys.path.insert(0, str(REPO))
+        from src.runtime import checklist_store as _ck  # noqa: PLC0415
+        rows = _ck.load_path(Path(a.checklist))["items"]
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2

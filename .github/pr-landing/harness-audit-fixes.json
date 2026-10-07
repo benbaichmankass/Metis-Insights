@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "offline research tooling under scripts/research + tests + pipeline records only; no runtime, order path, config, or landed result rows touched"
+}

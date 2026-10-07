@@ -585,6 +585,13 @@ def main(argv: Optional[List[str]] = None) -> int:
               f"mirror={(recent.get('mirror') or {}).get('readState')!r}) -- we could not look",
               file=sys.stderr)
         return 2
+    if (recent.get("mirror") or {}).get("exclusionsReadState") == "unreadable":
+        # The mirror window drops acknowledged legacy trades
+        # (config/mirror_window_exclusions.yaml); if that list could not be read
+        # the window may still contain them -- we could not look.
+        print("error: mirror exclusions list unreadable -- the Gate-2 window may include "
+              "legacy mirror-only trades; refusing to demote on it", file=sys.stderr)
+        return 2
     out = run(recent, root=a.root, window=a.window, apply=a.apply,
               coverage_floor=a.coverage_floor)
     for leg in out["no_evidence"]:
