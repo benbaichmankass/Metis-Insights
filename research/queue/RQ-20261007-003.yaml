@@ -3,7 +3,7 @@ title: >-
   Active geometry, live roster: is a target RE-ESTIMATED through the trade (ATR-rescaled
   each bar, pulled in on stall) better CALIBRATED than the entry-time target, and does
   it clear the P2 gate on the e35-sweepable live legs?
-status: blocked
+status: queued
 cadence: once
 kind: experiment
 theme: live_strategy
@@ -94,27 +94,22 @@ routing:
     Runner, sharded one leg per job by m20-exit-lever-sweep.yml once the lever exists;
     ~6 cells x ~25 legs. Estimate, not a measurement.
 
-blocked_on:
-  - what: >-
-      No harness re-prices a target after entry (scripts/backtest_trend.py /
-      backtest_pullback.py argparse read 2026-10-07) and no live monitor produces a
-      `tp` verdict (AST-read, check_tp_doctrine producer_state=no_tp_verdict on 52 of
-      52 routings at 142ec79e).
-    ref: PI-20261006-5FUGHVX8-0001 (BUILD B1) -- proposed checklist row GEOM-B1-HARNESS (retarget modes are the second lever family of the same build)
-    clears_when: >-
-      scripts/backtest_trend.py and scripts/backtest_pullback.py accept
-      --tp-retarget-mode {atr_rescale,stall_pull_in} and --tp-retarget-stall-bars, the
-      emitted trades carry final_target_r, AND m20-exit-lever-sweep.yml accepts
-      `tp_retarget` in `levers` with a matching coverage-matrix column. Then: move to
-      research/queue/, status queued, run.workflow: m20-exit-lever-sweep.yml with
-      inputs {legs: '' (census default = every runnable live leg), levers:
-      tp_retarget, tp_cap_pct: '0.099', split_mode: oos-trades, research_unit:
-      RQ-20261007-003}.
-
 run:
-  workflow: null
-  note: Null until the harness lever lands (blocked_on); the dispatch shape is in clears_when.
-
+  workflow: m20-exit-lever-sweep.yml
+  inputs:
+    legs: trend_donchian,trend_donchian_sol,trend_donchian_eth,gld_pullback_1h,spy_pullback_1h,qqq_pullback_1h,tlt_pullback_1h,uso_trend_1h,eth_pullback_2h,sol_pullback_2h,trend_donchian_sol_prop,trend_donchian_eth_prop,trend_donchian_eth_4h,trend_donchian_xrp_4h,mes_trend_long_1d,mgc_pullback_1d,mhg_pullback_1d,spy_trend_long_1d,qqq_trend_long_1d,tqqq_trend_long_1d,qld_trend_long_1d,iwm_trend_long_1d,gld_pullback_1d,tlt_pullback_1d,ief_pullback_1d,slv_pullback_1d,gdx_pullback_1d,splg_trend_long_1d,iaum_pullback_1d,scha_trend_long_1d,xrp_pullback_2h,ada_pullback_2h
+    levers: tp_retarget
+    tp_cap_pct: '0.099'
+    split_mode: oos-trades
+    research_unit: RQ-20261007-003
+  note: >-
+    Unblocked 2026-10-07 by GEOM-B1-HARNESS. `legs` is EXPLICIT: an empty `legs` means
+    the census top-10 DEFAULT in this workflow, not "every runnable live leg" as this
+    unit's clears_when assumed. The list is every enabled+live donchian / pullback leg
+    in config/strategies.yaml on 2026-10-07 (32; scalps are RQ-20261007-004's). Daily
+    equity legs below 25 OOS trades grade insufficient_base per leg and are reported,
+    never failed. Cells: atr_rescale (bounded 0.5x-2.0x) and stall_pull_in with stall
+    bars (6, 10), each at target_r in (2.0, 2.5, the leg's own finite tp_r).
 lands:
   store: research/results/
   assert_field: read_state
