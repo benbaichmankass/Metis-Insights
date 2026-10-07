@@ -5514,7 +5514,7 @@
         16975
       ],
       "blocked_on": [],
-      "note": "[2026-10-07T19:05Z manager] #16791 MERGED 18:54Z (pyyaml on the result job; opt-in --check-open-stamp-prs; idempotence). #16975 (regrade, 48 rows) self-landing. Two-cycle no-double-fire observation armed for 20:40Z. #16960 renumbered again to 010-013 (its 007-010 overlapped pairs' 005-009). || [2026-10-07T18:57Z manager] #16791 fixed (c88755e5: opt-in --check-open-stamp-prs; ruff) and auto-merging; #16960 (prop-bar fits for the 4 crypto PASS legs on the Breakout ruleset + committed Stage-0 trades artifacts) held for me; its ids collide with #16955 -> renumbering. Verdict table confirmed by the regrade dry run. SLV fade (031) unpriceable until the fade emitter fix lands (PI-20261007-71Y2H2VZ-0001). || [2026-10-07T18:15Z manager] First lane (session_01MZC82v4c5CnXkZ1vpYtx8e, Fable, $12.40 final) pushed branch claude/rq-fix-queue-verdicts (477521ee8: pyyaml on the result job, dispatcher idempotence, regrade tool, tests) and hit the weekly limit before landing it; PR #16791 is RED (pytest-run + guards). Re-dispatched as lane RQ-RESULTS (Fable, $20): fix #16791 CI, run the regrade over EVERY discarded row (MEASURED 45 of 54 results since 2026-10-06 13:00Z are wiring_only; 17 units fired 2-3x), seed prop-bar units for the 5 PASS legs. || [2026-10-06T13:05Z manager] Found while surveying the 41 prop units for the operator's 'push prop roster research' ask. PI-20261006-APBY4NTV-0010 has the measurements (8 of 358 result rows discarded across 6 units; 005 and 659 each fired twice). The double-fire is a consequence of my own #16736 (hourly cadence); the yaml bug predates it (#16388). Closes when a fresh harness result carries a real verdict and two consecutive cycles fire nothing twice."
+      "note": "[2026-10-07T19:13Z manager] #16975 regrade: 56 discarded rows, 48 appended (8 already re-graded by #16791); results guard 337 files / 472 records / 0 problems; next hourly grade cycle marks RQ-20261006-005..032. NEW FAIL: 032 pullback USO 1h (-6.72 R, n=74). #16960 renumbered 010-013 (d349ce223). || [2026-10-07T19:05Z manager] #16791 MERGED 18:54Z (pyyaml on the result job; opt-in --check-open-stamp-prs; idempotence). #16975 (regrade, 48 rows) self-landing. Two-cycle no-double-fire observation armed for 20:40Z. #16960 renumbered again to 010-013 (its 007-010 overlapped pairs' 005-009). || [2026-10-07T18:57Z manager] #16791 fixed (c88755e5: opt-in --check-open-stamp-prs; ruff) and auto-merging; #16960 (prop-bar fits for the 4 crypto PASS legs on the Breakout ruleset + committed Stage-0 trades artifacts) held for me; its ids collide with #16955 -> renumbering. Verdict table confirmed by the regrade dry run. SLV fade (031) unpriceable until the fade emitter fix lands (PI-20261007-71Y2H2VZ-0001). || [2026-10-07T18:15Z manager] First lane (session_01MZC82v4c5CnXkZ1vpYtx8e, Fable, $12.40 final) pushed branch claude/rq-fix-queue-verdicts (477521ee8: pyyaml on the result job, dispatcher idempotence, regrade tool, tests) and hit the weekly limit before landing it; PR #16791 is RED (pytest-run + guards). Re-dispatched as lane RQ-RESULTS (Fable, $20): fix #16791 CI, run the regrade over EVERY discarded row (MEASURED 45 of 54 results since 2026-10-06 13:00Z are wiring_only; 17 units fired 2-3x), seed prop-bar units for the 5 PASS legs. || [2026-10-06T13:05Z manager] Found while surveying the 41 prop units for the operator's 'push prop roster research' ask. PI-20261006-APBY4NTV-0010 has the measurements (8 of 358 result rows discarded across 6 units; 005 and 659 each fired twice). The double-fire is a consequence of my own #16736 (hourly cadence); the yaml bug predates it (#16388). Closes when a fresh harness result carries a real verdict and two consecutive cycles fire nothing twice."
     },
     {
       "id": "ARMED-GATE",
@@ -5617,16 +5617,23 @@
       "id": "EXIT-PARITY-RQ",
       "title": "Declared exit levers that cannot fire live (prop close-type levers; xrp_pullback_2h trail_decay arm 4.49 > tp_r 3): register Stage-0 re-runs without them and report what survives",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "lane EXIT-PARITY-RQ",
       "lane": "session_01Xz8wBZvFn1cmrjJF32kqbY",
       "model": "claude-fable-5-1",
       "ceiling_usd": 20,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        16970
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-KX6ZKFNA-0001, PI-20261006-KX6ZKFNA-0004. Research-planning lane: write the queue units (rule registered before run, full cost stack) that re-measure each affected leg WITHOUT the unexecutable lever (prop legs: stale_exit_bars/giveback on paths with no close op; xrp_pullback_2h: a reachable arm or none), so the live book and its evidence match. Any param change is Tier-3 and comes back as a proposal with the record. Fable, auto."
+      "note": "[2026-10-07T19:13Z manager] PR #16970 held (new units). Its RQ-20261007-001/-002 COLLIDE with the 001-004 allocation to #16955 -> manager assigns 020-021; renumber before merge. MEASURED locally after rule registration: (a) trend_donchian_eth_prop stale_exit WITH +13.02 R vs WITHOUT +12.84 R over 730d (dR +0.18 R, 2/4 folds) -> FAIL/live_without_lever: the close verb is NOT worth building; (b) xrp_pullback_2h decay at 4.49 == no decay, byte-identical (+14.67 R, 122 trades); every reachable arm worse (-3.6 to -17.6 R) -> FAIL/no_reachable_lever_beats_removed. Tier-3 proposals -> row EXIT-LEVER-STRIP. Also PI-20261007-JF32KQBY-0001 (_PB_LEVER_FLAG does not forward --trail-decay-*: 9 pullback records grade approximate for a wiring reason). || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-KX6ZKFNA-0001, PI-20261006-KX6ZKFNA-0004. Research-planning lane: write the queue units (rule registered before run, full cost stack) that re-measure each affected leg WITHOUT the unexecutable lever (prop legs: stale_exit_bars/giveback on paths with no close op; xrp_pullback_2h: a reachable arm or none), so the live book and its evidence match. Any param change is Tier-3 and comes back as a proposal with the record. Fable, auto.",
+      "observation": {
+        "what": "#16970 lands (renumbered 020-021) and the runner's E5 records for both units land",
+        "how_to_check": "ls research/results/RQ-20261007-020 research/results/RQ-20261007-021",
+        "due_by": "2026-10-10T18:00Z"
+      }
     },
     {
       "id": "TRAIL-OBSERVABILITY",
@@ -5771,9 +5778,11 @@
       "ceiling_usd": 30,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        16987
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-YUVCGTMJ-0003. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T19:13Z manager] PR #16987 held Tier-2: POST /phone/verify (server re-checks read-back vs ticket + instrument steps; ONE 30 s token bound to ticket_id + read-back hash; test/dry/kill-switch -> dry token) + POST /phone/go (one-shot redeem; replay/expiry/changed form/dry/no-longer-live -> go:false + ping); the app clicks LIVE only on go:true. After merge: web-api restart, APK, one phone-dry-test (pass = dry_fill_ok reads SERVER verified, dry token, go=false). Must adapt the live line if ARMED-GATE lands first. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-YUVCGTMJ-0003. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "PHONE-BALANCE-READ",
@@ -5902,10 +5911,14 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [
-        16948
+        16948,
+        16953,
+        16957,
+        16961,
+        16968
       ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:55Z manager] ROOT CAUSE of stranded stamps: the dispatcher stacks the stamp commit on its receipt commit; the stamp PR conflicts with main and gets NO pull_request runs. PR #16948 (commit-to-main replays onto main's tip; test) held: landing machinery, the manager lands. Added: stale-automation-sweep runs 110-119 failing; ~16 superseded stamp PRs -> lane lists, manager closes. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261006-TPQQDKFF-0001, PI-20261006-TPQQDKFF-0002, PI-20261006-LCEVL8D5-0001, PI-20261006-LCEVL8D5-0002, PI-20261006-LCEVL8D5-0003, PI-20261005-RQ-ID-RACE-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T19:13Z manager] Self-landing: #16953 needs_review digest line (42 units), #16957 p_pass_by_days, #16961 trend+ict_scalp short-TF cells (vwap not: hardcoded symbol), #16968 RQ id bands (generated 001-899, hand 900-999) + guard. Debris: 7 superseded stamp PRs closed by the manager 19:11Z (#16656 #16810 #16823 #16838 #16850 #16900 #16938); #16790 #16883 #16927 kept; #11912/#13133 deferred. #16950 also edits attention_watch.py: the second to land may need a main merge. || [2026-10-07T18:55Z manager] ROOT CAUSE of stranded stamps: the dispatcher stacks the stamp commit on its receipt commit; the stamp PR conflicts with main and gets NO pull_request runs. PR #16948 (commit-to-main replays onto main's tip; test) held: landing machinery, the manager lands. Added: stale-automation-sweep runs 110-119 failing; ~16 superseded stamp PRs -> lane lists, manager closes. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261006-TPQQDKFF-0001, PI-20261006-TPQQDKFF-0002, PI-20261006-LCEVL8D5-0001, PI-20261006-LCEVL8D5-0002, PI-20261006-LCEVL8D5-0003, PI-20261005-RQ-ID-RACE-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "API-COLLAPSED-STATES",
@@ -6009,9 +6022,11 @@
       "ceiling_usd": 10,
       "spend_usd": null,
       "tier": 3,
-      "prs": [],
+      "prs": [
+        16981
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:37Z manager] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): 'Dead: clear its roster, retire the row (Recommended)'. Tier-3 roster change on a dry_run account, operator-approved in the popup: PR held; the manager merges. Pipeline: PI-20261007-APBY4NTV-0002."
+      "note": "[2026-10-07T19:13Z manager] PR #16981 held Tier-3 (operator-approved): roster -> []. After merge: executor-disable-timer for breakout_1 (issue #16251 cancelled by the one-pending limit; timer state UNKNOWN). Follow-ups: feed-disable-timer refuses breakout_1 (script); prop.py _DEFAULT_ACCOUNT breakout_1 -> breakout_2. || [2026-10-07T18:37Z manager] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): 'Dead: clear its roster, retire the row (Recommended)'. Tier-3 roster change on a dry_run account, operator-approved in the popup: PR held; the manager merges. Pipeline: PI-20261007-APBY4NTV-0002."
     },
     {
       "id": "HIBERNATION-SKILL",
@@ -6059,10 +6074,11 @@
       "spend_usd": null,
       "tier": 2,
       "prs": [
-        16947
+        16947,
+        16977
       ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:55Z manager] FACT 1: band_wait on all 12 ticks 02:03-02:58Z (bid 2608.97-2618.41 vs short entry 2672.0), never attempted. PR #16947 held Tier-2 (expiry prompter leaves REST accounts to the executor; expired unplaced -> terminal skipped with last verdict); I merge on green + restart the trader. Stuck ticket: operator taps the Telegram \u274c (asked) or self-clears 2026-10-08 02:59Z. Follow-up: allowlisted prop-ticket-expire. Findings PI-20261007-JOHNSXDJ-0001 (stale-at-emission, 2.1% from market) / -0002. || [2026-10-07T18:15Z manager] MEASURED on /api/bot/prop/tickets: first live signal 01:59:22Z (trend_donchian_eth_prop ETH SHORT, entry 2672, risk_usd 50.0 = the 1% sizing OBSERVED) was never placed; status expiry_prompted after valid_until 02:59Z; the 02:01, 03:02, 10:08 and 11:01Z re-tickets were all 'reticket suppressed -- outstanding_ticket:expiry_prompted'. Balance 4999.97 unchanged; executor alive (status posted 18:08Z). The manual bridge's expiry_prompted state waits for a human report; the REST path has none, so the account cannot trade until the ticket is terminal. Opus (live order path), default mode. Fix = terminal state for unplaced-expired tickets on REST accounts + unblock the stuck ticket in tier."
+      "note": "[2026-10-07T19:13Z manager] PR #16977 held Tier-2: system-action prop-ticket-expire (dry-run default; apply = backup + ONE guarded UPDATE expiry_prompted / emitted-past-validity -> expired; refuses non-REST accounts, tickets with fills, wrong account). JOHNSXDJ-0001 measured: signal 01:59:24Z, band 2664.72-2679.28, first tick bid 2615.72 (-2.11%); hypothesis: entry = prior 2h bar close (signal 36 s before the 02:00Z close). Stuck ticket cleared by the operator's Telegram X (status expired 19:08Z). || [2026-10-07T18:55Z manager] FACT 1: band_wait on all 12 ticks 02:03-02:58Z (bid 2608.97-2618.41 vs short entry 2672.0), never attempted. PR #16947 held Tier-2 (expiry prompter leaves REST accounts to the executor; expired unplaced -> terminal skipped with last verdict); I merge on green + restart the trader. Stuck ticket: operator taps the Telegram \u274c (asked) or self-clears 2026-10-08 02:59Z. Follow-up: allowlisted prop-ticket-expire. Findings PI-20261007-JOHNSXDJ-0001 (stale-at-emission, 2.1% from market) / -0002. || [2026-10-07T18:15Z manager] MEASURED on /api/bot/prop/tickets: first live signal 01:59:22Z (trend_donchian_eth_prop ETH SHORT, entry 2672, risk_usd 50.0 = the 1% sizing OBSERVED) was never placed; status expiry_prompted after valid_until 02:59Z; the 02:01, 03:02, 10:08 and 11:01Z re-tickets were all 'reticket suppressed -- outstanding_ticket:expiry_prompted'. Balance 4999.97 unchanged; executor alive (status posted 18:08Z). The manual bridge's expiry_prompted state waits for a human report; the REST path has none, so the account cannot trade until the ticket is terminal. Opus (live order path), default mode. Fix = terminal state for unplaced-expired tickets on REST accounts + unblock the stuck ticket in tier."
     },
     {
       "id": "GEOM-B1-HARNESS",
@@ -6152,7 +6168,22 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "[2026-10-07T19:12Z manager] MEASURED: main APK runs 37669454650 (18:46), 37669999484 (18:51), 37671256306 (19:00) all 'cancelled' with NO jobs started; cancel-in-progress is false but group phone-executor-apk-signing keeps only the latest PENDING run, and each phone-app merge to main (#16945, #16944, ...) cancelled the previous queued build; 216 runs queued repo-wide at 19:10Z. No cancel-queued-runs issue since 07:08Z. The operator has no artifact to install. Re-run of 37671256306 (attempt 2) pending meanwhile."
+      "note": "[2026-10-07T19:14Z] Re-run 37671256306 attempt 2 cancelled again at 19:10:57Z: the group phone-executor-apk-signing is CONSTANT across branches, so a lane's PR push touching tools/phone-executor (PHONE-GO-TOKEN run 37671482417 at ~19:09Z) evicts the pending main build. No main build can survive until the per-commit group lands. || [2026-10-07T19:12Z manager] MEASURED: main APK runs 37669454650 (18:46), 37669999484 (18:51), 37671256306 (19:00) all 'cancelled' with NO jobs started; cancel-in-progress is false but group phone-executor-apk-signing keeps only the latest PENDING run, and each phone-app merge to main (#16945, #16944, ...) cancelled the previous queued build; 216 runs queued repo-wide at 19:10Z. No cancel-queued-runs issue since 07:08Z. The operator has no artifact to install. Re-run of 37671256306 (attempt 2) pending meanwhile."
+    },
+    {
+      "id": "EXIT-LEVER-STRIP",
+      "title": "Strip two exit levers that measurably cannot fire live: stale_exit_* on trend_donchian_eth_prop (+0.18 R / 730d; prop paths have no close op) and trail_decay_* on xrp_pullback_2h (dead arm 4.49 > tp_r 3.0, byte-identical to none); records re-run so declared == executable",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane EXIT-LEVER-STRIP",
+      "lane": "session_01NFqSy4cyVpVmpzzyChikrK",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-07T19:13Z manager] DATA-BACKED TIER-3 under the operator's standing authorization (2026-09-27: decide, ship, verify, then notify). Evidence: EXIT-PARITY-RQ local runs after rule registration on 5fd0163ca (comms/research/RQ-20261007-001 and -002/local-5fd0163ca/verdict.json on PR #16970): (a) eth_prop stale exit dR +0.18 R over 730d, 2/4 folds; (b) xrp decay dead and every reachable arm worse. Risk removed, none added: both are tightening-only levers that do not fire. Revert = restore the lines. Mirrors move with the live legs (tests require equality). Operator notified in the status update."
     }
   ]
 }
