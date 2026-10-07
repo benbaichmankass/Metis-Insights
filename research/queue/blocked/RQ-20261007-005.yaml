@@ -1,0 +1,85 @@
+id: RQ-20261007-005
+title: Stage-0 funding-rate carry on BTCUSDT and ETHUSDT perps (market-neutral and directional variants) -- blocked until
+  a runner-reachable funding-rate history exists
+status: blocked
+cadence: once
+theme: new_strategy_prop
+priority: 2
+kind: experiment
+question: 'Over >= 1095 d of 8-hourly funding settlements, does scripts/backtest_funding_carry.py''s receive-side position
+  (trailing-mean funding over 3 settlements, lagged 1, |feat| >= 1 bp; exit on decay below 0.3 bp, ATR stop or 72-bar timeout)
+  produce positive net R on BTCUSDT and ETHUSDT, (a) --hedge neutral (P&L = funding collected - hedge cost 2 bps - fees -
+  slippage) and (b) --hedge none (plus the price leg)? Funding is accrued EXACTLY from the settled series; fees and slippage
+  from execution_costs. Registered by lane ARB-RESEARCH session_01Aeyqvqf9sajCVDx9Ufef4u (PI-20261006-APBY4NTV-0005); family
+  table: docs/research/relative-value-families-2026-10-07.md.'
+why_this_matters: 'Operator 2026-10-06: arbitrage / spread / carry strategies. Funding carry is the one cash-flow (non-price)
+  edge the repo already has a harness for, and the harness has NEVER produced a measured row: RQ-20260929-104 (BNBUSDT 1h)
+  landed producer_failed twice (runs 37188714461, 37205968950) because scripts/ops/fetch_bybit_funding.py reaches api.bybit.com,
+  which answers HTTP 403 from GitHub runners and from the sandbox (probed 2026-10-07). Binance Vision publishes futures/um/monthly/fundingRate/<SYM>/
+  and answered HTTP 200 from the sandbox the same day; scripts/ops/fetch_binance_vision.py has no fundingRate arm. Until one
+  exists this family cannot be measured, and a question nobody can run must not sit in the dispatch queue (research/queue/README.md
+  section blocked/).'
+power:
+  expected_n: 60
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: 'd=0.45 at alpha 0.05 / power 0.8 needs ~39 trades (the E35 / roster-walkforward floor). expected_n=60 per (symbol,
+    variant): with a 1 bp entry threshold and 72-bar max hold, BTC perp funding in 2023-2026 spent long stretches above 1
+    bp per 8 h, so tens of entries over 3 years is the expectation; it is a shape argument, not a measurement, which is why
+    the unit is also `accruing`.'
+  feasibility:
+    source: none
+    accrual_basis: Zero measured rows exist for this harness anywhere in the repo (RQ-20260929-104 both producer_failed).
+      The first run IS the family's first observation; below 39 trades the verdict is indeterminate, never FAIL.
+decision_rule:
+  id: RULE-RQ1007-005-FUNDING-CARRY-NET
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: 'Per (symbol, variant): net_total_r and total_trades from the harness, with funding_r the exact signed sum of
+    settled rates over (entry, exit], price_r the hedged-out (neutral) or realised (directional) price leg, fees 7.5 bps rt,
+    slippage 3 bps rt (perp default), hedge cost 2 bps (neutral). Also REPORTED: the price_r / funding_r split, outcome mix
+    (stop / funding_decay / timeout).'
+  rule: 'Per (symbol, variant): PASS IF net_total_r > 0 AND n_trades >= 39; FAIL IF net_total_r <= 0 with n_trades >= 39;
+    indeterminate IF n_trades < 39. A PASS on the NEUTRAL variant is evidence only for a sleeve that also has a hedge leg
+    order path, which does not exist today (no spot account; the pairs executor is single-category) -- it routes to an order-path
+    build row. A PASS on the directional variant is Stage-0 evidence for an ordinary single-leg proposal. If the series used
+    is Binance funding (the proxy), the record must say so and the reader must compare the overlap months against our own
+    realised Bybit funding in the exchange_funding table before any proposal. The 39 floor is not changed after seeing a result.'
+  what_it_does_not_do: No roster or config change. Does not apply to any prop venue (props pay no funding and charge swap
+    on every open position). Says nothing about BNBUSDT (RQ-20260929-104 keeps that question).
+blocked_on:
+- kind: work_item
+  ref: PI-20261007-X9UFEF4U-0001
+  what: NO RUNNER-REACHABLE FUNDING-RATE HISTORY. research-harness-dispatch.yml's funding_carry arm calls scripts/ops/fetch_bybit_funding.py
+    (api.bybit.com, HTTP 403 from runners and the sandbox); every dispatch lands producer_failed. Binance Vision's futures/um/monthly/fundingRate
+    archive answers 200 but no fetcher reads it.
+  clears_when: 'A fetcher writes data/<SYM>_funding.csv (timestamp, funding_rate as a per-8h fraction, oldest first -- the
+    exact shape backtest_funding_carry.py --funding-data reads) from a runner-reachable source, AND either research-harness-dispatch.yml''s
+    funding_carry arm uses it or a research-script-run.yml command list fetches it and wraps the harness to write verdict.json.
+    Then: git mv this file to research/queue/, fill run.workflow and run.inputs/command, and the validator holds it to the
+    full contract.'
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: null
+  basis: 'est_minutes null rather than guessed: no funding_carry run has ever completed. The 1h candle fetch is the same Binance
+    Vision path every crypto dispatch uses.'
+run:
+  workflow: null
+  note: Deliberately null. Naming research-harness-dispatch.yml here would dispatch into the same 403 that failed RQ-20260929-104
+    twice. Fill in when the blocker clears.
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- RQ-20260929-104
+- scripts/backtest_funding_carry.py
+- scripts/ops/fetch_binance_vision.py
+- docs/research/relative-value-families-2026-10-07.md
+- PI-20261006-APBY4NTV-0005
+last_dispatched_at: null

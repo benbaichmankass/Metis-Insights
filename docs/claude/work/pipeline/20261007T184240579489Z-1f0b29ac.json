@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-10",
+    "kind": "date"
+  },
+  "id": "PI-20261007-X9UFEF4U-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "lane ARB-RESEARCH session_01Aeyqvqf9sajCVDx9Ufef4u, docs/research/relative-value-families-2026-10-07.md",
+    "rerun": "grep -n 'pairs)' .github/workflows/research-harness-dispatch.yml; ls research/results/RQ-20260929-105/; ls research/queue/blocked/RQ-20260922-011.yaml && echo STILL-BLOCKED"
+  },
+  "state": "queued",
+  "what": "RQ-20260922-011 ('Is there ANY pairs configuration whose edge survives the fee stack') is blocked on E37 -- 'NOTHING ROUTES scripts/backtest_pairs.py TO A WORKFLOW' -- and THAT BLOCKER IS CLEARED: research-harness-dispatch.yml has a `pairs` arm (symbol + symbol_b + timeframe) that landed a measured GLD/GDX 1d run (research/results/RQ-20260929-105/37188716030.jsonl, n=144), and research-script-run.yml can run scripts/research/pairs_universe_scan.py --data-dir once the legs are fetched by command. The unit's own power basis still has to come from a dry pass of the universe scan (its basis says so), and the scan writes no verdict.json yet. OWNER: the PAIRS-STOCKTAKE lane (PI-20261006-APBY4NTV-0004) or the manager -- not re-registered by ARB-RESEARCH, to keep two lanes off one unit. DO: promote the unit (git mv into research/queue/, fill run.* with a research-script-run.yml command list: fetch_backtest_corpus.py per leg at 1h, then pairs_universe_scan.py; add a verdict.json writer or wrap it), or re-block it on the verdict writer with a dated row. Operator directive it carries (2026-09-22): find pairs that pass backtesting; the mechanism is already proven."
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-08",
+    "kind": "date"
+  },
+  "id": "PI-20261006-APBY4NTV-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv, operator request 2026-10-06 ~08:20Z",
+    "rerun": "ls research/queue | wc -l; grep -l -i 'pairs\\|spread\\|basis\\|arb' research/queue/*.yaml | wc -l"
+  },
+  "state": "done",
+  "terminal_reason": "DONE 2026-10-07 by lane ARB-RESEARCH (session_01Aeyqvqf9sajCVDx9Ufef4u): family table with per-family feed / order-path / venue-rule / cost-stack verdicts landed at docs/research/relative-value-families-2026-10-07.md (2 feasible-now at Stage 0: pairs incl. ratio/z-score, ETF baskets; 2 needs-a-feed: funding carry, perp-spot basis; 5 not-for-us or deferred). Registered RQ-20261007-001/-002/-003 (pairs SLV/GLD 1d, TLT/IEF 1d, XRPUSDT/ADAUSDT 1h; mechanical rule) and RQ-20261007-004 (ETF xsec basket; session-graded), plus blocked/RQ-20261007-005 (funding carry) and -006 (perp-spot basis) blocked on PI-20261007-X9UFEF4U-0001. Follow-through rows: PI-20261007-X9UFEF4U-0001 (fetcher build), PI-20261007-X9UFEF4U-0002 (RQ-20260922-011 blocker cleared, owner PAIRS-STOCKTAKE), PI-20261007-X9UFEF4U-0003 (xsec mapper gap).",
+  "what": "STRATEGY RESEARCH BACKLOG: NON-DIRECTIONAL / RELATIVE-VALUE STRATEGIES (operator, 2026-10-06 ~08:20Z, verbatim: \"other complex strategies (not just based on predicting movement, but arbitraging symbols, spreads, etc)\"). Post-reset; all accounts, props included where the venue allows. Candidate families to scope and register (rule before run, full cost stack, funding/borrow included): cross-venue/cross-instrument arbitrage (same asset on two venues, perp vs spot), funding-rate / basis carry (perp-spot, calendar basis), statistical pairs and cointegrated baskets beyond the M22 sleeve, spread mean-reversion (ratio/z-score), triangular / cross-rate (FX, crypto crosses), index-vs-constituents or ETF-vs-underlying, volatility spreads where instruments exist. For each: data availability on our feeds, execution feasibility on our order paths (2-leg atomicity, latency, the M22 isolated pairs path), venue rules (prop no-hedging / same-account opposite positions), capacity, and the expected edge after costs. DONE = a scoped family table with feasibility verdicts and >= 1 batch of registered research/queue units for the feasible families. Ties to PI-20261006-APBY4NTV-0004 (pairs stocktake) and -0001 (prop strategy search). || CLOSED 2026-10-07 by lane ARB-RESEARCH: see terminal_reason; the family table is docs/research/relative-value-families-2026-10-07.md."
+}
