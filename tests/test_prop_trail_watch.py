@@ -38,7 +38,7 @@ def test_since_three_values(tmp_path):
 @pytest.mark.skipif(os.geteuid() == 0, reason="root ignores directory permissions")
 def test_unreadable_is_unknown_not_none(tmp_path):
     d = tmp_path / "ex"; d.mkdir(); _latch(d)
-    tmp = d.parent; os.chmod(d, 0)
+    os.chmod(d, 0)
     try:
         assert tp.read_trail_paused_since(d) == tp.UNKNOWN
     finally:

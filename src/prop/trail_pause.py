@@ -22,14 +22,14 @@ import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 ROLLOUT_FILE = "modify_rollout.json"  # == src.prop.prop_trail.ROLLOUT_FILE (tested)
 PULSE_FILE = "prop_monitor_pulse.json"
 UNKNOWN = "unknown"
 
 
-def executor_state_dir(account: str, base: Optional[Path] = None) -> Path:
+def executor_state_dir(account: str, base: Path | None = None) -> Path:
     """Mirrors scripts/ops/prop_executor_tick.sh and the diag resolver:
     breakout_1 keeps ``<base>/executor``, any other account
     ``<base>/accounts/<account>/executor``."""
@@ -42,7 +42,7 @@ def _iso(epoch: float) -> str:
     return datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat()
 
 
-def read_trail_paused_since(state_dir: Path) -> Optional[str]:
+def read_trail_paused_since(state_dir: Path) -> str | None:
     """``None`` | ISO timestamp | ``"unknown"`` (see module docstring)."""
     path = Path(state_dir) / ROLLOUT_FILE
     try:
@@ -60,7 +60,7 @@ def read_trail_paused_since(state_dir: Path) -> Optional[str]:
     return _iso(st.st_mtime)
 
 
-def read_pulse(state_dir: Path) -> Optional[Dict[str, Any]]:
+def read_pulse(state_dir: Path) -> dict[str, Any] | None:
     """The last pulse the executor wrote, or None when absent/unreadable."""
     try:
         data = json.loads((Path(state_dir) / PULSE_FILE).read_text())
@@ -69,7 +69,7 @@ def read_pulse(state_dir: Path) -> Optional[Dict[str, Any]]:
     return data if isinstance(data, dict) else None
 
 
-def build_pulse(account: str, state_dir: Path, now: Optional[float] = None) -> Dict[str, Any]:
+def build_pulse(account: str, state_dir: Path, now: float | None = None) -> dict[str, Any]:
     """This tick's pulse. ``trail_paused_ticks`` counts CONSECUTIVE ticks that
     saw the same latch; null/changed latch resets it, ``unknown`` holds it."""
     now = time.time() if now is None else now
@@ -86,7 +86,7 @@ def build_pulse(account: str, state_dir: Path, now: Optional[float] = None) -> D
     return {"account": account, "at": _iso(now), "trail_paused_since": since, "trail_paused_ticks": n}
 
 
-def write_pulse(state_dir: Path, pulse: Dict[str, Any]) -> bool:
+def write_pulse(state_dir: Path, pulse: dict[str, Any]) -> bool:
     """Atomic best-effort write; False (never raises) when it could not."""
     try:
         d = Path(state_dir)
