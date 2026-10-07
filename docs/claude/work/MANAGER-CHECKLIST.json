@@ -5395,18 +5395,18 @@
       "id": "PROP-ROSTER-EXPAND",
       "title": "Add prop-roster legs so each prop book cannot breach an inactivity rule and its pass probability rises (tradeify_1 first, then velotrade_1)",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "owner": "lane PROP-ROSTER-EXPAND",
       "lane": "session_01WkDasLkAvbbEyVxjsgzg1x",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 25,
-      "spend_usd": null,
+      "spend_usd": 9.66,
       "tier": 3,
       "prs": [
         16624
       ],
       "blocked_on": [],
-      "note": "[2026-10-05T17:58Z manager] Research answered: no book passes P>=0.70; ETH+SOL 0.5% is INACTIVITY_SAFE_IMPROVEMENT (Tradeify P 0.372 vs 0.284, EV +$179 vs +$58); control: negative-edge leg LOWERS EV, so the gain is not generic. #16624 has a merge conflict, lane resolving. tradeify_1 SOL re-add: manager decision pending. || [2026-10-05T11:12Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR (verbatim): 'we also need to prioritize adding more strategies to make sure we can stay within active trading restrictions'. Priority 1 prop. MEASURED by the manager: the Tradeify 1-Step inactivity rule is a breach after 30 consecutive days with no trade; Velotrade needs one trade >=60s per 30 days plus 5 qualifying days; Breakout has no minimum. Over the 730d backtest (n=355 entries) the single ETH leg's max gap between entries is 7.5d (median 1.7d, 0 gaps >=14d), so inactivity is not the binding constraint in backtest. The binding problems are single-leg concentration and pass probability (no crypto leg clears the Tradeify bar alone, RQ-20261005-801..810). Lane scope: inventory Stage-0-pass legs on firm-tradeable symbols; register a book-level rule (max-gap, P(pass)/EV per life, daily-loss correlation) BEFORE running; run on 730d; propose a roster diff per account. It absorbs PI-20261005-MG7BGR46-0002 and files a live prop-inactivity alert as a pipeline item. The roster add is Tier-3: the manager decides it under the standing data-backed authorization, only on a committed record clearing the pre-registered rule."
+      "note": "[2026-10-07T18:26Z manager, 3h check-in] DONE. Lane archived 2026-10-05 18:34Z ($9.66 final): #16624 merged (registered rules, candidate evidence, book-search results). The tradeify_1 decision it waited on was taken 2026-10-06: SOL back on tradeify_1 (#16647, deployed 18:42Z). Row had stayed in_flight -- corrected. || [2026-10-05T17:58Z manager] Research answered: no book passes P>=0.70; ETH+SOL 0.5% is INACTIVITY_SAFE_IMPROVEMENT (Tradeify P 0.372 vs 0.284, EV +$179 vs +$58); control: negative-edge leg LOWERS EV, so the gain is not generic. #16624 has a merge conflict, lane resolving. tradeify_1 SOL re-add: manager decision pending. || [2026-10-05T11:12Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR (verbatim): 'we also need to prioritize adding more strategies to make sure we can stay within active trading restrictions'. Priority 1 prop. MEASURED by the manager: the Tradeify 1-Step inactivity rule is a breach after 30 consecutive days with no trade; Velotrade needs one trade >=60s per 30 days plus 5 qualifying days; Breakout has no minimum. Over the 730d backtest (n=355 entries) the single ETH leg's max gap between entries is 7.5d (median 1.7d, 0 gaps >=14d), so inactivity is not the binding constraint in backtest. The binding problems are single-leg concentration and pass probability (no crypto leg clears the Tradeify bar alone, RQ-20261005-801..810). Lane scope: inventory Stage-0-pass legs on firm-tradeable symbols; register a book-level rule (max-gap, P(pass)/EV per life, daily-loss correlation) BEFORE running; run on 730d; propose a roster diff per account. It absorbs PI-20261005-MG7BGR46-0002 and files a live prop-inactivity alert as a pipeline item. The roster add is Tier-3: the manager decides it under the standing data-backed authorization, only on a committed record clearing the pre-registered rule."
     },
     {
       "id": "PHONE-EXEC-1B",
