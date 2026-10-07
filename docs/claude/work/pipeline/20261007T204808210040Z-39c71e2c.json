@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-14",
+    "kind": "date"
+  },
+  "id": "PI-20261007-APBY4NTV-0007",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane TRADEIFY-FEED-TRIP session_01SnkD6HKaDafuixx2yoQe7a diag journal 2026-10-07 + docs/research/tradeify-feed-trip-2026-10-07.md",
+    "rerun": "grep -n 'unknown_page\\|timeout' scripts/ops/prop_feed_tick.sh scripts/prop/breakout_login_check.py  (unknown_page/timeout still returning EXIT_FEASIBILITY=4 and tripping on the first occurrence = unfixed)"
+  },
+  "state": "queued",
+  "what": "Feed trips PERMANENTLY on a transient terminal outage: prop_feed_tick.sh maps every FeasibilityError, incl. unknown_page ('Loading...') and timeout, to rc 4 = trip on first occurrence, never retried, so a ~4-min Tradeify blip stopped tradeify_1 for 26h+. Fix (Tier-2/3, order-path-adjacent): distinct exit for environment-class findings so the 3-failure path decides; optional one auto re-check after a cool-down; --dump-dir on the trip path only. Keep rc 4 for captcha/2fa/challenge/login_rejected/password_expired/no_credentials/asn_blocked/access_denied. Needs a test pinning the classification."
+}

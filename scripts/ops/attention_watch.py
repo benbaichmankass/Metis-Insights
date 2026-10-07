@@ -64,6 +64,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from datetime import date, datetime, timedelta, timezone
@@ -310,6 +311,32 @@ def probe_manager(now: datetime) -> dict:
                                     f"(bound {MANAGER_SILENT_HOURS}h — no daily review?)"}
 
 
+PROP_TRIP_MAX_HOURS = 2      # the trip ping fires once; a tripped feed still trading nothing 2h later re-pages
+
+
+def probe_prop_feed(now: datetime) -> dict:
+    """A tripped prop feed means that account's executor places NOTHING (it exits
+    before running while ``feed/tripped`` exists) and the silence probe cannot see
+    it (it keys on fills). Reads the markers scripts/ops/prop_feed_tick.sh writes;
+    no base dir = we could not look (UNKNOWN), never OK."""
+    base = Path(os.environ.get("PROP_BROWSER_BASE") or Path.home() / ".cache" / "metis-prop-browser")
+    if not base.is_dir():
+        return {"status": UNKNOWN, "detail": f"no prop browser base dir ({base.name})"}
+    marks = [*base.glob("accounts/*/feed/tripped"), base / "feed" / "tripped"]
+    hit = []
+    for m in marks:
+        try:
+            age = (now - datetime.fromtimestamp(m.stat().st_mtime, timezone.utc)).total_seconds() / 3600
+        except OSError:
+            continue
+        name = "breakout_1" if m.parent.parent == base else m.parent.parent.name
+        hit.append((age, f"{name} ({age:.0f}h: {m.read_text(errors='replace')[:90].strip()})"))
+    old = [d for a, d in hit if a >= PROP_TRIP_MAX_HOURS]
+    return {"status": BREACHED if old else OK,
+            "detail": ("tripped, executor idle: " + "; ".join(old) + " — re-arm: breakout-login-check apply: reset-feed")
+            if old else f"{len(hit)} prop feed(s) tripped under {PROP_TRIP_MAX_HOURS}h" if hit else "no prop feed tripped"}
+
+
 REPORT_MAX_AGE_HOURS = 26     # daily 05:30Z + grace
 REPORT_DUE_UTC = (5, 50)      # today's report must exist by 05:50Z (review at 05:52Z)
 #: A report nobody can read in one sitting is the 737 KB brief again. BRIEF-FIX
@@ -434,6 +461,7 @@ def build(now: datetime | None = None) -> dict:
             # account + breakout_2's phone heartbeat. Each carries `level` and
             # `priority`; see scripts/ops/prop_silence.py.
             **prop_silence.all_probes(now),
+            "prop_feed": probe_prop_feed(now),
         },
     }
 
@@ -445,6 +473,7 @@ PROBE_LABEL = {
     "manager": "manager's register not written",
     "report": "scheduled work report missing or broken",
     **prop_silence.LABELS,
+    "prop_feed": "a prop account feed is tripped (its executor is not trading)",
 }
 
 

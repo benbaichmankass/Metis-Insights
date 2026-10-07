@@ -1,0 +1,1 @@
+{"tier":1,"landing":"self","why":"Diagnosis memo + pipeline records + one read-only observability probe (attention_watch.probe_prop_feed reads trip markers, sends only to the claude-comms inbox, with a test). No order path, config, timer or service touched; the Tier-2 re-arm is held for the manager."}
