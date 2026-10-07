@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane PHONE-BALANCE-READ dispatch: Tier-2 (new write to the prop status store), 'the manager merges'.",
+  "why": "Phone reads the terminal account panel (read-only) and posts kind=account_status through /phone/report; the server validates it (finite non-negative, absent stays NULL, refused if neither value) and stores it as MEASURED. No sizing, order-path or config change."
+}

@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "Lane ARB-RESEARCH (PI-20261006-APBY4NTV-0005): relative-value family feasibility memo under docs/research/, six new research-queue units (four queued, two blocked), four pipeline records (one close, three follow-through rows) and the document-index row. No code, config, order-path or roster change. Self-land REFUSED by pr-landing-guard R5 (a new research/queue unit is a registration, not a stamp), so landing is hold: the manager merges.",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Six new research/queue unit files are registrations, not stamps; pr-landing-guard R5 cannot vouch for them, so the manager (Manager Session 2026-10-01) reads and merges this Tier-1 lane PR by hand."
+}

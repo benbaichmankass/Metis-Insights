@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Memo section 7 + one pipeline record for lane DXTRADE-REST-PILOT. Docs and pipeline only; no code, config, workflow or order-path change."
+}
