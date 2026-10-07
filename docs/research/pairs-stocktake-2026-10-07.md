@@ -63,6 +63,14 @@ harness defaults via `research-harness-dispatch.yml`); `RQ-20260922-011`
 (blocked: "is there ANY pair that survives fees") whose `blocked_on` said
 *nothing routes `scripts/backtest_pairs.py`* — stale since E7 landed the pairs
 harness (run 37188716030 proves it); corrected in this PR, rule untouched.
+Manager relay 2026-10-07 18:39Z (lane HARNESS-AUDIT-FIXES, CA-B04): the
+universe scan that unit names (`scripts/research/pairs_universe_scan.py`)
+screens cointegration at an ADF critical value of −2.86 instead of the
+Engle-Granger 2-variable ~−3.34 and fits its OOS vector on the full sample, so
+`RQ-20260922-011` **must not run until the HARNESS-AUDIT-FIXES PR lands**; no
+landed pairs verdict used that script (0 of 334 `produced_by` records), and
+nothing registered here does either — `RQ-20261007-001..004` use
+`scripts/backtest_pairs.py` only.
 
 **Live record (MEASURED, `GET /api/bot/trades/closed?account_id=bybit_1&since=2026-08-01&include_paper=true&include_demo=true`, paged, read 2026-10-07 ~18:10Z):**
 1,034 closed `bybit_1` rows, 591 of them `pairs_*` legs: `pairs_sol_eth_a` 153,

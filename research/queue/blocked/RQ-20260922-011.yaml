@@ -128,7 +128,14 @@ blocked_on:
       it to a runner) and its own power basis from a dry pass, and the
       maker-execution arm needs a measured maker fee schedule. E37 (the
       per-pair evidence record) is served by RQ-20261007-001..004, not by
-      this unit.
+      this unit. [!] MUST NOT RUN until the HARNESS-AUDIT-FIXES PR lands
+      (manager relay 2026-10-07 18:39Z, CA-B04): pairs_universe_scan.py
+      screens cointegration with an ADF critical value of -2.86 (its
+      --adf-max-tstat default) where the Engle-Granger 2-variable 5% value
+      is ~-3.34, and its OOS-persistence gate fits the cointegrating vector
+      on the full sample -- both inflate false positives. No landed record
+      names that script (0 of 334 produced_by records), so no landed pairs
+      verdict is affected.
     clears_when: >-
       A workflow (or a research-script-run command) can fetch the candidate
       universe's 1h candles to a runner and run pairs_universe_scan.py with
