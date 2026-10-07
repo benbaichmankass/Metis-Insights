@@ -180,7 +180,8 @@ def _cycle(tmp_path, monkeypatch, units, pending):
     from contextlib import redirect_stdout
     buf = io.StringIO()
     with redirect_stdout(buf):
-        rc = dq.main(["--queue-dir", str(q), "--fire", "--ref", "main", "--json", "--max-research-inflight", "9"])
+        rc = dq.main(["--queue-dir", str(q), "--fire", "--check-open-stamp-prs", "--ref", "main",
+                      "--json", "--max-research-inflight", "9"])
     assert rc == 0
     out = json.loads(buf.getvalue())
     decisions = {d["id"]: d for d in out["decisions"]}
@@ -208,6 +209,56 @@ def test_every_fire_is_deferred_when_open_prs_cannot_be_listed(tmp_path, monkeyp
     assert {d["outcome"] for d in dec.values()} == {dq.DEFERRED}
     assert "open stamp PRs" in dec[UID]["reason"]
     assert stamps[UID] is None and stamps[UID2] is None
+
+
+def test_without_the_flag_github_is_not_asked_and_the_stamp_alone_decides(tmp_path, monkeypatch):
+    """The open-stamp-PR check is OPT-IN (`--check-open-stamp-prs`). MEASURED on
+    PR #16791's first CI run: asked unconditionally, the pytest runner (no gh
+    auth) deferred every fire, and three pre-existing `--fire` tests that stub
+    `_fire` saw nothing fire. Without the flag `pending_stamp_units` must not be
+    called at all -- a planted one that raises proves the probe can see a call."""
+    q = tmp_path / "queue"
+    q.mkdir()
+    (q / f"{UID}.yaml").write_text(_unit_text(UID))
+    fired = []
+
+    def fake_run(cmd, *a, **k):
+        class P:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+        if cmd[:3] == ["gh", "workflow", "run"]:
+            fired.append(cmd)
+        return P()
+
+    def _never(api=None):
+        raise AssertionError("pending_stamp_units must not be consulted without --check-open-stamp-prs")
+
+    monkeypatch.setattr(dq, "gh_runs", lambda status, limit=200: [])
+    monkeypatch.setattr(dq, "declared_inputs", lambda *a, **k: {"research_unit", "power_state"})
+    monkeypatch.setattr(dq, "pending_stamp_units", _never)
+    monkeypatch.setattr(dq.subprocess, "run", fake_run)
+    monkeypatch.setattr(dq, "RESULTS_ROOT", tmp_path / "results")
+    import io
+    from contextlib import redirect_stdout
+    with redirect_stdout(io.StringIO()):
+        rc = dq.main(["--queue-dir", str(q), "--fire", "--ref", "main", "--json", "--max-research-inflight", "9"])
+    assert rc == 0
+    assert len(fired) == 1
+    assert yaml.safe_load((q / f"{UID}.yaml").read_text()).get("last_dispatched_at")
+
+
+def test_the_workflow_passes_the_open_stamp_pr_check_with_every_fire():
+    """The flag is only worth anything if the cron's fire path carries it. Every
+    line that adds --fire adds --check-open-stamp-prs on the same line, so the
+    two cannot be split by a later edit without this test seeing it."""
+    wf = yaml.safe_load((REPO / ".github/workflows/research-queue-dispatch.yml").read_text())
+    run = "\n".join(str(s.get("run", "")) for s in wf["jobs"]["dispatch"]["steps"])
+    fire_lines = [ln for ln in run.splitlines()
+                  if "--fire" in ln and not ln.lstrip().startswith("#")]
+    assert fire_lines, "no line adds --fire"
+    for ln in fire_lines:
+        assert "--check-open-stamp-prs" in ln, ln
 
 
 def test_a_dropped_stamp_is_repaired_from_the_latest_result(tmp_path, monkeypatch):

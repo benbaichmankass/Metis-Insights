@@ -297,7 +297,11 @@ jobs:
           # queued repo-wide; dispatch_queue.py counts via gh and says why.
           ARGS=(--ref "${{ github.ref_name }}" --max-gpu-dispatches-per-run "${{ inputs.max_gpu || '1' }}"
                 --max-research-inflight 3 --max-repo-queued 10)
-          if [ "${FIRE}" = "true" ]; then ARGS+=(--fire); fi
+          # --check-open-stamp-prs rides with the fire flag (same FIRE gate): a
+          # unit stamped by an OPEN stamp PR is already dispatched (lane RQ-FIX,
+          # 2026-10-06); if gh cannot list PRs the cycle defers every fire
+          # rather than double-fire.
+          if [ "${FIRE}" = "true" ]; then ARGS+=(--fire --check-open-stamp-prs); fi
           if [ -n "${{ inputs.only }}" ]; then ARGS+=(--only "${{ inputs.only }}"); fi
           python3 scripts/research/dispatch_queue.py "${ARGS[@]}" | tee /tmp/dispatch.txt
 

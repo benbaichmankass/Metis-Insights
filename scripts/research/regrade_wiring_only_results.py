@@ -53,8 +53,8 @@ from typing import Any
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))
 
-import harness_dispatch_result as hdr
-from research_result import build, validate
+import harness_dispatch_result as hdr  # noqa: E402
+from research_result import build, validate  # noqa: E402
 
 _REPO = _HERE.parents[1]
 RESULTS_ROOT = _REPO / "research" / "results"

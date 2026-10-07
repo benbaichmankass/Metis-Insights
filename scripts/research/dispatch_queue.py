@@ -419,7 +419,8 @@ def _stamp(path: Path, when: datetime) -> Optional[str]:
          write: a `once` unit with any landed row is not due, and a recurring
          unit measures its cadence from the later of the stamp and its latest
          row's `generated_at`.
-      2. `main()` (fire path only) asks GitHub once per cycle for OPEN PRs on
+      2. `main()` (fire path, `--check-open-stamp-prs`, which the workflow
+         passes with `--fire`) asks GitHub once per cycle for OPEN PRs on
          `automation/research-queue-stamp-*` and treats a unit whose
          research/queue/<uid>.yaml one of them modifies as already dispatched
          (`pending_stamp_units`). That closes the window between the fire and
@@ -822,6 +823,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--queue-dir", default=str(_DEFAULT_QUEUE))
     ap.add_argument("--fire", action="store_true",
                     help="actually dispatch; default is a dry run that only reports")
+    ap.add_argument("--check-open-stamp-prs", action="store_true",
+                    help="fire path only: ask GitHub (gh api, REST) for OPEN automation/"
+                         "research-queue-stamp-* PRs and treat a unit one of them stamps as "
+                         "already dispatched; when gh cannot answer, DEFER every fire this "
+                         "cycle. research-queue-dispatch.yml passes it with --fire. Without "
+                         "it no gh call is made for this purpose (a test or a hand run with "
+                         "no GitHub context would otherwise defer every fire and prove nothing).")
     ap.add_argument("--ref", default=os.environ.get("GITHUB_REF_NAME") or "main")
     ap.add_argument("--only", default=None, help="dispatch just this job id")
     ap.add_argument("--max-research-inflight", type=int, default=3,
@@ -880,11 +888,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         if pressure["block"]:
             print(f"::notice::research-queue-dispatch deferred every fire: {pressure['block']}", file=sys.stderr)
     inflight = int(pressure.get("inflight_research") or 0)
-    # Open stamp PRs are read ONCE per cycle, fire path only (a dry run makes no
-    # gh calls). None = GitHub could not be asked: every due unit is DEFERRED
-    # this cycle rather than risk the double-fire this check exists to end.
+    # Open stamp PRs are read ONCE per cycle, fire path only, and only when the
+    # caller opted in with --check-open-stamp-prs (the workflow always does; a
+    # dry run makes no gh calls). None = GitHub could not be asked: every due
+    # unit is DEFERRED this cycle rather than risk the double-fire this check
+    # exists to end. MEASURED 2026-10-06 on PR #16791: asked unconditionally,
+    # the pytest runner (no gh auth) deferred every fire and three `--fire`
+    # tests that stub `_fire` saw nothing fire -- an opt-in keeps the fail-closed
+    # direction where a stamp PR can exist and leaves a context with no GitHub
+    # at all on the stamp alone, which is what it had before.
     pending: Optional[Dict[str, str]] = {}
-    if args.fire and not pressure["block"]:
+    if args.fire and args.check_open_stamp_prs and not pressure["block"]:
         # Not under a backpressure block: every fire is deferred then anyway,
         # and gh must not be called at all under pressure (planted test).
         pending = pending_stamp_units()
