@@ -1,4 +1,4 @@
-id: RQ-20261007-005
+id: RQ-20261007-018
 title: Stage-0 funding-rate carry on BTCUSDT and ETHUSDT perps (market-neutral and directional variants) -- blocked until
   a runner-reachable funding-rate history exists
 status: blocked
@@ -35,7 +35,7 @@ power:
     accrual_basis: Zero measured rows exist for this harness anywhere in the repo (RQ-20260929-104 both producer_failed).
       The first run IS the family's first observation; below 39 trades the verdict is indeterminate, never FAIL.
 decision_rule:
-  id: RULE-RQ1007-005-FUNDING-CARRY-NET
+  id: RULE-RQ1007-018-FUNDING-CARRY-NET
   registered_at: '2026-10-07'
   registered_before_run: true
   statistic: 'Per (symbol, variant): net_total_r and total_trades from the harness, with funding_r the exact signed sum of

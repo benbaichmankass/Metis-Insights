@@ -1,4 +1,4 @@
-id: RQ-20261007-006
+id: RQ-20261007-019
 title: Stage-0 perp-vs-spot basis on BTCUSDT (basis z-score mean reversion / cash-and-carry) -- blocked until a basis verdict
   instrument exists
 status: blocked
@@ -35,7 +35,7 @@ power:
     accrual_basis: No basis series has ever been built in this repo. The first deliverable is the series and its band-exit
       count; below 88 trades the verdict is indeterminate.
 decision_rule:
-  id: RULE-RQ1007-006-PERP-SPOT-BASIS-NET
+  id: RULE-RQ1007-019-PERP-SPOT-BASIS-NET
   registered_at: '2026-10-07'
   registered_before_run: true
   statistic: 'net_total_r and total_trades of the basis reverter with the per-leg stack above (funding on the perp leg signed
@@ -73,7 +73,7 @@ lands:
   assert_field: read_state
   min_rows: 1
 related:
-- RQ-20261007-005
+- RQ-20261007-018
 - scripts/ops/fetch_binance_vision.py
 - scripts/backtest_pairs.py
 - docs/research/relative-value-families-2026-10-07.md

@@ -1,19 +1,18 @@
-id: RQ-20261007-002
-title: 'Stage-0 pairs: 20y vs 7-10y Treasury ETFs (TLT/IEF 1d) -- relative-value family beyond the M22 sleeve, net of the
-  full cost stack'
+id: RQ-20261007-014
+title: 'Stage-0 pairs: silver vs gold ETFs (SLV/GLD 1d) -- relative-value family beyond the M22 sleeve, net of the full cost
+  stack'
 status: queued
 cadence: once
 theme: new_strategy_prop
 priority: 2
 kind: experiment
-question: 'Does a log-spread z-score mean-reversion on TLT vs IEF at 1d (scripts/backtest_pairs.py defaults: lookback 20,
+question: 'Does a log-spread z-score mean-reversion on SLV vs GLD at 1d (scripts/backtest_pairs.py defaults: lookback 20,
   entry_z 2.0, exit_z 0.5, stop_z 2.0, max_hold 20 bars, hedge_beta one) produce positive net R over the full fetchable window,
   after the venue-aware cost stack (fee 7.5 bps rt per leg -- the harness default, conservative against Alpaca''s zero commission
   and the only stand-in in the stack for the UNMODELLED borrow fee on the short leg; slippage 5 bps rt per leg; funding 0
-  (non-perp))? Both are rostered Alpaca ETFs with 3650 d of 1d history; the long-vs-intermediate Treasury spread is a duration/curve
-  spread with a shared issuer, the strongest a-priori cointegration case in our ETF universe. Registered by lane ARB-RESEARCH
-  session_01Aeyqvqf9sajCVDx9Ufef4u (PI-20261006-APBY4NTV-0005); family table and the feed/order-path/venue checks behind this
-  unit: docs/research/relative-value-families-2026-10-07.md.'
+  (non-perp))? Both are rostered Alpaca ETFs with 3650 d of 1d history in docs/reference/corpus-manifest.json; the metals
+  ratio is the textbook cross-metal spread and neither leg pays funding. Registered by lane ARB-RESEARCH session_01Aeyqvqf9sajCVDx9Ufef4u
+  (PI-20261006-APBY4NTV-0005); family table and the feed/order-path/venue checks behind this unit: docs/research/relative-value-families-2026-10-07.md.'
 why_this_matters: 'Operator 2026-10-06 ~08:20Z: ''other complex strategies (not just based on predicting movement, but arbitraging
   symbols, spreads, etc)''. Pairs / ratio / z-score spread mean reversion is the one relative-value family with a net-of-cost
   harness AND a dispatch route today; this unit is one of its first registered questions outside the four M22 crypto pairs,
@@ -34,14 +33,14 @@ power:
       same defaults over the same yfinance 3650 d window, so ~100-200 trades is the expectation, not a measurement. Below
       88 the verdict is indeterminate.
 decision_rule:
-  id: RULE-RQ1007-002-PAIRS-TLT-IEF-1D
+  id: RULE-RQ1007-014-PAIRS-SLV-GLD-1D
   registered_at: '2026-10-07'
   registered_before_run: true
   statistic: 'The harness''s net_total_r (sum of per-trade net R; R = spread P&L / (stop_z x sigma at entry)) and total_trades
-    over the aligned TLT/IEF 1d window, with BOTH legs charged fee 7.5 bps round trip (harness default, not overridden by
+    over the aligned SLV/GLD 1d window, with BOTH legs charged fee 7.5 bps round trip (harness default, not overridden by
     the dispatch) plus the venue-aware slippage and funding execution_costs.resolve_cost_policy returns per leg. Also REPORTED,
     never graded on: net_expectancy_r, win_rate_pct, max_drawdown_r, net_total_r_fee_only.'
-  rule: 'PASS IF net_total_r > 0 AND n_trades >= 88 -- Stage-0 evidence that the TLT/IEF 1d spread reverts net of the stack
+  rule: 'PASS IF net_total_r > 0 AND n_trades >= 88 -- Stage-0 evidence that the SLV/GLD 1d spread reverts net of the stack
     charged (fee 7.5 bps rt per leg -- the harness default, conservative against Alpaca''s zero commission and the only stand-in
     in the stack for the UNMODELLED borrow fee on the short leg; slippage 5 bps rt per leg; funding 0 (non-perp)); the deliverable
     is a Stage-0 evidence record, never a roster edit. FAIL IF net_total_r <= 0 with n_trades >= 88 -- the grader re-queues
@@ -66,10 +65,10 @@ run:
   workflow: research-harness-dispatch.yml
   inputs:
     harness: pairs
-    symbol: TLT
-    symbol_b: IEF
+    symbol: SLV
+    symbol_b: GLD
     timeframe: 1d
-    research_unit: RQ-20261007-002
+    research_unit: RQ-20261007-014
 lands:
   store: research/results/
   assert_field: read_state

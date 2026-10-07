@@ -1,4 +1,4 @@
-id: RQ-20261007-003
+id: RQ-20261007-016
 title: 'Stage-0 pairs: XRP vs ADA perps, outside the four M22 pairs (XRPUSDT/ADAUSDT 1h) -- relative-value family beyond the
   M22 sleeve, net of the full cost stack'
 status: queued
@@ -34,7 +34,7 @@ power:
       $ and R-space, G2 2026-07-16), on different legs; so the expected n is a shape argument, not a measurement. Below 88
       the verdict is indeterminate.
 decision_rule:
-  id: RULE-RQ1007-003-PAIRS-XRPUSDT-ADAUSDT-1H
+  id: RULE-RQ1007-016-PAIRS-XRPUSDT-ADAUSDT-1H
   registered_at: '2026-10-07'
   registered_before_run: true
   statistic: 'The harness''s net_total_r (sum of per-trade net R; R = spread P&L / (stop_z x sigma at entry)) and total_trades
@@ -68,7 +68,7 @@ run:
     symbol: XRPUSDT
     symbol_b: ADAUSDT
     timeframe: 1h
-    research_unit: RQ-20261007-003
+    research_unit: RQ-20261007-016
 lands:
   store: research/results/
   assert_field: read_state

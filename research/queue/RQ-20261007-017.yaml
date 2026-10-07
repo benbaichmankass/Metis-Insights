@@ -1,4 +1,4 @@
-id: RQ-20261007-004
+id: RQ-20261007-017
 title: 'Stage-0 baskets: dollar-neutral cross-sectional momentum on the fixed ETF basket (SPY, QQQ, GLD, TLT, IWM, 1d) --
   the relative-value baskets family, net of fees and slippage'
 status: queued
@@ -32,7 +32,7 @@ power:
     accrual_basis: No xsec_momentum run on ETFs has landed; the one dispatch on record is a wiring proof (research-harness-dispatch.yml's
       xsec arm). The n is a property of the fixed calendar window, not of accrual -- it is known in advance and will not grow.
 decision_rule:
-  id: RULE-RQ1007-004-XSEC-ETF-BASKET-GATE
+  id: RULE-RQ1007-017-XSEC-ETF-BASKET-GATE
   registered_at: '2026-10-07'
   registered_before_run: true
   statistic: 'The harness''s `gate` block in result.json: (1) every in-sample k-fold''s net_total_return > 0 after 1x fees;
@@ -63,7 +63,7 @@ run:
     symbol: SPY
     symbol_b: QQQ
     timeframe: 1d
-    research_unit: RQ-20261007-004
+    research_unit: RQ-20261007-017
 lands:
   store: research/results/
   assert_field: read_state
