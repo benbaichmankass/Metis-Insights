@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "Read-path honesty fixes only (lane API-COLLAPSED-STATES, dispatched by the manager session): the hourly Accounts renderer, GET /api/diag/alpaca_open_orders, and the ?since= parsers on /api/bot/order-packages and /api/bot/trades/closed. All additive to the wire shape (new read_state/held_legs_state/filter_state fields, X-Filter-State header) except that an unparseable ?since now returns 422 instead of a silent empty result. No order path, no strategy/risk/config, no account mode."
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "check_pr_landing R5 refuses to self-land a diff touching src/** (hourly_report.py, accounts/clients.py, web/api/_since.py, order_packages.py, trades_closed.py) because the guard cannot certify those paths. The change itself is a read-path honesty fix with no order path, risk, config or account-mode change; the manager lands it after CI green.",
+  "why": "Lane API-COLLAPSED-STATES: hourly Accounts read_state, alpaca_open_orders held legs, and ?since= filter_state/422 on order-packages and trades/closed. Additive wire fields; the one behaviour change is a 422 instead of a silent empty result on an unparseable since."
 }
