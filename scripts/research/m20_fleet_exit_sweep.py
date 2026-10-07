@@ -956,11 +956,19 @@ def _tp_geometry_cells(cfg: dict, fam: str | None,
         if d is not None and 0.0 < d < 50.0 and d not in vals:
             vals.append(d)
         targets = [(f"t{v:g}", ["--tp-target-r", f"{v:g}"]) for v in sorted(vals)]
+    # Grids as REGISTERED in the units' decision rules (before any run):
+    #   trail families  RQ-20261007-001/-003: approach (0.75, 0.85) x extend_r (0.5, 1.0)
+    #                   x max_extends (1, 3); stall bars (6, 10)
+    #   scalp           RQ-20261007-004: approach 0.85 x extend_r (0.5, 1.0); stall bars (3, 6)
+    appr_grid = (0.85,) if fam == "scalp" else (0.75, 0.85)
+    ext_grid = (0.5, 1.0)
+    max_grid = (3,) if fam == "scalp" else (1, 3)
+    stall_grid = (3, 6) if fam == "scalp" else (6, 10)
     out: list[tuple[str, str, list[str]]] = []
     for ttag, targs in targets:
-        for appr in (0.75, 0.85):
-            for ext_r in (0.5, 1.0):
-                for mx in (1, 3):
+        for appr in appr_grid:
+            for ext_r in ext_grid:
+                for mx in max_grid:
                     out.append((f"tpx_{ttag}_a{appr:g}_e{ext_r:g}_m{mx}", "tp_extend",
                                 targs + ["--tp-extend-r", f"{ext_r:g}",
                                          "--tp-approach-frac", f"{appr:g}",
@@ -968,7 +976,7 @@ def _tp_geometry_cells(cfg: dict, fam: str | None,
                                          "--tp-thesis", "native"]))
         out.append((f"tpr_atr_{ttag}", "tp_retarget",
                     targs + ["--tp-retarget-mode", "atr_rescale"]))
-        for stall in (2, 4):
+        for stall in stall_grid:
             out.append((f"tpr_stall{stall}_{ttag}", "tp_retarget",
                         targs + ["--tp-retarget-mode", "stall_pull_in",
                                  "--tp-retarget-stall-bars", str(stall)]))
