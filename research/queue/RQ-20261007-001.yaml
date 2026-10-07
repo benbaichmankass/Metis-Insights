@@ -1,0 +1,98 @@
+id: RQ-20261007-001
+title: 'Tune-before-demote: M8 parameter sweep for ada_pullback_2h (REAL MONEY, bybit_2 + bybit_portfolio) on atr_stop_mult
+  and adx_min at the live params, 730d, 4 OOS folds (PI-20261004-P24XMV4V-0001)'
+status: queued
+cadence: once
+theme: live_strategy
+priority: 1
+kind: experiment
+question: 'ada_pullback_2h is a Stage-2 real-money leg (config/accounts.yaml bybit_2 + bybit_portfolio rosters) that performance-review-20261004-103845
+  reads at 1/11 lifetime wins, expectancyR -0.70 (population: all closed ada_pullback_2h rows on /api/bot/performance, full
+  pnl coverage). docs/CLAUDE-RULES-CANONICAL.md ''Tune before demote'' requires an M8 sweep artifact (runtime_logs/strategy_tunes/<date>/ada_pullback_2h__<param>.json)
+  BEFORE any demotion is proposed, and none exists on main (checked 2026-10-07: runtime_logs/strategy_tunes/ absent). Does
+  a bounded sweep of the two levers that govern the live failure mode -- stop width (atr_stop_mult, live 1.5) and entry selectivity
+  (adx_min, live 28) -- find a value that is net-positive out of sample in EVERY fold, or does the leg fail with the attempt
+  on record?'
+why_this_matters: 'Money at stake is real: the leg trades on bybit_2 and its mirror. A demotion without a sweep is the structural
+  failure the 2026-08-23 directive names; a sweep that lands an artifact lets the M7 packet (Override 5) grade the leg with
+  the attempt on record, so a demotion that follows is MD-DERISK-ONLY-ROSTER-CUT territory and not an operator popup.'
+power:
+  expected_n: 110
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: d=0.45 -> 38.76 -> 39 trades at alpha 0.05 / power 0.8, the repo's standing E35 floor for a 2h/4h leg. expected_n
+    is derived from the COMMITTED 365d evidence record comms/strategy_evidence/ada_pullback_2h.json (n_trades_oos=57, generated
+    2026-09-25, faithful) scaled to the 730d window this unit runs (57 x 2 = 114, rounded down to 110 for boundary loss).
+    Per swept value the trade set changes, so the floor applies to the CURRENT-value arm, which is the one the KEEP/FAIL branches
+    read.
+  feasibility:
+    source: none
+    accrual_basis: A fresh 730d harness run; the committed 365d record (n=57) is the observed rate. Nothing accrues.
+decision_rule:
+  id: RULE-RQ1007-ADA-M8-TUNE-BEFORE-DEMOTE
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: 'Two M8 artifacts written by scripts/ml/strategy_tune_sweep.py, one per swept param, each a strategy_tune_result/v1
+    packet: (1) target config/strategies.yaml::ada_pullback_2h.atr_stop_mult, current 1.5, search_space ''grid [1.5, 2.0,
+    2.5, 3.0]''; (2) target config/strategies.yaml::ada_pullback_2h.adx_min, current 28, search_space ''grid [22, 25, 28,
+    32, 36]''. Both at --harness scripts/backtest_pullback.py, --window-days 730, --wf-folds 4, --fee-bps-roundtrip 7.5, fixed
+    args pinning EVERY other live param from config/strategies.yaml::ada_pullback_2h (--timeframe 2h --symbol ADAUSDT --trend-lookback
+    40 --pullback-lookback 10 --pullback-frac 0.5 --atr-period 14 --trail-mult 5.0 --tp-r 4 --vol-skip-below-pctl 0.1 --min-confidence
+    0.0 --slippage-bps-roundtrip 3.0 --funding-bps-per-window 1.0, plus --adx-min 28 on sweep (1) and --atr-stop-mult 1.5
+    on sweep (2)). Per grid value the packet reports OOS net_total (sum over folds), net_expectancy, max drawdown (worst fold),
+    trade count, and robust (net-positive in every OOS fold). The CURRENT-value row is the control.'
+  rule: 'Read per sweep, then combined. UNDERPOWERED (indeterminate) IF the current-value row''s OOS trade count < 39 on both
+    sweeps; then the unit is re-run at --window-days 1095 before anything is read. TUNE-CANDIDATE IF some value != current
+    has robust == true AND OOS net_total >= current-value OOS net_total + 2.0 R AND its OOS trade count >= 39: the artifact''s
+    advisory line is the Tier-3 proposal (a config/strategies.yaml param change, operator-approved or data-backed per CLAUDE-RULES-CANONICAL
+    ''Data-backed Tier-2/3 decisions''; NOT applied by this unit). TUNED-AND-STILL-FAILS IF no value on either sweep is robust
+    AND the current-value OOS net_total <= 0 on both sweeps: the attempt is on record, the M7 matrix verdict stands, and a
+    demotion of ada_pullback_2h from bybit_2 + bybit_portfolio is MD-DERISK-ONLY-ROSTER-CUT territory (manager applies under
+    the mandate, with this artifact as the failing evidence). KEEP otherwise (the current value is already the robust optimum,
+    or no candidate clears +2.0 R): the leg stays, the attempt is on record, and it is re-graded on the next M7 packet. The
+    +2.0 R margin, the 39 floor and the grids are fixed before the run and are not changed after seeing any result. Pipeline
+    PI-20261004-P24XMV4V-0001 clears on the committed artifact plus the next M7 re-grade, whichever branch lands.'
+  what_it_does_not_do: Does not edit config/strategies.yaml, config/accounts.yaml or any roster; a TUNE-CANDIDATE is an advisory
+    line, not a change. Sweeps two levers only (trail_mult and tp_r are also in the M8 registry for backtest_pullback.py but
+    one lever per leg at a time); does not model the exit-head or any lever the live leg does not declare. A backtest KEEP
+    is not a live verdict; it only discharges the tune-before-demote precondition.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 25
+  basis: 9 grid values x 4 folds of backtest_pullback.py over ~8,760 2h bars; a single 730d pullback run is seconds.
+run:
+  workflow: session-local
+  note: 'SESSION-LOCAL (precedent RQ-20261005-901 / RQ-20261002-701): scripts/ml/strategy_tune_sweep.py is under scripts/ml/,
+    outside research-script-run.yml''s allowlist (scripts/research/*.py and scripts/backtest*.py only), and its artifact must
+    land at runtime_logs/strategy_tunes/<UTC-date>/ (served at /api/bot/strategies/ada_pullback_2h/tune), which no landing
+    workflow writes. The lane: (1) python3 scripts/ops/fetch_backtest_candles.py --symbol ADAUSDT --source binance_vision
+    --interval 120 --start-date 2024-09-01 --output data/ADAUSDT_2h.csv ; (2) python3 scripts/ml/strategy_tune_sweep.py --target
+    ''config/strategies.yaml::ada_pullback_2h.atr_stop_mult'' --current-value 1.5 --search-space ''grid [1.5, 2.0, 2.5, 3.0]''
+    --harness scripts/backtest_pullback.py --data data/ADAUSDT_2h.csv --window-days 730 --wf-folds 4 --fee-bps-roundtrip 7.5
+    --fixed-args ''--timeframe 2h --symbol ADAUSDT --trend-lookback 40 --pullback-lookback 10 --pullback-frac 0.5 --atr-period
+    14 --trail-mult 5.0 --tp-r 4 --vol-skip-below-pctl 0.1 --min-confidence 0.0 --adx-min 28 --slippage-bps-roundtrip 3.0
+    --funding-bps-per-window 1.0'' ; (3) the same with --target ''config/strategies.yaml::ada_pullback_2h.adx_min'' --current-value
+    28 --search-space ''grid [22, 25, 28, 32, 36]'' and --atr-stop-mult 1.5 in place of --adx-min 28 in the fixed args ; (4)
+    commit runtime_logs/strategy_tunes/<date>/ada_pullback_2h__{atr_stop_mult,adx_min}.{json,md} and land ONE research_result.py
+    record under research/results/<this unit>/ carrying the branch taken. If strategy_tune_sweep.py refuses a fixed arg the
+    registry does not forward, the lane records the omitted lever on the packet and grades fidelity approximate rather than
+    dropping the pin.'
+  inputs:
+    research_unit: RQ-20261007-001
+lands:
+  store: runtime_logs/strategy_tunes/
+  assert_field: recommendation
+  min_rows: 2
+related:
+- PI-20261004-P24XMV4V-0001
+- comms/strategy_evidence/ada_pullback_2h.json
+- comms/reviews/performance-review-20261004-103845.json
+- docs/strategy-tuning.md
+- 'RQ-20260928-019 (M20 exit-lever sweep for this leg, monthly, dispatchable: the exit-side complement)'
+- RQ-20260928-016 (E35 bracket sweep for this leg, monthly, dispatchable)
+- RQ-20260928-030 (weekly walk-forward re-run, 180d fetch window)

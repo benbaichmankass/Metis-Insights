@@ -1,0 +1,84 @@
+id: RQ-20261007-004
+title: 'GLD/GDX 1d pairs confirmatory: pre-registered IS/OOS split, yearly walk-forward and a 3x3 parameter neighbourhood
+  on the same harness that passed once at defaults (PI-20261004-P24XMV4V-0003, PI-20261004-UQ9JJPRQ-0002)'
+status: queued
+cadence: once
+theme: new_strategy_prop
+priority: 3
+kind: experiment
+question: RQ-20260929-105 (scripts/backtest_pairs.py, GLD 1d vs GDX 1d, defaults lookback 20 / entry-z 2.0 / exit-z 0.5 /
+  stop-z 2.0 / max-hold 20, venue-aware costs) landed net_total_r +18.72, n=144, win 62.5%, maxDD 6.38 R over 2016-10-06..2026-10-02
+  (research/results/RQ-20260929-105/37188716030.jsonl) -- a single pooled 10-year read, no IS/OOS split, no walk-forward,
+  no neighbourhood. Its sibling SPY/QQQ 1h (RQ-20260929-106) FAILED at -121.96 R n=178, reproduced. Does the GLD/GDX edge
+  survive (a) an IS/OOS split registered here, (b) a yearly walk-forward, and (c) a parameter neighbourhood, or was the default-parameter
+  pass a point result?
+why_this_matters: 'No live leg and no alpaca pairs executor exist; the only action a PASS could lead to is a separate, larger
+  Tier-3 build. This unit decides whether that question is even worth putting to the operator (bucket-3 preference with both
+  pairs reads attached) or whether RQ-20260929-105 closes as a non-generalising Stage-0 pass. Money at stake today: none,
+  hence priority 3.'
+power:
+  expected_n: 70
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: 'd=0.45 -> 39 at alpha 0.05 / power 0.8 (standing E35 floor). expected_n=70 is the OOS half of the COMMITTED n=144
+    (research/results/RQ-20260929-105/37188716030.jsonl measurement.total_trades) under the registered split at 2022-01-01:
+    4.75 of 10 years OOS x 14.4 trades/yr = 68, rounded to 70. The unit''s own PASS floor for the OOS arm is 20 (the unit
+    105 registered for a daily pairs strategy), so n in [20, 39) decides under the rule but is reported as below this unit''s
+    power floor.'
+  feasibility:
+    source: none
+    accrual_basis: Re-run of a committed-population harness over the same 10-year window; the committed n=144 is the observed
+      rate. Nothing accrues.
+decision_rule:
+  id: RULE-RQ1007-GLD-GDX-PAIRS-CONFIRMATORY
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: 'Three reads from scripts/backtest_pairs.py --symbol-a GLD --symbol-b GDX --timeframe 1d, venue-aware costs (alpaca
+    equity fee + slippage via execution_costs.resolve_cost_policy; funding 0 for a non-perp leg), each landing --json and
+    --emit-trades: (A) SPLIT: IS = --start 2016-10-06 --end 2021-12-31, OOS = --start 2022-01-01 --end 2026-10-02, at the
+    defaults (lookback 20, entry-z 2.0, exit-z 0.5, stop-z 2.0, max-hold-bars 20): OOS net_total_r, OOS n_trades. (B) WALK-FORWARD:
+    one run per calendar year 2017..2026 (--start Jan 1 --end Dec 31, 2026 to 10-02) at the defaults: the count of years with
+    net_total_r > 0 out of years with n_trades >= 5. (C) NEIGHBOURHOOD: on the OOS window only, lookback {15, 20, 30} x entry-z
+    {1.5, 2.0, 2.5} (9 cells, exit-z/stop-z/max-hold at defaults): the count of cells with net_total_r > 0.'
+  rule: 'indeterminate IF OOS n_trades < 20 in (A). PASS IF (A) OOS net_total_r > 0 with n_trades >= 20 AND (B) >= 6 of the
+    gradeable years are net-positive AND (C) >= 6 of 9 neighbourhood cells are net-positive: the edge generalises across time
+    and is not a point in parameter space; the alpaca-pairs-executor build question goes to the operator as a bucket-3 preference
+    with this record and RQ-20260929-106''s FAIL attached; PI-20261004-P24XMV4V-0003 and PI-20261004-UQ9JJPRQ-0002 clear on
+    that hand-off. FAIL IF OOS n_trades >= 20 AND any of the three conditions fails: RQ-20260929-105 is closed as a non-generalising
+    Stage-0 pass, both pipeline rows are killed with that reason, and no further GLD/GDX unit is queued without a new hypothesis.
+    The split date, the 6-of-10 and 6-of-9 majorities and the 20 floor are fixed before the run.'
+  what_it_does_not_do: Proposes no live leg, no alpaca pairs executor and no change to config/pairs.yaml. A PASS is Stage-0
+    evidence for a build question, never a promotion.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 15
+  basis: 21 runs of a daily-bar pairs harness (2 split + 10 yearly + 9 cells) over <= 2,500 aligned bars each; each run is
+    seconds.
+run:
+  workflow: session-local
+  note: 'SESSION-LOCAL because the two dispatchable routes cannot express this question: research-harness-dispatch.yml (pairs)
+    passes no --start/--end/--lookback/--entry-z, so it can only reproduce the pooled default read byte-for-byte, and research-script-run.yml
+    runs on a runner with no data/ checkout and no fetch step (scripts/ops/fetch_backtest_candles.py is outside its allowlist),
+    so scripts/backtest_pairs.py would refuse for lack of --data-a/--data-b. The lane: python3 scripts/ops/fetch_backtest_corpus.py
+    --symbol GLD --timeframe 1d ; same for GDX (yfinance, 3650d per the declared PAIRS window) ; then the 21 runs of python3
+    scripts/backtest_pairs.py --symbol-a GLD --symbol-b GDX --data-a data/GLD_1d.csv --data-b data/GDX_1d.csv --timeframe
+    1d [--start --end --lookback --entry-z] --json <cell>.json --emit-trades <cell>.jsonl under comms/research/<this unit>/<run_id>/
+    ; commit them and land one research_result.py record under research/results/<this unit>/ with the three counts and the
+    verdict.'
+  inputs:
+    research_unit: RQ-20261007-004
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- PI-20261004-P24XMV4V-0003
+- PI-20261004-UQ9JJPRQ-0002
+- RQ-20260929-105
+- RQ-20260929-106
+- research/results/RQ-20260929-105/37188716030.jsonl

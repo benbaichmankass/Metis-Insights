@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261005-XJSGZG1X-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "lane PROP-ROSTER-EXPAND session_01WkDasLkAvbbEyVxjsgzg1x; units RQ-20261005-901..903",
+    "rerun": "python3 scripts/ops/build_strategy_evidence.py --dry-run --strategy trend_donchian_eth_4h --strategy xrp_pullback_2h; cat comms/strategy_evidence/runs/2026-10-05-730d-expand/xrp_pullback_2h.json | grep -A3 omitted_levers"
+  },
+  "routed_to": "RQ-20261007-009",
+  "state": "routed",
+  "what": "RESEARCH: the candidate pool for prop books is thin because admission needs faithful + n>=88. At 730d: trend_donchian_eth_4h n=85 (faithful, +27.1R) and trend_donchian_sol_4h n=75 (faithful, +27.8R) fall just under the floor -> re-run at --days 1095 (n is bounded by --days, not the calendar); xrp_pullback_2h n=122 +14.7R, trend_donchian_eth n=232, eth_pullback_2h n=116, trend_donchian_sol n=120 are 'approximate' (omitted levers: exit-head or trail_decay params) -> make the harness model those levers or declare them off, then re-grade. XRP currently has NO admitted leg. Then re-run RQ-20261005-902/813 books with admitted legs added. Pre-register before running; do not lower the floor. [RESEARCH-FOLLOWUPS 2026-10-07, lane of Manager Session 2026-10-01 session_01MM8o5js6TcDFeNAPBY4Ntv] routed to RQ-20261007-009 (build_strategy_evidence --days 1095 for trend_donchian_eth_4h and trend_donchian_sol_4h, session-local). The four 'approximate' legs need the harness to model their omitted levers -- code, not a research unit; left on this row."
+}

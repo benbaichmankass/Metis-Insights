@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-07",
+    "kind": "date"
+  },
+  "id": "PI-20261004-UQ9JJPRQ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane RESEARCH-RUN session_01VrUrxiBdxqP5XwUQ9JjprQ, 2026-10-04",
+    "rerun": "for each of RQ-20261004-757..664 and RQ-20260929-049/055-060: read the unit's result note and its committed evidence record's trade count; any still below 88 = still open"
+  },
+  "routed_to": "RQ-20261007-005, RQ-20261007-006, RQ-20261007-007, RQ-20261007-008",
+  "state": "routed",
+  "what": "Prop-fit units price the NEWEST committed evidence record, which holds fewer trades than the memos the units were sized from, so 22 of 24 prop-fit units graded UNDERPOWERED (n 5-84 vs floor 88) on 2026-10-04: Tradeify sol_donchian n65, ict_scalp_xrp_15m n76, ict_scalp_eth_15m n78, ict_scalp_sol_15m n84 (all close to the floor), Breakout mes/qld/squeeze/sol_pullback n5-18. 'Could not answer', not 'no edge'. Lever: regenerate the evidence for the near-floor legs (65-84) on a longer window so they reach 88, and stop generating prop-fit units whose committed n is far below the floor (mes/qld/squeeze/sol_pullback). Also fix the author habit: declare expected_n from the committed record, not from a memo. [RESEARCH-FOLLOWUPS 2026-10-07, lane of Manager Session 2026-10-01 session_01MM8o5js6TcDFeNAPBY4Ntv] routed to RQ-20261007-005/006/007/008 (Tradeify re-price via research-script-run.yml on the COMMITTED 730d trade records: trend_donchian_sol_prop n=132, ict_scalp_xrp_15m n=132, ict_scalp_eth_15m n=151, ict_scalp_sol_15m n=158 -- all already >= 88, so no regeneration is needed; expected_n declared from wc -l of the file, not a memo). The Breakout far-below-floor legs (mes/qld/squeeze/sol_pullback, n 5-18) get no new unit, per this row's own lever."
+}

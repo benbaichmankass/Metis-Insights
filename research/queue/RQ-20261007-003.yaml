@@ -1,0 +1,84 @@
+id: RQ-20261007-003
+title: 'ief_pullback_1d vt_hot80_t2.5 (vol_trail) on a THIRD IS/OOS partition (split_target_oos 60): does the two-partition
+  PASS generalise, or is it inert on the recent folds? (PI-20261004-P24XMV4V-0002)'
+status: queued
+cadence: once
+theme: live_strategy
+priority: 2
+kind: experiment
+question: 'docs/research/m20-sweep-corpus.jsonl holds two PASS rows for leg ief_pullback_1d cell vt_hot80_t2.5: run 2026-08-15
+  (split 2017-01-20, d_net_r_OOS +3.41, wf 5/6, base OOS n=36) and run 2026-10-02 (split 2015-12-10, d_net_r_OOS +2.24, wf
+  5/6, base OOS n=39, lifetime 81 trades). In the 2026-10-02 row the 2024, 2025 and 2026 folds are INERT (d_net_r exactly
+  0.0, wf_inert_wins=3 of the 5 wins): the lever never fired there, so the ''pass'' rests on 2022 and 2023 against a 2021
+  loss. Both prior boundaries were derived at split_target_oos 50. On a partition neither run used (split_target_oos 60, which
+  moves the boundary earlier and adds OOS folds before 2021), does vt_hot80_t2.5 still PASS the P2 gate with a majority of
+  its NON-inert walk-forward folds positive?'
+why_this_matters: ief_pullback_1d is on alpaca_live (real money). M20-EXITS-4 shipped decay_stall10_t2.5 on it (#15593) and
+  vt_hot80_t2.5 was not shipped; one lever per leg at a time. This unit answers the partition question NOW (backtest history
+  first) so that, when the first live trail_decay-driven ief exit is observed and a P5 vol_trail parity record exists, the
+  cell is either ready for a Tier-3 PR with three partitions of evidence or already killed as non-generalising.
+power:
+  expected_n: 39
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: 'd=0.45 -> 38.76 -> 39 at alpha 0.05 / power 0.8 (standing E35 floor). expected_n=39 is the LARGEST base_trades_OOS
+    this leg has ACTUALLY achieved in docs/research/m20-sweep-corpus.jsonl (run 2026-10-02, split 2015-12-10, target 50),
+    i.e. the corpus-verified count, not the target: target 50 achieved 36 and 39 (boundary loss 11-14), so target 60 is expected
+    to achieve ~46-55, but the unit declares only what the corpus has observed. Lifetime trades on this leg are 81 (split_lifetime_trades),
+    so OOS cannot exceed ~70. The P2 floor the rule reads is MIN_OOS_TRADES 25.'
+  feasibility:
+    source: corpus
+    corpus: m20
+    statistic: max_per_leg
+    legs:
+    - ief_pullback_1d
+decision_rule:
+  id: RULE-RQ1007-IEF-VOLTRAIL-THIRD-PARTITION
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: 'The corpus row(s) this run appends to docs/research/m20-sweep-corpus.jsonl with research_unit == this id, leg
+    == ief_pullback_1d, lever == vol_trail, cell == vt_hot80_t2.5 (plus the sibling vol_trail cells the sweep emits): verdict,
+    d_net_r_OOS, base_trades_OOS, split (the derived boundary date), wf_folds (per-fold ok/inert), wf_wins, wf_inert_wins.
+    Non-inert fold majority = wins among folds with inert != true divided by the count of such folds. Costs: the harness''s
+    config-exact base at fee 7.5 bps roundtrip with the venue-aware slippage/funding defaults; tp_cap_pct 0.099 (live parity).
+    The base is config-exact, so it INCLUDES the shipped trail_decay lever; the cell therefore measures vol_trail ON TOP of
+    it, which is the combination that would ship.'
+  rule: 'FRESH-PARTITION CHECK first: indeterminate IF the row''s split equals 2017-01-20 or 2015-12-10 (the boundary did
+    not move) or base_trades_OOS < 25 (MIN_OOS_TRADES) -- then re-dispatch once with split_mode date and split 2019-01-01
+    before reading. PASS IF verdict == PASS AND d_net_r_OOS > 0 AND non-inert fold majority >= 2/3 AND at least 2 non-inert
+    positive folds: the cell has cleared three partitions; PI-20261004-P24XMV4V-0002 stays open on its remaining two conditions
+    (first live trail_decay exit on ief observed; P5 vol_trail parity record) and the Tier-3 PR is drafted only after both
+    exist. FAIL IF base_trades_OOS >= 25 AND (verdict != PASS OR d_net_r_OOS <= 0 OR non-inert fold majority < 2/3): the cell
+    is non-generalising / inert on the examined window; kill PI-20261004-P24XMV4V-0002 with that reason and close the cell.
+    The 2/3 majority, the 25 floor and the exclusion of inert folds from the majority are fixed before the run.'
+  what_it_does_not_do: Does not touch config/strategies.yaml or any exit lever; does not read live rows; does not substitute
+    for the P5 parity record or the live trail_decay observation the pipeline item also requires.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 20
+  basis: One leg on m20-exit-lever-sweep.yml, one lever family (vol_trail), daily bars from yfinance; RQ-20261003-004 (same
+    leg, all levers) is the same shape.
+run:
+  workflow: m20-exit-lever-sweep.yml
+  inputs:
+    legs: ief_pullback_1d
+    levers: vol_trail
+    tp_cap_pct: '0.099'
+    split_mode: oos-trades
+    split_target_oos: '60'
+    research_unit: RQ-20261007-003
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- PI-20261004-P24XMV4V-0002
+- docs/research/m20-sweep-corpus.jsonl
+- RQ-20261003-004 (monthly M20 sweep of this leg at the default boundary)
+- PI-20260930-KZWVN6MG-0001 (vol_trail log-only shadow, the P5 instrument)
+- scripts/research/vol_trail_parity_report.py

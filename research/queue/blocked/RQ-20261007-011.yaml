@@ -1,0 +1,90 @@
+id: RQ-20261007-011
+title: Stage-0 evidence records (coverage_state measured) for trend_donchian_1h, turtle_soup and vwap -- the three SOAK-GATE1
+  legs whose records are absent or no_harness (PI-20261005-OAKGATE1-0002)
+status: blocked
+cadence: once
+theme: live_strategy
+priority: 3
+kind: experiment
+question: 'SOAK-GATE1 (2026-10-05) asked for comms/strategy_evidence/{trend_donchian_1h,turtle_soup,vwap}.json to read coverage_state
+  measured. MEASURED 2026-10-07: scripts/ops/build_strategy_evidence.py --dry-run reports trend_donchian_1h and vwap as ''unknown
+  or disabled leg(s)'' (both are enabled: false, execution: shadow in config/strategies.yaml; soak-state.json grades trend_donchian_1h
+  ''dead -- enabled: false, the shadow soak runs nothing and logs nothing'') and turtle_soup as harness=None / no_harness
+  (no classifier branch in regime_debt_matrix.classify; comms/strategy_evidence/turtle_soup.json is the committed no_harness
+  record). Once each leg is buildable, does its config-exact record, net of the full cost stack, clear the MD-PROMOTE-S0-S1
+  bar (n >= 30, expectancy > 0, fold majority)?'
+why_this_matters: A Stage-1 roster slot (trend_donchian_1h sits on bybit_1's roster while disabled) or a shadow strategy with
+  no edge record is a soak that can never end. The record is what lets the soak contract be graded instead of waiting.
+power:
+  expected_n: 30
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: d=0.45 -> 39 at alpha 0.05 / power 0.8 (standing E35 floor). No committed trade count exists for any of the three
+    legs (that absence is the finding); expected_n=30 is the MD-PROMOTE-S0-S1 min_n_closed the rule reads, declared as the
+    floor the first run must reach on a 730d window, not a measurement. Below 39 the record decides under the mandate bar
+    but is reported as below this unit's power floor.
+  feasibility:
+    source: none
+    accrual_basis: 'No harness run exists for these legs (trend_donchian_1h: BTC 1h donchian routes to the trend harness once
+      enabled; turtle_soup: no branch; vwap: src/backtest/run_backtest_vwap.py exists but is not classified). The first buildable
+      run is the first observation.'
+decision_rule:
+  id: RULE-RQ1007-GATE1-EVIDENCE-TD1H-TURTLE-VWAP
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: 'Per leg, the record scripts/ops/build_strategy_evidence.py writes at --days 730 --folds 4 once the leg is buildable:
+    coverage_state, fidelity, n_trades_oos, expectancy_r_oos, net_r_oos, folds_positive/folds, cost_stack (fees 7.5 bps roundtrip
+    + slippage 3.0 bps roundtrip + funding 1.0 bps per 8h window (the committed record''s cost_stack; execution_costs.resolve_cost_policy
+    venue defaults)).'
+  rule: 'Per leg. PASS IF coverage_state == measured AND fidelity == faithful AND n_trades_oos >= 30 AND expectancy_r_oos
+    > 0 AND folds_positive >= 3 of 4: the leg has a Stage-0 record; its SOAK contract is re-graded against it (no roster change
+    by this unit). FAIL IF measured AND n_trades_oos >= 30 AND (expectancy_r_oos <= 0 OR folds_positive < 3): the leg has
+    no offline edge; the disposition for a disabled/shadow leg is to retire it from the soak population (Tier-3 for trend_donchian_1h''s
+    bybit_1 roster slot, under MD-DERISK-ONLY-ROSTER-CUT''s cut-only grant if the manager applies it; a shadow strategy''s
+    execution flag is likewise a Tier-3 flip). UNDERPOWERED (indeterminate) IF n_trades_oos < 30 at 730d: re-run once at 1460d.
+    coverage_state != measured after the blockers clear -> producer_failed, landed as such, never a stub.'
+  what_it_does_not_do: Does not enable any leg, add any classifier branch or edit config; those are the blockers below and
+    are someone else's build. Does not read the shadow logs as edge.
+blocked_on:
+- what: 'trend_donchian_1h and vwap are enabled: false in config/strategies.yaml and build_strategy_evidence.py refuses disabled
+    legs (''unknown or disabled leg(s)''). Building their record needs either a builder flag that accepts a disabled leg (Tier-1
+    tooling change) or the leg enabled (Tier-3 flip). trend_donchian_1h is additionally on bybit_1''s strategies: roster while
+    disabled -- a roster slot that runs nothing.'
+  ref: PI-20261005-OAKGATE1-0002
+  clears_when: build_strategy_evidence.py --dry-run --strategy trend_donchian_1h --strategy vwap lists both with a harness
+    and a fidelity grade instead of refusing.
+- what: 'turtle_soup has no classifier branch: regime_debt_matrix.classify returns harness=None and the committed record reads
+    coverage_state no_harness. backtest_ict_scalp.py is the nearest family but models a different setup (sweep+displacement+FVG),
+    so routing turtle_soup to it would grade fidelity approximate at best; a branch plus a lever map is code (the pipeline
+    row''s own ask).'
+  ref: PI-20261005-OAKGATE1-0002
+  clears_when: build_strategy_evidence.py --dry-run --strategy turtle_soup reports a harness and a fidelity grade (and the
+    same for vwap via run_backtest_vwap.py).
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 30
+  basis: Three harness runs on BTCUSDT (1h, 15m, 5m) over 730d with 4 folds; the 5m run dominates (~105k bars, ~13-18 min
+    per the backtesting skill's measured pass time).
+run:
+  workflow: session-local
+  note: 'Prepared command once unblocked (precedent RQ-20261005-901): python3 scripts/ops/build_strategy_evidence.py --strategy
+    trend_donchian_1h --strategy turtle_soup --strategy vwap --days 730 --folds 4 --workdir comms/strategy_evidence/runs/<UTC-date>-gate1
+    ; commit the workdir and the three canonical records; land one research_result.py record per leg under research/results/<this
+    unit>/.'
+  inputs:
+    research_unit: RQ-20261007-011
+lands:
+  store: comms/strategy_evidence/
+  assert_field: coverage_state
+  min_rows: 3
+related:
+- PI-20261005-OAKGATE1-0002
+- comms/strategy_evidence/turtle_soup.json
+- docs/claude/work/SOAKS.json (SOAK-shadow-trend_donchian_1h)
+- docs/claude/work/soak-state.json
+- scripts/research/regime_debt_matrix.py

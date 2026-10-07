@@ -1,0 +1,22 @@
+{
+  "due_when": {
+    "clears_when": "comms/strategy_evidence/{trend_donchian_1h,turtle_soup,vwap}.json all coverage_state measured",
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261005-OAKGATE1-0002",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12",
+    "how_to_check": "ls comms/strategy_evidence | grep -E 'trend_donchian_1h|turtle_soup|vwap'",
+    "what": "comms/strategy_evidence/{trend_donchian_1h,turtle_soup,vwap}.json all coverage_state measured"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-GATE1 2026-10-05 (lane of manager session_01MM8o5js6TcDFeNAPBY4Ntv)",
+    "rerun": "ls comms/strategy_evidence | grep -E 'trend_donchian_1h|turtle_soup|vwap'"
+  },
+  "routed_to": "RQ-20261007-011",
+  "state": "routed",
+  "what": "Run scripts/ops/build_strategy_evidence.py for trend_donchian_1h (BTC 1h donchian; harness routes the donchian branch) and for turtle_soup / vwap add the missing classifier branch + lever map (backtest_ict_scalp.py / run_backtest_vwap.py exist). [RESEARCH-FOLLOWUPS 2026-10-07, lane of Manager Session 2026-10-01 session_01MM8o5js6TcDFeNAPBY4Ntv] routed to research/queue/blocked/RQ-20261007-011. MEASURED 2026-10-07: build_strategy_evidence.py --dry-run refuses trend_donchian_1h and vwap as 'unknown or disabled leg(s)' (both enabled: false, execution: shadow; trend_donchian_1h still on bybit_1's roster) and grades turtle_soup no_harness; the record cannot be built without a builder flag or an enable (Tier-3) and a classifier branch (code)."
+}
