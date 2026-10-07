@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "CI tooling only: scripts/ops/sweep_stale_automation_prs.py dates research-queue stamp payloads (unit last_dispatched_at, receipt timestamp) so stamp PRs grade truthfully, and reports a merge conflict as a warning instead of a failed refresh. The sweeper never closes a PR and still only refreshes; plus tests. No order path, strategy config, risk cap, src/, deploy/ or VM file, and not landing machinery."
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Manager dispatch to lane RQ-INFRA asked for a Tier-1 self-land, but pr-landing R12 treats scripts/ops/sweep_stale_automation_prs.py as landing machinery, so it is held for the manager to read once and land.",
+  "why": "CI tooling only: the sweeper dates research-queue stamp payloads (unit last_dispatched_at, receipt timestamp) so stamp PRs grade truthfully, and reports a merge conflict as a warning instead of a failed refresh. It never closes a PR and still only refreshes; plus tests. No order path, strategy config, risk cap, src/, deploy/ or VM file."
 }
