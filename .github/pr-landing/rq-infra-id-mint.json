@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Manager dispatch asked for a Tier-1 self-land, but main now treats scripts/research/queue_replenish.py as landing machinery (pr-landing R12), so it is held for the manager to read once and land.",
   "why": "Research-queue tooling and one CI guard only: queue_replenish.py mints ids 001-899, next_rq_id.py mints 900-999, and a new guard grades the unit files a PR adds. No order path, strategy config, risk cap, src/, deploy/ or live-VM file."
 }
