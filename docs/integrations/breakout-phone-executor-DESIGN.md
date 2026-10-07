@@ -704,6 +704,30 @@ still unmeasured: the next dry test is what measures it, and its refusal reason,
 overnight and claims every 30 s, so a bump merged before the install would be claimed and refused the old way within minutes. This PR
 leaves `dry_test_request: 2026-10-05-night-1` (already served); the manager bumps it in a separate PR once the install is confirmed.
 
+### 7.13 The "Select market" picker route (2026-10-07, lane SOL-PICKER, PI-20261006-APBY4NTV-0007)
+
+**MEASURED** (the 2026-10-06 dry-fill dumps on `GET /api/bot/prop/tickets?account_id=breakout_2`, `form.controls` and
+`form.symbolCandidates`, digits masked by the app): the terminal's instrument picker is ONE `div role=button` with
+`aria-label "Select market"` and text `"ETH #x"` (base + leverage); the watchlist buttons read `"SOL ###.## -#.##%"` (base,
+price, change). Two consequences in the code before this fix: `chipSymbol()` only matched `"ETH x"` (no digits), so the chip
+was never read; and `watchControls()` only matched `"<BASE> <signed %>"`, so the watchlist route missed whenever the price was
+shown. A SOL ticket (breakout_2 carries `trend_donchian_sol_prop`) with the terminal on ETH therefore refused
+`symbol SOL not on the submit label` — safe, but a missed trade. (INFERRED from the code paths; no SOL ticket has been served.)
+
+**Fix:** `symbolStep()` route 0 = the chip: open it once per symbol, then pick exactly ONE row whose text starts with the base as
+a whole word (`SOL`, `SOL/USD`, `SOLUSD`; never `SOLV…`). The list it opens is **UNMEASURED**, so rows are found by text: inside
+a `dialog`/`listbox`/`menu` when the page marks one, else among elements that APPEARED after the click (snapshot taken just
+before it), so the always-visible watchlist never competes. One typed search of the base is allowed if the list has a search box
+and no row. Two rows = `market_ambiguous`, none = `market_no_row`: nothing is clicked, the list is closed (Escape) and the
+watchlist route (regex now accepts the price) runs next. The app then verifies exactly as before — the submit label must name the
+base before anything is typed — and additionally refuses if the chip, when there is exactly one, names a different base.
+`symbolReset()` clears the picker state at the start of each ticket; `selectSymbol` allows 8 moves (was 6).
+
+`exec_check.js` fixtures H–K (dialog rows / unmarked rows with SOL first / chip opens nothing / two SOL rows) all start on ETH,
+end on SOL with the chip and the submit label agreeing, make exactly one selection click, and submit nothing. They prove
+mechanics on synthetic DOM, **not** Breakout's real list: the proof is one `phone-dry-test` for `SOLUSDT` on breakout_2 with
+the terminal on ETH, after the operator installs the APK built from this change; its refusal reason, if any, names the route.
+
 ## 8. Open questions for the operator / manager
 
 | # | question | my lean |
