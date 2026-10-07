@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Read-path only: new src/prop/qualifying_days.py (pure counter over prop_fills), a qualifying_days key on compute_rule_distance (served by GET /api/bot/prop/status), one suffix on the account-status ack line, and rule_effective_dates in the velotrade ruleset (read only by the new module). No executor tick, order path, risk, sizing or account-mode change."
+}

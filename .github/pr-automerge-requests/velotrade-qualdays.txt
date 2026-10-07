@@ -1,0 +1,1 @@
+auto-merge: velotrade qualifying-day counter (read path, Tier-1)

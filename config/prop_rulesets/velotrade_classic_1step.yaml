@@ -84,6 +84,13 @@ restrictions:
 
 funded_soak_days: 30
 
+# Effective dates of the rules that bind (first-party /rules page, read 2026-10-04; deep-dive
+# section 1). Read by src/prop/qualifying_days.py and surfaced on /api/bot/prop/status.
+rule_effective_dates:
+  minimum_trading_days: "2026-08-22"
+  equity_limits: "2026-09-30"
+  inactivity: "2026-09-04"
+
 economics:
   account_fee_usd: 54             # $5k CLASSIC 1-Step: $54 with code ALGO2026 (list $67) -- the price shown 2026-10-04
   rebuy_fee_usd: 54               # no reset product; "you may purchase a new challenge and start fresh"

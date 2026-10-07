@@ -305,9 +305,13 @@ def _confirm_json(report: Dict[str, Any], out: Dict[str, Any],
     kind = out.get("kind")
     if kind == "account_status":
         rd = out.get("rule_distance") or {}
+        from src.prop.qualifying_days import standing_line
+
+        qd = standing_line(rd.get("qualifying_days"))
         return (f"✅ account status recorded [{report.get('account_id')}] · "
                 f"to daily-loss {_cushion(rd.get('distance_to_daily_loss_usd'))} · "
-                f"to DD-floor {_cushion(rd.get('distance_to_dd_floor_usd'))}")
+                f"to DD-floor {_cushion(rd.get('distance_to_dd_floor_usd'))}"
+                + (f" · {qd}" if qd else ""))
     if kind == "amend":
         return (f"✅ recorded STOP/TARGET MOVE {report.get('symbol')} "
                 f"(fill #{out.get('id')}) · sl {out.get('sl_before', '—')} → "
