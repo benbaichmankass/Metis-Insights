@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# wiring: research/queue/RQ-20261007-001 + RQ-20261007-002 via .github/workflows/research-script-run.yml
+# wiring: research/queue/RQ-20261007-020 + RQ-20261007-021 via .github/workflows/research-script-run.yml
 """EXIT-PARITY-RQ: re-measure a leg's Stage-0 evidence WITH and WITHOUT an exit
 lever, on the same corpus the committed record used, net of the full cost
 stack, and grade the delta against a rule registered before the run.
