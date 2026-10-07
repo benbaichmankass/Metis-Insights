@@ -2,6 +2,6 @@
   "tier": 1,
   "landing": "hold",
   "why": "CHECKLIST step (b2) + (c'): the history- and text-based checklist readers move to the loader (load_at, per-row history): check_manager_scope, checklist_routing_age, attention_watch, check_soak_contracts, check_register_ids, check_claim_basis, check_soak_doctrine, work_digest, path lists, and the Workflow page freshness stamp (manager_status.read_file_commit). Plus a new checklist-readers-guard (nothing names the monolith path without the loader). Stacked on #17013 (b1). Rehearsed end to end on a clone with the rows seeded and the monolith deleted.",
-  "hold_reason": "changes_landing_machinery",
-  "hold_text": "Edits scripts/ci/check_manager_scope.py (a landing/manager guard); stacked on held #17013. Manager reads once and lands after #17013."
+  "hold_reason": "depends_on_unmerged_pr",
+  "hold_text": "Depends on #17013 (b1): the loader core (src/runtime/checklist_store.py) this PR extends is only on that branch. Land #17013 first; this PR then retargets to main. Tier-1 read paths + a guard; no landing machinery in this diff."
 }
