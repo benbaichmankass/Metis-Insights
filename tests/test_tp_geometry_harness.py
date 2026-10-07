@@ -147,7 +147,7 @@ def test_extension_decided_by_evaluate_extension():
     assert (t.n_extends, t.target) == (0, 103.0)
     t = tracker("native")
     t.on_bar_close(close=102.8, ext=102.9, bars_since_peak=0, atr_now=1.0,
-                   thesis_fn=lambda: False)
+                   thesis_fn=lambda ab: False)
     assert t.n_extends == 0
     t = tracker("always")        # not approaching: 101 is 50% of the span
     t.on_bar_close(close=101.0, ext=101.5, bars_since_peak=0, atr_now=1.0, thesis_fn=None)
@@ -187,6 +187,47 @@ def test_stall_pull_in_only_tightens_and_atr_rescale_follows_vol():
     assert a.target == pytest.approx(106.0)      # 2R * 1.5
     a.on_bar_close(close=101.0, ext=101.0, bars_since_peak=0, atr_now=0.5, thesis_fn=None)
     assert a.target == pytest.approx(102.0)      # 2R * 0.5, still ahead of the close
+
+
+def test_thesis_is_asked_since_the_approach_bar_and_resets_after_an_extension():
+    seen = []
+
+    def thesis(ab):
+        seen.append(ab)
+        return len(seen) > 1          # False at the approach bar itself, True after
+    t = tpg.TPTracker(Spec(target_r=1.5, extend_r=1.0, thesis="native", approach_frac=0.85),
+                      anchor=100.0, sl=98.0, risk=2.0, is_long=True,
+                      tp_cap_pct=0.0, target=103.0, atr0=1.0)
+    t.on_bar_close(close=101.0, ext=101.0, bars_since_peak=0, atr_now=1.0,
+                   thesis_fn=thesis, bar_index=4)
+    assert t.approach_bar is None and seen == []          # not approaching: not asked
+    t.on_bar_close(close=102.7, ext=102.7, bars_since_peak=0, atr_now=1.0,
+                   thesis_fn=thesis, bar_index=5)
+    assert (t.approach_bar, t.n_extends, seen) == (5, 0, [5])   # nothing moved yet
+    t.on_bar_close(close=102.8, ext=102.8, bars_since_peak=0, atr_now=1.0,
+                   thesis_fn=thesis, bar_index=6)
+    assert (t.n_extends, t.target, t.approach_bar) == (1, 105.0, None)
+
+
+def test_atr_rescale_is_bounded_to_half_and_double():
+    a = tpg.TPTracker(Spec(target_r=2.0, retarget_mode="atr_rescale"),
+                      anchor=100.0, sl=98.0, risk=2.0, is_long=True,
+                      tp_cap_pct=0.0, target=104.0, atr0=1.0)
+    a.on_bar_close(close=101.0, ext=101.0, bars_since_peak=0, atr_now=9.0, thesis_fn=None)
+    assert a.target == pytest.approx(108.0)      # 2R * min(9, 2.0)
+    a.on_bar_close(close=101.0, ext=101.0, bars_since_peak=0, atr_now=0.01, thesis_fn=None)
+    assert a.target == pytest.approx(102.0)      # 2R * max(0.01, 0.5)
+
+
+def test_calibration_summary_reports_dispersion_and_none_when_unread():
+    rows = [dict(final_target_r=2.0, exit_r=2.0, n_extends=0, n_retargets=0, outcome="take_profit"),
+            dict(final_target_r=2.0, exit_r=-1.0, n_extends=1, n_retargets=0, outcome="stop")]
+    g = tpg.summarize_geometry(rows)
+    assert g["calibration_share"] == 0.5 and g["exit_over_target_sd"] > 0
+    assert g["n_extended_trades"] == 1 and g["tp_hits"] == 1
+    none = tpg.summarize_geometry([dict(final_target_r=None, exit_r=1.0, outcome="stop")])
+    assert none["calibration_share"] is None and none["read_state"] == "no_target"
+    assert tpg.summarize_geometry([])["read_state"] == "no_trades"
 
 
 def test_short_side_mirrors_long():

@@ -25,8 +25,9 @@ is bit-for-bit what it was before this file existed
     `evaluate_extension` documents as never extending -- the negative control:
     it MUST equal the no-extension run).
 ``retarget_mode``
-    ``atr_rescale``  the target's R-distance is rescaled by ATR_now/ATR_entry
-                      (the prediction follows current volatility, both ways).
+    ``atr_rescale``  the target's R-distance is rescaled by ATR_now/ATR_entry,
+                      bounded to [0.5x, 2.0x] (the prediction follows current
+                      volatility, both ways).
     ``stall_pull_in`` after `retarget_stall_bars` bars with no new favourable
                       extreme the target is pulled in to the best price reached
                       +/- `retarget_pull_r` R (momentum ran out; the prediction
@@ -61,6 +62,10 @@ RETARGET_MODES = ("atr_rescale", "stall_pull_in")
 #: Calibration band: an exit "matched its prediction" when its price-R lands
 #: within this fraction of the FINAL target's R (RQ-20261007-001 statistic (a)).
 CALIBRATION_BAND = 0.20
+
+#: `atr_rescale` bounds on ATR_now/ATR_entry -- FIXED, not a lever: registered as
+#: "rescale bounds fixed [0.5x, 2.0x]" in RQ-20261007-003 before any run.
+RESCALE_MIN, RESCALE_MAX = 0.5, 2.0
 
 
 @dataclass(frozen=True)
@@ -210,6 +215,11 @@ class TPTracker:
         self.ext_offset_r = 0.0
         self.n_extends = 0
         self.n_retargets = 0
+        #: Bar index at which price FIRST closed within `approach_frac` of the
+        #: current target (None until it does; reset by each extension). Handed to
+        #: the thesis function so a strategy can ask "has X moved since the
+        #: approach bar" -- the question RQ-20261007-001/-002 register.
+        self.approach_bar: Optional[int] = None
 
     def _to_r(self, price: float) -> float:
         return ((price - self.anchor) if self.is_long else (self.anchor - price)) / self.risk
@@ -235,7 +245,8 @@ class TPTracker:
 
     def on_bar_close(self, *, close: float, ext: float, bars_since_peak: int,
                      atr_now: Optional[float],
-                     thesis_fn: Optional[Callable[[], Optional[bool]]]) -> None:
+                     thesis_fn: Optional[Callable[[Optional[int]], Optional[bool]]],
+                     bar_index: int = 0) -> None:
         """Re-estimate the target from this closed bar. Binds from the next bar."""
         if self.target is None:
             return
@@ -243,7 +254,8 @@ class TPTracker:
         # 1. retarget -- the prediction follows the market.
         if spec.retarget_mode == "atr_rescale":
             if atr_now is not None and self.atr0 > 0 and math.isfinite(atr_now) and atr_now > 0:
-                new_r = self.r0 * (atr_now / self.atr0) + self.ext_offset_r
+                ratio = min(max(atr_now / self.atr0, RESCALE_MIN), RESCALE_MAX)
+                new_r = self.r0 * ratio + self.ext_offset_r
                 new = self._not_behind(self._clamp(self._to_price(new_r)), close)
                 if new != self.target:
                     self.target, self.n_retargets = new, self.n_retargets + 1
@@ -259,12 +271,20 @@ class TPTracker:
         #    decision function. `thesis_intact` is evaluated lazily so a run with
         #    extension off never pays for the strategy's continuation test.
         if spec.extend_r > 0.0:
+            span = abs(self.target - self.anchor)
+            travelled = (close - self.anchor) if self.is_long else (self.anchor - close)
+            approaching = span > 0 and travelled >= spec.approach_frac * span
+            if approaching and self.approach_bar is None:
+                self.approach_bar = bar_index
             if spec.thesis == "always":
                 thesis: Optional[bool] = True
-            elif spec.thesis == "unknown" or thesis_fn is None:
+            elif spec.thesis == "unknown" or thesis_fn is None or not approaching:
+                # Not approaching => the thesis is irrelevant (evaluate_extension
+                # returns `not_approaching` first) and the strategy's continuation
+                # test is not paid for.
                 thesis = None
             else:
-                thesis = thesis_fn()
+                thesis = thesis_fn(self.approach_bar)
             expectation = resolve_expectation(
                 {"target_r": max(self._to_r(self.target), 1e-9)},
                 entry=self.anchor, sl=self.sl, direction="long" if self.is_long else "short")
@@ -279,6 +299,7 @@ class TPTracker:
                     self.ext_offset_r += (self._to_r(new) - self._to_r(self.target))
                     self.target = new
                     self.n_extends += 1
+                    self.approach_bar = None     # the new target must be approached afresh
 
 
 def summarize_geometry(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -299,10 +320,18 @@ def summarize_geometry(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "tp_hits": sum(1 for r in graded if r.get("outcome") == "take_profit"),
         "calibration_band": CALIBRATION_BAND,
         "calibration_share": None,
+        "exit_over_target_p50": None, "exit_over_target_sd": None,
         "read_state": "no_trades" if not rows else (
             "no_target" if not graded else "measured"),
     }
     if graded:
+        ratios = sorted(float(r["exit_r"]) / float(r["final_target_r"]) for r in graded
+                        if float(r["final_target_r"]) != 0.0)
+        if ratios:
+            mean = sum(ratios) / len(ratios)
+            out["exit_over_target_p50"] = round(ratios[len(ratios) // 2], 4)
+            out["exit_over_target_sd"] = round(
+                (sum((x - mean) ** 2 for x in ratios) / len(ratios)) ** 0.5, 4)
         ok = sum(1 for r in graded
                  if abs(float(r["exit_r"]) - float(r["final_target_r"]))
                  <= CALIBRATION_BAND * abs(float(r["final_target_r"])))

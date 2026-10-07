@@ -390,15 +390,17 @@ def _simulate_exit(
                 be_armed = True
         # GEOM-B1 target revision (off unless --tp-extend-r / --tp-retarget-mode).
         # On the bar's CLOSE, after its own stop/target/lever tests; the revised
-        # level binds from the next bar. Native thesis = the scalp's own HTF bias
-        # (the filter the live order_package reads): the HTF close is still on the
-        # trade's side of the HTF EMA.
+        # level binds from the next bar. Native thesis = the scalp's own setup, as
+        # REGISTERED in RQ-20261007-004: the entry displacement leg's extreme has
+        # not yet been retraced 50% (the close is still beyond the midpoint of
+        # sweep_extreme -> displacement extreme, in the trade direction).
         if tp_tracker is not None and tp_tracker.spec.revises and tp is not None:
             tp_tracker.on_bar_close(
                 close=float(df["close"].iloc[j]), ext=best, bars_since_peak=j - peak_j,
                 atr_now=(None if tp_atr is None else float(tp_atr[j])),
                 thesis_fn=(None if tp_thesis_fn is None
-                           else (lambda _j=j: tp_thesis_fn(_j))))
+                           else (lambda _ab, _j=j: tp_thesis_fn(_j))),
+                bar_index=j)
             tp = tp_tracker.target
     # Timeout: close at the last bar's close.
     return {
@@ -639,12 +641,17 @@ def run_backtest(
             _tpt = _tpg.TPTracker(
                 tp_geom, anchor=entry, sl=sl, risk=risk, is_long=(direction == "long"),
                 tp_cap_pct=tp_cap_pct, target=tp, atr0=_atr0)
-            if htf_close_arr is not None:
-                def _thesis_fn(_j, _long=(direction == "long")):
-                    _hc, _he = htf_close_arr[_j], htf_ema_arr[_j]
-                    if _hc != _hc or _he != _he:
-                        return None
-                    return (_hc > _he) if _long else (_hc < _he)
+            _m = pkg.get("meta") or {}
+            _se, _di = _m.get("sweep_extreme"), _m.get("displacement_idx_from_end")
+            if _se is not None and _di is not None and 0 <= i - int(_di) < n:
+                _d_idx = i - int(_di)
+                _d_ext = (float(df["high"].iloc[_d_idx]) if direction == "long"
+                          else float(df["low"].iloc[_d_idx]))
+                _mid = (float(_se) + _d_ext) / 2.0
+
+                def _thesis_fn(_j, _long=(direction == "long"), _mid=_mid):
+                    _c = float(df["close"].iloc[_j])
+                    return (_c > _mid) if _long else (_c < _mid)
         # ENTRY MODE. `market` (default, byte-identical): filled at `entry` and the
         # exit walk starts on the next bar. `limit` (RQ-20260930-502): a post-only limit
         # at `entry` rests for `limit_expire_bars` bars and fills ONLY if a bar's LOW is
