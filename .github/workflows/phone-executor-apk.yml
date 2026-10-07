@@ -82,6 +82,7 @@ jobs:
         working-directory: tools/phone-executor
         run: gradle assembleRelease --no-daemon --stacktrace
       - name: Page-side check (headless Chromium, synthetic ticket)
+        timeout-minutes: 10
         run: |
           mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
           npm init -y >/dev/null && npm i playwright@1.49.1 >/dev/null
