@@ -1,5 +1,7 @@
 {
-  "tier": 1,
-  "landing": "self",
-  "why": "Read-path only: new src/prop/qualifying_days.py (pure counter over prop_fills), a qualifying_days key on compute_rule_distance (served by GET /api/bot/prop/status), one suffix on the account-status ack line, and rule_effective_dates in the velotrade ruleset (read only by the new module). No executor tick, order path, risk, sizing or account-mode change."
+  "tier": 2,
+  "landing": "hold",
+  "why": "Read-only counter (new src/prop/qualifying_days.py over prop_fills), but it is called from src/prop/prop_reconcile.py::compute_rule_distance, which prop_risk_gate also reads, so it sits next to the order gate; it never raises and adds only a key. Also adds a suffix to the account-status ack line and a rule_effective_dates block to config/prop_rulesets/velotrade_classic_1step.yaml (read only by the new module). No executor tick, sizing, risk-limit or mode change. Held for a human read because the guard cannot certify these paths for self-landing.",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Paths named Tier-2/3 by the landing guard (prop_reconcile.py, telegram_report_handler.py, a prop ruleset yaml); the change is a read-only key plus a status-line suffix, held for a human read."
 }
