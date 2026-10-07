@@ -559,6 +559,42 @@ line for a real-money or prop routing is a roster decision the operator owns
 pipeline row `PI-20261006-5FUGHVX8-0001`, which holds the ranked list and a
 disposition per leg.
 
+### B1 — the revision contract (2026-10-07, lane TP-DOCTRINE)
+
+The verdict a revising `monitor()` returns is `{"tp": <price>, "tp_reason":
+"<rule>: <why>"}`, alone or merged into its SL verdict by
+`src/runtime/tp_revision.py::merge_verdict` (a close verdict always wins). The
+prediction itself is computed in ONE place, `tp_revision.plan_tp_revision`,
+from a rule the leg DECLARES (`tp_revision: <rule>` or `{rule: <rule>, …}` in
+`config/strategies.yaml`; undeclared = no revision, and declaring one is
+Tier-3). It refuses a TP through the current price and clamps to the venue cap
+measured from the CURRENT price, saying so in the reason. Consumers:
+
+- **exchange** — `interpret_verdict` carries `tp_reason` onto
+  `VerdictDecision`; `order_monitor._apply_update` forwards `tp` to
+  `_send_modify_to_exchange` and names the reason in its log and TRADE UPDATED
+  ping. Fail-closed is the existing contract: a leg whose amend did not land
+  leaves `order_packages.tp` unchanged so the verdict re-fires.
+- **prop, API adapter** — `prop_trail._tp_step` calls the same
+  `plan_tp_revision` on a tick with no SL step due, sends a TP-only
+  `modify_bracket(page, p, None, tp)`, confirms on re-read and alerts on a
+  refusal or an unconfirmed amend (capped at `MAX_ATTEMPTS_PER_TARGET`). Asked
+  only of an adapter declaring `TP_AMEND_SUPPORTED = True` — today
+  `dxtrade_api` (velotrade_1).
+- **prop, browser `dxtrade`** (breakout_1, tradeify_1) — `TP_AMEND_SUPPORTED =
+  False`: its rollout guard admits only SL-only tightens
+  (`rollout_tighten_mismatch`), so a TP amend would be refused before any
+  click. Measured as path `absent`, not hidden.
+- **prop, phone** (breakout_2) — contract with lane PROP-TRAIL-PHONE: the phone
+  executor calls `plan_tp_revision` and sends its TP over its own amend
+  channel; the guard reads the path as `plumbed` only when it does.
+
+`tp-doctrine-guard` counts a revision only when it is produced AND consumed: the
+leg declares a registered rule, its unit's `monitor()` calls
+`plan_tp_revision` and returns through `merge_verdict` (a bare `{"tp": …}`
+literal no longer counts), and the account's own path — per prop platform, not
+one global prop state — forwards it.
+
 **What this does NOT change.** The two execution gates are unchanged (§ Mode
 Mutation Contract); the doctrine decides what a bracket must *carry*, not
 whether a leg *runs*. Flipping any leg's `tp_r`, adding a `tp` producer to a
@@ -1242,6 +1278,7 @@ filtered to architecture-level deltas only.
 | 2026-09-25 | E35 (Tier-3, landing hold) | **Symbol arbitration is PER ACCOUNT; the global election no longer routes.** `intent_multiplexer` still gates once (`intents.gate_intents`, one `regime_hard_gate` row per candidate per tick) and still elects a global headline (audit, signal writer, allocator soak), but the dispatch is now `arbitration_fanout.plan_per_account_election` over the same gated set: each account elects from its OWN declared candidates, and `pipeline._dispatch_rounds` sends one package per distinct elected strategy with `account_scope` = the accounts that elected it (an account is in at most one round → at most one package per tick; a strategy is one package however many accounts elected it). The four per-strategy monocle gates run PER ROUND on the round's own strategy. Retired: `ARBITRATION_FANOUT_MODE` / `ARBITRATION_FANOUT_ACCOUNTS` (ignored, warned once), the all-or-nothing `accepted_rounds` reader and `_round_order_package` (which stamped the global winner's meta under another strategy's name). `arbitration_fanout_soak` is kept as a v4 record graded against the per-account routing (`starved` = elected but in no round — a defect; `global_would_drop` = what the old routing dropped). Replay over 1000 live soak rows: `scripts/research/e35_per_account_election_replay.py`. |
 | 2026-10-05 | PHONE-EXEC-1B | **Phone-executed prop account.** `breakout_2` (Breakout 1-Step Turbo $5k, `mode: dry_run`) emits tickets through the unchanged `exchange: breakout` bridge; because the VM's egress is Cloudflare-blocked from the new terminal, an Android app on the operator's phone claims them (`POST /api/bot/prop/phone/claim`, atomic `emitted→claimed`, one attempt per ticket, 3-min watchdog), fills and reads back the order ticket, and reports via `phone/report` (account forced from a per-device token whose SHA-256 fingerprint is the only thing in git). Submit is `live` only when the account is live AND the device is armed; test tickets are always dry. | `src/prop/phone_executor.py`, `src/web/api/routers/prop.py`, `config/{accounts,prop_platforms,prop_phone_devices}.yaml`, `config/prop_rulesets/breakout_turbo_1step.yaml`, `tools/phone-executor/`, `.github/workflows/phone-executor-apk.yml`, `docs/integrations/breakout-phone-executor-DESIGN.md` § 7.11 | Merged ≠ deployed: nothing runs until the web API is redeployed, a device is paired, and the account is flipped by `set-account-mode`. |
 | 2026-10-06 | TP-DOCTRINE (lane, Tier-1) | **The TP doctrine is canonical and measured.** Operator directive 2026-10-06 (verbatim in § "TP doctrine"): no fictional take-profits — every leg's bracket carries a real predictive TP at entry, the prediction is re-estimated through the trade and moved via the `tp` verdict path, a momentum/trailing exit does not exempt a leg, and compliance is measured in audits. New guard `tp-doctrine-guard` (`scripts/ci/check_tp_doctrine.py`) grades every (account, leg) routing on `entry_tp` and `tp_revision` and RATCHETS: day-one debt (52 of 52 routings fail revision, 26 of 52 fail entry, measured at `233c9c28`) is carried in a dated visible baseline; the guard fails on NEW non-compliance, debt growth, or a stale baseline line; `--strict` is the audit shape, wired into the `/health-review` compliance-audit rotation. Research units `RQ-20261006-060/061` sweep finite targets for the real-money sentinel legs; pipeline row `PI-20261006-5FUGHVX8-0001` holds the ranked debt list with a disposition per leg. | `docs/ARCHITECTURE-CANONICAL.md`, `CLAUDE.md`, `.claude/skills/exit-refinement/SKILL.md`, `.claude/skills/health-review/SKILL.md`, `scripts/ci/check_tp_doctrine.py`, `scripts/ci/run_guards.py`, `tests/test_check_tp_doctrine.py`, `research/queue/RQ-20261006-06{0,1}.yaml`, `docs/claude/work/pipeline/` | None to what trades today: docs, a CI guard and research registrations only. No order path, config, strategy or param change. The guard blocks a future PR that rosters a leg with a sentinel / no target or a family that cannot move its TP, unless its debt is added to the baseline as a visible line (Tier-3 on real-money / prop). |
+| 2026-10-07 | TP-DOCTRINE (lane, Tier-3 hold) | **TP doctrine B1 — the TP-revision mechanism.** New `src/runtime/tp_revision.py` owns the verdict contract (`{"tp", "tp_reason"}`), the declared-rule registry and `plan_tp_revision` (through-price refusal, venue-cap clamp from the current price). `monitor_verdict` carries `tp_reason`; `order_monitor` logs and pings it. `prop_trail` gains a TP-only amend step for adapters declaring `TP_AMEND_SUPPORTED` (`dxtrade_api`); browser `dxtrade` declares False (rollout guard). `tp-doctrine-guard` now requires produced-and-consumed (declared registered rule + `plan_tp_revision`/`merge_verdict` in `monitor()` + per-platform prop path). | `src/runtime/tp_revision.py`, `src/runtime/monitor_verdict.py`, `src/runtime/order_monitor.py`, `src/prop/prop_trail.py`, `src/prop/platform/{base,dxtrade,dxtrade_api}.py`, `scripts/ci/check_tp_doctrine.py`, `tests/test_tp_revision_contract.py` | None on merge: no leg declares a `tp_revision` rule, so no TP moves. Guard counts unchanged (52 routings, 0 compliant) except velotrade_1's path now reads `plumbed`. |
 | 2026-10-07 | PROP-FLOW-SEPARATION (lane, Tier-2) | **One prop ticket state machine per executor type** (§ "Prop ticket flow"; operator directive 2026-10-07 verbatim there). `src.prop.platform.ticket_flow()` classifies each prop account `rest` / `phone` / `browser` / `manual` from `config/prop_platforms.yaml` (browser accounts declare `ticket_flow`; a test fails on any undeclared prop account). An expired ticket with no logged fill is now terminal `expired` (or the REST executor's `skipped expired unplaced; …`) on every path and never blocks a re-ticket; `STALE_PROMPT_GRACE` is retired. Machine (`rest`/`phone`/`browser`) tickets get no Yes/No keyboard, no expiry or invalidation prompt, and `propexp:*` taps on them are refused. Manual tickets get one "recorded as NOT placed" notice with a single late-fill button. Every sweep write and tap is a compare-and-set (`prop_journal.transition_ticket_status`). The busy-symbol guard keeps blocking on a real open position, `placed` / `awaiting_report`, and now a phone `claimed` attempt. Builds on #16947 (REST expiry terminal). | `src/prop/{platform/__init__,prop_expiry_prompt,prop_invalidation_prompt,breakout_executor,breakout_notify,prop_journal,prop_reconcile}.py`, `tests/test_prop_flow_separation.py`, `tests/test_prop_{expiry_prompt,reticket_stale_prompt}.py`, this file | Merged ≠ deployed: needs a restart of the live trader (the sweep, the guard and the ticket keyboard run there) and of the prop bot for the callback change. Closes on observation: the next unplaced expiry on velotrade_1 or breakout_2 does not suppress the following signal. Revert: `git revert` the merge commit. |
 
 ## Known gaps

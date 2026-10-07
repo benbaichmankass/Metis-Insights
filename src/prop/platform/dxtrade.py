@@ -8311,6 +8311,10 @@ class DXtradeAdapter(PropPlatformAdapter):
     # clear of the per-account latch (ModifyRollout, cleared only by
     # executor-clear-rollout, never by executor-clear-halt). Every armed modify is gated by it.
     ROLLOUT_GUARD = True
+    # TP doctrine B1: the rollout guard refuses any TP change
+    # (`rollout_tighten_mismatch`), so this adapter cannot move a TP while it
+    # is set. Flip only together with a measured TP-amend rollout step.
+    TP_AMEND_SUPPORTED = False
 
     def _locate_edit_control(self, page: Any, symbol: str, side: Optional[str],
                              quantity: Optional[float]) -> Dict[str, Any]:
