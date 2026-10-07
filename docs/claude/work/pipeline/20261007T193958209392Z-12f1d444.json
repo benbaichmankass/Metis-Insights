@@ -5,6 +5,11 @@
   },
   "id": "PI-20261007-BQESW7M2-0001",
   "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-08",
+    "how_to_check": "scripts/ops/diag_fetch.sh '/api/diag/log_file?name=attention_watch_receipt' -> probes keys; closed-app test: close the phone app while breakout_2 is live, expect an urgent 'phone heartbeat missing' ping within ~1 h",
+    "what": "attention_watch_receipt lists prop_idle_tradeify_1, prop_idle_velotrade_1, prop_idle_breakout_2 and phone_hb_breakout_2 with status ok/unknown after the first hourly run on the merged code; and the dead-phone ping fires once on a deliberately closed app"
+  },
   "origin": {
     "kind": "session",
     "ref": "lane PROP-SILENCE-ALERTS session_01Fhry4ikKEvC4LNBqESw7m2; PR #16950 (merged b90cbe1c6)",
