@@ -5546,13 +5546,13 @@
       "lane": "session_01Pinmhx9oym7vJRoPddeVeu",
       "model": "claude-opus-5-5",
       "ceiling_usd": 30,
-      "spend_usd": null,
+      "spend_usd": 5.69,
       "tier": 2,
       "prs": [
         16944
       ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:55Z manager] MERGED #16944 b593448b (Select-market chip route: exactly one row or watchlist fallback/refuse; chip-vs-submit-label check). Proof after the operator installs the main APK: phone-dry-test SOLUSDT with the terminal on ETH -> dry_filled with SOL on the submit label; the lane dispatches it on my word. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0007. MEASURED (PHONE-EXEC-1B close-out): the real picker is the 'Select market' chip (role=button, aria 'Select market'); exec.js only works when the terminal already shows the ticket's symbol. Safe failure today (symbol verified on the submit label -> refuse), but a missed trade. DONE = a SOL phone-dry-test (system-action, issue-dispatched) dry_fills with the terminal starting on ETH. Opus (order path), default mode.",
+      "note": "[2026-10-07T19:40Z manager] Lane archived 19:39Z; spend $5.69 final (Opus). #16944 merged. Proof = one phone-dry-test with symbol SOL on the next APK (issue: action phone-dry-test / account breakout_2 / symbol SOL) reads dry_fill_ok with the SOL market selected; the manager dispatches it after the operator installs. The lane also opened #16985 (APK concurrency) in parallel with APK-BUILD-CONCURRENCY's #16991 -- manager reconciles. || [2026-10-07T18:55Z manager] MERGED #16944 b593448b (Select-market chip route: exactly one row or watchlist fallback/refuse; chip-vs-submit-label check). Proof after the operator installs the main APK: phone-dry-test SOLUSDT with the terminal on ETH -> dry_filled with SOL on the submit label; the lane dispatches it on my word. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0007. MEASURED (PHONE-EXEC-1B close-out): the real picker is the 'Select market' chip (role=button, aria 'Select market'); exec.js only works when the terminal already shows the ticket's symbol. Safe failure today (symbol verified on the submit label -> refuse), but a missed trade. DONE = a SOL phone-dry-test (system-action, issue-dispatched) dry_fills with the terminal starting on ETH. Opus (order path), default mode.",
       "observation": {
         "what": "SOL phone-dry-test dry_fills with the terminal starting on ETH",
         "how_to_check": "GET /api/bot/prop/tickets?account_id=breakout_2 newest phone-test symbol SOLUSDT status dry_filled",
@@ -5568,13 +5568,13 @@
       "lane": "session_01FMJ8hcTGUi1r3NPSCwvvdz",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 15,
-      "spend_usd": null,
+      "spend_usd": 2.39,
       "tier": 1,
       "prs": [
         16945
       ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:55Z manager] MERGED #16945 b2cc9777 (FLAG_SECURE only on credential screens, fail-closed until logged_in; claim 5xx backoff, no double-claim). 502 root cause NOT confirmed by the lane. On the phone only with the next APK install. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0006. Scope FLAG_SECURE to credential surfaces only (login page, credential dialog) so the terminal can be screenshotted; root-cause the 502 on /phone/claim seen 2026-10-06 10:26Z. Background robustness already landed (#16764). Sonnet, auto.",
+      "note": "[2026-10-07T19:40Z manager] Lane archived 19:38Z; spend $2.39 final. #16945 merged; proof = the operator's screenshot of the app no longer blacks out on the next APK (FLAG_SECURE scoped) -- manager reads it from the operator. || [2026-10-07T18:55Z manager] MERGED #16945 b2cc9777 (FLAG_SECURE only on credential screens, fail-closed until logged_in; claim 5xx backoff, no double-claim). 502 root cause NOT confirmed by the lane. On the phone only with the next APK install. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0006. Scope FLAG_SECURE to credential surfaces only (login page, credential dialog) so the terminal can be screenshotted; root-cause the 502 on /phone/claim seen 2026-10-06 10:26Z. Background robustness already landed (#16764). Sonnet, auto.",
       "observation": {
         "what": "operator screenshots the trading terminal (not black) with the APK built from main (run 37669999484 or later)",
         "how_to_check": "operator report; phone_heartbeat st logged_in",
@@ -5590,13 +5590,13 @@
       "lane": "session_017GnSZfLoVVFF5isxUzgfme",
       "model": "claude-fable-5-1",
       "ceiling_usd": 20,
-      "spend_usd": null,
+      "spend_usd": 15.94,
       "tier": 1,
       "prs": [
         16955
       ],
       "blocked_on": [],
-      "note": "[2026-10-07T19:36Z manager] #16955 MERGED 19:34Z (9eba43908): RQ-20261007-001..004 under research/queue/blocked/ + PLANNING.md + exit-refinement skill note. Docs/queue only: merged == done for the plan; the units run when unblocked. Archive the lane. || [2026-10-07T18:57Z manager] PR #16955 held (new queue units cannot self-land by design); the manager lands. Units RQ-20261007-001..004 COLLIDE with #16960's ids -> RQ-RESULTS renumbers its own; #16955 lands first. Plan accepted: rows GEOM-B1-HARNESS + GEOM-CENSUS written. The 6R-vs-doctrine question is a data task (RQ-20261007-002 costed-null branch), not a popup. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0003. Operator 2026-10-06: 'turning active management into active geometry ... TPs never seem to be moving ... for all the accounts'. ACTIVE-GEOMETRY-SCAN measured SL moved on 126/734 trades, TP on 0. This lane produces the plan: queue units (rule before run) + proposed build rows, ranked by money at stake, consistent with the TP doctrine. Fable (analysis, cheap to verify), auto."
+      "note": "[2026-10-07T19:40Z manager] Lane archived 19:34Z; spend $15.94 final (Fable). Next pickup named by the lane: GEOM-B1-HARNESS (a build; needs its own row when chosen). || [2026-10-07T19:36Z manager] #16955 MERGED 19:34Z (9eba43908): RQ-20261007-001..004 under research/queue/blocked/ + PLANNING.md + exit-refinement skill note. Docs/queue only: merged == done for the plan; the units run when unblocked. Archive the lane. || [2026-10-07T18:57Z manager] PR #16955 held (new queue units cannot self-land by design); the manager lands. Units RQ-20261007-001..004 COLLIDE with #16960's ids -> RQ-RESULTS renumbers its own; #16955 lands first. Plan accepted: rows GEOM-B1-HARNESS + GEOM-CENSUS written. The 6R-vs-doctrine question is a data task (RQ-20261007-002 costed-null branch), not a popup. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0003. Operator 2026-10-06: 'turning active management into active geometry ... TPs never seem to be moving ... for all the accounts'. ACTIVE-GEOMETRY-SCAN measured SL moved on 126/734 trades, TP on 0. This lane produces the plan: queue units (rule before run) + proposed build rows, ranked by money at stake, consistent with the TP doctrine. Fable (analysis, cheap to verify), auto."
     },
     {
       "id": "PROP-TRAIL-PHONE",
@@ -5976,35 +5976,35 @@
       "id": "TRADEIFY-OWNERSHIP-NOTE",
       "title": "Tradeify 247 bot-ownership exposure: keep a written sole-ownership statement + how to produce the commit history, ready for a source-files or payout-interview demand",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "owner": "lane TRADEIFY-OWNERSHIP-NOTE",
       "lane": "session_01BwCfskE3ZscdutzLC3MtVD",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 6,
-      "spend_usd": null,
+      "spend_usd": 2.05,
       "tier": 1,
       "prs": [
         16956
       ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:55Z manager] PR #16956 auto-merging. Flag for the operator: git author-name mapping (~100 commits by an unidentified author). || [2026-10-07T18:37Z manager] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): 'Ownership note ready, nothing else (Recommended)'. Doc-only. Pipeline: PI-20261004-OZ9AAZSV-0003."
+      "note": "[2026-10-07T19:40Z manager] Lane archived 19:39Z; spend $2.05 final. #16956 merged. Operator follow-up still open: git author-name mapping for the ~100 commits by an unidentified author (raise at the next sync). || [2026-10-07T18:55Z manager] PR #16956 auto-merging. Flag for the operator: git author-name mapping (~100 commits by an unidentified author). || [2026-10-07T18:37Z manager] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): 'Ownership note ready, nothing else (Recommended)'. Doc-only. Pipeline: PI-20261004-OZ9AAZSV-0003."
     },
     {
       "id": "DXTRADE-PROBE",
       "title": "$0 read-only reachability probe from the VM: dx.tradeify247.co (Cloudflare/ASN block?) and /specs (does the DXtrade REST API answer?) \u2014 the precondition for moving tradeify_1 to the REST path",
       "phase": "W6",
-      "state": "landed_unproven",
+      "state": "done",
       "owner": "lane DXTRADE-PROBE",
       "lane": "session_01GQJBuULrkHyyzmX3Z42edG",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 10,
-      "spend_usd": null,
+      "spend_usd": 1.31,
       "tier": 1,
       "prs": [
         16967
       ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:58Z manager] DONE pending merge: VM egress 200 real login page, no block; /specs 409 JSON; pilot account already exists (#14691). Follow-on row DXTRADE-REST-PILOT. || [2026-10-07T18:37Z manager] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): '$0 reachability probe only (Recommended)'. No account purchase; the trial-account question returns only if the probe passes. Pipeline: PI-20260930-WSTCE9FH-0001.",
+      "note": "[2026-10-07T19:40Z manager] Lane archived 19:39Z; spend $1.31 final. #16967 merged: probe memo \u00a7 4.2 + PI-20260930-WSTCE9FH-0001 closed. || [2026-10-07T18:58Z manager] DONE pending merge: VM egress 200 real login page, no block; /specs 409 JSON; pilot account already exists (#14691). Follow-on row DXTRADE-REST-PILOT. || [2026-10-07T18:37Z manager] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): '$0 reachability probe only (Recommended)'. No account purchase; the trial-account question returns only if the probe passes. Pipeline: PI-20260930-WSTCE9FH-0001.",
       "observation": {
         "what": "PR #16967 merges (memo section + PI-20260930-WSTCE9FH-0001 done)",
         "how_to_check": "gh api repos/benbaichmankass/Metis-Insights/pulls/16967 --jq .merged",
@@ -6032,18 +6032,18 @@
       "id": "HIBERNATION-SKILL",
       "title": "Manager skill: how to hibernate the work before a usage-limit outage and pick it up after (operator ask 2026-10-07)",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "owner": "lane HIBERNATION-SKILL",
       "lane": "session_018paujgDwqD1DxKFy1tnWwN",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 8,
-      "spend_usd": null,
+      "spend_usd": 0.86,
       "tier": 1,
       "prs": [
         16954
       ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:55Z manager] PR #16954 auto-merging; may need a main merge after #16942. || [2026-10-07T18:41Z manager] Operator, verbatim: \"you did a good job of 'hibernating' the work ahead of the usage limit outage, so I want us to add to the manager skill instructions for how to prepare for that properly.\" Doc-only; written from the measured 2026-10-06/07 sequence (what worked: auto-merge armed, lanes told to self-land, pick-up reminder, routines paused; what broke: lanes died at the limit unlanded, queue ran but produced nothing, stranded register commits). Row written after dispatch (manager slip, corrected)."
+      "note": "[2026-10-07T19:40Z manager] Lane archived 19:39Z; spend $0.86 final. #16954 merged 19:30Z: manager SKILL.md \u00a7 'Hibernating before a usage-limit outage' on main. || [2026-10-07T18:55Z manager] PR #16954 auto-merging; may need a main merge after #16942. || [2026-10-07T18:41Z manager] Operator, verbatim: \"you did a good job of 'hibernating' the work ahead of the usage limit outage, so I want us to add to the manager skill instructions for how to prepare for that properly.\" Doc-only; written from the measured 2026-10-06/07 sequence (what worked: auto-merge armed, lanes told to self-land, pick-up reminder, routines paused; what broke: lanes died at the limit unlanded, queue ran but produced nothing, stranded register commits). Row written after dispatch (manager slip, corrected)."
     },
     {
       "id": "PHONE-DRYTEST-ACTION",
@@ -6060,7 +6060,7 @@
         16782
       ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:15Z manager] DONE. MERGED #16782 (2026-10-06 14:01Z). OBSERVED 2026-10-07: issue #16939 (18:10Z) -> ticket phone-test-72f5bfc0942e -> the backgrounded, armed phone came forward and dry_filled at 18:11:22Z (ETH limit/buy, TP/SL read back, submit not pressed). ~1 min from issue to ticket vs ~37 min on the config-PR path. Row created late: the lane was dispatched 2026-10-06 12:30Z on the operator's ask without a row (manager error, corrected). Lane died at the weekly limit before its own proof dispatch; spend $10.19 final. PI-20261006-APBY4NTV-0009 -> done."
+      "note": "[2026-10-07T19:40Z manager] Lane archived 19:38Z; spend $10.19 final (Fable; its last turn died on the weekly limit after the action had merged and passed). || [2026-10-07T18:15Z manager] DONE. MERGED #16782 (2026-10-06 14:01Z). OBSERVED 2026-10-07: issue #16939 (18:10Z) -> ticket phone-test-72f5bfc0942e -> the backgrounded, armed phone came forward and dry_filled at 18:11:22Z (ETH limit/buy, TP/SL read back, submit not pressed). ~1 min from issue to ticket vs ~37 min on the config-PR path. Row created late: the lane was dispatched 2026-10-06 12:30Z on the operator's ask without a row (manager error, corrected). Lane died at the weekly limit before its own proof dispatch; spend $10.19 final. PI-20261006-APBY4NTV-0009 -> done."
     },
     {
       "id": "VELOTRADE-TICKET",
