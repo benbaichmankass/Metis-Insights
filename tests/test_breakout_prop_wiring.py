@@ -91,7 +91,11 @@ def test_prop_account_config():
     # the leg is "still LISTED but demoted to shadow", the routing roster being
     # orthogonal to the execution gate — described exactly that situation and no
     # longer applies, so it is replaced rather than left to read as current.
-    assert set(a["strategies"]) == {
+    # 2026-10-07 (Tier-3, operator: "Dead: clear its roster, retire the row"):
+    # breakout_1 is breached and RETIRED, so its roster is empty. breakout_2 is
+    # the live Breakout account and carries the _prop twins.
+    assert a["strategies"] == []
+    assert set(_accounts()["breakout_2"]["strategies"]) == {
         "trend_donchian_sol_prop", "trend_donchian_eth_prop"}
     assert set(a["symbols"]) == {"SOLUSDT", "ETHUSDT"}
 

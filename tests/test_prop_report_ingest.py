@@ -89,7 +89,7 @@ def test_outbound_tickets_project_over_order_packages(isolated_db: Path) -> None
     # failed. That failure was the change working, not a regression.
     db.insert_order_package({
         "order_package_id": "pkg-test-sol",
-        "strategy_name": "trend_donchian_sol_prop",  # a breakout_1 prop strategy
+        "strategy_name": "trend_donchian_sol_prop",  # a breakout_2 prop strategy (breakout_1 retired 2026-10-07)
         "symbol": "SOLUSDT", "direction": "long",
         "entry": 73.0, "sl": 71.0, "tp": 80.0, "status": "orphaned",
     })
@@ -102,7 +102,7 @@ def test_outbound_tickets_project_over_order_packages(isolated_db: Path) -> None
         "symbol": "BTCUSDT", "direction": "long",
         "entry": 75000.0, "sl": 74000.0, "tp": 78000.0, "status": "orphaned",
     })
-    rows = prop_journal.list_outbound_tickets(account_id="breakout_1")
+    rows = prop_journal.list_outbound_tickets(account_id="breakout_2")
     by_id = {r["order_package_id"]: r for r in rows}
     assert "pkg-test-sol" in by_id, "canonical order_package must appear with no sidecar"
     assert "pkg-not-routed-here" not in by_id, (

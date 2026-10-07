@@ -181,8 +181,10 @@ def test_the_execution_check_can_fail():
     assert not ("operator-approved" in low and "gate passed" in low)
 
 
-def test_routed_to_breakout_1():
-    a = _accounts()["breakout_1"]
+def test_routed_to_breakout_2_and_breakout_1_retired():
+    # breakout_1 was retired (roster cleared) 2026-10-07; breakout_2 carries them.
+    assert _accounts()["breakout_1"]["strategies"] == []
+    a = _accounts()["breakout_2"]
     for name in _VARIANTS:
         assert name in a["strategies"]
 
