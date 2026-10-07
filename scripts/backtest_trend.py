@@ -63,6 +63,9 @@ from regime_weight import soft_regime_weight, soft_weight_armed  # noqa: E402
 # lever below measures the same quantity production records rather than a second
 # derivation of it. See src/runtime/position_telemetry.py::r_distances.
 from src.runtime.position_telemetry import r_distances  # noqa: E402
+from src.runtime.tp_revision import (  # noqa: E402  (the ONE TP-revision rule)
+    RULE_DONCHIAN_MEASURED_MOVE, clamp_to_venue_cap, measured_move_path,
+    tp_revision_rejection)
 import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
 # The data-source POLICY (five states, refuses rather than falling back to a
 # fixture). It imports the ONE (symbol, timeframe) -> file resolver rather than
@@ -289,6 +292,8 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  trail_vol_below_pctl: float = 0.0,
                  trail_vol_tight_mult: float = 0.0,
                  be_floor_r: float = 0.0,
+                 tp_revision: str = "",
+                 tp_revision_width_mult: float = 1.0,
                  trades_out: Optional[List["Trade"]] = None,
                  vol_pctl_override: Optional[Sequence[float]] = None,
                  entry_override: Optional[Dict[int, Dict[str, Any]]] = None,
@@ -458,6 +463,16 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
     # BIND on this leg' from the leg's own frame, instead of from an assumed
     # ATR%. Empty when --tp-cap-pct is off.
     _tp_r_effective: List[float] = []
+    # TP doctrine B1 lever: only the trend family's own rule is modelled here.
+    if tp_revision and tp_revision != RULE_DONCHIAN_MEASURED_MOVE:
+        raise ValueError(f"tp_revision {tp_revision!r}: this harness models only "
+                         f"{RULE_DONCHIAN_MEASURED_MOVE!r}")
+    _tp_revisions = 0
+    # How many applied revisions the venue cap bound: when most do, the arms
+    # measure a re-anchored cap, not the measured move -- report it, never infer.
+    _tp_revisions_clamped = 0
+    _highs = df["high"].to_numpy()
+    _lows = df["low"].to_numpy()
     # Per-trade MINIMUM `rr_from_here` seen while open. This is the lever's
     # REACHABILITY diagnostic and it is computed whenever a capped TP exists,
     # independently of `rr_floor` — a floor F can only ever fire on a trade
@@ -828,6 +843,28 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                 exit_price, exit_idx = float(df["close"].iloc[j]), j
                 exit_reason = "day_flat"
                 break
+            # TP DOCTRINE B1 — the declared TP-revision rule ("" = off,
+            # byte-identical). After bar j CLOSES (every exit test above has
+            # passed), re-estimate the target with the SAME pure core the live
+            # unit and the prop trail call (src/runtime/tp_revision.py), so it
+            # binds from bar j+1 -- the bar a live amend placed now would rest
+            # on. Clamped to the venue cap from bar j's close when the capped-TP
+            # path is on; a target already through that close is not placed
+            # (live refuses it too) and the resting tp_price stays.
+            if tp_revision:
+                _rev = measured_move_path(
+                    _highs, _lows, start=entry_i, end=j, n=donchian,
+                    direction=direction, width_mult=tp_revision_width_mult)
+                if _rev is not None:
+                    _cand, _ = _rev
+                    _bc = float(df["close"].iloc[j])
+                    _clamped = False
+                    if tp_cap_pct > 0.0:
+                        _cand, _clamped = clamp_to_venue_cap(direction, _cand, _bc, tp_cap_pct)
+                    if tp_revision_rejection(direction, _cand, _bc) is None:
+                        tp_price = _cand
+                        _tp_revisions += 1
+                        _tp_revisions_clamped += int(_clamped)
         if _rest_hit is not None:
             exit_price, exit_reason = _rest_hit
             exit_idx = entry_i
@@ -984,6 +1021,11 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         params["trail_vol_below_pctl"] = trail_vol_below_pctl
         params["trail_vol_tight_mult"] = trail_vol_tight_mult
         params["vol_pctl_window"] = vol_pctl_window
+    if tp_revision:
+        params["tp_revision"] = tp_revision
+        params["tp_revision_width_mult"] = tp_revision_width_mult
+        params["tp_revisions_applied"] = _tp_revisions
+        params["tp_revisions_clamped"] = _tp_revisions_clamped
     return _summarize(trades, df, timeframe=timeframe, symbol=symbol, params=params,
                       tp_r_effective=_tp_r_effective,
                       rr_min_per_trade=_rr_min_per_trade,
@@ -1322,6 +1364,12 @@ def main(argv: List[str]) -> int:
                         "this many R (0=off, byte-identical).")
     p.add_argument("--giveback-r", type=float, default=1.0,
                    help="R handed back from the peak that triggers the exit.")
+    p.add_argument("--tp-revision", default="",
+                   help="TP doctrine B1: re-estimate the TP after every closed bar with "
+                        "the declared rule (only 'donchian_measured_move'). Default off "
+                        "(byte-identical). Combine with --tp-cap-pct for the live clamp.")
+    p.add_argument("--tp-revision-width-mult", type=float, default=1.0,
+                   help="Measured-move multiple of the channel height (default 1.0).")
     p.add_argument("--trail-decay-arm-r", type=float, default=0.0,
                    help="M20 P4.1 trail-decay: tighten the trail once peak open "
                         "profit reaches this many R (0=off for this arm).")
@@ -1470,6 +1518,8 @@ def main(argv: List[str]) -> int:
                      stale_exit_below_r=args.stale_exit_below_r,
                      bank_frac=args.bank_frac, bank_at_r=args.bank_at_r,
                      tp_cap_pct=args.tp_cap_pct, tp_r=args.tp_r,
+                     tp_revision=args.tp_revision,
+                     tp_revision_width_mult=args.tp_revision_width_mult,
                      giveback_min_mfe_r=args.giveback_min_mfe_r,
                      giveback_r=args.giveback_r,
                      trail_decay_arm_r=args.trail_decay_arm_r,
