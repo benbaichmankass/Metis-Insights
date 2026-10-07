@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-10",
+    "kind": "date"
+  },
+  "id": "PI-20261007-JOHNSXDJ-0003",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane VELOTRADE-TICKET session_01BbBqjBgks6BVLgjoHnSxdJ; manager session_01MM8o5js6TcDFeNAPBY4Ntv 19:54Z ask (4)",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/prop/tickets?account_id=velotrade_1&limit=20' ; scripts/ops/diag_fetch.sh 'journalctl?unit=ict-trader-live.service&lines=2000' | grep prop_expiry_prompt"
+  },
+  "state": "queued",
+  "what": "VELOTRADE-TICKET (#16947, merged f42ddf9a1 2026-10-07 19:50Z) is landed_unproven until OBSERVED. Merged: yes. Deployed: VM tree 9dd129024 contains f42ddf9a1 (diag /version 19:54:46Z); executor tick 19:53:10Z ran code_sha 9dd129024; trader restart dispatched via system-action issue #17008 (19:56Z). CLOSING OBSERVATION: the NEXT velotrade_1 prop ticket that expires unplaced (status still emitted at valid_until) must (a) reach status `skipped` on GET /api/bot/prop/tickets?account_id=velotrade_1 with a prop_fills reason starting 'expired unplaced; last verdict' (or plain 'expired' if the executor never looked at it), (b) NOT be flipped to expiry_prompted, and (c) NOT produce a 'PROP TICKET EXPIRED — did you place this?' Telegram prompt (trader journal: no 'prop_expiry_prompt: prompted' line for it). And (d) the next same-key signal after that expiry is ticketed, not 'reticket suppressed — outstanding_ticket:expiry_prompted'. If any of (a)-(d) fails, reopen against #16947. Population: the first velotrade_1 ticket that expires unplaced after 2026-10-07 19:56Z."
+}
