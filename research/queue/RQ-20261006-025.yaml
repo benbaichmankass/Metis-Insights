@@ -60,11 +60,21 @@ lands:
   store: research/results/
   assert_field: read_state
   min_rows: 1
-grading:
-  auto: true
 related:
 - PI-20261006-APBY4NTV-0001
 - docs/integrations/breakout-instruments-2026-09-27.md
 - RQ-20260929-107
 - research/templates/roster-walkforward.yaml
 last_dispatched_at: '2026-10-07T09:13:22+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-RQ1006-025-BTCUSDT-15m-FADE-STAGE0
+  evidence:
+  - research/results/RQ-20261006-025/37599126339.jsonl
+  - research/results/RQ-20261006-025/37605109381.jsonl
+  graded_at: '2026-10-07'
+  grader: scripts/research/queue_grade.py
+  needs_review: true
+  reason: 'verdicts not unanimous-mechanical: [''wiring_only'']'
+  rows: 2
+  verdict: null
