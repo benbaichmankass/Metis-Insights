@@ -1,49 +1,48 @@
-id: RQ-20261007-007
-title: 'Breakout 1-Step Turbo prop fit on the committed Stage-0 record: pullback_ada_1h at flat 0.5% of balance, with days-to-target
-  reported (PI-20261006-APBY4NTV-0001 slice 1, follow-on to RQ-20261006-009 PASS)'
+id: RQ-20261007-013
+title: 'Breakout 1-Step Turbo prop fit on the committed Stage-0 record: pullback_link_1h at flat 0.5% of balance, with days-to-target
+  reported (PI-20261006-APBY4NTV-0001 slice 1, follow-on to RQ-20261006-021 PASS)'
 status: queued
 cadence: once
 theme: new_strategy_prop
 priority: 1
 kind: experiment
-question: 'Does pullback_ada_1h (ADAUSDT 1h, the trend-pullback entry (scripts/backtest_pullback.py), harness-default parameters)
+question: 'Does pullback_link_1h (LINKUSDT 1h, the trend-pullback entry (scripts/backtest_pullback.py), harness-default parameters)
   clear the operator''s prop bar -- E[net $ banked before the account dies] > 0 with P(net>0) >= 0.70 on every seed -- under
   Breakout 1-Step Turbo (3% daily / 3% static max drawdown, 9% target, no minimum trading days, 00:30 UTC reset; config/prop_rulesets/breakout_turbo_1step.yaml,
   the $5k account breakout_2 trades) when sized flat 0.5% of balance, and how FAST does it pass: what are the simulator''s
-  days_to_pass p50/p90 and p_pass_eval? Prices the committed Stage-0 trade record comms/strategy_evidence/runs/2026-10-07-stage0-prop/pullback_ada_1h__trades.jsonl
-  (375 trades, the verbatim --emit-trades artifact of research-harness-dispatch run 37502661365, whose net_total_r=106.5071
-  cleared RQ-20261006-009''s pre-registered rule; Breakout''s own cost stack is recomputed from gross_r/entry/sl by prop_ev_sim
+  days_to_pass p50/p90 and p_pass_eval? Prices the committed Stage-0 trade record comms/strategy_evidence/runs/2026-10-07-stage0-prop/pullback_link_1h__trades.jsonl
+  (400 trades, the verbatim --emit-trades artifact of research-harness-dispatch run 37558024394, whose net_total_r=26.0471
+  cleared RQ-20261006-021''s pre-registered rule; Breakout''s own cost stack is recomputed from gross_r/entry/sl by prop_ev_sim
   --costs breakout); no new backtest. This (leg, ruleset) pair has no prop fit on record (checked research/queue/ 2026-10-07:
-  the leg exists only as the Stage-0 cell RQ-20261006-009; it is on no roster and in no evidence record).'
+  the leg exists only as the Stage-0 cell RQ-20261006-021; it is on no roster and in no evidence record).'
 why_this_matters: 'PI-20261006-APBY4NTV-0001: the binding constraint on the current prop book is PACE, not risk (velotrade_1
-  sim median ~220 d to +10%). RQ-20261006-009 is one of five Stage-0 cells that PASSED on 2026-10-07 (net-of-cost edge, n
-  >= 39) out of 27 graded; RQ-20261006-009''s own what_it_does_not_do says the NEXT unit prices the PASS under a prop ruleset
-  with days-to-target as the headline. Breakout is the venue that lists ADAUSD (Breakout ADAUSD (150k max position; leverage
-  unconfirmed, operator-confirmed on the product list 2026-09-28)); Velotrade and Tradeify list only BTC/ETH/SOL/XRP. A PASS
-  here is a ranked, record-backed candidate for breakout_2''s roster (Tier-3, proposed not applied); a FAIL closes the cell
-  for this ruleset.'
+  sim median ~220 d to +10%). RQ-20261006-021 is one of five Stage-0 cells that PASSED on 2026-10-07 (net-of-cost edge, n
+  >= 39) out of 27 graded; RQ-20261006-021''s own what_it_does_not_do says the NEXT unit prices the PASS under a prop ruleset
+  with days-to-target as the headline. Breakout is the venue that lists LINKUSD (Breakout LINKUSD (100k max position; leverage
+  unconfirmed)); Velotrade and Tradeify list only BTC/ETH/SOL/XRP. A PASS here is a ranked, record-backed candidate for breakout_2''s
+  roster (Tier-3, proposed not applied); a FAIL closes the cell for this ruleset.'
 power:
-  expected_n: 375
+  expected_n: 400
   min_detectable_effect: 0.3
   effect_units: sd
   design: one_sample
   alpha: 0.05
   power: 0.8
-  basis: d=0.3 needs ~87-90 observations at alpha 0.05 / power 0.8 (floor registered by RQ-20260928-011/-012). expected_n=375
-    is `wc -l comms/strategy_evidence/runs/2026-10-07-stage0-prop/pullback_ada_1h__trades.jsonl` counted 2026-10-07 before
-    this unit was registered and equals population.n on research/results/RQ-20261006-009/37502661365.jsonl; below 88 the unit
+  basis: d=0.3 needs ~87-90 observations at alpha 0.05 / power 0.8 (floor registered by RQ-20260928-011/-012). expected_n=400
+    is `wc -l comms/strategy_evidence/runs/2026-10-07-stage0-prop/pullback_link_1h__trades.jsonl` counted 2026-10-07 before
+    this unit was registered and equals population.n on research/results/RQ-20261006-021/37558024394.jsonl; below 88 the unit
     grades UNDERPOWERED, never FAIL.
   feasibility:
     source: none
     accrual_basis: Re-pricing of a committed trade record; nothing accrues. The record is in-sample over the harness's default
       window on default parameters (see the sidecar).
 decision_rule:
-  id: RULE-RQ1007-007-BREAKOUT-TURBO-FIT-pullback_ada_1h-f050
+  id: RULE-RQ1007-013-BREAKOUT-TURBO-FIT-pullback_link_1h-f050
   registered_at: '2026-10-07'
   registered_before_run: true
-  statistic: 'Per seed: prop_ev_sim path-mode ev_net_usd_per_life and p_net_positive over pullback_ada_1h''s committed Stage-0
-    trades (comms/strategy_evidence/runs/2026-10-07-stage0-prop/pullback_ada_1h__trades.jsonl), under config/prop_rulesets/breakout_turbo_1step.yaml,
-    sizing flat 0.5% of balance (--ruleset config/prop_rulesets/breakout_turbo_1step.yaml --costs breakout --lev-cap pullback_ada_1h=5
+  statistic: 'Per seed: prop_ev_sim path-mode ev_net_usd_per_life and p_net_positive over pullback_link_1h''s committed Stage-0
+    trades (comms/strategy_evidence/runs/2026-10-07-stage0-prop/pullback_link_1h__trades.jsonl), under config/prop_rulesets/breakout_turbo_1step.yaml,
+    sizing flat 0.5% of balance (--ruleset config/prop_rulesets/breakout_turbo_1step.yaml --costs breakout --lev-cap pullback_link_1h=5
     --no-hedge --swap-model prorated --funded-start fresh). Reported beside the verdict, from the same sims/ output: days_to_pass
     p50 and p90 (the simulator''s median days to the evaluation target) and p_pass_eval. P(pass by 30/90/180 d) is NOT emitted
     by prop_ev_sim today (filed separately as a tooling item by the 034..045 intake).'
@@ -53,7 +52,7 @@ decision_rule:
     days_to_pass p50 > 180 d is still a PASS on this rule and is marked 'too slow' in the ranking, not re-graded. A FAIL is
     one pass and re-queues for a confirmatory run before it is read as a kill.
   what_it_does_not_do: Does not touch config/accounts.yaml, config/strategies.yaml or any prop roster. Prices one committed
-    in-sample record (harness-default parameters, ADAUSDT 1h, the harness's full cost stack replaced by Breakout's own via
+    in-sample record (harness-default parameters, LINKUSDT 1h, the harness's full cost stack replaced by Breakout's own via
     --costs breakout); not a live-parity check and not an OOS test (the harness has no OOS split). The leverage cap of 5 mirrors
     the 034..045 fits and is UNCONFIRMED for this symbol on Breakout. One sizing arm only, so it says nothing about whether
     a larger risk fraction would pass faster without breaching the daily-loss line.
@@ -71,11 +70,11 @@ run:
   - python3
   - scripts/research/prop_ev_grid.py
   - --leg
-  - pullback_ada_1h=comms/strategy_evidence/runs/2026-10-07-stage0-prop/pullback_ada_1h__trades.jsonl
+  - pullback_link_1h=comms/strategy_evidence/runs/2026-10-07-stage0-prop/pullback_link_1h__trades.jsonl
   - --arm
   - A=--sizing balance --risk-pct 0.005
   - --common
-  - --ruleset config/prop_rulesets/breakout_turbo_1step.yaml --costs breakout --lev-cap pullback_ada_1h=5 --no-hedge --swap-model
+  - --ruleset config/prop_rulesets/breakout_turbo_1step.yaml --costs breakout --lev-cap pullback_link_1h=5 --no-hedge --swap-model
     prorated --funded-start fresh
   - --seeds
   - 1,2,3,4,5
@@ -90,7 +89,7 @@ run:
   - --jobs
   - '4'
   inputs:
-    research_unit: RQ-20261007-007
+    research_unit: RQ-20261007-013
 lands:
   store: research/results/
   assert_field: read_state
@@ -99,9 +98,9 @@ grading:
   auto: true
 related:
 - PI-20261006-APBY4NTV-0001
-- RQ-20261006-009
-- research/results/RQ-20261006-009/37502661365.jsonl
-- comms/strategy_evidence/runs/2026-10-07-stage0-prop/pullback_ada_1h__stage0.json
+- RQ-20261006-021
+- research/results/RQ-20261006-021/37558024394.jsonl
+- comms/strategy_evidence/runs/2026-10-07-stage0-prop/pullback_link_1h__stage0.json
 - config/prop_rulesets/breakout_turbo_1step.yaml
 - RQ-20261006-034
 - docs/integrations/breakout-instruments-2026-09-27.md

@@ -1,4 +1,4 @@
-id: RQ-20261007-009
+id: RQ-20261007-012
 title: 'Breakout 1-Step Turbo prop fit on the committed Stage-0 record: squeeze_doge_1h at flat 0.5% of balance, with days-to-target
   reported (PI-20261006-APBY4NTV-0001 slice 1, follow-on to RQ-20261006-018 PASS)'
 status: queued
@@ -38,7 +38,7 @@ power:
     accrual_basis: Re-pricing of a committed trade record; nothing accrues. The record is in-sample over the harness's default
       window on default parameters (see the sidecar).
 decision_rule:
-  id: RULE-RQ1007-009-BREAKOUT-TURBO-FIT-squeeze_doge_1h-f050
+  id: RULE-RQ1007-012-BREAKOUT-TURBO-FIT-squeeze_doge_1h-f050
   registered_at: '2026-10-07'
   registered_before_run: true
   statistic: 'Per seed: prop_ev_sim path-mode ev_net_usd_per_life and p_net_positive over squeeze_doge_1h''s committed Stage-0
@@ -90,7 +90,7 @@ run:
   - --jobs
   - '4'
   inputs:
-    research_unit: RQ-20261007-009
+    research_unit: RQ-20261007-012
 lands:
   store: research/results/
   assert_field: read_state
