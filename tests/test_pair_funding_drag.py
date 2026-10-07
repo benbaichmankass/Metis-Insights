@@ -52,3 +52,12 @@ def test_missing_rate_col_raises(tmp_path):
     pd.DataFrame({"timestamp": ["2025-01-01"], "nope": [1]}).to_csv(p, index=False)
     with pytest.raises(ValueError):
         fd._load_funding(str(p))
+
+
+def test_main_fails_hard_on_no_overlap(tmp_path, capsys):
+    """CA-B04: non-overlapping funding history printed an all-None report and exited 0."""
+    a = _write(tmp_path, "a.csv", pd.date_range("2024-01-01", periods=10, freq="8h", tz="UTC"), [0.0001] * 10)
+    b = _write(tmp_path, "b.csv", pd.date_range("2025-06-01", periods=10, freq="8h", tz="UTC"), [0.0001] * 10)
+    rc = fd.main(["prog", "--funding-a", a, "--funding-b", b])
+    assert rc == 1
+    assert "ERROR" in capsys.readouterr().err

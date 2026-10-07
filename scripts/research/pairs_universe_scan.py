@@ -109,12 +109,36 @@ def _n_trades(metrics: Dict[str, Any]) -> int:
     return int((metrics.get("trades_long") or 0) + (metrics.get("trades_short") or 0))
 
 
+# MacKinnon (1991/2010) finite-sample response surface for the Engle-Granger
+# residual-ADF critical value, 2 variables (N=2), constant, no trend:
+#   crit(T) = b0 + b1/T + b2/T^2.   5% asymptote is -3.34, NOT the single-series
+# Dickey-Fuller -2.86: step 1 fits the cointegrating vector by OLS, which makes
+# the residual look more stationary than it is, so the test needs a more
+# negative cut-off. CA-B04 measured a 20% false-positive rate at -2.86 on
+# independent random walks (nominal 5%).
+_EG_N2_COEFFS = {
+    0.01: (-3.89644, -10.9519, -22.527),
+    0.05: (-3.33613, -6.1101, -6.823),
+    0.10: (-3.04445, -4.2412, -2.720),
+}
+
+
+def eg_critical_value(n_obs: int, level: float = 0.05) -> float:
+    """Engle-Granger (2-variable, constant) critical value for the residual-ADF
+    t-stat at ``level`` (0.01 / 0.05 / 0.10) with ``n_obs`` observations."""
+    b0, b1, b2 = _EG_N2_COEFFS[level]
+    t = float(max(n_obs, 1))
+    return b0 + b1 / t + b2 / (t * t)
+
+
 def _adf_tstat(spread: np.ndarray) -> Optional[float]:
     """Augmented Dickey-Fuller t-statistic (lag-0) on the spread — the STATIONARITY
     test that separates a genuinely cointegrated pair from two independent random
     walks whose spread only *looks* mean-reverting by chance. Regress
     Δs_t = α + β·s_{t-1} + ε; the t-stat of β is the DF statistic. Cointegrated
-    (stationary) ⇒ β significantly < 0 ⇒ very negative t (below ≈ −2.86 at 5%).
+    (stationary) ⇒ β significantly < 0 ⇒ very negative t. NOTE the cut-off for an
+    Engle-Granger RESIDUAL is ``eg_critical_value`` (≈ −3.34 at 5%), not the
+    single-series DF −2.86.
     A unit-root spread ⇒ β ≈ 0 ⇒ t near 0. Returns None on degenerate input."""
     s = np.asarray(spread, dtype=float)
     s = s[np.isfinite(s)]
@@ -162,17 +186,28 @@ def _score_pair(sym_a: str, sym_b: str, path_a: str, path_b: str, args) -> Dict[
         rec["half_life_hours"] = stab.get("global_half_life_hours")
         rec["rolling_hl_valid_pct"] = stab.get("rolling_hl_valid_pct")
         rec["hedge_beta_drift"] = stab.get("hedge_beta_drift")
-        # Engle-Granger cointegration test: step 1 fits ONE full-sample
-        # cointegrating vector (OLS of logA on logB), step 2 runs ADF on the
-        # residual. The gate MUST use this FIXED beta, not the engine's rolling
-        # beta — a rolling regression re-fits every bar and makes ANY pair's
-        # residual spuriously stationary, so it can't discriminate cointegration.
-        la = np.log(m["close_a"].to_numpy())
-        lb = np.log(m["close_b"].to_numpy())
-        Xb = np.column_stack([np.ones_like(lb), lb])
-        coef, *_ = np.linalg.lstsq(Xb, la, rcond=None)   # la ≈ alpha + beta*lb
-        rec["eg_beta"] = round(float(coef[1]), 4)
-        rec["adf_tstat"] = _adf_tstat(la - Xb @ coef)     # ADF on the EG residual
+        # Engle-Granger cointegration test: step 1 fits ONE fixed cointegrating
+        # vector (OLS of logA on logB), step 2 runs ADF on the residual. The gate
+        # MUST use this FIXED beta, not the engine's rolling beta — a rolling
+        # regression re-fits every bar and makes ANY pair's residual spuriously
+        # stationary, so it can't discriminate cointegration.
+        # The vector is fit on the PRE-OOS window only (CA-B04: fitting on the
+        # full sample let the OOS window choose the vector it was then tested
+        # against). With no --oos-start the whole sample is the fit window.
+        fitm = m
+        if args.oos_start and "timestamp" in m:
+            fitm = m[m["timestamp"] < pd.to_datetime(args.oos_start, utc=True)]
+        rec["n_fit_bars"] = int(len(fitm))
+        coef = None
+        if len(fitm) >= 40:
+            la = np.log(fitm["close_a"].to_numpy())
+            lb = np.log(fitm["close_b"].to_numpy())
+            Xb = np.column_stack([np.ones_like(lb), lb])
+            coef, *_ = np.linalg.lstsq(Xb, la, rcond=None)   # la ≈ alpha + beta*lb
+            rec["eg_beta"] = round(float(coef[1]), 4)
+            rec["adf_tstat"] = _adf_tstat(la - Xb @ coef)     # ADF on the EG residual
+            rec["adf_crit"] = (round(eg_critical_value(len(fitm)), 4)
+                               if args.adf_max_tstat is None else args.adf_max_tstat)
         full = _bt(m, args)
         rec["full_net_r"] = full.get("net_total_r")
         rec["full_expectancy_r"] = full.get("net_expectancy_r")
@@ -181,7 +216,7 @@ def _score_pair(sym_a: str, sym_b: str, path_a: str, path_b: str, args) -> Dict[
         rec["full_trades"] = _n_trades(full)
         rec["full_net_r_per_pos_day"] = full.get("net_r_per_pos_day")
         oosm = _oos_slice(m, args.oos_start)
-        if len(oosm) >= args.lookback + 5:
+        if len(oosm) >= args.lookback + 5 and coef is not None:
             oos = _bt(oosm, args)
             rec["oos_net_r"] = oos.get("net_total_r")
             rec["oos_expectancy_r"] = oos.get("net_expectancy_r")
@@ -189,7 +224,7 @@ def _score_pair(sym_a: str, sym_b: str, path_a: str, path_b: str, args) -> Dict[
             rec["oos_max_dd_r"] = oos.get("max_drawdown_r")
             rec["oos_trades"] = _n_trades(oos)
             rec["oos_net_r_per_pos_day"] = oos.get("net_r_per_pos_day")
-            # COINTEGRATION PERSISTENCE: apply the FULL-sample cointegrating
+            # COINTEGRATION PERSISTENCE: apply the PRE-OOS cointegrating
             # vector to the OOS slice and ADF that residual. A genuine pair stays
             # stationary under the same vector OOS; a spurious in-sample fit
             # breaks (ADF rises toward 0). This is the key false-positive filter.
@@ -203,9 +238,11 @@ def _score_pair(sym_a: str, sym_b: str, path_a: str, path_b: str, args) -> Dict[
         hl = rec.get("half_life_hours")
         adf = rec.get("adf_tstat")
         oos_adf = rec.get("oos_adf_tstat")
+        crit = rec.get("adf_crit")
         rec["oos_robust"] = bool(
-            adf is not None and adf <= args.adf_max_tstat        # cointegrated in-sample
-            and oos_adf is not None and oos_adf <= args.adf_max_tstat  # AND persists OOS
+            crit is not None
+            and adf is not None and adf <= crit                  # cointegrated in-sample
+            and oos_adf is not None and oos_adf <= crit          # AND persists OOS
             and (rec.get("oos_expectancy_r") or -1) > 0
             and (rec.get("oos_trades") or 0) >= args.min_trades
             and (rec.get("full_expectancy_r") or -1) > 0
@@ -358,8 +395,10 @@ def _parse(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--min-bars", type=int, default=3000, help="min aligned overlap bars to score a pair")
     p.add_argument("--min-trades", type=int, default=20, help="min OOS trades for the robust gate")
     p.add_argument("--min-valid-pct", type=float, default=70.0, help="min rolling-HL valid %% for robust")
-    p.add_argument("--adf-max-tstat", type=float, default=-2.86,
-                   help="max (most-positive) DF t-stat for the cointegration gate (5%% crit ≈ -2.86)")
+    p.add_argument("--adf-max-tstat", type=float, default=None,
+                   help="override the cointegration gate t-stat. Default (unset): the 5%% "
+                        "Engle-Granger 2-variable MacKinnon critical value for the fit "
+                        "window's n (≈ -3.34), NOT the single-series DF -2.86")
     p.add_argument("--hl-min-hours", type=float, default=2.0)
     p.add_argument("--hl-max-hours", type=float, default=72.0)
     p.add_argument("--max-leg-uses", type=int, default=3, help="cap per-symbol appearances in the shortlist")
