@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "workflow structure + scripts/ops/schedule_keeper.py + tests; splits research-queue-dispatch into a short concurrency-holding dispatch job and a land job. No runtime, order path, strategy or config touched."
+}

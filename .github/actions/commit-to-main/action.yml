@@ -408,7 +408,23 @@ runs:
         # rows, which land (or not) with that branch's PR. Any other conflict
         # falls back to the old behaviour, LOUDLY: the rows are kept on a PR
         # that will need a human, rather than lost.
-        if [ "${GITHUB_REF:-refs/heads/main}" != "refs/heads/main" ]; then
+        #
+        # ⚠️ WIDENED 2026-10-07 (lane RQ-INFRA, PI-20261006-LCEVL8D5-0001) FROM
+        # "ran off main" TO "this commit's parent is not main's tip". The old
+        # condition left a scheduled caller's SECOND call in one job cut from
+        # the FIRST call's commit: `research-queue-dispatch.yml` calls this
+        # action for the liveness receipt and then for the stamps, so every
+        # stamp branch carried the receipt commit under it. MEASURED 2026-10-07
+        # on #16900: `commits: 2`, `mergeable_state: dirty` -- the receipt PR
+        # squash-merged, the next run's receipt moved `research-queue-
+        # dispatch-receipt.json` again, and the stacked branch conflicted
+        # forever. A CONFLICTING PR gets no `pull_request` workflow runs at all
+        # (#16900 and #16850: zero check runs hours after opening), so its
+        # required checks never exist, auto-merge never fires, and the
+        # `last_dispatched_at` stamp it carries never lands -- the unit
+        # re-fires. A caller whose parent already IS main's tip is unchanged.
+        if [ "${GITHUB_REF:-refs/heads/main}" != "refs/heads/main" ] \
+           || [ "$(git rev-parse HEAD~1 2>/dev/null || true)" != "$(git ls-remote origin refs/heads/main 2>/dev/null | cut -f1)" ]; then
           PRODUCED="$(git rev-parse HEAD)"
           if git fetch -q --no-tags origin main; then
             git checkout -q --detach FETCH_HEAD

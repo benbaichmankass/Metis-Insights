@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "TP doctrine B1, mechanism half. Operator directive 2026-10-06, verbatim (docs/ARCHITECTURE-CANONICAL.md § TP doctrine): \"there should be no fictional TPs -- even if the exit strategy is based on momentum, we need to constantly have a prediction about where momentum will run out that is embodied in the TP, and this also needs to move as the trade goes on (the prediction is constantly updated to the most recent market conditions). This should, at this point, be a canonical design doctrine that is measured against the code during audit sessions\". This PR touches the order-monitor modify path (tp_reason annotation only) and the prop exit path (a TP-only amend step in prop_trail, live on a TP-capable adapter -- today dxtrade_api / velotrade_1 -- for a leg that DECLARES a tp_revision rule; no leg declares one, so nothing trades differently on merge). Prop/exit-path code is Tier-3 by the lane brief; held for the manager/operator merge.",
+  "why": "Checklist row TP-DOCTRINE, pipeline PI-20261006-5FUGHVX8-0001 build B1 + B2 (prop path); dispatched by Manager Session 2026-10-01 (session_01MM8o5js6TcDFeNAPBY4Ntv)."
+}

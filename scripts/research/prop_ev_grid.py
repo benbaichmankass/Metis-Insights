@@ -116,6 +116,8 @@ def _read_cell(out: Path, mode: str) -> Optional[Dict[str, Any]]:
         return {"ev": float(r["ev_net_usd_per_life"]), "ev_se": float(r.get("ev_net_usd_per_life_mc_se", 0.0)),
                 "p_net_positive": float(r["p_net_positive"]),
                 "p_alive_at_horizon": float(r.get("p_alive_at_horizon", 0.0)),
+                # None (not 0) when an older sim output lacks the key: "not measured".
+                "p_pass_by_days": r.get("p_pass_by_days"),
                 "rule_v2_verdict": (d.get("decision_rule_v2") or {}).get("verdict")}
     except (OSError, ValueError, KeyError, TypeError):
         return None

@@ -5521,6 +5521,30 @@
       "prs": [],
       "blocked_on": [],
       "note": "[2026-10-07 lane] OPERATOR DECISION 2026-10-07 (popup), verbatim: \"Dead: clear its roster, retire the row (Recommended)\". MEASURED: breakout_1 balance = equity $4,698.00 vs the $4,700 static-drawdown floor since 2026-10-04; mode dry_run since 2026-10-05 (#16568); executor latched since 2026-10-04 03:49Z. breakout_2 is the live Breakout account. DONE when: PR merged (roster []), ict-prop-executor.timer verified inactive via relay (issue #16251 for executor-disable-timer was cancelled by the one-pending concurrency limit, state not_planned, so the timer state is UNKNOWN until read), and the feed timer disposition recorded (feed-disable-timer is refused for breakout_1 in breakout_login_check_action.sh)."
+    },
+    {
+      "id": "PROP-TRAIL-PHONE",
+      "title": "Give the phone-executed prop account (breakout_2) the chandelier trail its Stage-0 record assumed: server plans, phone amends on the terminal",
+      "phase": "E",
+      "state": "blocked",
+      "owner": "build lane",
+      "lane": "session_01YT5VE5mnD6LfbHaVMK2Q5Y",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 45,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        16959,
+        16980
+      ],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "MANAGER-MERGE",
+          "what": "#16959 (server) and #16980 (app) are Tier-2 HELD for the manager; then deploy (git-sync) + build/install the APK from phone-executor-apk on the merged head"
+        }
+      ],
+      "note": "[2026-10-07 lane session_01YT5VE5mnD6LfbHaVMK2Q5Y] BUILT, not merged. Pipeline PI-20261006-KX6ZKFNA-0002 (routed here). #16959: src/prop/phone_trail.py reuses prop_trail.plan_trail once per closed bar per placed ticket; ONE amend slot in prop_tickets.meta.phone_trail; served only to an app posting accepts:[amend]; mismatch/human_moved/2nd refusal/unreported claim lock + ping, never retried; request_tp_amend for TP-DOCTRINE. #16980: executeAmend (unique Positions row, resting stop must match else human_moved, one edit control never a close, one dialog, fields by label, read back, dry=cancel, live=one save then terminal re-read). UNMEASURED: Breakout's position edit UI was never captured; the first amend either passes or refuses with the dump. landed_unproven observation (after merge+deploy+install): the first live breakout_2 position receives one amend with meta.phone_trail.amend.status=='amended'. Related gap filed: PI-20261007-AVMK2Q5Y-0001 (phone fills never journaled open)."
     }
   ]
 }

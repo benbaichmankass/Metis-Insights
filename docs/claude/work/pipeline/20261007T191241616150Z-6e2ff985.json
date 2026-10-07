@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261007-EP1GHUHC-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane RQ-INFRA (manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-07, PRs #16953 #16957 #16961 #16968 #16986",
+    "rerun": "for n in 16953 16957 16961 16968 16986; do git log origin/main --oneline --grep \"#$n\" | head -1; done  # then the per-PR observation below"
+  },
+  "state": "queued",
+  "what": "RQ-INFRA observations that close landed_unproven (each PR was only MERGE-pending when filed; none deployed or observed). Per PR, the observation that closes it: #16953 the hourly digest on the VM carries a line starting '🔎 N research unit(s) need a read' (GET /api/bot/work/report); #16957 a prop_ev_grid grid.json cell stats carries p_pass_by_days with keys 30/90/180 after any prop_ev run; #16961 a research-harness-dispatch run with harness=trend or ict_scalp on a runner lands a verdict (not producer_failed); #16968 a PR adding a hand unit numbered <900 (dated >= 2026-10-08) is refused by research-queue-id-bands, and the next queue_replenish run mints ids < 900; #16986 the next 05:30Z work report has a 'Session debt' section (MEASURED 9 on 2026-10-07: 3 bound + 6 graded of 114 queued). NOT DONE by this lane and still open: vwap dispatch (src/backtest/run_backtest_vwap.py hardcodes its symbol, no --json: needs a wrapper), dukascopy-python for XAUUSD/FX cells on a GH runner (PI-20261006-TPQQDKFF-0002 stays open for both), converting or killing the 9 session-debt units (RQ-20260927-003, RQ-20260928-001, RQ-20261006-062 bound; RQ-20260830-002, RQ-20260831-002, RQ-20260922-008, RQ-20260929-104, RQ-20261006-060, RQ-20261006-061 graded)."
+}

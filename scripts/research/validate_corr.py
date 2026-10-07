@@ -7,8 +7,9 @@ prints the Pearson correlation matrix. Low pairwise correlation => the shadow
 sleeve is additive, not a re-skin of what's already live.
 """
 import json
-import subprocess
 from pathlib import Path
+
+from _fresh_run import HarnessRunError, run_fresh
 
 import pandas as pd
 
@@ -31,11 +32,12 @@ for name, (script, data, sym, tf, extra) in RUNS.items():
     ep = OUT / f'{name}.jsonl'
     cmd = [PY, script, '--data', data, '--resample', tf, '--timeframe', tf, '--symbol', sym,
            '--fee-bps-roundtrip', '7.5', '--emit-trades', str(ep)] + extra
-    subprocess.run(cmd, cwd=REPO, capture_output=True, timeout=240)
     try:
-        rows = [json.loads(ln) for ln in open(ep) if ln.strip()]
-    except FileNotFoundError:
-        rows = []
+        run_fresh(cmd, ep, cwd=REPO, timeout=240)
+    except HarnessRunError as exc:   # a failed run must not reuse the previous run's file
+        print(name, 'RUN FAILED:', exc, flush=True)
+        continue
+    rows = [json.loads(ln) for ln in open(ep) if ln.strip()]
     if not rows:
         print(name, 'NO TRADES', flush=True)
         continue

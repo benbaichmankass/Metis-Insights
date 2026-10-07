@@ -32,13 +32,25 @@ TWO DIMENSIONS, NEVER COLLAPSED
                still predicts where momentum runs out.
 `tp_revision`  Can the prediction MOVE while the trade is open? Two facts,
                both required:
-               `producer` -- the leg's monitor unit returns a `{"tp": ...}`
-                              verdict somewhere in `monitor()` (AST-read, not
-                              grepped);
-               `path`     -- the account's exit path forwards a TP amend:
-                              an API venue whose EXCHANGE_MANAGEMENT_CAPS
-                              carries `modify`, or a prop path whose trail
-                              passes a TP to `modify_bracket`.
+               `producer` -- the leg DECLARES a registered `tp_revision` rule
+                              AND its monitor unit's `monitor()` calls
+                              `plan_tp_revision` (directly or via a module
+                              function it calls) and returns through
+                              `merge_verdict` (AST-read, not grepped). A bare
+                              `{"tp": ...}` literal does NOT count (B1,
+                              2026-10-07): it proves a key was typed, not that
+                              a prediction is computed for this leg;
+               `path`     -- the account's exit path CONSUMES the verdict:
+                              exchange -- `interpret_verdict` parses `tp` and
+                              `order_monitor._apply_update` forwards it to
+                              `_send_modify_to_exchange`, and the venue's
+                              EXCHANGE_MANAGEMENT_CAPS carries `modify`;
+                              prop -- per the account's platform in
+                              `config/prop_platforms.yaml`: the adapter class
+                              declares `TP_AMEND_SUPPORTED = True` and
+                              `prop_trail` passes `plan_tp_revision`'s TP to
+                              `modify_bracket`; a phone account -- the phone
+                              executor calls `plan_tp_revision`.
                Missing either is FAIL, and the reason names which.
 
 The entry grade reuses `scripts/research/bracket_expectation_census.py`
@@ -129,6 +141,8 @@ PATH_UNVERIFIED = "unverified"      # we could not read the path -- NOT absent
 PRODUCER_YES = "produces_tp_verdict"
 PRODUCER_NO = "no_tp_verdict"
 PRODUCER_UNRESOLVED = "unit_unresolved"
+PRODUCER_UNDECLARED = "rule_undeclared"     # unit wired, leg declares no rule
+PRODUCER_UNKNOWN_RULE = "rule_unknown"      # leg declares a rule nobody registers
 
 #: Money-at-stake ranking. Lower sorts first. `paper_role: portfolio` is the
 #: mirror marker `config/accounts.yaml` itself uses.
@@ -145,6 +159,12 @@ class Paths:
     builders: Path = REPO / "src" / "runtime" / "strategy_signal_builders.py"
     clients: Path = REPO / "src" / "units" / "accounts" / "clients.py"
     prop_trail: Path = REPO / "src" / "prop" / "prop_trail.py"
+    monitor_verdict: Path = REPO / "src" / "runtime" / "monitor_verdict.py"
+    order_monitor: Path = REPO / "src" / "runtime" / "order_monitor.py"
+    tp_revision: Path = REPO / "src" / "runtime" / "tp_revision.py"
+    prop_platforms: Path = REPO / "config" / "prop_platforms.yaml"
+    platform_dir: Path = REPO / "src" / "prop" / "platform"
+    phone_executor: Path = REPO / "src" / "prop" / "phone_executor.py"
     repo: Path = REPO
 
 
@@ -271,25 +291,147 @@ def unit_for(leg: str, aliases: dict[str, str], units_dir: Path) -> str | None:
     return None
 
 
-def monitor_produces_tp(unit_src: str) -> bool | None:
-    """Does `monitor()` in this module source return a dict carrying a "tp" key?
+def _calls(node: ast.AST) -> set[str]:
+    out = set()
+    for sub in ast.walk(node):
+        if isinstance(sub, ast.Call):
+            f = sub.func
+            if isinstance(f, ast.Name):
+                out.add(f.id)
+            elif isinstance(f, ast.Attribute):
+                out.add(f.attr)
+    return out
 
-    AST-read, scoped to the function named `monitor` (nested helpers it defines
-    inline included). `None` when the module has no `monitor` at all.
+
+def monitor_produces_tp(unit_src: str) -> bool | None:
+    """Is `monitor()` in this module WIRED to the TP-revision contract?
+
+    True only when `monitor()` calls `merge_verdict` AND `plan_tp_revision` is
+    called by `monitor()` itself or by a module-level function `monitor()`
+    calls (one level). A literal `{"tp": ...}` dict is not enough: it can be
+    typed without any prediction behind it. `None` when there is no `monitor`.
     """
     try:
         tree = ast.parse(unit_src)
     except SyntaxError:
         return None
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == "monitor":
-            for sub in ast.walk(node):
-                if isinstance(sub, ast.Dict):
-                    for k in sub.keys:
-                        if isinstance(k, ast.Constant) and k.value == "tp":
-                            return True
-            return False
-    return None
+    funcs = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
+    mon = funcs.get("monitor")
+    if mon is None:
+        return None
+    called = _calls(mon)
+    if "merge_verdict" not in called:
+        return False
+    if "plan_tp_revision" in called:
+        return True
+    return any("plan_tp_revision" in _calls(funcs[c]) for c in called if c in funcs and c != "monitor")
+
+
+_RULE_RE = re.compile(r"@register_rule\(\s*[\"']([A-Za-z0-9_]+)[\"']\s*\)")
+
+
+def read_registered_rules(*sources: Path) -> set[str]:
+    """Rule names registered with `tp_revision.register_rule` in these files."""
+    names: set[str] = set()
+    for src in sources:
+        try:
+            names |= set(_RULE_RE.findall(src.read_text(encoding="utf-8")))
+        except OSError:
+            continue
+    return names
+
+
+def leg_declared_rule(cfg: dict[str, Any]) -> str | None:
+    raw = cfg.get("tp_revision")
+    if isinstance(raw, dict):
+        raw = raw.get("rule")
+    return raw.strip() if isinstance(raw, str) and raw.strip() else None
+
+
+def exchange_consumes_tp(monitor_verdict: Path, order_monitor: Path) -> str:
+    """Does the exchange path consume a `tp` verdict end to end?"""
+    try:
+        mv = monitor_verdict.read_text(encoding="utf-8")
+        om = order_monitor.read_text(encoding="utf-8")
+    except OSError:
+        return PATH_UNVERIFIED
+    parses = re.search(r'for key in \("sl", "tp"\)', mv) is not None
+    start = om.find("def _apply_update(")
+    body = om[start:om.find("\ndef ", start + 10)] if start >= 0 else ""
+    forwards = re.search(r'_send_modify_to_exchange\(\s*leg,(?:(?!\n\s*\)).)*?tp=updates\.get\("tp"\)', body, re.DOTALL)
+    if start < 0:
+        return PATH_UNVERIFIED
+    return PATH_PLUMBED if parses and forwards else PATH_ABSENT
+
+
+def read_platform_tp_caps(platform_dir: Path) -> dict[str, bool]:
+    """platform name -> does its adapter class declare TP_AMEND_SUPPORTED = True."""
+    caps: dict[str, bool] = {}
+    try:
+        files = sorted(platform_dir.glob("*.py"))
+    except OSError:
+        return caps
+    for f in files:
+        try:
+            tree = ast.parse(f.read_text(encoding="utf-8"))
+        except (OSError, SyntaxError):
+            continue
+        for cls in (n for n in tree.body if isinstance(n, ast.ClassDef)):
+            plat, tp_ok = None, False
+            for st in cls.body:
+                tgt = val = None
+                if isinstance(st, ast.Assign) and len(st.targets) == 1 and isinstance(st.targets[0], ast.Name):
+                    tgt, val = st.targets[0].id, st.value
+                elif isinstance(st, ast.AnnAssign) and isinstance(st.target, ast.Name):
+                    tgt, val = st.target.id, st.value
+                if tgt == "platform" and isinstance(val, ast.Constant) and val.value:
+                    plat = str(val.value)
+                if tgt == "TP_AMEND_SUPPORTED" and isinstance(val, ast.Constant):
+                    tp_ok = val.value is True
+            if plat:
+                caps[plat] = tp_ok
+    return caps
+
+
+_PROP_MODIFY_RE = re.compile(r"modify_bracket\(\s*page\s*,\s*\w+\s*,\s*([\w.]+)\s*,\s*([\w.]+)")
+
+
+def prop_trail_forwards_tp(prop_trail: Path) -> str:
+    """Does the prop trail pass `plan_tp_revision`'s TP to modify_bracket?"""
+    try:
+        text = prop_trail.read_text(encoding="utf-8")
+    except OSError:
+        return PATH_UNVERIFIED
+    calls = _PROP_MODIFY_RE.findall(text)
+    if not calls:
+        return PATH_UNVERIFIED
+    if "plan_tp_revision(" in text and any(tp != "None" for _sl, tp in calls):
+        return PATH_PLUMBED
+    return PATH_ABSENT
+
+
+def read_prop_platforms(path: Path) -> dict[str, str]:
+    """account -> platform, from config/prop_platforms.yaml (accounts + phone_accounts)."""
+    try:
+        data = _yaml(path)
+    except CouldNotLook:
+        return {}
+    out: dict[str, str] = {}
+    for section in ("accounts", "phone_accounts"):
+        for acc, v in (data.get(section) or {}).items():
+            if isinstance(v, dict) and v.get("platform"):
+                out[str(acc)] = str(v["platform"])
+    return out
+
+
+def phone_consumes_tp(phone_executor: Path) -> str:
+    """Contract with lane PROP-TRAIL-PHONE: the phone amend channel is plumbed
+    for TPs when the phone executor calls `plan_tp_revision`."""
+    try:
+        text = phone_executor.read_text(encoding="utf-8")
+    except OSError:
+        return PATH_UNVERIFIED
+    return PATH_PLUMBED if "plan_tp_revision(" in text else PATH_ABSENT
 
 
 _CAPS_RE = re.compile(r"\"([a-z_]+)\"\s*:\s*frozenset\(\s*(\{[^}]*\}|\))", re.DOTALL)
@@ -314,24 +456,6 @@ def read_venue_caps(clients: Path) -> dict[str, frozenset[str]]:
     if not caps:
         raise CouldNotLook(f"{clients}: the caps probe parsed ZERO venues")
     return caps
-
-
-_PROP_MODIFY_RE = re.compile(r"modify_bracket\(\s*page\s*,\s*\w+\s*,\s*(\w+)\s*,\s*(\w+)")
-
-
-def prop_trail_path_state(prop_trail: Path) -> str:
-    """Does the prop trail step pass a TP to the adapter's modify_bracket?"""
-    try:
-        text = prop_trail.read_text(encoding="utf-8")
-    except OSError:
-        return PATH_UNVERIFIED
-    calls = _PROP_MODIFY_RE.findall(text)
-    if not calls:
-        return PATH_UNVERIFIED
-    # Every trail-step call passes a literal None as take_profit -> absent.
-    if all(tp == "None" for _sl, tp in calls):
-        return PATH_ABSENT
-    return PATH_PLUMBED
 
 
 # ---------------------------------------------------------------------------
@@ -384,7 +508,24 @@ def scan(paths: Paths | None = None) -> list[Routing]:
         raise CouldNotLook("accounts.yaml::accounts or strategies.yaml::strategies is not a mapping")
     aliases = read_monitor_aliases(paths.builders)
     caps = read_venue_caps(paths.clients)
-    prop_state = prop_trail_path_state(paths.prop_trail)
+    exchange_state = exchange_consumes_tp(paths.monitor_verdict, paths.order_monitor)
+    trail_state = prop_trail_forwards_tp(paths.prop_trail)
+    plat_caps = read_platform_tp_caps(paths.platform_dir)
+    prop_plat = read_prop_platforms(paths.prop_platforms)
+    phone_state = phone_consumes_tp(paths.phone_executor)
+    rules = read_registered_rules(paths.tp_revision, *sorted(paths.units_dir.glob("*.py")))
+
+    def prop_path(account: str) -> str:
+        plat = prop_plat.get(account)
+        if plat is None:
+            return PATH_UNVERIFIED
+        if plat == "breakout_phone":
+            return phone_state
+        if plat not in plat_caps:
+            return PATH_UNVERIFIED
+        if not plat_caps[plat]:
+            return PATH_ABSENT
+        return trail_state
     defaults = {fam: _read_class_default(str(paths.repo / rel), key) if paths.repo != REPO
                 else _read_class_default(rel, key)
                 for fam, (rel, key) in CLASS_DEFAULT_SOURCES.items()}
@@ -427,10 +568,16 @@ def scan(paths: Paths | None = None) -> list[Routing]:
                 sm_f = None
             unit = unit_for(leg, aliases, paths.units_dir)
             producer = producer_for(unit)
+            if producer == PRODUCER_YES:
+                rule = leg_declared_rule(cfg)
+                if rule is None:
+                    producer = PRODUCER_UNDECLARED
+                elif rule not in rules:
+                    producer = PRODUCER_UNKNOWN_RULE
             if exchange == "breakout":
-                path = prop_state
+                path = prop_path(acc_name)
             elif exchange in caps:
-                path = PATH_PLUMBED if "modify" in caps[exchange] else PATH_ABSENT
+                path = (exchange_state if "modify" in caps[exchange] else PATH_ABSENT)
             else:
                 path = PATH_UNVERIFIED
             fails = set()
@@ -540,6 +687,8 @@ for _builder, _monitor_unit in (
     (good_leg_signal_builder, "good_unit"),
     (bad_leg_signal_builder, "sentinel_unit"),
     (mover_leg_signal_builder, "good_unit"),
+    (undeclared_leg_signal_builder, "good_unit"),
+    (unknown_rule_leg_signal_builder, "good_unit"),
 ):
     _builder.monitor_unit = _monitor_unit
 '''
@@ -553,7 +702,28 @@ EXCHANGE_MANAGEMENT_CAPS: dict[str, frozenset[str]] = {
 }
 '''
 _FAKE_PROP_TRAIL = 'r = adapter.modify_bracket(page, p, target, None, arm=live, rollout=rollout)\n'
-_GOOD_UNIT = 'def monitor(cfg, df, pkg):\n    if pkg:\n        return {"tp": 1.0}\n    return {"sl": 2.0}\n'
+_FAKE_PROP_TRAIL_TP = (_FAKE_PROP_TRAIL + 'rev = plan_tp_revision(leg=leg)\n'
+                       'r = adapter.modify_bracket(page, p, None, rev.tp, arm=live, rollout=rollout)\n')
+_FAKE_MONITOR_VERDICT = '    for key in ("sl", "tp"):\n        pass\n'
+_FAKE_ORDER_MONITOR = ('def _apply_update(db, pkg, verdict, summary):\n'
+                       '    ex_result = _send_modify_to_exchange(\n        leg,\n'
+                       '        sl=updates.get("sl"),\n        tp=updates.get("tp"),\n    )\n'
+                       '\ndef other():\n    pass\n')
+_FAKE_TP_REVISION = '@register_rule("measured_move")\ndef _mm(**kw):\n    return None\n'
+_FAKE_PLATFORMS = """
+accounts:
+  prop: {platform: api_plat}
+  prop_browser: {platform: browser_plat}
+phone_accounts:
+  phone: {platform: breakout_phone}
+"""
+_FAKE_ADAPTERS = {
+    "api.py": 'class A:\n    platform: str = "api_plat"\n    TP_AMEND_SUPPORTED = True\n',
+    "browser.py": 'class B:\n    platform: str = "browser_plat"\n    TP_AMEND_SUPPORTED = False\n',
+}
+_GOOD_UNIT = ('def _rev(cfg, df, pkg):\n    return plan_tp_revision(leg=pkg)\n'
+              'def monitor(cfg, df, pkg):\n    v = {"sl": 2.0}\n'
+              '    return merge_verdict(v, _rev(cfg, df, pkg))\n')
 _SENTINEL_UNIT = '_DEFAULTS = {\n    "tp_r": 50.0,\n}\ndef monitor(cfg, df, pkg):\n    return {"sl": 1.0}\n'
 
 
@@ -567,10 +737,23 @@ def _plant(tmp: Path, accounts: str, strategies: str) -> Paths:
     (tmp / "prop_trail.py").write_text(_FAKE_PROP_TRAIL)
     (tmp / "units" / "good_unit.py").write_text(_GOOD_UNIT)
     (tmp / "units" / "sentinel_unit.py").write_text(_SENTINEL_UNIT)
+    (tmp / "monitor_verdict.py").write_text(_FAKE_MONITOR_VERDICT)
+    (tmp / "order_monitor.py").write_text(_FAKE_ORDER_MONITOR)
+    (tmp / "tp_revision.py").write_text(_FAKE_TP_REVISION)
+    (tmp / "config" / "prop_platforms.yaml").write_text(_FAKE_PLATFORMS)
+    (tmp / "platform").mkdir(exist_ok=True)
+    for name, body in _FAKE_ADAPTERS.items():
+        (tmp / "platform" / name).write_text(body)
+    (tmp / "phone_executor.py").write_text("def tick():\n    pass\n")
     return Paths(accounts=tmp / "config" / "accounts.yaml",
                  strategies=tmp / "config" / "strategies.yaml",
                  units_dir=tmp / "units", builders=tmp / "builders.py",
-                 clients=tmp / "clients.py", prop_trail=tmp / "prop_trail.py", repo=tmp)
+                 clients=tmp / "clients.py", prop_trail=tmp / "prop_trail.py",
+                 monitor_verdict=tmp / "monitor_verdict.py",
+                 order_monitor=tmp / "order_monitor.py", tp_revision=tmp / "tp_revision.py",
+                 prop_platforms=tmp / "config" / "prop_platforms.yaml",
+                 platform_dir=tmp / "platform", phone_executor=tmp / "phone_executor.py",
+                 repo=tmp)
 
 
 _ACCOUNTS = """
@@ -578,11 +761,16 @@ accounts:
   real:    {exchange: bybit, account_class: real_money, mode: live, strategies: [good_leg, bad_leg]}
   mirror:  {exchange: bybit, account_class: paper, paper_role: portfolio, mode: live, strategies: [good_leg]}
   prop:    {exchange: breakout, account_class: prop, mode: dry_run, strategies: [good_leg]}
+  prop_browser: {exchange: breakout, account_class: prop, mode: live, strategies: [good_leg]}
+  phone:   {exchange: breakout, account_class: prop, mode: live, strategies: [good_leg]}
   fx:      {exchange: oanda, account_class: paper, mode: dry_run, strategies: [mover_leg]}
+  undecl:  {exchange: bybit, account_class: paper, mode: live, strategies: [undeclared_leg, unknown_rule_leg]}
 """
 _STRATEGIES = """
 strategies:
-  good_leg:  {tp_r: 3.0, atr_stop_mult: 2.0}
+  good_leg:  {tp_r: 3.0, atr_stop_mult: 2.0, tp_revision: {rule: measured_move}}
+  undeclared_leg: {tp_r: 3.0}
+  unknown_rule_leg: {tp_r: 3.0, tp_revision: nobody_registers_this}
   bad_leg:   {tp_r: 50.0, tp_intent: {mode: none, reason: trail_is_the_profit_exit}}
   mover_leg: {tp_r: 2.0}
 """
@@ -603,7 +791,7 @@ def _self_test() -> int:
         tmp = Path(td)
         p = _plant(tmp, _ACCOUNTS, _STRATEGIES)
         rows = {r.key: r for r in scan(p)}
-        chk("population is every routing", len(rows) == 5)
+        chk("population is every routing", len(rows) == 9)
         g = rows["real/good_leg"]
         chk("declared + producer + plumbed -> compliant", not g.fails)
         chk("mirror class resolved from paper_role", rows["mirror/good_leg"].account_class == "mirror")
@@ -615,18 +803,28 @@ def _self_test() -> int:
         pr = rows["prop/good_leg"]
         chk("prop path reads absent from modify_bracket(None)", pr.path_state == PATH_ABSENT
             and DIM_REVISION in pr.fails and DIM_ENTRY not in pr.fails)
+        chk("browser adapter without TP_AMEND_SUPPORTED -> absent",
+            rows["prop_browser/good_leg"].path_state == PATH_ABSENT)
+        chk("phone without plan_tp_revision -> absent", rows["phone/good_leg"].path_state == PATH_ABSENT)
+        chk("wired unit, leg declares no rule -> rule_undeclared (no cosmetic pass)",
+            rows["undecl/undeclared_leg"].producer_state == PRODUCER_UNDECLARED
+            and DIM_REVISION in rows["undecl/undeclared_leg"].fails)
+        chk("declared rule nobody registers -> rule_unknown",
+            rows["undecl/unknown_rule_leg"].producer_state == PRODUCER_UNKNOWN_RULE)
         fx = rows["fx/mover_leg"]
         chk("venue without modify cap -> path absent", fx.path_state == PATH_ABSENT)
         # ratchet controls
         f, s = ratchet(list(rows.values()), {})
         chk("NEW non-compliance fires with an empty baseline",
-            sum("NEW non-compliance" in x for x in f) == 3)
+            sum("NEW non-compliance" in x for x in f) == 7)
         chk("summary ranks classes", s["by_class"]["real_money"]["routings"] == 2)
-        base = {"real/bad_leg": ER, "prop/good_leg": R, "fx/mover_leg": R}
+        base = {"real/bad_leg": ER, "prop/good_leg": R, "fx/mover_leg": R,
+                "prop_browser/good_leg": R, "phone/good_leg": R,
+                "undecl/undeclared_leg": R, "undecl/unknown_rule_leg": R}
         f, s = ratchet(list(rows.values()), base)
-        chk("exact baseline -> clean", f == [] and s["baselined_debt_routings"] == 3)
+        chk("exact baseline -> clean", f == [] and s["baselined_debt_routings"] == 7)
         f, _ = ratchet(list(rows.values()), base, strict=True)
-        chk("--strict fails on baselined debt", sum("STRICT" in x for x in f) == 3)
+        chk("--strict fails on baselined debt", sum("STRICT" in x for x in f) == 7)
         f, _ = ratchet(list(rows.values()), {**base, "real/bad_leg": R})
         chk("debt growth fires", any("DEBT GROWTH" in x for x in f))
         f, _ = ratchet(list(rows.values()), {**base, "prop/good_leg": ER})
@@ -635,11 +833,27 @@ def _self_test() -> int:
         chk("stale compliant routing fires", any("fully compliant" in x for x in f))
         f, _ = ratchet(list(rows.values()), {**base, "gone/leg": R})
         chk("stale unrostered routing fires", any("no longer rostered" in x for x in f))
-        # the producer must become compliant when a tp verdict appears
+        # a bare {"tp": ...} literal is NOT a producer (cosmetic-pass control)
         (tmp / "units" / "sentinel_unit.py").write_text(
             _SENTINEL_UNIT.replace('return {"sl": 1.0}', 'return {"sl": 1.0, "tp": 2.0}'))
         rows2 = {r.key: r for r in scan(p)}
-        chk("tp verdict in monitor flips producer", rows2["real/bad_leg"].producer_state == PRODUCER_YES)
+        chk("tp literal in monitor does NOT flip producer", rows2["real/bad_leg"].producer_state == PRODUCER_NO)
+        # consumption: the trail forwarding plan_tp_revision's TP flips the TP-capable platform only
+        (tmp / "prop_trail.py").write_text(_FAKE_PROP_TRAIL_TP)
+        (tmp / "phone_executor.py").write_text("rev = plan_tp_revision(leg=leg)\n")
+        rows3 = {r.key: r for r in scan(p)}
+        chk("prop trail forwarding the revised TP -> API platform plumbed + compliant",
+            rows3["prop/good_leg"].path_state == PATH_PLUMBED and not rows3["prop/good_leg"].fails)
+        chk("browser platform stays absent even when the trail forwards",
+            rows3["prop_browser/good_leg"].path_state == PATH_ABSENT)
+        chk("phone executor calling plan_tp_revision -> plumbed",
+            rows3["phone/good_leg"].path_state == PATH_PLUMBED)
+        # exchange consumption: an order_monitor that stops forwarding tp -> absent
+        (tmp / "order_monitor.py").write_text(_FAKE_ORDER_MONITOR.replace('tp=updates.get("tp")', 'tp=None'))
+        rows4 = {r.key: r for r in scan(p)}
+        chk("order_monitor not forwarding tp -> exchange path absent",
+            rows4["real/good_leg"].path_state == PATH_ABSENT and DIM_REVISION in rows4["real/good_leg"].fails)
+        (tmp / "order_monitor.py").write_text(_FAKE_ORDER_MONITOR)
         # could-not-look controls
         (tmp / "builders.py").write_text("nothing here\n")
         try:
@@ -656,6 +870,10 @@ def _self_test() -> int:
             chk("missing caps -> CouldNotLook", True)
         chk("tp producer detector: positive", monitor_produces_tp(_GOOD_UNIT) is True)
         chk("tp producer detector: negative", monitor_produces_tp(_SENTINEL_UNIT) is False)
+        chk("tp producer detector: plan without merge is not wired",
+            monitor_produces_tp('def monitor(a,b,c):\n    return plan_tp_revision(leg=c)\n') is False)
+        chk("tp literal inside monitor is not a producer",
+            monitor_produces_tp('def monitor(a,b,c): return {"tp": 1.0}\n') is False)
         chk("tp producer detector: no monitor", monitor_produces_tp("x = 1\n") is None)
         chk("tp key outside monitor is not a producer",
             monitor_produces_tp('def build(): return {"tp": 1}\ndef monitor(a,b,c): return None\n') is False)

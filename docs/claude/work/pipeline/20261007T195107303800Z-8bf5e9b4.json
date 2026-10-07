@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-14",
+    "kind": "date"
+  },
+  "id": "PI-20261007-CJT6J2S9-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane RESEARCH-FOLLOWUPS session_014K2a33t9kVxxK9cjt6J2s9, PR #16984, 2026-10-07",
+    "rerun": "gh api repos/benbaichmankass/Metis-Insights/actions/runs/37671365711 --jq '{created_at,updated_at,head_sha}'; gh api repos/benbaichmankass/Metis-Insights/pulls/16984 --jq '{auto_merge,head:.head.sha}'; grep -n 'head_sha\\|github.sha\\|pushed head' .github/workflows/claude-pr-automerge.yml | head"
+  },
+  "state": "queued",
+  "what": "claude-pr-automerge arms on the head it was QUEUED for, not the PR's current head. MEASURED on PR #16984: run 37671365711 was created by the first push (head 6efa01a3, request file present, landing: self) at 19:01:47Z, executed at 19:49:10Z (47 min queue), and armed native auto-merge even though the PR's head had become ef82483b with `landing: hold`, no request file, and auto-merge explicitly disarmed at 19:12Z. The request gate (step 1) and the E63 landing gate (step 2b) both read the pushed head, so a hold declared AFTER a queued run can be armed over. Observed effect: a held PR that would merge on green with no human. Disarmed by hand at 19:50Z. Fix shape (Tier-1, landing machinery, holds for a human per R12): re-fetch the PR's current head sha at arming time and re-run both gates on it, or refuse to arm when head_sha != the run's triggering sha."
+}
