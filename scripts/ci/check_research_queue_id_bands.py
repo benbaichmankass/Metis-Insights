@@ -126,6 +126,9 @@ def main() -> int:
     if not a.base:
         print("research-queue-id-bands: no --base, nothing was checked (COULD NOT LOOK, not clean)")
         return 2
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import _dirty_tree  # noqa: E402,PLC0415 — path shim above
+    _dirty_tree.warn()
     got = collect(a.base)
     if got is None:
         print(f"research-queue-id-bands: could not diff against {a.base} (COULD NOT LOOK, not clean)")
