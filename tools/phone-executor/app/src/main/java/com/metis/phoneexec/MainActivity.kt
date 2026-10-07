@@ -84,6 +84,8 @@ class MainActivity : Activity() {
     private var jsTimeouts = 0
     private var lastPending = -1
     private var claimedThisTick = false
+    private var claim5xx = 0
+    private var claimBackoffUntilMs = 0L
     private var bgWakeUntilMs = 0L      // a bring-to-front was requested; retried only after this passes
     private var wokeAtMs = 0L           // > 0 while WE brought the Activity forward (it goes back afterwards)
 
@@ -106,7 +108,8 @@ class MainActivity : Activity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or WindowManager.LayoutParams.FLAG_SECURE)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        setSecure(true)   // fail closed: secure until the state machine has SEEN the logged-in terminal
         api = Api(this); ledger = Ledger(this)
         execSrc = assets.open("exec.js").bufferedReader().readText()
 
@@ -123,7 +126,13 @@ class MainActivity : Activity() {
         web.settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
         // Same WebView setup as the 1a probe, whose login worked (stock UA, default navigation handling):
         // no shouldOverrideUrlLoading filter, every navigation stays in THIS WebView and cookie store.
-        web.webViewClient = WebViewClient()
+        // Fail closed on navigation: any page off the trade host (the portal / login / code step) is secure at once;
+        // the terminal itself is cleared only by tick() after it read state == logged_in.
+        web.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(v: WebView?, url: String?, f: android.graphics.Bitmap?) {
+                if (url == null || !url.startsWith("https://trade.breakoutprop.com/")) setSecure(true)
+            }
+        }
         status = TextView(this).apply { setPadding(16, 8, 16, 8); setBackgroundColor(Color.parseColor("#202833")); setTextColor(Color.WHITE); textSize = 12f }
         armBtn = Button(this)
         val bar = LinearLayout(this).apply {
@@ -165,6 +174,16 @@ class MainActivity : Activity() {
     }
 
     override fun onPause() { resumed = false; super.onPause() }
+
+    /** FLAG_SECURE (blank screenshots / recents) is ON for every credential-bearing screen -- login, code step,
+     *  challenge, unread state, the Setup dialog (which sets its own flag) -- and OFF only on the logged-in trading
+     *  terminal, which shows balances and positions but never a credential (operator 2026-10-06: screenshots of the app). */
+    private var secureOn = false
+    private fun setSecure(on: Boolean) {
+        if (on == secureOn) return
+        secureOn = on
+        if (on) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE) else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
 
     private fun setStatus(s: String) { status.text = s; lastStatus = s }
     /** The touch-hold protects a HUMAN LOGIN only (operator 2026-10-06 09:06Z): once logged in it never blocks claim,
@@ -264,6 +283,7 @@ class MainActivity : Activity() {
                 s.optBoolean("pw") || s.optBoolean("email") || s.optBoolean("codeWait") -> "login"
                 else -> "other"
             }
+            setSecure(st != "logged_in")
             if (paused()) {
                 if (st == "logged_in") { pausedUntilMs = 0L; pauseBtn.text = "Pause"; setStatus("logged in: pause lifted") }
                 else { setStatus("paused (${(pausedUntilMs - System.currentTimeMillis()) / 60_000 + 1} min left): no automatic action"); return }
@@ -438,8 +458,22 @@ class MainActivity : Activity() {
     private suspend fun claimAndRun() {
         // NEVER claim while backgrounded: the page cannot be driven, and a claimed ticket is one attempt only.
         if (!resumed) { setStatus("backgrounded: no claim"); return }
+        val now = System.currentTimeMillis()
+        if (now < claimBackoffUntilMs) { setStatus("logged in · VM busy (5xx); backing off ${(claimBackoffUntilMs - now) / 1000 + 1} s (no claim)"); return }
         val r = api.post("claim") ?: run { setStatus("logged in · VM unreachable (no claim, no click)"); return }
-        if (!r.optBoolean("ok")) { setStatus("logged in · claim refused (http ${r.optInt("http")})"); return }
+        if (!r.optBoolean("ok")) {
+            // 5xx (e.g. the API restarting for a deploy): ONE attempt, no in-tick retry, and no execution -- we hold no
+            // ticket, so nothing can be filled or submitted. Back off 1 -> 2 -> 4 -> 5 min. If the server committed the
+            // claim before the 502, that ticket is never served again (status 'claimed'; it expires server-side).
+            val http = r.optInt("http")
+            if (http >= 500) {
+                claim5xx += 1
+                claimBackoffUntilMs = System.currentTimeMillis() + minOf(60_000L shl minOf(claim5xx - 1, 3), 300_000L)
+                setStatus("logged in · claim failed (http $http); backing off, will not retry this tick")
+            } else setStatus("logged in · claim refused (http $http)")
+            return
+        }
+        claim5xx = 0; claimBackoffUntilMs = 0L
         claimedThisTick = true
         val t = r.optJSONObject("ticket")
         if (t == null) { setStatus("logged in · ${if (armed()) "ARMED" else "dry"} · waiting for a ticket (none queued) · ${java.text.DateFormat.getTimeInstance().format(Date())}"); return }
