@@ -1,0 +1,39 @@
+# Trades excluded from the Stage-2 mirror's Gate-2 (demotion) window, and the
+# mirror positions that are KNOWN to have no live counterpart.
+#
+# WHY: Stage 2 is one stage -- alpaca_portfolio carries the IDENTICAL roster and
+# trades as alpaca_live, and its net-of-cost window is the DEMOTION signal. Two
+# LEGACY shorts opened before the roster cut (A6 #12673, B2) still sit on the
+# mirror with no live twin, so the window read off the mirror is not the live
+# book's.
+#
+# DECIDED 2026-10-05 (operator, manager popup, verbatim "Let them run, exclude
+# (Recommended)"; pipeline PI-20261004-J4SFBKU9-0001): NO close orders. Both
+# exit on their own resting GTC OCO stops; their trade ids are dropped from the
+# mirror window until they close.
+#
+# READERS: src/config/mirror_exclusions.py (the /api/bot/performance/recent
+# mirror book drops these trade ids and publishes the list as
+# mirror.excludedTradeIds) and scripts/ops/check_mirror_orphans.py (a mirror
+# position with no live twin is a finding UNLESS it is acknowledged here).
+#
+# REMOVE an entry when its trade has closed -- check_mirror_orphans.py reports an
+# acknowledgement whose position is gone as `stale_ack` so this file cannot rot.
+exclusions:
+  - trade_id: 5912
+    account_id: alpaca_portfolio
+    symbol: TLT
+    side: short
+    leg: tlt_pullback_1d
+    package: pkg-dfe2ec1e82fd46c8
+    opened: "2026-09-18"
+    reason: "leg pulled from both rosters by A6 (#12673) 2026-09-21; position outlived the cut"
+  - trade_id: 4195
+    account_id: alpaca_portfolio
+    symbol: IEF
+    side: short
+    leg: ief_pullback_1d
+    package: pkg-5e636e3adddf4a83
+    opened: "2026-07-29"
+    reason: "alpaca_live twin (trade 4196) was rejected; mirror filled alone"
+    decision: "operator 2026-10-05, PI-20261004-J4SFBKU9-0001"
