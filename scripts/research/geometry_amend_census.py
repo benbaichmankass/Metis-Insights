@@ -74,19 +74,15 @@ MIRROR_ACCOUNTS = frozenset({"bybit_portfolio", "alpaca_portfolio"})
 # classification
 # --------------------------------------------------------------------------
 def load_account_classes(path: Path | None = None) -> dict[str, str]:
-    """account_id -> account_class from config/accounts.yaml ({} if unreadable)."""
-    try:
-        import yaml
+    """account_id -> account_class via the canonical loader ({} if unreadable)."""
+    sys.path.insert(0, str(REPO))
+    from src.config.accounts_loader import load_accounts_dict
 
-        doc = yaml.safe_load((path or REPO / "config" / "accounts.yaml").read_text())
-        accts = doc.get("accounts", doc) if isinstance(doc, dict) else {}
-        return {
-            k: str(v.get("account_class"))
-            for k, v in accts.items()
-            if isinstance(v, dict) and v.get("account_class")
-        }
-    except Exception:  # noqa: BLE001  # allow-silent: falls back to the row's own account_class; unclassified is counted, never dropped
-        return {}
+    return {
+        k: str(v.get("account_class"))
+        for k, v in load_accounts_dict(path).items()
+        if isinstance(v, dict) and v.get("account_class")
+    }
 
 
 def classify(account_id: str | None, row_class: str | None, cfg: dict[str, str]) -> str:
