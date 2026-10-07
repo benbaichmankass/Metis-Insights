@@ -315,6 +315,7 @@ CADENCE_REGISTRY: dict[str, dict] = {
                                      "-- same record-every-run/comment-on-change tracking-issue "
                                      "design as broker-bracket-reconcile.yml below"},
     "alpaca-settlement-soak-watch.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
+    "mirror-orphan-watch.yml": {"receipt": None, "why": "read-only check; result lives in the Actions run and claude-run-failure-alert"},
     "broker-bracket-reconcile.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
     "dashboard-edge-watch.yml": {
         "receipt": None,

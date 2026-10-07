@@ -109,4 +109,4 @@ def test_recent_route_drops_excluded_trade_from_mirror_window(tmp_path, monkeypa
     m = P.get_performance_recent(n=40)["mirror"]
     assert m["excludedTradeIds"] == [victim] and m["exclusionsReadState"] == "ok"
     assert m["perStrategy"]["leg_a"]["closedAvailable"] == n0 - 1
-    assert victim not in sum((b["tradeIds"] for b in m["perStrategy"]["leg_a"]["blocks"]), [])
+    assert all(victim not in b["tradeIds"] for b in m["perStrategy"]["leg_a"]["blocks"])
