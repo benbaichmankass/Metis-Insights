@@ -12,8 +12,10 @@ question: 'PI-20261006-KX6ZKFNA-0004 (lane ACTIVE-GEOMETRY-SCAN, 2026-10-06): xr
   the resting TP closes every trade at 3 R first, so the lever can never fire (MEASURED 2026-10-07 by the pipeline row''s
   rerun: tp_r 3.0, arm 4.49, stall None, tight 2.5; the only such case across the 9 live real-money/prop legs). The committed
   record already says which branch of "modelled-but-never-fires vs run-without-it" is true: every committed harness run
-  of this leg (runs/2026-09-24-e55, 2026-09-25, 2026-10-05-730d-expand) carries fidelity approximate with omitted_levers
-  [trail_decay_arm_r, trail_decay_tight_mult], because regime_debt_matrix._PB_LEVER_FLAG does not forward --trail-decay-*
+  of this leg (runs/2026-09-24-e55, 2026-09-25, 2026-10-05-730d-expand) has a params block with NO trail_decay_* key,
+  and both committed leg records (comms/strategy_evidence/xrp_pullback_2h.json from the 2026-09-25 run, and
+  runs/2026-10-05-730d-expand/xrp_pullback_2h.json) grade fidelity approximate with omitted_levers [trail_decay_arm_r,
+  trail_decay_tight_mult], because regime_debt_matrix._PB_LEVER_FLAG does not forward --trail-decay-*
   to scripts/backtest_pullback.py even though the harness models them (M20 P4.1). So the Stage-0 record was run WITHOUT
   the decay, and max_mfe_r 2.965 on the 730d-expand run confirms no trade ever reached 3 R, let alone 4.49. The one question:
   on the same 730d corpus (XRPUSDT 2h, 2024-10-05 .. 2026-10-04, same cost stack), (i) does the shipped config (decay
