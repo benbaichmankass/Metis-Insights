@@ -145,12 +145,10 @@ def probe_prop_idle(account: str, now: datetime, fetch: Fetch = api_get) -> dict
 def account_mode(account: str) -> str | None:
     """``config/accounts.yaml::<account>.mode`` or None when it cannot be read."""
     try:
-        import yaml  # noqa: PLC0415
-        d = yaml.safe_load((REPO_ROOT / "config" / "accounts.yaml").read_text(encoding="utf-8"))
-        accts = d.get("accounts", d)
-        mode = accts[account].get("mode")
+        from src.config.accounts_loader import load_accounts_dict  # noqa: PLC0415
+        mode = load_accounts_dict()[account].get("mode")
         return str(mode) if mode else None
-    except Exception:  # noqa: BLE001 — unreadable == unknown, handled by caller
+    except Exception:  # noqa: BLE001 — unreadable (empty dict / KeyError) == unknown
         return None
 
 
