@@ -10,8 +10,9 @@ question: 'Does a log-spread z-score mean-reversion on XRPUSDT vs ADAUSDT at 1h 
   20, entry_z 2.0, exit_z 0.5, stop_z 2.0, max_hold 20 bars, hedge_beta one) produce positive net R over the full fetchable
   window, after the venue-aware cost stack (fee 7.5 bps rt per leg; slippage 3 bps rt per leg (PERP default); funding 1 bps
   per 8 h window per leg, directionless drag)? Both legs are in fetch_backtest_corpus.py CANDIDATE_PAIRS at 1h with 1095 d
-  windows (the longest crypto windows the table carries), neither is in the M22 sleeve, and both are rostered on paper books
-  (ada_pullback_2h, XRP legs), so a pass would have a venue the executor already trades. Registered by lane ARB-RESEARCH session_01Aeyqvqf9sajCVDx9Ufef4u
+  windows (the longest crypto windows the table carries), neither is in the M22 sleeve, and both symbols are already traded
+  by rostered legs at other timeframes (ada_pullback_2h, xrp_pullback_2h, trend_donchian_xrp_4h on bybit_1 and bybit_2 per
+  config/accounts.yaml), so a pass would have a venue the executor already trades. Registered by lane ARB-RESEARCH session_01Aeyqvqf9sajCVDx9Ufef4u
   (PI-20261006-APBY4NTV-0005); family table and the feed/order-path/venue checks behind this unit: docs/research/relative-value-families-2026-10-07.md.'
 why_this_matters: 'Operator 2026-10-06 ~08:20Z: ''other complex strategies (not just based on predicting movement, but arbitraging
   symbols, spreads, etc)''. Pairs / ratio / z-score spread mean reversion is the one relative-value family with a net-of-cost

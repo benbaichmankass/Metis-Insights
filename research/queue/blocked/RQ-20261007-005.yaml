@@ -27,9 +27,9 @@ power:
   alpha: 0.05
   power: 0.8
   basis: 'd=0.45 at alpha 0.05 / power 0.8 needs ~39 trades (the E35 / roster-walkforward floor). expected_n=60 per (symbol,
-    variant): with a 1 bp entry threshold and 72-bar max hold, BTC perp funding in 2023-2026 spent long stretches above 1
-    bp per 8 h, so tens of entries over 3 years is the expectation; it is a shape argument, not a measurement, which is why
-    the unit is also `accruing`.'
+    variant): with a 1 bp entry threshold and 72-bar max hold, tens of entries over 3 years is the expectation IF funding
+    spends material stretches above 1 bp per 8 h -- NOT measured here (no funding series is reachable yet; this is the quantity
+    the first run establishes); it is a shape argument, not a measurement, which is why the unit is also `accruing`.'
   feasibility:
     source: none
     accrual_basis: Zero measured rows exist for this harness anywhere in the repo (RQ-20260929-104 both producer_failed).
