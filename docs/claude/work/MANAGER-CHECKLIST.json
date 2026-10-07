@@ -5510,10 +5510,11 @@
       "tier": 1,
       "prs": [
         16791,
-        16960
+        16960,
+        16975
       ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:57Z manager] #16791 fixed (c88755e5: opt-in --check-open-stamp-prs; ruff) and auto-merging; #16960 (prop-bar fits for the 4 crypto PASS legs on the Breakout ruleset + committed Stage-0 trades artifacts) held for me; its ids collide with #16955 -> renumbering. Verdict table confirmed by the regrade dry run. SLV fade (031) unpriceable until the fade emitter fix lands (PI-20261007-71Y2H2VZ-0001). || [2026-10-07T18:15Z manager] First lane (session_01MZC82v4c5CnXkZ1vpYtx8e, Fable, $12.40 final) pushed branch claude/rq-fix-queue-verdicts (477521ee8: pyyaml on the result job, dispatcher idempotence, regrade tool, tests) and hit the weekly limit before landing it; PR #16791 is RED (pytest-run + guards). Re-dispatched as lane RQ-RESULTS (Fable, $20): fix #16791 CI, run the regrade over EVERY discarded row (MEASURED 45 of 54 results since 2026-10-06 13:00Z are wiring_only; 17 units fired 2-3x), seed prop-bar units for the 5 PASS legs. || [2026-10-06T13:05Z manager] Found while surveying the 41 prop units for the operator's 'push prop roster research' ask. PI-20261006-APBY4NTV-0010 has the measurements (8 of 358 result rows discarded across 6 units; 005 and 659 each fired twice). The double-fire is a consequence of my own #16736 (hourly cadence); the yaml bug predates it (#16388). Closes when a fresh harness result carries a real verdict and two consecutive cycles fire nothing twice."
+      "note": "[2026-10-07T19:05Z manager] #16791 MERGED 18:54Z (pyyaml on the result job; opt-in --check-open-stamp-prs; idempotence). #16975 (regrade, 48 rows) self-landing. Two-cycle no-double-fire observation armed for 20:40Z. #16960 renumbered again to 010-013 (its 007-010 overlapped pairs' 005-009). || [2026-10-07T18:57Z manager] #16791 fixed (c88755e5: opt-in --check-open-stamp-prs; ruff) and auto-merging; #16960 (prop-bar fits for the 4 crypto PASS legs on the Breakout ruleset + committed Stage-0 trades artifacts) held for me; its ids collide with #16955 -> renumbering. Verdict table confirmed by the regrade dry run. SLV fade (031) unpriceable until the fade emitter fix lands (PI-20261007-71Y2H2VZ-0001). || [2026-10-07T18:15Z manager] First lane (session_01MZC82v4c5CnXkZ1vpYtx8e, Fable, $12.40 final) pushed branch claude/rq-fix-queue-verdicts (477521ee8: pyyaml on the result job, dispatcher idempotence, regrade tool, tests) and hit the weekly limit before landing it; PR #16791 is RED (pytest-run + guards). Re-dispatched as lane RQ-RESULTS (Fable, $20): fix #16791 CI, run the regrade over EVERY discarded row (MEASURED 45 of 54 results since 2026-10-06 13:00Z are wiring_only; 17 units fired 2-3x), seed prop-bar units for the 5 PASS legs. || [2026-10-06T13:05Z manager] Found while surveying the 41 prop units for the operator's 'push prop roster research' ask. PI-20261006-APBY4NTV-0010 has the measurements (8 of 358 result rows discarded across 6 units; 005 and 659 each fired twice). The double-fire is a consequence of my own #16736 (hourly cadence); the yaml bug predates it (#16388). Closes when a fresh harness result carries a real verdict and two consecutive cycles fire nothing twice."
     },
     {
       "id": "ARMED-GATE",
@@ -5631,16 +5632,18 @@
       "id": "TRAIL-OBSERVABILITY",
       "title": "Diag: expose per-account modify_rollout.json and trail_state.json (prop trail latch + replay) read-only",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "owner": "lane TRAIL-OBSERVABILITY",
       "lane": "session_01RhuwEhfTiPHfhET5rLDaSX",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 8,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        16943
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-KX6ZKFNA-0003. Add the two files per prop account to diag._LOG_FILES (no secrets: prices, ticket ids, timestamps). Tier-1. Sonnet, auto."
+      "note": "[2026-10-07T19:05Z manager] DONE. MERGED #16943 (~18:52Z). DEPLOYED: the 8 diag names resolve on the live API at 19:00Z. OBSERVED: prop_trail_latch_tradeify_1 present:false (no modify_rollout.json -> trail NOT paused); prop_trail_state_tradeify_1 present:true, {} (no per-ticket entries). Caveat: shows nothing is latched, not that a step ran. Lane archived. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-KX6ZKFNA-0003. Add the two files per prop account to diag._LOG_FILES (no secrets: prices, ticket ids, timestamps). Tier-1. Sonnet, auto."
     },
     {
       "id": "MANAGER-SKILL-LANDING",
@@ -5751,9 +5754,11 @@
       "ceiling_usd": 20,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        16950
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-XJSGZG1X-0001, PI-20261005-YUVCGTMJ-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T19:05Z manager] PR #16950 held Tier-2: prop_idle_{tradeify_1,velotrade_1,breakout_2} (warn 14d / urgent 21d; null != 0) + phone_hb_breakout_2 (>10 min while live -> urgent) as probes in the hourly attention block. Caveat: hourly carrier => up to ~1h phone-dead latency; no fill on record reads unknown. Manager merges, then observes the first digest probes. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-XJSGZG1X-0001, PI-20261005-YUVCGTMJ-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "PHONE-GO-TOKEN",
@@ -5815,9 +5820,11 @@
       "ceiling_usd": 20,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        16978
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261006-ZRM27CBW-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T19:05Z manager] PR #16978 held Tier-2: DXtradeApiAdapter.read_trade_history (GET orders/history -> Trade History row shape) + read-only system-action velotrade-trade-history-read. Live read not yet possible (action not on main). After merge: dispatch the action once; parsed_rows must show the 2026-10-06 ~10:18Z ETHUSD 0.01 BUY+SELL; pnl never fabricated. PI-20261007-WPBHWTHS-0001. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261006-ZRM27CBW-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "VELOTRADE-QUALDAYS",
@@ -5830,9 +5837,11 @@
       "ceiling_usd": 20,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        16976
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-KQIWJZWX-0002. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T19:05Z manager] PR #16976 held Tier-2: src/prop/qualifying_days.py, qualifying_days on rule_distance, ack-line suffix, rule_effective_dates in the ruleset. Threshold $40/day (0.8% x $5k), 5 days required. Verified on fixtures only; live standing unknown until deployed. Not built: digest prop line, payout scheduler, overexposure cap. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-KQIWJZWX-0002. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "MIRROR-LEGACY-SHORTS",
@@ -5923,12 +5932,15 @@
       "owner": "lane REGISTER-TOOLING",
       "lane": "session_012xSAmZaaxVR3W8bFoai4zM",
       "model": "claude-sonnet-5-5",
-      "ceiling_usd": 25,
+      "ceiling_usd": 45,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        16973,
+        16974
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-4GA8WQPA-0002, PI-20261004-4GA8WQPA-0003, PI-20261004-APBY4NTV-0003, PI-20261005-4GA8WQPA-0002, PI-20261005-WFBREDQP-0001, PI-20261005-WFBREDQP-0002, PI-20261005-KQIWJZWX-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T19:05Z manager] PR #16973 (stale-snapshot guard via based_on; --redate + guard; soak-contract trap fix; flaky test root-caused = empty fallback DB) auto-merging. PR #16974 (/api/diag/log_aggregate) held Tier-2; manager lands + web-api restart. Per-row checklist store APPROVED (ceiling -> $45): loader+generator -> migrate readers -> equality guard -> manager switches. bybit_coverage_soak binding claim unreproduced on the live tail (annotate/not_apply). || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-4GA8WQPA-0002, PI-20261004-4GA8WQPA-0003, PI-20261004-APBY4NTV-0003, PI-20261005-4GA8WQPA-0002, PI-20261005-WFBREDQP-0001, PI-20261005-WFBREDQP-0002, PI-20261005-KQIWJZWX-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "HARNESS-AUDIT-FIXES",
