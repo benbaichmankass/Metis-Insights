@@ -5696,9 +5696,12 @@
       "ceiling_usd": 50,
       "spend_usd": null,
       "tier": 3,
-      "prs": [],
+      "prs": [
+        16966,
+        16994
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-5FUGHVX8-0001. Operator directive 2026-10-06 (canonical in ARCHITECTURE-CANONICAL \u00a7 TP doctrine; guard check_tp_doctrine.py). MEASURED at 233c9c28: 0 of 52 routings compliant; tp_revision FAIL 52/52 (no monitor() ever returns a tp verdict; prop path passes TP=None). Build the revision mechanism (B1) behind the existing exit-refinement pipeline; the sentinel fixes are research (RQ-20261006-060/061 queued). Strategy logic = Tier-3: PR held, manager/operator merge. Opus, default mode. || [2026-10-07T18:33Z] The 2026-10-06 TP-DOCTRINE lane (session_01ED511AxTFsssBE5FUGhvX8, #16739 canonical section + guard) archived, $24.50 final; this row now tracks build B1."
+      "note": "[2026-10-07T19:58Z manager] Lane: B1 BUILT, two PRs held. #16966 (1/2) mechanism: src/runtime/tp_revision.py (verdict {tp, tp_reason}, merge_verdict, plan_tp_revision with through-price refusal + venue-cap clamp), tp_reason through interpret_verdict/order_monitor, prop_trail TP-only amend step for adapters with TP_AMEND_SUPPORTED (dxtrade_api True; browser False), guard now requires produced AND consumed. #16994 (2/2, stacked on 16966): rule donchian_measured_move in trend_donchian.monitor(), backtest_trend --tp-revision lever, research unit RQ-20261007-080 (4 money legs; dispatchable only after merge). Guard counts identical before/after (52/0/26/52, findings []); NOTHING trades differently on merge (no leg declares tp_revision) -> Tier-2 by path (order-path code, inert by config), added to the operator's Tier-2 OK list; the Tier-3 act is the later declaration after RQ-080 runs. Still blocked: browser adapter has no measured TP rollout step (breakout_1/tradeify_1); breakout_2 needs PROP-TRAIL-PHONE to call plan_tp_revision. 1041 tests pass on the lane's selection. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-5FUGHVX8-0001. Operator directive 2026-10-06 (canonical in ARCHITECTURE-CANONICAL \u00a7 TP doctrine; guard check_tp_doctrine.py). MEASURED at 233c9c28: 0 of 52 routings compliant; tp_revision FAIL 52/52 (no monitor() ever returns a tp verdict; prop path passes TP=None). Build the revision mechanism (B1) behind the existing exit-refinement pipeline; the sentinel fixes are research (RQ-20261006-060/061 queued). Strategy logic = Tier-3: PR held, manager/operator merge. Opus, default mode. || [2026-10-07T18:33Z] The 2026-10-06 TP-DOCTRINE lane (session_01ED511AxTFsssBE5FUGhvX8, #16739 canonical section + guard) archived, $24.50 final; this row now tracks build B1."
     },
     {
       "id": "PAIRS-STOCKTAKE",
@@ -5778,10 +5781,16 @@
       "spend_usd": null,
       "tier": 2,
       "prs": [
-        16950
+        16950,
+        17003
       ],
       "blocked_on": [],
-      "note": "[2026-10-07T19:30Z manager] #16950 MERGED 19:46Z (squash). Merged != deployed: attention_watch.py/prop_silence.py run from a workflow or VM cron per the lane's PR body; the lane's row carries the deploy/observe steps. Archive the lane once it reports. || [2026-10-07T19:05Z manager] PR #16950 held Tier-2: prop_idle_{tradeify_1,velotrade_1,breakout_2} (warn 14d / urgent 21d; null != 0) + phone_hb_breakout_2 (>10 min while live -> urgent) as probes in the hourly attention block. Caveat: hourly carrier => up to ~1h phone-dead latency; no fill on record reads unknown. Manager merges, then observes the first digest probes. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-XJSGZG1X-0001, PI-20261005-YUVCGTMJ-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T19:58Z manager] DEPLOYED (VM /api/diag/version git_sha c4487fb0d >= merge b90cbe1c6 at 19:38Z; runs inside the hourly ict-work-digest.timer -> work_digest_now.py), first run with the new code = the ~20:00Z digest. Live-data check found a bug in the merged code: skipped/placed fill rows reset the idle clock (tradeify_1 has them) -> fix PR #17003 held; manager merges on green (alerting/observability path, no order path). Live read after fix: tradeify_1 idle ok 2.6d, phone heartbeat ok 2 min, velotrade_1/breakout_2 unknown (0 fills; gap PI-20261007-BQESW7M2-0002: no-fill accounts never alarm). Observation PI-20261007-BQESW7M2-0001. || [2026-10-07T19:30Z manager] #16950 MERGED 19:46Z (squash). Merged != deployed: attention_watch.py/prop_silence.py run from a workflow or VM cron per the lane's PR body; the lane's row carries the deploy/observe steps. Archive the lane once it reports. || [2026-10-07T19:05Z manager] PR #16950 held Tier-2: prop_idle_{tradeify_1,velotrade_1,breakout_2} (warn 14d / urgent 21d; null != 0) + phone_hb_breakout_2 (>10 min while live -> urgent) as probes in the hourly attention block. Caveat: hourly carrier => up to ~1h phone-dead latency; no fill on record reads unknown. Manager merges, then observes the first digest probes. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-XJSGZG1X-0001, PI-20261005-YUVCGTMJ-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+      "observation": {
+        "what": "attention_watch_receipt after the 20:00Z digest lists prop_idle_{tradeify_1,velotrade_1,breakout_2} + phone_hb_breakout_2 as ok/unknown; plus one deliberate closed-app test fires the dead-phone ping",
+        "how_to_check": "read the latest attention_watch_receipt via the diag relay; PI-20261007-BQESW7M2-0001",
+        "due_by": "2026-10-08T18:00Z"
+      }
     },
     {
       "id": "PHONE-GO-TOKEN",
