@@ -801,6 +801,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/fleet-model-scorecard-2026-06-26.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/flip-override-walkforward-2026-08-11.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/fvg-parity-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/geometry-census/geometry-amend-census-2026-10-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/gld-1h-stop-confirm/2026-09-28-confirming-walkforward.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/harness-provenance-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/hf-prop-strategy-research-plan-2026-06-16.md` | plan | unknown | — | never | `name:plan-is-a-forward-commitment / not-assessed` | — |

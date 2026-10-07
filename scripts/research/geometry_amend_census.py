@@ -312,14 +312,14 @@ def render_md(r: dict[str, Any]) -> str:
     out = [
         f"# Geometry amend census — {r['generated_utc'][:10]}",
         "",
-        f"**Provenance:** {r['provenance']} · **since** `{r['since']}` · amend tolerance "
-        f"{r['tolerance_fraction']:.2%} of the entry-time level.",
+        (f"**Provenance:** {r['provenance']} · **since** `{r['since']}` · amend tolerance "
+         f"{r['tolerance_fraction']:.2%} of the entry-time level."),
         "",
         f"**Population:** {r['population']}.",
         "",
-        f"**Pull:** trades {r['pull']['trades_rows']} of {r['pull']['trades_total_rows']} rows, "
-        f"order_packages {r['pull']['order_packages_rows']} of {r['pull']['order_packages_total_rows']}; "
-        f"complete = {r['pull']['complete']}.",
+        (f"**Pull:** trades {r['pull']['trades_rows']} of {r['pull']['trades_total_rows']} rows, "
+         f"order_packages {r['pull']['order_packages_rows']} of {r['pull']['order_packages_total_rows']}; "
+         f"complete = {r['pull']['complete']}."),
         "",
         "Cells read `amended / denominator`. `—` means not measured (never 0).",
         "",
@@ -335,17 +335,17 @@ def render_md(r: dict[str, Any]) -> str:
         out.append(f"- **{k}**: {c.get('window_status_counts') or '—'}")
     pt = r["prop_tickets"]
     out += ["", "## Prop", "",
-            "Prop fills live in the prop journal, not `trades`; the `trades`-table row above is "
-            "therefore the comparable denominator, and prop amend state beyond it is read from "
-            "the executor journals (`trail_amend` / `trail_skip` rows).", "",
+            ("Prop fills live in the prop journal, not `trades`; the `trades`-table row above is "
+             "therefore the comparable denominator, and prop amend state beyond it is read from "
+             "the executor journals (`trail_amend` / `trail_skip` rows)."), "",
             f"- prop tickets read_state: **{pt['read_state']}** — {pt.get('ticket_status_counts')}",
             f"- {pt['note']}", "",
             "## Per leg (closed trades with a matching package)", "",
             "| class | leg | closed | SL amended | TP amended |", "|---|---|--:|--:|--:|"]
     for g in r["legs"]:
         out.append(f"| {g['class']} | {g['leg']} | {g['closed_in_window']} | {_cell(g, 'sl')} | {_cell(g, 'tp')} |")
-    out += ["", "Rerun: `python3 scripts/research/geometry_amend_census.py` "
-            "(needs `DIAG_READ_TOKEN`; see `.claude/skills/diag-data/SKILL.md`).", ""]
+    out += ["", ("Rerun: `python3 scripts/research/geometry_amend_census.py` "
+                 "(needs `DIAG_READ_TOKEN`; see `.claude/skills/diag-data/SKILL.md`)."), ""]
     return "\n".join(out)
 
 
