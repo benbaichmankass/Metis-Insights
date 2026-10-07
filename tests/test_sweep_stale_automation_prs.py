@@ -522,3 +522,21 @@ def test_a_merge_conflict_is_a_warning_not_a_failed_refresh(qrepo: Path, monkeyp
     assert "::warning::" in capsys.readouterr().out
     monkeypatch.setattr(sweep, "refresh", lambda *a, **k: (False, "push failed"))
     assert sweep.run("main", True, "t") == 1      # a REAL failure still fails the job
+
+
+def test_a_stamp_pr_is_graded_on_what_it_changed_even_after_main_moved_on(qrepo: Path) -> None:
+    """THE LIVE SHAPE (dry-run on 21 open automation PRs, 2026-10-07): the branch was cut, then
+    main's copy of the unit gained a `grading:` block. Branch-vs-main is no longer stamp-only, but
+    the PR's own change (branch vs merge-base) still is, so it must still be ordered by its stamp."""
+    def g(*a: str) -> None:
+        subprocess.run(["git", "-C", str(qrepo), *a], check=True, capture_output=True, text=True)
+    _branch(qrepo, "automation/research-queue-stamp-7-1", {
+        _UNIT: _unit("'2026-10-07T08:00:00+00:00'")})                       # a bare, OLD stamp
+    (qrepo / _UNIT).write_text(_unit("'2026-10-07T09:13:22+00:00'", extra="grading:\n  verdict: pass\n"))
+    g("add", "-A")
+    g("commit", "-q", "-m", "main moves on: unit graded")
+    assert _classify(qrepo, 7, "automation/research-queue-stamp-7-1")["state"] == sweep.SUPERSEDED_OLDER
+    # ...and a grade-style PR (its own change goes beyond the stamp) is still not ordered by it
+    _branch(qrepo, "automation/research-queue-grade-8-1", {
+        _UNIT: _unit("'2026-10-07T10:05:38+00:00'", extra="grading:\n  verdict: fail\n")})
+    assert _classify(qrepo, 8, "automation/research-queue-grade-8-1")["state"] == sweep.UNDATED_PAYLOAD

@@ -298,6 +298,8 @@ def classify(pr: Dict[str, Any], main: str, newest_holder: Dict[str, int],
     if code != 0:
         head = pr["ref"]
     files = payload_files(main, head, cwd=cwd)
+    mb_code, mb_out = git("merge-base", main, head, cwd=cwd)
+    merge_base = mb_out if mb_code == 0 else main
     buckets: Dict[str, List[str]] = {
         "same": [], "older": [], "newer": [], "undated": [], "append_only": [],
         "absent": []}
@@ -321,15 +323,22 @@ def classify(pr: Dict[str, Any], main: str, newest_holder: Dict[str, int],
             n = extra_rows(head, path, main, cwd=cwd)
             buckets["append_only"].append(f"{path} (+{n} row(s) not on main)")
             continue
-        if QUEUE_UNIT.match(path) and not stamp_only_diff(main_blob, head_blob):
-            buckets["undated"].append(path)   # a grade/result edit: a stamp date cannot order it
+        if QUEUE_UNIT.match(path):
+            # ⚠️ WHAT THE *PR* CHANGED, NOT HOW IT DIFFERS FROM main NOW. The first version
+            # compared branch vs main and was measured (live dry-run, 21 open automation PRs,
+            # 2026-10-07) to rescue almost none of them: main's unit files have since gained
+            # grading blocks, so branch-vs-main is never stamp-only. The PR's own contribution
+            # is branch-vs-merge-base; when THAT is a bare stamp, its date is ordered against
+            # main's stamp and main's other edits are irrelevant to it.
+            if not stamp_only_diff(_blob(merge_base, path, cwd=cwd), head_blob):
+                buckets["undated"].append(path)   # a grade/result edit: a stamp cannot order it
+                continue
+            # null is the OLDEST stamp, so a stamp-only change always orders
+            theirs, ours = stamp_of(head_blob), stamp_of(main_blob)
+            buckets["older" if theirs <= ours else "newer"].append(path)
             continue
         theirs, ours = dated_at(head, path, cwd=cwd), dated_at(main, path, cwd=cwd)
-        if QUEUE_UNIT.match(path):
-            # null is the OLDEST stamp, so a stamp-only diff always orders
-            theirs, ours = theirs or "", ours or ""
-            buckets["older" if theirs <= ours else "newer"].append(path)
-        elif theirs and ours:
+        if theirs and ours:
             buckets["older" if theirs <= ours else "newer"].append(path)
         else:
             buckets["undated"].append(path)
@@ -435,6 +444,7 @@ def newest_by_path(prs: List[Dict[str, Any]], main: str,
         head = f"origin/{pr['ref']}"
         if git("rev-parse", "--verify", head, cwd=cwd)[0] != 0:
             head = pr["ref"]
+        mb = git("merge-base", main, head, cwd=cwd)[1] or main
         for path in payload_files(main, head, cwd=cwd):
             if path in APPEND_ONLY:
                 continue
@@ -442,7 +452,7 @@ def newest_by_path(prs: List[Dict[str, Any]], main: str,
             if not stamp:
                 continue
             if QUEUE_UNIT.match(path) and not stamp_only_diff(
-                    _blob(main, path, cwd=cwd), _blob(head, path, cwd=cwd)):
+                    _blob(mb, path, cwd=cwd), _blob(head, path, cwd=cwd)):
                 continue
             if path not in best or stamp > best[path][0]:
                 best[path] = (stamp, pr["number"])
