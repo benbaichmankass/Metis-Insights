@@ -5508,28 +5508,6 @@
       "note": "[2026-10-06T13:05Z manager] Found while surveying the 41 prop units for the operator's 'push prop roster research' ask. PI-20261006-APBY4NTV-0010 has the measurements (8 of 358 result rows discarded across 6 units; 005 and 659 each fired twice). The double-fire is a consequence of my own #16736 (hourly cadence); the yaml bug predates it (#16388). Closes when a fresh harness result carries a real verdict and two consecutive cycles fire nothing twice."
     },
     {
-      "id": "VELOTRADE-QUALDAYS",
-      "title": "velotrade_1 evaluation standing: qualifying-day counter + effective dates on /api/bot/prop/status",
-      "phase": "W6",
-      "state": "landed_unproven",
-      "owner": "lane VELOTRADE-QUALDAYS",
-      "lane": "session_01VdUmHTU3XjyH6mnEZL5Jfv",
-      "model": "claude-sonnet-5-5",
-      "ceiling_usd": 20,
-      "spend_usd": null,
-      "tier": 2,
-      "prs": [],
-      "blocked_on": [
-        "human read of the held PR"
-      ],
-      "observation": {
-        "what": "GET /api/bot/prop/status?account_id=velotrade_1 on the VM returns rule_distance.qualifying_days.state=measured with threshold_usd 40.0 and required_days 5",
-        "how_to_check": "diag relay vm-diag-snapshot, /api/bot/prop/status for velotrade_1, after the PR is merged and ict-web-api restarted",
-        "due_by": "2026-10-14"
-      },
-      "note": "[2026-10-07 lane] Built src/prop/qualifying_days.py (counter over prop_fills closed pnl by 00:30Z day; threshold = qualifying_day_profit_pct 0.008 x account_size_usd 5000 = $40, both read from velotrade_classic_1step.yaml; population: velotrade_1 closed fills; n=0 fills at build time, tested on fixtures only), qualifying_days key on rule_distance, ack-line suffix. Closes when merged+deployed and GET /api/bot/prop/status?account_id=velotrade_1 on the VM shows rule_distance.qualifying_days.state=measured. NOT built: the digest carries no prop status line today (grep of work_digest/render_daily_brief: none), so the ack line is the only status line extended; payout scheduler and Overexposure cap (PI-20261004-KQIWJZWX-0002 b,c) remain open."
-    },
-    {
       "id": "PROP-TRAIL-PHONE",
       "title": "Give the phone-executed prop account (breakout_2) the chandelier trail its Stage-0 record assumed: server plans, phone amends on the terminal",
       "phase": "E",
