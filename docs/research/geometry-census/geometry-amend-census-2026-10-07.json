@@ -100,7 +100,7 @@
     "tp_denominator": 748,
     "unmatched_package": 0
   },
-  "generated_utc": "2026-10-07T19:01:20Z",
+  "generated_utc": "2026-10-07T19:11:17Z",
   "legs": [
     {
       "class": "real_money",
@@ -974,10 +974,10 @@
       "none:orphaned": 22,
       "none:shadow": 48,
       "tradeify_1:closed": 1,
-      "tradeify_1:expiry_prompted": 1,
+      "tradeify_1:expired": 1,
       "tradeify_1:skipped": 2,
       "tradeify_1:suppressed": 4,
-      "velotrade_1:expiry_prompted": 1,
+      "velotrade_1:expired": 1,
       "velotrade_1:suppressed": 4
     },
     "tickets_total": 213
