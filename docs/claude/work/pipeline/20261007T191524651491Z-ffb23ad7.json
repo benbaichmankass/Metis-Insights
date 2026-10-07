@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "check_tp_doctrine.py --json shows path_state == 'plumbed' for breakout_1/* and tradeify_1/* routings (the browser dxtrade adapter declares TP_AMEND_SUPPORTED = True backed by a measured TP-amend rollout step), or those accounts move to the dxtrade_api platform",
+    "kind": "observation"
+  },
+  "id": "PI-20261007-DHGFHNOM-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane TP-DOCTRINE session_01L7PCKQsoCfajEsDHGfHnom (manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-07; PRs #16966/#16994",
+    "rerun": "python3 scripts/ci/check_tp_doctrine.py --json | python3 -c \"import json,sys; d=json.load(sys.stdin); print([(r['key'], r['path_state']) for r in d['routings'] if r['account'] in ('breakout_1','tradeify_1')])\""
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "TP DOCTRINE B2, BROWSER PROP PATH CANNOT MOVE A TP (found while building B1, PR #16966). MEASURED by reading src/prop/platform/dxtrade.py: DXtradeAdapter.modify_bracket under ROLLOUT_GUARD=True runs rollout_tighten_mismatch, which refuses any modify whose take_profit differs from the resting TP ('rollout step must leave the take profit unchanged'), then types only the SL. So breakout_1 and tradeify_1 (platform: dxtrade in config/prop_platforms.yaml; tradeify_1 mode live) cannot carry a revised TP even after a leg declares tp_revision; #16966 sets TP_AMEND_SUPPORTED=False on that adapter and tp-doctrine-guard reports their path as 'absent' (4 prop routings). velotrade_1 (dxtrade_api, REST PUT) is plumbed; breakout_2 (phone) waits on lane PROP-TRAIL-PHONE calling tp_revision.plan_tp_revision. BUILD: a measured TP-only rollout step for the browser panel (type TP only, verify next read shows new TP with SL and size unchanged, same one-watched-step latch), then flip TP_AMEND_SUPPORTED. Tier-2/3 (prop order path, real money on tradeify_1)."
+}

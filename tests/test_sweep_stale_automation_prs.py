@@ -441,3 +441,102 @@ def test_a_failed_claim_commit_never_reaches_the_push(tmp_path: Path, monkeypatc
     assert ok is False
     assert "could not commit the merge-slot claim" in note
     assert "commit" in calls and "push" not in calls, calls
+
+
+# --- research-queue stamp PRs (PI-20261006-LCEVL8D5-0001, 2026-10-07) -----------------------
+# MEASURED on stale-automation-sweep run 37659085458: 18 of 20 open automation PRs graded
+# `undated_payload`, every dispatch-stamp PR among them, so the sweep could not say whether one
+# was superseded. A unit file that differs ONLY by `last_dispatched_at` is now datable.
+_UNIT = "research/queue/RQ-20261006-023.yaml"
+_RECEIPT = "docs/claude/work/research-queue-dispatch-receipt.json"
+
+
+def _unit(stamp: str, extra: str = "") -> str:
+    return f"id: RQ-20261006-023\nstatus: queued\n{extra}last_dispatched_at: {stamp}\n"
+
+
+def _receipt(ts: str) -> str:
+    return json.dumps({"run_id": "1", "timestamp": ts}) + "\n"
+
+
+@pytest.fixture()
+def qrepo(repo: Path) -> Path:
+    def g(*a: str) -> None:
+        subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True, text=True)
+    (repo / "research/queue").mkdir(parents=True)
+    (repo / _UNIT).write_text(_unit("'2026-10-07T09:13:22+00:00'"))
+    (repo / _RECEIPT).parent.mkdir(parents=True, exist_ok=True)
+    (repo / _RECEIPT).write_text(_receipt("2026-10-07T17:34:39+00:00"))
+    g("add", "-A")
+    g("commit", "-q", "-m", "queue")
+    return repo
+
+
+def test_a_stamp_older_than_mains_is_superseded_not_undated(qrepo: Path) -> None:
+    _branch(qrepo, "automation/research-queue-stamp-1-1", {
+        _UNIT: _unit("'2026-10-07T08:00:00+00:00'"),
+        _RECEIPT: _receipt("2026-10-07T08:00:01+00:00")})
+    got = _classify(qrepo, 1, "automation/research-queue-stamp-1-1")
+    assert got["state"] == sweep.SUPERSEDED_OLDER, got
+
+
+def test_a_stamp_newer_than_mains_is_refreshable(qrepo: Path) -> None:
+    _branch(qrepo, "automation/research-queue-stamp-2-1", {
+        _UNIT: _unit("'2026-10-07T10:05:38+00:00'")})
+    assert _classify(qrepo, 2, "automation/research-queue-stamp-2-1")["state"] == sweep.REFRESH
+
+
+def test_a_null_stamp_is_the_oldest(qrepo: Path) -> None:
+    _branch(qrepo, "automation/research-queue-stamp-3-1", {_UNIT: _unit("null")})
+    assert _classify(qrepo, 3, "automation/research-queue-stamp-3-1")["state"] == sweep.SUPERSEDED_OLDER
+
+
+def test_a_unit_edited_beyond_the_stamp_stays_undated(qrepo: Path) -> None:
+    """A grade/result PR changes more than the stamp; the stamp's date cannot order that."""
+    _branch(qrepo, "automation/research-queue-grade-4-1", {
+        _UNIT: _unit("'2026-10-07T10:05:38+00:00'", extra="grading:\n  verdict: pass\n")})
+    assert _classify(qrepo, 4, "automation/research-queue-grade-4-1")["state"] == sweep.UNDATED_PAYLOAD
+
+
+def test_the_older_of_two_stamp_prs_is_not_elected(qrepo: Path) -> None:
+    _branch(qrepo, "automation/research-queue-stamp-5-1", {_UNIT: _unit("'2026-10-07T10:00:00+00:00'")})
+    _branch(qrepo, "automation/research-queue-stamp-5-2", {_UNIT: _unit("'2026-10-07T11:00:00+00:00'")})
+    prs = [{"number": 5, "ref": "automation/research-queue-stamp-5-1"},
+           {"number": 6, "ref": "automation/research-queue-stamp-5-2"}]
+    holders = sweep.newest_by_path(prs, "main", cwd=qrepo)
+    assert holders[_UNIT] == 6
+    assert _classify(qrepo, 5, prs[0]["ref"], holders)["state"] == sweep.SUPERSEDED_BY_OPEN_PR
+    assert _classify(qrepo, 6, prs[1]["ref"], holders)["state"] == sweep.REFRESH
+
+
+def test_a_merge_conflict_is_a_warning_not_a_failed_refresh(qrepo: Path, monkeypatch, capsys) -> None:
+    """The sweep was red on runs 110-119 for two conflicting PRs it can only leave alone."""
+    monkeypatch.setattr(sweep, "open_automation_prs",
+                        lambda supplied=None: [{"number": 9, "ref": "automation/x", "created_at": ""}])
+    monkeypatch.setattr(sweep, "git", lambda *a, **k: (0, ""))
+    monkeypatch.setattr(sweep, "newest_by_path", lambda *a, **k: {})
+    monkeypatch.setattr(sweep, "classify", lambda pr, *a, **k: {
+        "pr": 9, "ref": "automation/x", "state": sweep.REFRESH, "why": "", "files": []})
+    monkeypatch.setattr(sweep, "refresh", lambda *a, **k: (False, f"{sweep.CONFLICT_NOTE} ('f') — left alone"))
+    assert sweep.run("main", True, "t") == 0
+    assert "::warning::" in capsys.readouterr().out
+    monkeypatch.setattr(sweep, "refresh", lambda *a, **k: (False, "push failed"))
+    assert sweep.run("main", True, "t") == 1      # a REAL failure still fails the job
+
+
+def test_a_stamp_pr_is_graded_on_what_it_changed_even_after_main_moved_on(qrepo: Path) -> None:
+    """THE LIVE SHAPE (dry-run on 21 open automation PRs, 2026-10-07): the branch was cut, then
+    main's copy of the unit gained a `grading:` block. Branch-vs-main is no longer stamp-only, but
+    the PR's own change (branch vs merge-base) still is, so it must still be ordered by its stamp."""
+    def g(*a: str) -> None:
+        subprocess.run(["git", "-C", str(qrepo), *a], check=True, capture_output=True, text=True)
+    _branch(qrepo, "automation/research-queue-stamp-7-1", {
+        _UNIT: _unit("'2026-10-07T08:00:00+00:00'")})                       # a bare, OLD stamp
+    (qrepo / _UNIT).write_text(_unit("'2026-10-07T09:13:22+00:00'", extra="grading:\n  verdict: pass\n"))
+    g("add", "-A")
+    g("commit", "-q", "-m", "main moves on: unit graded")
+    assert _classify(qrepo, 7, "automation/research-queue-stamp-7-1")["state"] == sweep.SUPERSEDED_OLDER
+    # ...and a grade-style PR (its own change goes beyond the stamp) is still not ordered by it
+    _branch(qrepo, "automation/research-queue-grade-8-1", {
+        _UNIT: _unit("'2026-10-07T10:05:38+00:00'", extra="grading:\n  verdict: fail\n")})
+    assert _classify(qrepo, 8, "automation/research-queue-grade-8-1")["state"] == sweep.UNDATED_PAYLOAD

@@ -1,0 +1,44 @@
+name: mirror-orphan-watch
+
+# Flag a Stage-2 mirror position that its live account does not hold, within a
+# day. Stage 2 is one stage (CLAUDE.md § promotion ladder): the mirror's
+# net-of-cost window is the DEMOTION signal, and a position with no live twin
+# pollutes it. Two legacy shorts sat on alpaca_portfolio for weeks after the
+# 2026-09-21 roster cut because nothing compared the books
+# (PI-20261004-J4SFBKU9-0001). Logic + states: scripts/ops/check_mirror_orphans.py.
+#
+# An unreadable read FAILS the job (we could not look is not "clean"); so does an
+# unacknowledged orphan. Acknowledged legacy positions live in
+# config/mirror_window_exclusions.yaml.
+#
+# Tier 1 -- read-only diag GET. No VM mutation, no order path.
+
+on:
+  schedule:
+    - cron: '40 15 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror-orphan-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read positions
+        env:
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+        run: |
+          set -uo pipefail
+          bash scripts/ops/diag_fetch.sh 'exchange_positions' > positions.json 2> positions.err \
+            || { echo "::error::exchange_positions read failed -- we could not look"; exit 2; }
+      - name: Compare mirror to live
+        run: |
+          pip install -q pyyaml
+          python3 scripts/ops/check_mirror_orphans.py positions.json | tee -a "$GITHUB_STEP_SUMMARY"

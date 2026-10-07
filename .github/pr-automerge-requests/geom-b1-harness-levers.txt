@@ -1,0 +1,1 @@
+auto-merge: backtest-only TP-geometry levers (GEOM-B1-HARNESS), defaults bit-for-bit

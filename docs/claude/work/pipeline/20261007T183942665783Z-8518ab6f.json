@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-21",
+    "kind": "date"
+  },
+  "id": "PI-20261007-ITYCHECK-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane EXIT-PARITY-CHECK (dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-07",
+    "rerun": "grep -n '_forward_side' scripts/research/m20_fleet_exit_sweep.py; read the sol_pullback_2h rows in docs/research/m20-sweep-corpus.jsonl and compare run_id dates with the fix merge date"
+  },
+  "state": "queued",
+  "what": "FIX FALLOUT of the side_filter forwarding bug: every M20/M21 sweep verdict for a side_filter=short leg before 2026-10-07 was measured on a two-sided book. Only two live legs carry side_filter (trend_donchian_xrp_4h, sol_pullback_2h); XRP is handled by RQ-20261007-904. Re-run sol_pullback_2h's exit-lever cells (m20-exit-lever-sweep) and re-read its matrix cells. Also decide whether to extend sweep FOLDS back before 2021 for long-history ETF legs (scha_trend_long_1d OOS starts 2017-11, spy_trend_long_1d 2020-02), which would let the killed spy/scha candidates be re-judged on the years they never examined."
+}

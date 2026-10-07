@@ -278,7 +278,7 @@ The go-live rules for the VM executor (`prop_executor.py`, and the manager's reg
 | **Fail closed** | Any unread, null, stale, unparsed or unexpected state is a refusal, never a guess or a `0`. | Collapsed-state guard analogue. |
 | **Kill switch** | Server mode, default `read_only`, typo ⇒ `read_only`. | As `executor_mode`. |
 | **One executor per account** | The server refuses a phone claim while the VM executor is `live` for that account, and vice versa. | Test. |
-| **No private data in logs** | Never log: the device token, pairing code, Breakout credentials, cookies, URL paths, position or order ids, balances, account ids or IP addresses. Logs carry ticket id, state, and refusal code only. Crash reports and screenshots are off by default (Android `FLAG_SECURE` on the WebView window). The WebView's storage is app-private; `android:allowBackup=false`. | A CI grep over the build for logging calls; a log-capture test during the soak that scans for the account id and any 6+ digit id. |
+| **No private data in logs** | Never log: the device token, pairing code, Breakout credentials, cookies, URL paths, position or order ids, balances, account ids or IP addresses. Logs carry ticket id, state, and refusal code only. Screenshots are blocked (Android `FLAG_SECURE`) on every credential-bearing screen -- login, code step, challenge, unread state, Setup dialog -- and allowed ONLY on the logged-in trading terminal (balances/positions, never a credential; operator 2026-10-06). `FLAG_SECURE` is set fail-closed (on at create, on at any page off the trade host) and cleared only after the state machine reads `logged_in`. The WebView's storage is app-private; `android:allowBackup=false`. | A CI grep over the build for logging calls; a log-capture test during the soak that scans for the account id and any 6+ digit id. |
 | **No challenge handling** | Challenge/captcha/2FA/email-code ⇒ stop and alert; no automated solve, no UA change, no reload loop. | Test with a challenge fixture page. |
 | **No credentials in the app** | The operator types the password and any code **in the WebView by hand**. The app does not save, autofill or read them. | Review + test. |
 | **Public repo hygiene** | The APK repo and this repo carry no secret, address, package signing key or account id. | `run_secret_scanning` + review. |
@@ -703,6 +703,30 @@ still unmeasured: the next dry test is what measures it, and its refusal reason,
 `dry_test_request` bump comes AFTER the operator installs the new APK** (manager, 2026-10-05 22:45Z): the old app stays logged in
 overnight and claims every 30 s, so a bump merged before the install would be claimed and refused the old way within minutes. This PR
 leaves `dry_test_request: 2026-10-05-night-1` (already served); the manager bumps it in a separate PR once the install is confirmed.
+
+### 7.13 The "Select market" picker route (2026-10-07, lane SOL-PICKER, PI-20261006-APBY4NTV-0007)
+
+**MEASURED** (the 2026-10-06 dry-fill dumps on `GET /api/bot/prop/tickets?account_id=breakout_2`, `form.controls` and
+`form.symbolCandidates`, digits masked by the app): the terminal's instrument picker is ONE `div role=button` with
+`aria-label "Select market"` and text `"ETH #x"` (base + leverage); the watchlist buttons read `"SOL ###.## -#.##%"` (base,
+price, change). Two consequences in the code before this fix: `chipSymbol()` only matched `"ETH x"` (no digits), so the chip
+was never read; and `watchControls()` only matched `"<BASE> <signed %>"`, so the watchlist route missed whenever the price was
+shown. A SOL ticket (breakout_2 carries `trend_donchian_sol_prop`) with the terminal on ETH therefore refused
+`symbol SOL not on the submit label` — safe, but a missed trade. (INFERRED from the code paths; no SOL ticket has been served.)
+
+**Fix:** `symbolStep()` route 0 = the chip: open it once per symbol, then pick exactly ONE row whose text starts with the base as
+a whole word (`SOL`, `SOL/USD`, `SOLUSD`; never `SOLV…`). The list it opens is **UNMEASURED**, so rows are found by text: inside
+a `dialog`/`listbox`/`menu` when the page marks one, else among elements that APPEARED after the click (snapshot taken just
+before it), so the always-visible watchlist never competes. One typed search of the base is allowed if the list has a search box
+and no row. Two rows = `market_ambiguous`, none = `market_no_row`: nothing is clicked, the list is closed (Escape) and the
+watchlist route (regex now accepts the price) runs next. The app then verifies exactly as before — the submit label must name the
+base before anything is typed — and additionally refuses if the chip, when there is exactly one, names a different base.
+`symbolReset()` clears the picker state at the start of each ticket; `selectSymbol` allows 8 moves (was 6).
+
+`exec_check.js` fixtures H–K (dialog rows / unmarked rows with SOL first / chip opens nothing / two SOL rows) all start on ETH,
+end on SOL with the chip and the submit label agreeing, make exactly one selection click, and submit nothing. They prove
+mechanics on synthetic DOM, **not** Breakout's real list: the proof is one `phone-dry-test` for `SOLUSDT` on breakout_2 with
+the terminal on ETH, after the operator installs the APK built from this change; its refusal reason, if any, names the route.
 
 ## 8. Open questions for the operator / manager
 

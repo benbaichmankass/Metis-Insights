@@ -179,3 +179,10 @@ def test_harness_and_live_use_the_same_level_for_the_same_bars():
         bars=df.iloc[:j + 1], entry_time=df["timestamp"].iloc[entry_i],
         params={}, leg={"donchian": 20})
     assert math.isclose(live[0], harness)
+
+
+def test_harness_refuses_tp_revision_together_with_a_geom_b1_lever():
+    bt = _bt()
+    with pytest.raises(ValueError, match="cannot both be armed"):
+        bt.run_backtest(_series(), **_KW, tp_revision="donchian_measured_move",
+                        tp_geometry=bt._tpg.TPGeometrySpec(target_r=3.0))

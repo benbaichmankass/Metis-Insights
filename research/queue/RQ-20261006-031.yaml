@@ -1,6 +1,6 @@
 id: RQ-20261006-031
 title: 'Stage-0 backtest for a FASTER prop leg: fade harness on SLV 1h (PI-20261006-APBY4NTV-0001 slice 1)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -59,11 +59,20 @@ lands:
   store: research/results/
   assert_field: read_state
   min_rows: 1
-grading:
-  auto: true
 related:
 - PI-20261006-APBY4NTV-0001
 - docs/integrations/breakout-instruments-2026-09-27.md
 - RQ-20260929-107
 - research/templates/roster-walkforward.yaml
 last_dispatched_at: '2026-10-07T16:22:52+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-RQ1006-031-SLV-1h-FADE-STAGE0
+  evidence:
+  - research/results/RQ-20261006-031/37651573600.jsonl
+  - research/results/RQ-20261006-031/37660127876.jsonl
+  graded_at: '2026-10-07'
+  grader: scripts/research/queue_grade.py
+  reason: 2 row(s), all measured, all pass (2 earlier producer_failed / re-graded wiring_only row(s) superseded)
+  rows: 2
+  verdict: pass

@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261007-EP1GHUHC-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane RQ-INFRA (manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-07, PRs #16948 #16982",
+    "rerun": "gh pr list --state open --search 'head:automation/research-queue-stamp' --json number,mergeStateStatus  # gap closed when 0 stamp PRs are DIRTY and the latest stale-automation-sweep run is green"
+  },
+  "state": "queued",
+  "what": "Stranded automation PRs, follow-through after lane RQ-INFRA. ROOT CAUSE (MEASURED 2026-10-07): research-queue-dispatch calls commit-to-main twice per job, the stamp branch stacked on the receipt commit (#16900 commits 2, dirty, 0 check runs), so stamps never land. FIX IN FLIGHT, HELD FOR THE MANAGER: #16948 (commit-to-main replays onto main's tip) and #16982 (sweeper dates stamp PRs; conflicts warn). TO DO AFTER THEY MERGE: (1) observe the next dispatch run opens a stamp PR with commits=1 and CI runs; (2) the manager closes the superseded stamp PRs listed in the #16948 comment (#16656 #16810 #16823 #16838 #16850 #16900; NOT #16938 until RQ-20261006-032 has a main stamp or #16791 lands; #16790 #16883 #16927 stay open) plus #11912/#13133 after reading their strategy-review rows; (3) 9 automation PRs still grade undated_payload in the sweep (e35 corpus history #16654 #16779 #16798 #16874; grade/result #16124 #16657 #16792 #16826; #16790) and need a dating rule or a close decision. KNOWN WEAKNESS: the manager's 'newer result row' supersession clause is usually the dispatched run's own output; only #16656 is superseded on stamps alone."
+}

@@ -6,10 +6,11 @@ long-only vs both-sides, and walk-forward windows. Appends to the SAME
 /tmp/research/results.jsonl so the final ranker sees waves 1 and 2 together.
 """
 import json
-import subprocess
 import itertools
 import time
 from pathlib import Path
+
+from _fresh_run import run_fresh
 
 REPO = '/home/ubuntu/ict-trading-bot'
 PY = f'{REPO}/.venv/bin/python'
@@ -49,7 +50,7 @@ with open(RESULTS, 'a') as rf:
             cmd = [PY] + base + wargs + ['--json', str(jpath)]
             rec = {'family': family, 'market': market, 'tf': tf, 'params': label, 'window': win}
             try:
-                subprocess.run(cmd, cwd=REPO, capture_output=True, timeout=180)
+                run_fresh(cmd, jpath, cwd=REPO, timeout=180)
                 d = json.loads(jpath.read_text())
                 rec.update({'net_r': round(d.get('net_total_r', 0), 2),
                             'net_long': round(d.get('net_total_r_long', 0), 2),

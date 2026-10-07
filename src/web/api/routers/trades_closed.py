@@ -33,6 +33,7 @@ from fastapi import APIRouter, HTTPException, Query, Response
 
 from src.utils.paths import trade_journal_db_path
 from src.web.api._asset_class import asset_class_for_symbol
+from src.web.api._since import parse_since
 from src.web.api._clean_trades import (
     account_class_wire,
     exclude_superseded_predicate,
@@ -340,6 +341,12 @@ def get_closed_trades(
       * a genuinely empty result → **200** with ``[]``. That is the ONLY thing
         an empty list may mean.
 
+      * an unparseable ``since`` → **422** with ``filter_state: "unparsed"``
+        (a bare ``+00:00`` in a URL decodes to a space -- encode it ``%2B``).
+        Before this it matched nothing and returned ``[]``
+        (PI-20261005-MWOP8C4X-0003). A parsed/absent filter is reported in the
+        ``X-Filter-State`` header (``parsed`` | ``none``).
+
     Two response headers make truncation distinguishable from exhaustion —
     without them a full page and a complete answer render identically:
 
@@ -351,6 +358,9 @@ def get_closed_trades(
     metadata would break the only live consumer.
     """
     effective_include = include_paper or include_demo
+    # 422 (filter_state "unparsed") on a bad value -- never a bare [].
+    since, filter_state = parse_since(since)
+    response.headers["X-Filter-State"] = filter_state
     if not _DB_PATH.exists():
         # NOT an empty journal — we could not look at one. A caller that reads
         # this as "no closed trades" has been handed a false negative.
