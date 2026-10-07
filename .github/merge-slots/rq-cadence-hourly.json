@@ -1,0 +1,6 @@
+{
+  "held_by": "session_012KH4r5ZxKMvciL1dHH3Lcm",
+  "branch": "claude/rq-cadence-hourly",
+  "claimed_at": "2026-10-07T19:41:07Z",
+  "purpose": "RQ-CADENCE: split research-queue-dispatch dispatch/land so the group frees in minutes"
+}

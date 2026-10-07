@@ -68,6 +68,7 @@ import yaml
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pipeline  # noqa: E402
+import checklist  # noqa: E402
 
 STAGE1_ACCOUNTS = ("bybit_1", "alpaca_paper")
 GRADE_DIR = "comms/research/soak_book_grade"
@@ -346,7 +347,7 @@ def build(today: date, ref: str = "HEAD", grade_file: Optional[Path] = None) -> 
                           refs_for(s)))
 
     prs = pr_merge_dates(ref)
-    ck = json.load(open(REPO / CHECKLIST))
+    ck = checklist.load_path(REPO / CHECKLIST)
     for row in ck.get("items") or []:
         if row.get("state") != "landed_unproven":
             continue

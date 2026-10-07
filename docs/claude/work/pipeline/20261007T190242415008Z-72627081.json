@@ -1,0 +1,22 @@
+{
+  "due_when": {
+    "due_date": "2026-10-10",
+    "kind": "date"
+  },
+  "id": "PI-20261006-KX6ZKFNA-0002",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-10",
+    "how_to_check": "GET /api/bot/prop/tickets?account_id=breakout_2 (or the diag relay's prop_tickets read): a placed ticket whose meta.phone_trail.amend.status == 'amended' with sl_read equal to amend.sl; requires #16959 + #16980 merged, deployed and the APK installed",
+    "what": "the first live breakout_2 position receives one trail amend that is read back on the terminal"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "lane ACTIVE-GEOMETRY scan session_01WeYNGaK7Ao3hp4Kx6ZkFna (manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-06 ~08:20Z; child of PI-20261006-APBY4NTV-0003",
+    "rerun": "grep -rn 'run_trail_step\\|prop_trail' scripts/prop/ src/prop/phone_executor.py src/prop/breakout_ticket.py | grep -v test; scripts/ops/diag_fetch.sh services | grep -o 'ict-prop-executor@[a-z_0-9]*.timer[^}]*'"
+  },
+  "routed_to": "PROP-TRAIL-PHONE (checklist; PRs #16959 + #16980, held for the manager)",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "THE PROP TRAIL RUNS ONLY INSIDE THE DXTRADE BROWSER EXECUTOR TICK -- breakout_2 (going live via the operator PHONE, PHONE-EXEC-1B) and velotrade_1 (dxtrade_api REST; executor timer INACTIVE on the VM 2026-10-06, 0 legs) get NO mid-trade lever at all. MEASURED 2026-10-06: prop_trail.run_trail_step is called from exactly one place, scripts/prop/prop_executor_tick.py (after the dxtrade cycle); src/prop/phone_executor.py and breakout_ticket.py carry no trail/modify call -- the ticket channel only has a human-reported {kind: amend} ('moved stop/target') for the operator to journal a manual move. So breakout_2's ETH+SOL _prop legs (trail_mult 3.5, tp_r 6, eth: stale_exit_bars 12, trail_decay) will trade a static SL+TP bracket on real prop money while their Stage-0 record assumed a chandelier trail. Same class as PROP-TRAIL. FIX (build, after the reset): (1) phone path -- compute the trail plan server-side (plan_trail is already pure) and push a 'tighten SL to X' ticket to the phone channel, journaled via the existing amend report; (2) velotrade REST -- wire run_trail_step into the dxtrade_api tick before velotrade_1 gets a roster (dxtrade_api.modify_bracket exists). Until then, state in the breakout_2 go-live note that the live exit is static-bracket-only.\n\nUPDATE 2026-10-06 ~09:15Z (same lane): the velotrade_1 half is OVERTAKEN by #16705 (merged after this row was written): config/accounts.yaml on main now has velotrade_1 mode=live with the ETH+SOL _prop roster, and scripts/prop/prop_executor_tick.py::run_api_tick runs the SAME run_cycle_and_trail (cycle + prop_trail.run_trail_step, page=None) as the browser tick, so the REST path DOES get the SL trail now. Whether the VM's ict-prop-executor@velotrade_1 timer is active post-deploy is not re-read here. The breakout_2 PHONE half of this row stands unchanged: no trail/modify call in phone_executor.py or breakout_ticket.py.\n\nUPDATE 2026-10-07 (lane PROP-TRAIL-PHONE, session_01YT5VE5mnD6LfbHaVMK2Q5Y): BUILT, held for the manager. #16959 (server: src/prop/phone_trail.py plans with prop_trail.plan_trail once per closed bar and serves ONE amend per ticket through the claim channel, only to an app declaring accepts:[amend]; request_tp_amend for TP-DOCTRINE) and #16980 (phone: executeAmend on the terminal's position edit dialog, read back before and after the save, fail closed). Close when the first live breakout_2 position receives one amend READ BACK on the terminal (prop_tickets.meta.phone_trail.amend.status == 'amended', server-verified). Related gap filed: PI-20261007-AVMK2Q5Y-0001."
+}

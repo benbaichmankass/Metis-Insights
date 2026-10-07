@@ -138,6 +138,10 @@ class PropPlatformAdapter:
     """One terminal. ``page`` is a Playwright ``Page`` (sync API)."""
 
     platform: str = ""
+    #: Can ``modify_bracket(page, p, None, tp)`` move a resting TP? (TP
+    #: doctrine B1, read by ``prop_trail._tp_step`` and tp-doctrine-guard.)
+    #: False unless an adapter has a measured TP-amend verb.
+    TP_AMEND_SUPPORTED = False
 
     # ── slice 1: read path ──────────────────────────────────────────────
     def login(self, page: Any, login_url: str, username: str, password: str) -> None:

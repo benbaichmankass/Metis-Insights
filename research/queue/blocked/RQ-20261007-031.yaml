@@ -1,0 +1,88 @@
+id: RQ-20261007-031
+title: VELOTRADE-FIT re-run on the MEASURED velotrade_1 cost stack (commission + swap read off live fills) once >= 2 closed
+  round trips exist (PI-20261006-1BPXEUJR-0001)
+status: blocked
+cadence: once
+theme: new_strategy_prop
+priority: 2
+kind: experiment
+question: 'RQ-20261006-062 (RULE-RQ1006-VELOTRADE-FIT; basis n=487 committed trades, ETH 355 + SOL 132, 45 sim cells) rests
+  on a desk-research cost stack: 6 bps roundtrip commission, 3 bps slippage, 0.05%/night swap, plus the UNCONFIRMED velotrade_classic_1step.yaml
+  terms. Once velotrade_1 carries a roster and has >= 2 closed live round trips, does the realised commission + swap per fill
+  differ from the assumed stack by > 2 bps roundtrip or > 0.01% of notional per night, and if so does the GO_LIVE / NULL verdict
+  change when the sweep is re-run on the measured stack?'
+why_this_matters: The velotrade risk_pct move to 1% (claude/velotrade-risk-1pct) was taken on the assumed stack. If the realised
+  stack is worse, the daily-loss clause (B) and the EV clause (R) can flip; the first live fills are the only source of that
+  number.
+power:
+  expected_n: 487
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: 'The re-run prices the same 487 committed trades (ETH 355 + SOL 132, the 2026-10-05-730d records) under a corrected
+    cost stack, so the sim''s n is unchanged and clears the ~88 floor for d=0.3. The COST read itself is a different population:
+    all closed velotrade_1 fills in the first 14 live days, floor n >= 2 round trips (the pipeline row''s own floor) -- a
+    measurement floor, not a power floor; below it the unit stays blocked.'
+  feasibility:
+    source: none
+    accrual_basis: velotrade_1 has no roster and no closed live fills as of 2026-10-07 (the row's own precondition); the cost
+      read accrues at the live trade rate once a roster is applied. The sim population (487 committed trades) is already on
+      disk.
+decision_rule:
+  id: RULE-RQ1007-VELOTRADE-REFIT-MEASURED-COSTS
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: (1) Realised commission bps roundtrip and realised swap %/night per closed velotrade_1 round trip, read off the
+    journal rows via the diag relay, population = ALL closed velotrade_1 fills in the first 14 live days (n >= 2 round trips).
+    (2) The four RULE-RQ1006-VELOTRADE-FIT clauses (R, B, D, G) from a re-run of scripts/research/velotrade_fit_sweep.py over
+    the same two 730d trade records, with the script's cost constants set to the measured values.
+  rule: 'NO-REFIT IF |measured commission - 6 bps| <= 2 bps roundtrip AND |measured swap - 0.05%| <= 0.01%/night: the 062
+    verdict stands on its assumed stack; record the measured numbers on the row and close it. REFIT otherwise: re-run the
+    sweep on the measured stack; the recommendation block (roster, risk_pct, GO_LIVE/NULL per cell) is compared to comms/research/RQ-20261006-062/fit.json.
+    UNCHANGED verdict -> close the row with the measured stack recorded. CHANGED verdict (any cell moves GO_LIVE <-> NULL/FAIL,
+    or the binding clause changes) -> a Tier-3 proposal to re-set velotrade_1''s risk_pct/roster from the refit, NOT applied
+    by this unit, and a realtime report to the operator. KILLED IF the roster is never applied (the row''s own terminal clause).
+    Thresholds (2 bps, 0.01%/night, n >= 2) are the pipeline row''s and are not changed after seeing any fill.'
+  what_it_does_not_do: Does not place a roster on velotrade_1, does not edit config/accounts.yaml, and does not read a single
+    fill as a cost measurement (n >= 2 round trips, else keep accruing).
+blocked_on:
+- what: 'velotrade_1 has NO roster and NO closed live round trips (config/accounts.yaml, 2026-10-07): the measured cost stack
+    this unit needs does not exist yet. The roster is a manager Tier-3 call recorded on the pipeline row.'
+  ref: PI-20261006-1BPXEUJR-0001
+  clears_when: velotrade_1 carries a roster and the diag relay shows >= 2 closed velotrade_1 round trips within the first
+    14 live days.
+- what: scripts/research/velotrade_fit_sweep.py reads its cost stack from in-script constants (COSTS) and exposes no --commission-bps
+    / --slippage-bps / --swap-pct-night arguments, so a re-run on the measured stack is a code edit, not a dispatch; the pipeline
+    row's own rerun says 'edit COSTS to the measured stack first'. Until the script takes the stack as arguments, this unit
+    runs session-local by the lane that owns the edit.
+  ref: PI-20261006-1BPXEUJR-0001
+  clears_when: velotrade_fit_sweep.py accepts the cost stack as CLI arguments (Tier-1 research tooling change), at which point
+    run.workflow becomes research-script-run.yml with the measured values in run.command.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 60
+  basis: Same shape as RQ-20261006-062 (45 cells x 5 seeds of prop_ev_sim); 062's wall time was not recorded; 60 min is an
+    ESTIMATE from the cell count.
+run:
+  workflow: session-local
+  note: 'Prepared command once unblocked (measured values substituted into the script''s COSTS first, per the row''s rerun):
+    python3 scripts/research/velotrade_fit_sweep.py --unit RQ-20261007-031 --legs trend_donchian_eth_prop=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl
+    trend_donchian_sol_prop=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop__trades.jsonl --risks 0.01
+    --seeds 1 2 3 4 5 --jobs 4 --out comms/research/RQ-20261007-031 --emit-result ; diff the recommendation block against
+    comms/research/RQ-20261006-062/fit.json.'
+  inputs:
+    research_unit: RQ-20261007-031
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- PI-20261006-1BPXEUJR-0001
+- RQ-20261006-062
+- comms/research/RQ-20261006-062/fit.json
+- claude/velotrade-risk-1pct
+- config/prop_rulesets/velotrade_classic_1step.yaml

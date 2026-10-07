@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261007-OF8H8P28-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane DXTRADE-REST-PILOT 2026-10-07, dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv; docs/research/prop-dxtrade-firms-2026-09-30.md section 7",
+    "rerun": "git show origin/main:scripts/prop/velotrade_api_probe.py | grep -n 'BASE =\\|VELOTRADE_DX_'; grep -n 'tradeify' scripts/ops/velotrade_api_probe_action.sh scripts/prop/velotrade_api_probe.py (no hit = still blocked); once an account-parametrised probe exists, dispatch it for tradeify_1 and record login/account/instruments."
+  },
+  "routed_to": "checklist row DXTRADE-REST-PILOT (lane, ceiling $15)",
+  "state": "routed",
+  "what": "DXTRADE-REST-PILOT: does the DXtrade REST adapter (velotrade_1's dxtrade_api) log in and read the Tradeify 247 pilot account? NOT MEASURED: no allowlisted action can run it against Tradeify. velotrade-api-probe hardcodes dx.velotrade.com/dxsca-web and VELOTRADE_DX_* (scripts/prop/velotrade_api_probe.py BASE + env names); breakout-login-check refuses a dxtrade_api platform; egress-landing-probe is GET-only/no-credential. Landing page 200 and /specs 409 DXtrade JSON (2026-09-30, PR #16967) do not show /dxsca-web exists or accepts the pilot login. TRADEIFY_DX_* are declared in config/prop_platforms.yaml and sync-vm-secrets.yml; whether the VM .env holds them was not read. Proposal (memo section 7.2): add --account choice (velotrade_1|tradeify_1) to the probe + action + system-actions.yml input (Tier-1 code, Tier-2 dispatch). Migration of tradeify_1 to dxtrade_api is a HELD Tier-2/3 proposal (memo 7.3)."
+}
