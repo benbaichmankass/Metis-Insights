@@ -228,27 +228,41 @@ async def _json_body(request: Request) -> dict[str, Any]:
     return body
 
 
+def _accepts(raw: Any) -> tuple:
+    """The app's declared capabilities (``["amend"]``); anything else is ignored."""
+    items = raw if isinstance(raw, list) else str(raw or "").split(",")
+    return tuple(sorted({str(x).strip().lower() for x in items} & {"amend"}))
+
+
 @router.post("/phone/claim")
-async def phone_claim(authorization: str | None = Header(default=None)) -> dict[str, Any]:
-    """Atomically claim the next valid ticket for the device's account (or none)."""
+async def phone_claim(request: Request,
+                      authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """Atomically claim the next valid ticket for the device's account (or none). An app that
+    posts ``{"accepts": ["amend"]}`` may also receive a trail amend (PROP-TRAIL-PHONE)."""
     from src.prop import phone_executor as pe
     dev = _phone_device(authorization)
+    try:
+        body = await request.json()
+    except (ValueError, TypeError):
+        body = {}
+    accepts = _accepts(body.get("accepts") if isinstance(body, dict) else None)
     expired = await asyncio.to_thread(pe.expire_stale_claims, dev.account_id)
     if expired:
         await asyncio.to_thread(pe.alert_expired, dev.account_id, expired)
-    ticket = await asyncio.to_thread(pe.claim_next, dev)
+    ticket = await asyncio.to_thread(pe.claim_next, dev, None, accepts)
     return {"ok": True, "account_id": dev.account_id, "ticket": ticket,
             "kill_switch": pe.kill_switch(dev.account_id),
             "config": pe.phone_config(dev.account_id)}
 
 
 @router.get("/phone/pending")
-async def phone_pending(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+async def phone_pending(accepts: str = "",
+                        authorization: str | None = Header(default=None)) -> dict[str, Any]:
     """READ-ONLY: how many tickets are waiting for the device's account. Claims nothing; the backgrounded app
     polls this and brings itself to the front before it claims (PI-20261006-APBY4NTV-0006)."""
     from src.prop import phone_executor as pe
     dev = _phone_device(authorization)
-    return {"ok": True, "pending": await asyncio.to_thread(pe.pending_count, dev)}
+    return {"ok": True, "pending": await asyncio.to_thread(pe.pending_count, dev, None, _accepts(accepts))}
 
 
 @router.post("/phone/report")

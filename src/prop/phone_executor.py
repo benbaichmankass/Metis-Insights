@@ -207,9 +207,15 @@ def expire_stale_claims(account_id: str, now: Optional[datetime] = None) -> list
     return out
 
 
-def claim_next(device: PhoneDevice, now: Optional[datetime] = None) -> Optional[Dict[str, Any]]:
+def claim_next(device: PhoneDevice, now: Optional[datetime] = None,
+               accepts: tuple = ()) -> Optional[Dict[str, Any]]:
     """Atomically claim the oldest still-valid emitted ticket for the device's
-    account. ``None`` when there is nothing to do."""
+    account. ``None`` when there is nothing to do.
+
+    Entry tickets first (time-critical). Then, only for an app that declares
+    ``"amend"`` in ``accepts`` (PROP-TRAIL-PHONE), the trail is planned and one
+    amend is claimed (``kind: "amend"``; :mod:`src.prop.phone_trail`). An older
+    app never receives an amend it would misread as an entry."""
     now = now or _now()
     acct = device.account_id
     if kill_switch(acct) == "off":
@@ -242,9 +248,13 @@ def claim_next(device: PhoneDevice, now: Optional[datetime] = None) -> Optional[
             t["venue_symbol"] = venue_symbol(acct, t.get("symbol"))
             t["claimed_at"] = now.isoformat()
             return t
-        return None
     finally:
         conn.close()
+    if "amend" not in accepts:
+        return None
+    from src.prop import phone_trail
+    phone_trail.plan_amends(acct, now=now)
+    return phone_trail.claim_amend(device, now=now)
 
 
 def venue_symbol(account_id: str, symbol: Any) -> Optional[str]:
@@ -272,9 +282,16 @@ def record_report(device: PhoneDevice, body: Dict[str, Any]) -> Dict[str, Any]:
             "form": json.loads(dump_capped(form, 20000)),
             "at": _now().isoformat()})
         return {"ok": n == 1, "kind": "ticket_result", "updated": n}
+    if body.get("kind") == "amend_result":
+        from src.prop import phone_trail
+        return phone_trail.record_amend_result(device, body)
     from src.prop.prop_report import ingest_report
     res = ingest_report(body)
     tid = body.get("ticket_id")
+    if tid and str(body.get("kind") or "") == "amend":
+        # The human {kind: amend} path ("moved stop/target"): the phone trail's resting levels follow it.
+        from src.prop import phone_trail
+        phone_trail.note_human_amend(device.account_id, str(tid), body.get("sl"), body.get("tp"))
     if tid and str(body.get("status") or "") in ("placed", "open", "filled"):
         prop_journal.set_ticket_status(str(tid), "placed", account_id=device.account_id)
     return res
@@ -316,10 +333,12 @@ def _unserved_dry_test_request(account_id: str) -> Optional[str]:
     return None if seen else req
 
 
-def pending_count(device: PhoneDevice, now: Optional[datetime] = None) -> int:
-    """READ-ONLY peek for the backgrounded app (PI-20261006-APBY4NTV-0006): how many tickets the next claim
-    would find (still-valid ``emitted`` tickets, plus one for an unserved ``dry_test_request``). Claims nothing,
-    writes nothing; 0 when the kill switch is off, matching ``claim_next``."""
+def pending_count(device: PhoneDevice, now: Optional[datetime] = None, accepts: tuple = ()) -> int:
+    """Peek for the backgrounded app (PI-20261006-APBY4NTV-0006): how many tickets the next claim
+    would find (still-valid ``emitted`` tickets, plus one for an unserved ``dry_test_request``). Claims nothing;
+    0 when the kill switch is off, matching ``claim_next``. With ``"amend"`` in ``accepts`` it also runs the
+    trail planner (which may PUBLISH an amend on the parent ticket, so a backgrounded app wakes for it) and
+    counts the emitted amends; it still claims nothing."""
     now = now or _now()
     acct = device.account_id
     if kill_switch(acct) == "off":
@@ -332,6 +351,10 @@ def pending_count(device: PhoneDevice, now: Optional[datetime] = None) -> int:
     finally:
         conn.close()
     n = sum(1 for r in rows if (vu := _parse(r["valid_until"])) is not None and vu > now)
+    if "amend" in accepts:
+        from src.prop import phone_trail
+        phone_trail.plan_amends(acct, now=now)
+        n += phone_trail.pending_amends(acct, now=now)
     return n + (1 if _unserved_dry_test_request(acct) else 0)
 
 
