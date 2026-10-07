@@ -517,7 +517,7 @@ def sync_pipeline(b: Dict[str, Any], store: Path) -> List[str]:
                       terminal_reason=f"soak ended {date.today().isoformat()}: {subj} is no longer on a "
                                       f"Stage-1 roster / no longer execution: shadow (soak_report.py sync)")
         closed.pop("routed_to", None)
-        pipeline.append(closed, store, intent="update")
+        pipeline.append(closed, store, intent="update", based_on=res.sources[it["id"]])
         wrote.append(f"{it['id']} (closed)")
     return wrote
 

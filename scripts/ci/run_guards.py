@@ -311,6 +311,16 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # PI-20261005-4GA8WQPA-0002 (the lapse wave): a pipeline item whose
+        # next-due date moves LATER with its state unchanged must carry a
+        # `redate` block holding a NEW observation. Diff-scoped.
+        "name": "redate-guard",
+        "when": {"globs": ["docs/claude/work/pipeline/**", "scripts/ci/check_redate.py",
+                            "scripts/ops/pipeline.py"]},
+        "steps": [["python3", "scripts/ci/check_redate.py", "--self-test"],
+                  ["python3", "scripts/ci/check_redate.py", "--base", "origin/main"]],
+    },
+    {
         # SALVAGED FROM THREE REMOVED GOVERNANCE ENTRIES, 2026-09-21.
         #
         # `artifact-validity-guard`, `recurrence-ledger-guard` and

@@ -518,7 +518,16 @@ def _record_filename(now: datetime | None = None) -> str:
     return f"{now.strftime('%Y%m%dT%H%M%S%f')}Z-{uuid.uuid4().hex[:8]}{RECORD_SUFFIX}"
 
 
-def append(item: dict, store: Path = STORE, *, intent: str) -> dict:
+def version_of(item_id: str, store: Path = STORE) -> str | None:
+    """The VERSION TOKEN of an item's current state: the filename (or
+    `"line N"` for a legacy flat file) holding its LATEST record, or None if the
+    id does not exist. A writer that READS an item and later UPDATES it passes
+    this token back as `append(..., based_on=token)`; see `append()`."""
+    return read_log(store).sources.get(item_id)
+
+
+def append(item: dict, store: Path = STORE, *, intent: str,
+           based_on: str | None = None) -> dict:
     """Validate, then write one NEW record file. Never rewrites history.
 
     `intent` is REQUIRED -- there is deliberately no default, because the
@@ -531,6 +540,18 @@ def append(item: dict, store: Path = STORE, *, intent: str) -> dict:
                   like a state change of it (`_identity_mismatches`). A
                   mismatch is refused by name rather than silently folded
                   over the record it would have displaced.
+
+    ⚠️ STALE-SNAPSHOT GUARD (PI-20261004-4GA8WQPA-0002). An "update" must also
+    say WHICH VERSION it read: `based_on` is the token `version_of(id)`
+    returned when the writer read the item, and the write is refused unless
+    that is STILL the item's latest record. `_identity_mismatches` cannot see
+    this: a writer holding an old read passes the identity check and silently
+    reverts a newer update (MEASURED 2026-10-04: PR #16505 restored routing
+    text that had been replaced 25 minutes earlier on 10 items). `based_on` is
+    REQUIRED for "update" -- like `intent`, no default, because having to name
+    the version read is the fix -- and is stored on the record. It guards a
+    writer's own read-to-write window; it cannot see a conflicting record that
+    arrives later through a merge of two branches (`--check` reports those).
 
     Neither path re-derives what "plausibly a state change" means locally --
     that definition lives once, in `_identity_mismatches`, so this function
@@ -565,6 +586,19 @@ def append(item: dict, store: Path = STORE, *, intent: str) -> dict:
                 f"exists to update -- call append(..., intent='new') to file "
                 f"it for the first time."
             )
+        current = read_log(store).sources.get(item["id"])
+        if based_on is None:
+            raise PipelineError(
+                f"id {item['id']!r}: intent='update' requires based_on= the "
+                f"version you READ (pipeline.version_of({item['id']!r}) -> "
+                f"{current!r} right now). Without it a stale read can silently "
+                f"revert a newer update (PI-20261004-4GA8WQPA-0002).")
+        if based_on != current:
+            raise PipelineError(
+                f"id {item['id']!r}: STALE SNAPSHOT -- you read {based_on!r} but "
+                f"the latest record is {current!r}. Re-read the item, re-apply "
+                f"your change on top of the CURRENT state, and retry.")
+        item = dict(item, based_on=based_on)
         mismatches = _identity_mismatches(prior, item)
         if mismatches:
             raise PipelineError(
@@ -754,6 +788,116 @@ def is_due(item: dict, today: date | None = None, soak_states: dict | None = Non
         return _parse_date(last, "due_when.last_checked") + timedelta(days=every) <= today
     except PipelineError:
         return True
+
+
+def next_due_date(item: dict) -> date | None:
+    """The date `is_due` will next flip True for an OPEN, non-soak item, or
+    None when it is not a clock item (terminal, soak-bound, event kind with no
+    cadence) or is already/always due (no usable cadence -> `date.min`).
+
+    The same three clocks `is_due` reads, folded to one date: the EARLIEST of
+    `observation.due_by`, `due_when.due_date` (kind date), and
+    `last_checked + check_every_days`. Kept next to `is_due` and pinned to it
+    by the self-test so the two cannot fork the definition of "due"."""
+    if item.get("state") in TERMINAL_STATES:
+        return None
+    dw = item.get("due_when") or {}
+    if (dw.get("soak") or {}).get("subject"):
+        return None
+    cands: list[date] = []
+    obs = item.get("observation")
+    if isinstance(obs, dict) and obs.get("due_by"):
+        try:
+            cands.append(_parse_date(str(obs["due_by"])[:10], "observation.due_by"))
+        except PipelineError:
+            return date.min
+    if dw.get("kind") == "date":
+        try:
+            cands.append(_parse_date(dw.get("due_date"), "due_when.due_date"))
+        except PipelineError:
+            return date.min
+    else:
+        every, last = dw.get("check_every_days"), dw.get("last_checked")
+        if not isinstance(every, int) or every < 1 or not isinstance(last, str) or not last.strip():
+            return date.min
+        try:
+            cands.append(_parse_date(last, "due_when.last_checked") + timedelta(days=every))
+        except PipelineError:
+            return date.min
+    return min(cands) if cands else None
+
+
+REDATE_MIN_OBSERVATION_CHARS = 40
+
+
+def redate_problems(prior: dict, new: dict) -> list[str]:
+    """Why `new` is a RE-DATE that carries no new observation (PI-20261005-
+    4GA8WQPA-0002, the lapse wave). A re-date is a record for an OPEN item whose
+    state did not change and whose next-due date moved LATER. Moving a date is
+    free and looks like work; the BACKLOG-BURNDOWN-2 lane took 358 due items to
+    19 that way and left 553 open, all lapsing together again. So the record
+    must carry `redate: {observed_at, observation}` -- what the writer actually
+    READ this time -- and that observation must differ from the previous one.
+    Empty list = not a re-date, or an admissible one."""
+    if new.get("state") != prior.get("state") or new.get("state") in TERMINAL_STATES:
+        return []  # a disposition (routed/killed/done) is not a re-date
+    a, b = next_due_date(prior), next_due_date(new)
+    if a is None or b is None or b <= a:
+        return []
+    rd = new.get("redate")
+    if not isinstance(rd, dict):
+        return [f"next-due moved {a} -> {b} with no `redate` block: a new date is not "
+                f"an observation. Re-run origin.rerun, then record what it showed "
+                f"(`pipeline.py --redate ID --observation TEXT --next-due DATE`), "
+                f"or close/kill the item with a terminal_reason."]
+    out: list[str] = []
+    obs = str(rd.get("observation") or "").strip()
+    if len(obs) < REDATE_MIN_OBSERVATION_CHARS:
+        out.append(f"`redate.observation` must say what was read "
+                   f"(>= {REDATE_MIN_OBSERVATION_CHARS} chars), got {len(obs)}")
+    prev = str(((prior.get("redate") or {}).get("observation")) or "").strip()
+    if obs and obs == prev:
+        out.append("`redate.observation` repeats the previous record's text verbatim -- "
+                   "that is a new date, not a new observation")
+    try:
+        _parse_date(str(rd.get("observed_at") or "")[:10], "redate.observed_at")
+    except PipelineError as exc:
+        out.append(str(exc))
+    return out
+
+
+def redate(item_id: str, *, observation: str, next_due: date, store: Path = STORE,
+           today: date | None = None, evidence: str | None = None) -> dict:
+    """Push an item's next-due date out BECAUSE you re-read it: sets the cadence,
+    `due_when.due_date` (kind date) and `observation.due_by` TOGETHER (changing
+    only one is the PI-20261005-WFBREDQP-0001 trap: `is_due` honours `due_by`
+    regardless of cadence), stamps the `redate` block `redate_problems` demands,
+    and writes through `append()` with the version it read."""
+    today = _today(today)
+    res = read_log(store)
+    prior = res.items.get(item_id)
+    if prior is None:
+        raise PipelineError(f"{item_id!r}: no such item")
+    if prior.get("state") in TERMINAL_STATES:
+        raise PipelineError(f"{item_id!r} is {prior.get('state')}; nothing to re-date")
+    if next_due <= today:
+        raise PipelineError(f"next_due {next_due} is not after today {today}")
+    rec = json.loads(json.dumps(prior))
+    rec.pop("based_on", None)
+    dw = rec.setdefault("due_when", {})
+    if dw.get("kind") == "date":
+        dw["due_date"] = next_due.isoformat()
+    else:
+        dw["last_checked"] = today.isoformat()
+        dw["check_every_days"] = (next_due - today).days
+    if isinstance(rec.get("observation"), dict):
+        rec["observation"]["due_by"] = next_due.isoformat()
+    rec["redate"] = {"observed_at": today.isoformat(), "observation": observation.strip(),
+                     **({"evidence": evidence} if evidence else {})}
+    problems = redate_problems(prior, rec)
+    if problems:
+        raise PipelineError("; ".join(problems))
+    return append(rec, store, intent="update", based_on=res.sources[item_id])
 
 
 def due_bucket(item: dict, today: date | None = None) -> str | None:
@@ -1115,11 +1259,48 @@ def _selftest() -> int:
     check("…and a routed item is still DUE (its owner is being tracked)",
           {i["id"] for i in due(pool, t)} == {"A", "B"})
 
+    print("— re-date must carry a new observation (lapse wave) —")
+    with tempfile.TemporaryDirectory() as td:
+        rs = Path(td) / "p"
+        t0 = date(2026, 10, 7)
+        append(base(id="R", due_when={"kind": "observation", "clears_when": "x",
+                                      "check_every_days": 7, "last_checked": "2026-10-01"}),
+               rs, intent="new")
+        prior = read_log(rs).items["R"]
+        check("next_due_date folds cadence (last_checked + every)", next_due_date(prior) == date(2026, 10, 8))
+        moved = json.loads(json.dumps(prior))
+        moved["due_when"]["last_checked"] = "2026-10-07"
+        check("a bare re-date (new date, no observation) is refused",
+              bool(redate_problems(prior, moved)))
+        try:
+            redate("R", observation="too short", next_due=date(2026, 10, 20), store=rs, today=t0)
+        except PipelineError:
+            check("redate() refuses a one-word observation", True)
+        else:
+            check("redate() refuses a one-word observation", False)
+        out = redate("R", observation="re-ran origin.rerun: 3 of 5 rows still reproduce; cause unchanged",
+                     next_due=date(2026, 10, 20), store=rs, today=t0)
+        check("redate() with a real observation lands and moves next-due",
+              next_due_date(out) == date(2026, 10, 20) and read_log(rs).items["R"]["redate"]["observed_at"] == "2026-10-07")
+        again = json.loads(json.dumps(read_log(rs).items["R"]))
+        again["due_when"]["last_checked"] = "2026-10-20"; again["due_when"]["check_every_days"] = 30
+        check("repeating the previous observation verbatim is refused",
+              any("repeats" in p for p in redate_problems(read_log(rs).items["R"], again)))
+        shut = json.loads(json.dumps(prior)); shut.update(state="killed", terminal_reason="r")
+        check("closing is not a re-date (needs no observation)", redate_problems(prior, shut) == [])
+        append(base(id="O", observation={"what": "w", "how_to_check": "h", "due_by": "2026-10-08"},
+                    due_when={"kind": "observation", "clears_when": "x", "check_every_days": 7,
+                              "last_checked": "2026-10-01"}), rs, intent="new")
+        o = redate("O", observation="re-read the 05:30Z report: produced, no regression since", next_due=date(2026, 10, 25), store=rs, today=t0)
+        check("redate() moves observation.due_by with the cadence (WFBREDQP-0001 trap)",
+              o["observation"]["due_by"] == "2026-10-25" and not is_due(o, date(2026, 10, 24)))
+
     print("— one file per record, and the unreadable record —")
     with tempfile.TemporaryDirectory() as td:
         store = Path(td) / "pipeline"
         append(base(id="X"), store, intent="new")
-        append(base(id="X", state="routed", routed_to="A7"), store, intent="update")
+        append(base(id="X", state="routed", routed_to="A7"), store, intent="update",
+               based_on=version_of("X", store))
         append(base(id="Y"), store, intent="new")
         res = read_log(store)
         check("two records for one id fold to the LAST (append-only state)",
@@ -1226,7 +1407,7 @@ def _selftest() -> int:
             append(base(id="COLL", what="a totally unrelated finding",
                         origin={"kind": "audit", "ref": "#999",
                                 "rerun": "python3 other.py"}),
-                   store, intent="update")
+                   store, intent="update", based_on=version_of("COLL", store))
         except PipelineError as exc:
             check("intent='update' refuses a record whose identity "
                   "(what/origin) does not match the one it claims to update",
@@ -1246,7 +1427,28 @@ def _selftest() -> int:
         # the negative control that proves the checks above are measuring
         # the identity mismatch and not intent='update' itself.
         append(base(id="COLL", state="routed", routed_to="A7"), store,
-               intent="update")
+               intent="update", based_on=version_of("COLL", store))
+        # STALE-SNAPSHOT GUARD (PI-20261004-4GA8WQPA-0002): a writer holding the
+        # version it read BEFORE that update is refused; one that omits it too.
+        sstore = Path(td) / "stale"
+        append(base(id="COLL"), sstore, intent="new")
+        read_v = version_of("COLL", sstore)
+        append(base(id="COLL", state="killed", terminal_reason="superseded"),
+               sstore, intent="update", based_on=read_v)
+        for label, kw, needle in (
+                ("an update based on a SUPERSEDED version is refused", {"based_on": "00000000T000000000000Z-deadbeef.json"}, "STALE SNAPSHOT"),
+                ("an update with NO based_on is refused", {}, "requires based_on")):
+            try:
+                append(base(id="COLL", state="routed", routed_to="A9"), sstore,
+                       intent="update", **kw)
+            except PipelineError as exc:
+                check(label, needle in str(exc))
+            else:
+                check(label, False)
+        check("…and the stale write never landed (state still killed)",
+              read_log(sstore).items["COLL"]["state"] == "killed")
+        check("an accepted update records the version it was based on",
+              read_log(sstore).items["COLL"].get("based_on") == read_v)
         check("…but intent='update' WITH matching identity is accepted "
               "(negative control)",
               read_log(store).items["COLL"]["state"] == "routed")
@@ -1280,7 +1482,7 @@ def _selftest() -> int:
         clean = Path(td) / "clean"
         append(base(id="Y"), clean, intent="new")
         append(base(id="Y", state="routed", routed_to="A7"), clean,
-               intent="update")
+               intent="update", based_on=version_of("Y", clean))
         check("…and a genuine state-change pair raises NO collision "
               "(negative control)",
               read_log(clean).collisions == [])
@@ -1462,6 +1664,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--all", action="store_true",
                     help="with --due: render every due item (no cap, no truncation)")
     ap.add_argument("--stats", action="store_true")
+    ap.add_argument("--version-of", metavar="ID",
+                    help="print the version token of ID's latest record (the "
+                         "value append(..., based_on=) needs) and exit")
+    ap.add_argument("--redate", metavar="ID",
+                    help="re-date ID: needs --observation and --next-due (see redate())")
+    ap.add_argument("--observation", help="with --redate: what you READ this time")
+    ap.add_argument("--next-due", help="with --redate: YYYY-MM-DD")
+    ap.add_argument("--evidence", help="with --redate: command/ref the observation came from")
     ap.add_argument("--mint-id", metavar="SESSION_REF",
                     help="print a fresh, session-scoped id and exit -- see "
                          "mint_id()'s docstring for why it is scoped this way")
@@ -1471,6 +1681,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.self_test:
         return _selftest()
     store = Path(args.store)
+    if args.redate:
+        if not (args.observation and args.next_due):
+            ap.error("--redate needs --observation and --next-due")
+        try:
+            rec = redate(args.redate, observation=args.observation,
+                         next_due=_parse_date(args.next_due, "--next-due"),
+                         store=store, evidence=args.evidence)
+        except PipelineError as exc:
+            print(f"pipeline: refused -- {exc}")
+            return 1
+        print(f"pipeline: re-dated {rec['id']} -> next due {next_due_date(rec)}")
+        return 0
+    if args.version_of:
+        v = version_of(args.version_of, store)
+        print(v if v else "")
+        return 0 if v else 1
     if args.mint_id:
         print(mint_id(args.mint_id, store=store))
         return 0
