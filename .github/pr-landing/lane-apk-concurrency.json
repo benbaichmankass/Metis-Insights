@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane SOL-PICKER (dispatched by Manager Session 2026-10-01, session_01MM8o5js6TcDFeNAPBY4Ntv): lane PRs are merged by the manager. This one unblocks the post-merge APK for #16944, which the operator must install before the SOL dry test.",
+  "why": "CI-only: phone-executor-apk.yml concurrency group per ref (the single global group let every branch push cancel the pending main build: runs 37669999484 and 37671256306 cancelled) and a 10-minute timeout on the page-side check step (run 37667283602 hung 29 min in playwright install). No app code, no runtime, no order path."
+}

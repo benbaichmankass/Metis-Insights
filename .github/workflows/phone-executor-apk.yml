@@ -24,8 +24,14 @@ on:
 permissions:
   contents: read
 
+# One group PER REF (fix 2026-10-07, lane SOL-PICKER). The single global group starved main: GitHub keeps only ONE pending
+# run per group, so every push to another tools/phone-executor branch cancelled the pending main build (MEASURED: main runs
+# 37669999484 and 37671256306 both cancelled within 10 min by branch pushes, leaving no APK for #16944). The group existed
+# to stop two FIRST runs racing to create the keystore. The key is already stored (INFERRED: the signing step takes 0 s on
+# recent runs, e.g. 37456715339, i.e. the reuse branch, not keytool + gh secret set), so that race returns only if the
+# secrets are deleted; then let one run finish before pushing another.
 concurrency:
-  group: phone-executor-apk-signing
+  group: phone-executor-apk-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -82,6 +88,9 @@ jobs:
         working-directory: tools/phone-executor
         run: gradle assembleRelease --no-daemon --stacktrace
       - name: Page-side check (headless Chromium, synthetic ticket)
+        # 2026-10-07: run 37667283602 hung 29 min inside `playwright install --with-deps` (the orphan killed at the job
+        # timeout); fail fast instead of holding the runner. The whole step normally takes ~1 min.
+        timeout-minutes: 10
         run: |
           mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
           npm init -y >/dev/null && npm i playwright@1.49.1 >/dev/null
