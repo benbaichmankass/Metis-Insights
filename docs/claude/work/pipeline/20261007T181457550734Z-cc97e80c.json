@@ -4,7 +4,7 @@
     "due_date": "2026-10-08"
   },
   "id": "PI-20261006-APBY4NTV-0009",
-  "next_action": "none",
+  "next_action": "dispatch_lane",
   "origin": {
     "kind": "session",
     "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv, operator 2026-10-06 ~12:30Z",
