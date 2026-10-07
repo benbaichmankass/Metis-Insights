@@ -51,7 +51,7 @@ routing:
   needs_gpu: false
   peak_memory_gb: 1.5
   est_minutes: 15
-  basis: Two trend harness runs over ~6,570 4h bars each with 4 folds; the 730d pair took under 10 minutes in lane PROP-ROSTER-EXPAND.
+  basis: Two trend harness runs over ~6,570 4h bars each with 4 folds; ESTIMATED from bar count; the 730d pair's wall time in lane PROP-ROSTER-EXPAND was not recorded.
 run:
   workflow: session-local
   note: 'SESSION-LOCAL (precedent RQ-20261005-901; scripts/ops/build_strategy_evidence.py is outside research-script-run.yml''s

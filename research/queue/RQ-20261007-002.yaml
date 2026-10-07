@@ -58,8 +58,8 @@ routing:
   needs_gpu: false
   peak_memory_gb: 1.5
   est_minutes: 10
-  basis: One trend harness run over ~8,760 4h bars with 4 folds; the 730d run of the same leg took under 5 minutes in lane
-    PROP-ROSTER-EXPAND.
+  basis: One trend harness run over ~8,760 4h bars with 4 folds; ESTIMATED from bar count; the 730d run's wall time in lane
+    PROP-ROSTER-EXPAND was not recorded.
 run:
   workflow: session-local
   note: 'SESSION-LOCAL (precedent RQ-20261005-901): scripts/ops/build_strategy_evidence.py is under scripts/ops/, outside

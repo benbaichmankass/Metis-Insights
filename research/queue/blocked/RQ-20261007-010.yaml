@@ -65,8 +65,8 @@ routing:
   needs_gpu: false
   peak_memory_gb: 2.0
   est_minutes: 60
-  basis: Same shape as RQ-20261006-062 (45 cells x 5 seeds of prop_ev_sim); 062 ran session-local in about an hour with --jobs
-    4.
+  basis: Same shape as RQ-20261006-062 (45 cells x 5 seeds of prop_ev_sim); 062's wall time was not recorded; 60 min is an
+    ESTIMATE from the cell count.
 run:
   workflow: session-local
   note: 'Prepared command once unblocked (measured values substituted into the script''s COSTS first, per the row''s rerun):
