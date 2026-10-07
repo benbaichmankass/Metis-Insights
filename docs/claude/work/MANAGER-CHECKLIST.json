@@ -4543,15 +4543,15 @@
       "title": "Catalog of every variable/signal/feature the system reads (strategies, ML heads, regime, macro): source, definition, where used, and live health/quality metrics; plus a recurring research review to expand/optimise it",
       "phase": "W7",
       "state": "queued",
-      "owner": "unassigned",
+      "owner": "lane SIGNAL-CATALOG",
       "lane": null,
-      "model": null,
-      "ceiling_usd": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 25,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "2026-09-30 ~19:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): SOURCE: operator ideas inbox (idea synced 2026-09-30; its IDEAS.md row lands with the MGR-SKILL-IDEAS PR, which registers the file in docs/DOCUMENT-INDEX.md); the first end-to-end test of the inbox flow, requested by the operator. TRIAGE: a BUILD (the catalog is a maintained artifact) with a research tail. Theme ml_health. PLACED, not chased: queued behind the live pipeline, the prop go-live work and RESEARCH-W7 A0/A/A2 (queue liveness and weights), per PACE-W40. Scope when dispatched: (1) inventory every input the live strategies, ML heads (ml/configs), regime router and macro producers consume, with file:line; (2) per input, record definition, source/feed, freshness, null rate, and where it is used (which legs/models); (3) a committed catalog file plus a guard that fails when a new input appears in code without a catalog entry; (4) hand the research-planning session a standing 'catalog review' item: which signals are unused, redundant or unmeasured, and candidate additions, each becoming a registered unit. Sonnet, ceiling ~$25."
+      "note": "[2026-10-07T20:24Z manager] DISPATCHING NOW (operator asked for its status 2026-10-07 ~20:20Z; it had sat queued since 2026-09-30 with no lane). Scope unchanged from the 09-30 triage: inventory every input with file:line; definition/source/freshness/null-rate/where-used per input; committed catalog file + a guard that fails on an uncatalogued input; a standing 'catalog review' research item. Lane id filled after create_session. || 2026-09-30 ~19:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): SOURCE: operator ideas inbox (idea synced 2026-09-30; its IDEAS.md row lands with the MGR-SKILL-IDEAS PR, which registers the file in docs/DOCUMENT-INDEX.md); the first end-to-end test of the inbox flow, requested by the operator. TRIAGE: a BUILD (the catalog is a maintained artifact) with a research tail. Theme ml_health. PLACED, not chased: queued behind the live pipeline, the prop go-live work and RESEARCH-W7 A0/A/A2 (queue liveness and weights), per PACE-W40. Scope when dispatched: (1) inventory every input the live strategies, ML heads (ml/configs), regime router and macro producers consume, with file:line; (2) per input, record definition, source/feed, freshness, null rate, and where it is used (which legs/models); (3) a committed catalog file plus a guard that fails when a new input appears in code without a catalog entry; (4) hand the research-planning session a standing 'catalog review' item: which signals are unused, redundant or unmeasured, and candidate additions, each becoming a registered unit. Sonnet, ceiling ~$25."
     },
     {
       "id": "PROP-GOLIVE-PREAPPROVAL",
@@ -6349,6 +6349,21 @@
         16990
       ],
       "note": "[2026-10-07T19:42Z manager] Operator decision 2026-10-07 (popup): DXtrade = '$0 reachability probe only'. Tier-1 code: scripts/prop/velotrade_api_probe.py gets a fixed-choice --account (host + env-var prefix resolved from config/accounts.yaml / the account's platform block, never free text), the action script + system-actions.yml input follow; refuses any account whose platform is not dxtrade_api; prints only reachability/login/instrument-shape booleans, never balances or ids. Self-land. Then the manager dispatches the probe issue for tradeify_1 (Tier-2 read-only) and reads the result into 7.3."
+    },
+    {
+      "id": "CROSS-SIGNAL-RESEARCH",
+      "title": "Cross-family strategy research (operator idea 2026-10-07): entry from one signal family (e.g. a market-structure signal) with the stop/exit driven by a DIFFERENT family (e.g. a momentum-conditioned stop instead of a price-distance stop) -- which crossings are testable in the current harnesses, and registered Stage-0 units for the feasible ones",
+      "phase": "W6",
+      "state": "queued",
+      "owner": "lane CROSS-SIGNAL-RESEARCH",
+      "lane": null,
+      "model": "claude-fable-5-1",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-07T20:24Z manager] OPERATOR (2026-10-07, paraphrased from voice): 'build a research unit around mixed strategies: a strategy based on one type of market structure with, say, a stop loss correlated to momentum instead of price movement; see if different ways of crossing how we look at the signals provide a sustainable edge.' Research lane on the Fable budget. Deliverables: (1) a feasibility matrix entry-family x exit-family over what the harnesses expose today (exit_lever_ablation / e3 joint lever sweep / m20 exit levers / e35 bracket geometry; ADX-gated and Chandelier trails already exist in fade_breakout_4h) marking each cell harness-ready / needs-a-lever / infeasible; (2) for harness-ready cells, registered Stage-0 units with rule BEFORE run, full cost stack, n floor, on live or prop-eligible legs first (new_strategy_prop weight 6); (3) for the one or two most promising needs-a-lever cells, the exact harness lever spec as a build row proposal (not built by this lane); (4) a short design memo. No config change; no strategy edits; ids allocated by the manager: RQ-20261007-040..059 (hand-written band once #16968 lands: use 9xx only if told)."
     }
   ]
 }
