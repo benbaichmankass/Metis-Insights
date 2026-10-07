@@ -138,6 +138,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     a = ap.parse_args(argv)
     if a.self_test:
         return _self_test()
+    # The verdict is about the COMMITTED range; say so when the tree has uncommitted
+    # work (shared notice, see check_document_index.py).
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import _dirty_tree  # noqa: E402,PLC0415 -- path shim above
+    _dirty_tree.warn()
     if _git(REPO, "rev-parse", "--verify", a.base).returncode != 0:
         print(f"redate-guard: base {a.base} not found -- COULD NOT CHECK (not 'clean')")
         return 2
