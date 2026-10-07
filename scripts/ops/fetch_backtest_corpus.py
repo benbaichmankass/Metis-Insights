@@ -123,6 +123,17 @@ CANDIDATE_PAIRS: dict[tuple[str, str], tuple[str, str, int]] = {
     ("BNBUSDT", "15m"): (CRYPTO, "15", 730), ("BNBUSDT", "5m"): (CRYPTO, "5", 365),
     ("DOGEUSDT", "1h"): (CRYPTO, "60", 1095), ("DOGEUSDT", "15m"): (CRYPTO, "15", 730),
     ("LINKUSDT", "1h"): (CRYPTO, "60", 1095),
+    # PI-20261006-APBY4NTV-0001 batch 2 (lane PROP-STRATEGY-SEARCH, 2026-10-07): breadth at the bars that
+    # cleared the cost stack in batch 1 (1h) and the 2h step from a 1h PASS. Symbols are Breakout-listed
+    # (docs/integrations/breakout-instruments-2026-09-27.md) or on bybit_1's own symbols list (AVAX), and
+    # every one already fetched from data.binance.vision in the P2r2 screen (RQ-20261001-*). Units:
+    # RQ-20261007-224..239. `tests/test_fetch_corpus_candidate_pairs.py` refuses a dispatch unit without
+    # its pair here, which is why these lines ride the same PR as the units.
+    ("ZECUSDT", "1h"): (CRYPTO, "60", 1095), ("UNIUSDT", "1h"): (CRYPTO, "60", 1095),
+    ("FILUSDT", "1h"): (CRYPTO, "60", 1095), ("SUIUSDT", "1h"): (CRYPTO, "60", 1095),
+    ("HYPEUSDT", "1h"): (CRYPTO, "60", 1095), ("AVAXUSDT", "1h"): (CRYPTO, "60", 1095),
+    ("TRXUSDT", "1h"): (CRYPTO, "60", 1095), ("AAVEUSDT", "1h"): (CRYPTO, "60", 1095),
+    ("DOGEUSDT", "2h"): (CRYPTO, "120", 1095), ("LINKUSDT", "2h"): (CRYPTO, "120", 1095),
 }
 
 PROXY_WRITE_NAME = {"MGC": "GC_F", "MES": "ES_F", "MHG": "HG_F"}

@@ -48,9 +48,62 @@ from scripts.research.research_queue import (  # noqa: E402
 
 _REPO = Path(__file__).resolve().parents[2]
 _DEFAULT_QUEUE = _REPO / "research" / "queue"
+#: The R1 result store. A row under <RESULTS_ROOT>/<unit id>/ is evidence the
+#: unit ALREADY RAN, whatever its `last_dispatched_at` says -- see `_is_due`.
+#: Module-level so a test can point it at a scratch tree.
+RESULTS_ROOT = _REPO / "research" / "results"
 
 #: How long after a run a cadence is considered satisfied. `once` never repeats.
 _CADENCE_DAYS = {"daily": 1, "weekly": 7, "monthly": 30}
+
+#: The throwaway branch prefix the dispatcher's own stamp landing uses
+#: (research-queue-dispatch.yml -> commit-to-main `branch-prefix`). An OPEN
+#: PR on such a branch that touches research/queue/<uid>.yaml is a stamp for
+#: <uid> that has not reached main yet -- see `pending_stamp_units`.
+STAMP_BRANCH_PREFIX = "automation/research-queue-stamp"
+
+
+def _parse_ts(raw: Any) -> Optional[datetime]:
+    """An aware UTC datetime from an ISO stamp, or None when unparseable."""
+    if not raw:
+        return None
+    try:
+        when = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return when if when.tzinfo else when.replace(tzinfo=timezone.utc)
+
+
+def latest_result_at(uid: str, results_root: Optional[Path] = None) -> tuple:
+    """(latest `generated_at` of any result row under <results_root>/<uid>/, row count).
+
+    (None, 0) when the directory is absent or holds no readable row -- "no
+    result" and "could not read" both mean this cannot vouch for a run, which
+    is the direction that falls back to the stamp. A row whose `generated_at`
+    is unparseable still counts toward the row count (it IS a landed result)
+    but contributes no timestamp."""
+    rdir = (results_root if results_root is not None else RESULTS_ROOT) / uid
+    latest: Optional[datetime] = None
+    rows = 0
+    for f in sorted(rdir.glob("*.jsonl")) if rdir.is_dir() else []:
+        try:
+            lines = f.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        for ln in lines:
+            if not ln.strip():
+                continue
+            try:
+                r = json.loads(ln)
+            except ValueError:
+                continue
+            if not isinstance(r, dict):
+                continue
+            rows += 1
+            ts = _parse_ts(r.get("generated_at"))
+            if ts and (latest is None or ts > latest):
+                latest = ts
+    return latest, rows
 
 
 def _display_path(path: Path) -> str:
@@ -157,6 +210,44 @@ def config_problem(entry: Dict[str, Any], repo: Optional[Path] = None) -> Option
     return None
 
 
+def confirmatory_requeue(entry: Dict[str, Any], result_at: Optional[datetime]) -> bool:
+    """Did `queue_grade.decide` clear this unit's stamp to ask for a confirmatory
+    run AFTER reading the rows that exist? True only when the grading block
+    says `confirmatory_run >= 1` and its `graded_at` is not before the latest
+    result row -- a row landed after the grading is a result of the
+    confirmatory run itself, and the unit is then not due again."""
+    g = entry.get("grading") if isinstance(entry.get("grading"), dict) else {}
+    try:
+        if int(g.get("confirmatory_run") or 0) < 1:
+            return False
+    except (TypeError, ValueError):
+        return False
+    graded = _parse_ts(g.get("graded_at"))
+    if graded is None:
+        return False
+    return result_at is None or result_at <= graded
+
+
+def stamp_lost(entry: Dict[str, Any]) -> Optional[datetime]:
+    """The timestamp a missing stamp should be REPAIRED to, or None.
+
+    A unit with landed result rows and NO `last_dispatched_at` ran, but its
+    stamp PR never merged (a dropped stamp, e.g. #16770 `dirty`). The grader
+    (`queue_grade.grade_unit`) refuses to grade an unstamped unit, so without
+    repair such a unit would now sit `queued`, never re-fired (result-based
+    idempotence) and never graded -- a silent park, which is worse than the
+    double-fire it replaced. The dispatcher therefore re-stamps it from the
+    evidence: the latest row's `generated_at`. Never for a grader re-queue
+    (`confirmatory_requeue`), whose cleared stamp is deliberate."""
+    if entry.get("last_dispatched_at"):
+        return None
+    uid = str(entry.get("id") or "")
+    result_at, rows = latest_result_at(uid) if uid else (None, 0)
+    if not rows or result_at is None or confirmatory_requeue(entry, result_at):
+        return None
+    return result_at
+
+
 def _is_due(entry: Dict[str, Any], now: datetime) -> tuple:
     """(due, reason). A job with no recorded run has never run and IS due."""
     met, why = precondition_met(entry)
@@ -175,24 +266,54 @@ def _is_due(entry: Dict[str, Any], now: datetime) -> tuple:
         return False, scope
     cadence = str(entry.get("cadence") or "once")
     last = entry.get("last_dispatched_at")
-    if not last:
+    # ── RESULT-BASED IDEMPOTENCE (lane RQ-FIX, 2026-10-06) ────────────────
+    # The stamp is bookkeeping the dispatcher has to WRITE, through a PR that
+    # takes a CI cycle (~35-60 min) to merge; the hourly cron (#16736) then
+    # reads main without it and fires the unit again. MEASURED 2026-10-06:
+    # RQ-20261006-005 (cadence once) fired at 09:59 and 11:05 (results
+    # 37446806904 and 37454118580); RQ-20261004-659 fired 10:04 and 11:09.
+    # A landed result row under research/results/<uid>/ is evidence the unit
+    # ran that NOBODY has to write for it, so it is read here as a stamp: the
+    # later of (stamp, latest result) is what the cadence is measured from.
+    # The in-flight window before the result lands is closed by the
+    # open-stamp-PR check in main() (`pending_stamp_units`), fire path only.
+    uid = str(entry.get("id") or "")
+    result_at, result_rows = latest_result_at(uid) if uid else (None, 0)
+    if not last and not result_rows:
         return True, "never dispatched"
+    if not last and result_rows and confirmatory_requeue(entry, result_at):
+        # The GRADER cleared the stamp on purpose (queue_grade.decide: first FAIL
+        # -> `last_dispatched_at: null`, grading.confirmatory_run 1) after
+        # reading these very rows. That is a re-queue, not a lost stamp.
+        return True, (f"re-queued for a confirmatory run by the grader at "
+                      f"{(entry.get('grading') or {}).get('graded_at')} (the {result_rows} landed "
+                      "row(s) were already read)")
     if cadence == "once":
-        return False, f"cadence=once and it ran at {last}"
-    try:
-        when = datetime.fromisoformat(str(last).replace("Z", "+00:00"))
-        if when.tzinfo is None:
-            when = when.replace(tzinfo=timezone.utc)
-    except ValueError:
+        if last:
+            return False, f"cadence=once and it ran at {last}"
+        return False, (f"cadence=once and research/results/{uid}/ already holds {result_rows} "
+                       f"row(s) (latest {result_at.isoformat() if result_at else 'undated'}): "
+                       "result-based idempotence, no stamp needed")
+    when = _parse_ts(last) if last else None
+    if last and when is None:
         # ⚠️ An undateable stamp is NOT "long ago". We cannot show the cadence
         # has elapsed, so we do not fire — the fail-safe direction for a thing
         # that spends money and burns runner minutes.
         return False, f"last_dispatched_at={last!r} is unparseable — refusing to " \
                       "treat an undateable stamp as elapsed"
+    basis = "stamp"
+    if result_at and (when is None or result_at > when):
+        when, basis = result_at, f"latest of {result_rows} result row(s)"
+    if when is None:
+        # rows exist but none carries a readable generated_at, and no stamp:
+        # cannot show the cadence elapsed -- same fail-safe direction as above.
+        return False, (f"research/results/{uid}/ holds {result_rows} row(s) with no readable "
+                       "generated_at and there is no stamp — refusing to treat an undated "
+                       "result as elapsed")
     gap = timedelta(days=_CADENCE_DAYS.get(cadence, 1))
     if now - when >= gap:
-        return True, f"last ran {when.isoformat()}, cadence {cadence} elapsed"
-    return False, f"last ran {when.isoformat()}, cadence {cadence} not yet elapsed"
+        return True, f"last ran {when.isoformat()} ({basis}), cadence {cadence} elapsed"
+    return False, f"last ran {when.isoformat()} ({basis}), cadence {cadence} not yet elapsed"
 
 
 def _waiting_since(entry: Dict[str, Any], uid: str) -> Optional[datetime]:
@@ -283,18 +404,29 @@ def _stamp(path: Path, when: datetime) -> Optional[str]:
     Between firing and that PR merging, a second dispatcher run would read the
     OLD stamp and fire the same job again.
 
-    What bounds it today: the cron is daily (so the window is minutes against a
-    24 h cadence), the dispatcher is `concurrency`-grouped so two runs cannot
-    overlap, and `--max-gpu-dispatches-per-run` caps the only route that costs
-    money. What does NOT bound it: nothing stops a same-day double-fire of a
-    free runner job if the stamp PR is still open.
+    What bounded it until 2026-10-06: the cron was 6-hourly (so the window was
+    minutes against a 6 h slot), the dispatcher is `concurrency`-grouped so two
+    runs cannot overlap, and `--max-gpu-dispatches-per-run` caps the only route
+    that costs money. Then #16736 made the cron HOURLY and the stamp PR's CI
+    cycle (~35-60 min) became longer than the slot: MEASURED the same morning,
+    RQ-20261006-005 (cadence once) fired at 09:59 and 11:05, RQ-20261004-659 at
+    10:04 and 11:09, and the two stamp PRs then conflicted on the same line of
+    the same unit file (#16770 `dirty`), so the losing stamp was dropped whole.
 
-    **The stronger fix is result-based idempotence, not a better stamp** — every
-    job already declares `lands.store`, so the dispatcher could ask "are this
-    job's rows already there?" and skip on the RESULT rather than on
-    bookkeeping it has to write. That is deliberately not built here: it needs
-    the store readable from the runner and it is a larger change than this PR
-    should carry. Tracked, not silently omitted.
+    **The stronger fix — result-based idempotence — IS NOW BUILT** (lane
+    RQ-FIX, 2026-10-06), in two halves, neither of which is a better stamp:
+      1. `_is_due` reads research/results/<uid>/ as a stamp nobody has to
+         write: a `once` unit with any landed row is not due, and a recurring
+         unit measures its cadence from the later of the stamp and its latest
+         row's `generated_at`.
+      2. `main()` (fire path, `--check-open-stamp-prs`, which the workflow
+         passes with `--fire`) asks GitHub once per cycle for OPEN PRs on
+         `automation/research-queue-stamp-*` and treats a unit whose
+         research/queue/<uid>.yaml one of them modifies as already dispatched
+         (`pending_stamp_units`). That closes the window between the fire and
+         the result landing, during which (1) cannot see anything yet.
+    The stamp itself stays: it is what `fair_order`'s share window and the
+    aging reads, and it is still correct whenever it does land.
     ⚠️ **WRITTEN AS A TARGETED TEXT EDIT, NEVER A YAML ROUND-TRIP.** It used
     ``yaml.safe_dump`` until 2026-08-31, which is lossy in a way nobody sees
     until the prose is gone: PyYAML does not model comments, so a load/dump
@@ -574,6 +706,61 @@ def backpressure(research_names: Dict[str, str], *, max_inflight: int, max_queue
     return out
 
 
+def _gh_api_json(path: str) -> Optional[Any]:
+    """`gh api <path>` parsed, or None when gh could not answer (never [])."""
+    try:
+        proc = subprocess.run(["gh", "api", path], capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        return json.loads(proc.stdout or "[]")
+    except ValueError:
+        return None
+
+
+_QUEUE_FILE_RE = re.compile(r"^research/queue/(RQ-\d{8}-\d{3})\.ya?ml$")
+
+
+def pending_stamp_units(api: Any = _gh_api_json) -> Optional[Dict[str, str]]:
+    """{unit id -> 'PR #n (<branch>)'} for every unit whose stamp is in an OPEN
+    stamp PR, or None when GitHub could not be asked (a block, never "none").
+
+    ⚠️ THIS IS THE OTHER HALF OF RESULT-BASED IDEMPOTENCE (see `_stamp`). A
+    fired unit's result takes ~35-90 min to reach main and its stamp PR takes
+    a CI cycle; the hourly cron reads main in between and sees a unit that
+    "never dispatched". The dispatcher is `concurrency`-grouped, so by the time
+    a cycle runs, the previous cycle has finished and has either opened its
+    stamp PR (caught here), merged it (the stamp is on main) or failed to open
+    it (then the result row, once landed, is what `_is_due` reads).
+
+    REST, not GraphQL: `gh pr list --json files` is GraphQL and is refused
+    from a Claude Code session (HTTP 403), so it could never be exercised
+    locally; `gh api repos/{owner}/{repo}/pulls` works in both places. One
+    list call per cycle plus one files call per open stamp PR (0-3 in
+    practice, measured 2026-10-06: #16656, #16770, #16777)."""
+    pulls = api("repos/{owner}/{repo}/pulls?state=open&per_page=100")
+    if not isinstance(pulls, list):
+        return None
+    out: Dict[str, str] = {}
+    for pr in pulls:
+        if not isinstance(pr, dict):
+            continue
+        ref = str(((pr.get("head") or {}).get("ref")) or "")
+        num = pr.get("number")
+        if not ref.startswith(STAMP_BRANCH_PREFIX) or not isinstance(num, int):
+            continue
+        files = api(f"repos/{{owner}}/{{repo}}/pulls/{num}/files?per_page=100")
+        if not isinstance(files, list):
+            return None   # could not read THIS PR's files: cannot vouch for any unit
+        for f in files:
+            m = _QUEUE_FILE_RE.match(str((f or {}).get("filename") or "")) if isinstance(f, dict) else None
+            if m and m.group(1) not in out:
+                out[m.group(1)] = f"PR #{num} ({ref})"
+    return out
+
+
 def _fire(entry: Dict[str, Any], *, route: str, ref: str,
           power_state: str = "") -> tuple:
     """Dispatch via `gh workflow run`. Returns (ok, detail)."""
@@ -636,6 +823,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--queue-dir", default=str(_DEFAULT_QUEUE))
     ap.add_argument("--fire", action="store_true",
                     help="actually dispatch; default is a dry run that only reports")
+    ap.add_argument("--check-open-stamp-prs", action="store_true",
+                    help="fire path only: ask GitHub (gh api, REST) for OPEN automation/"
+                         "research-queue-stamp-* PRs and treat a unit one of them stamps as "
+                         "already dispatched; when gh cannot answer, DEFER every fire this "
+                         "cycle. research-queue-dispatch.yml passes it with --fire. Without "
+                         "it no gh call is made for this purpose (a test or a hand run with "
+                         "no GitHub context would otherwise defer every fire and prove nothing).")
     ap.add_argument("--ref", default=os.environ.get("GITHUB_REF_NAME") or "main")
     ap.add_argument("--only", default=None, help="dispatch just this job id")
     ap.add_argument("--max-research-inflight", type=int, default=3,
@@ -694,6 +888,26 @@ def main(argv: Optional[List[str]] = None) -> int:
         if pressure["block"]:
             print(f"::notice::research-queue-dispatch deferred every fire: {pressure['block']}", file=sys.stderr)
     inflight = int(pressure.get("inflight_research") or 0)
+    # Open stamp PRs are read ONCE per cycle, fire path only, and only when the
+    # caller opted in with --check-open-stamp-prs (the workflow always does; a
+    # dry run makes no gh calls). None = GitHub could not be asked: every due
+    # unit is DEFERRED this cycle rather than risk the double-fire this check
+    # exists to end. MEASURED 2026-10-06 on PR #16791: asked unconditionally,
+    # the pytest runner (no gh auth) deferred every fire and three `--fire`
+    # tests that stub `_fire` saw nothing fire -- an opt-in keeps the fail-closed
+    # direction where a stamp PR can exist and leaves a context with no GitHub
+    # at all on the stamp alone, which is what it had before.
+    pending: Optional[Dict[str, str]] = {}
+    if args.fire and args.check_open_stamp_prs and not pressure["block"]:
+        # Not under a backpressure block: every fire is deferred then anyway,
+        # and gh must not be called at all under pressure (planted test).
+        pending = pending_stamp_units()
+        if pending is None:
+            print("::warning::research-queue-dispatch could not list open stamp PRs via gh -- "
+                  "deferring every fire this cycle (a unit may already be dispatched)", file=sys.stderr)
+        elif pending:
+            print("pending stamps (open stamp PRs, treated as dispatched): "
+                  + ", ".join(f"{u} <- {p}" for u, p in sorted(pending.items())), file=sys.stderr)
     gpu_fired = 0
     fired_by_workflow: Dict[str, int] = {}
     for job in jobs:
@@ -717,6 +931,33 @@ def main(argv: Optional[List[str]] = None) -> int:
         due, due_reason = _is_due(entry, now)
         if not due:
             row.update(outcome=NOT_DUE, reason=due_reason)
+            if args.fire and not pressure["block"]:
+                # A deferred cycle (backpressure) touches NOTHING, repairs
+                # included: the repair lands via the stamp PR, which such a
+                # cycle has no reason to open (planted test: nothing stamped).
+                repair_to = stamp_lost(entry)
+                if repair_to is not None:
+                    # Re-stamp from the evidence so the grader can read the unit
+                    # (see stamp_lost). Lands through the same stamp step.
+                    err = _stamp(job.path, repair_to)
+                    row["stamp_repaired_to"] = repair_to.replace(microsecond=0).isoformat()
+                    if err:
+                        row["stamp_error"] = err
+                        print(f"::warning::{job.id} has landed results but no stamp, and the repair "
+                              f"stamp could NOT be written ({err})", file=sys.stderr)
+                    else:
+                        print(f"::notice::{job.id} has landed results but no stamp (a dropped stamp "
+                              f"PR): re-stamped to its latest result {row['stamp_repaired_to']}",
+                              file=sys.stderr)
+            decisions.append(row)
+            continue
+        if pending and job.id in pending:
+            # Already fired by a previous cycle; its stamp is on a PR that has
+            # not merged yet. Not due for THIS cycle, and not stamped again
+            # (a second stamp of the same line is what made #16770 `dirty`).
+            row.update(outcome=NOT_DUE,
+                       reason=f"already dispatched: open stamp {pending[job.id]} modifies "
+                              f"research/queue/{job.id}.yaml and has not merged yet")
             decisions.append(row)
             continue
 
@@ -759,6 +1000,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             continue
         if pressure["block"]:
             row.update(outcome=DEFERRED, reason=pressure["block"])
+            decisions.append(row)
+            continue
+        if pending is None:
+            row.update(outcome=DEFERRED,
+                       reason="could not list open stamp PRs via gh -- cannot tell whether this "
+                              "unit was already dispatched by a previous cycle; due again next cycle")
             decisions.append(row)
             continue
         if inflight >= args.max_research_inflight:

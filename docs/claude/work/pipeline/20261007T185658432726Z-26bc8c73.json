@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "due_date": "2026-10-13",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ZGQPHR3D-0006",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-13",
+    "how_to_check": "git log origin/main --oneline -- <the script named in this item> shows the fix; python3 -m pytest the test file named in this item passes",
+    "what": "PR claude/harness-audit-fixes (#16952) merged to main and its guards green; fix for this finding present on main"
+  },
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-validate-corr-stale-json-reuse",
+    "rerun": "read docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl and re-check the finding AUD-20260927-CA-B04-validate-corr-stale-json-reuse against current scripts/research/validate_corr.py:34"
+  },
+  "state": "queued",
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('RESEARCH (re-pointed from RESEARCH (BACKLOG-BURNDOWN-2 2026-'); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "CA-B04 audit finding (high): scripts/research/validate_corr.py:34 — Runs each candidate's backtest harness via subprocess and reads --emit-trades output from a fixed path to build the monthly net-R correlation matrix gating whether a shadow candida || HARNESS-AUDIT-FIXES 2026-10-07: FIXED on branch claude/harness-audit-fixes (scripts/research/_fresh_run.py run_fresh: deletes the target first, refuses non-zero exit / timeout / no output; used by validate_corr.py; tests/test_research_fresh_run.py). BLAST RADIUS: no record under research/results or comms/strategy_evidence names validate_corr.py; only citation is docs/research/overnight-strategy-research-2026-06-01.md, whose tables are wrong ONLY IF a run failed -- unmeasurable now (stdout/stderr were discarded). MUST RE-RUN to rely on it."
+}

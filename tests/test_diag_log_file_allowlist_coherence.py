@@ -34,7 +34,7 @@ def _code_names() -> set:
     src = (ROOT / "src/web/api/routers/diag.py").read_text(encoding="utf-8")
     block = re.search(r"_LOG_FILES\s*[:=].*?\{(.*?)\n\}", src, re.S)
     assert block, "could not locate _LOG_FILES in diag.py"
-    names = set(re.findall(r'"([a-z_]+)"\s*:', block.group(1)))
+    names = set(re.findall(r'"([a-z0-9_]+)"\s*:', block.group(1)))
     assert names, "parsed _LOG_FILES but found no names -- the probe is broken, "\
                   "not the allowlist (a negative needs a denominator)"
     return names

@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261007-JOHNSXDJ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane VELOTRADE-TICKET session_01BbBqjBgks6BVLgjoHnSxdJ, manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-07",
+    "rerun": "scripts/ops/diag_fetch.sh 'journalctl?unit=ict-prop-executor@velotrade_1.service&since=2026-10-07T01:55:00Z&until=2026-10-07T03:10:00Z&lines=2000' | grep band_wait ; GET /api/bot/prop/tickets?account_id=velotrade_1 (entry vs first band_wait quote)"
+  },
+  "state": "queued",
+  "what": "velotrade_1 ETH-short ticket prop-manual-4fa7266cfcf0 (trend_donchian_eth_prop, created 2026-10-07 01:59:22Z) carried entry 2672.0 while the executor's first quote at 02:03:15Z was bid 2615.72 (~2.1% below entry, a SHORT); every one of its 12 ticks read bid 2608.97..2618.41, so it could never enter its band. Question: was the entry stale at emission (e.g. a Donchian channel level or a closed-bar price far from the live price) rather than market moving after? Read the order package / signal row for the 01:59Z signal and the ETH 2h candle it fired on; if the ticket entry is systematically far from the live price at emission, every such ticket band-waits and expires unplaced (same shape as fb466451fd1f on 2026-10-02). Population: all velotrade_1 + breakout_1 ETH tickets since 2026-10-01 — share whose first executor quote is outside the band. | MEASURED 2026-10-07 18:5xZ (manager ask, lane VELOTRADE-TICKET): GET /api/bot/prop/tickets?account_id=velotrade_1 -> prop-manual-4fa7266cfcf0 created_at 01:59:22.56Z, signal_time 01:59:24.31Z (emission ~0 s after the signal), valid_until 02:59:24.31Z; entry 2672.0, SL 2701.107, TP 2497.357; entry band (parsed from the ticket message) 2664.723..2679.277 (+/-7.28, i.e. +/-0.27% of entry). Executor journal (ict-prop-executor@velotrade_1): FIRST tick 02:03:15Z (3 min 51 s after emission) bid 2615.72 = 56.28 below entry (-2.11%) and 49.00 below the band floor; 12 ticks 02:03:15Z..02:58:05Z, bid min 2608.97 max 2618.41, never within 46 of the band. Later ETH-short tickets the same day had entries 2612.03 (03:02Z), 2579.05 (10:08Z), 2579.67 (11:01Z) -- in line with market -- so the gap is specific to the 01:59Z emission. UNVERIFIED hypothesis: signal_time 01:59:24Z is BEFORE the 02:00Z close of the 00:00-02:00 2h bar, so the entry may be the close of the PRIOR closed bar (22:00-00:00Z), ~2 h stale. Not checked: no candle data was reachable from the lane sandbox. Next step: read the ETHUSDT 2h closes for 22:00Z and 00:00Z 2026-10-06/07 from the candle store and the order package for this signal; if entry == a prior-bar close, the bug is the signal's bar alignment, not the market."
+}

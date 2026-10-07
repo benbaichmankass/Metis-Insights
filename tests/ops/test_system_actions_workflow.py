@@ -271,6 +271,11 @@ EXPECTED_ACTIONS = {
     # close fill to the real position ticket, close it, restore the phantom.
     # DRY-RUN by default; apply gated + DB backup; guarded + idempotent.
     "fix-prop-mislinked-close": "prop_fix_mislinked_close_action.sh",
+    # 2026-10-07 — VELOTRADE-TICKET: move ONE dead prop ticket on a REST-
+    # executed account (expiry_prompted, or emitted past valid_until) to
+    # `expired`. DRY-RUN by default; apply gated + DB backup; every other
+    # transition, a non-REST account, or a ticket with fills is refused.
+    "prop-ticket-expire": "prop_ticket_expire_action.sh",
     # 2026-08-20 — prop-journal hygiene for fills admitted with NO direction
     # (BL-20260820-PROP-FILL-DIRECTION-ADMISSION-GAP). _position_key needs
     # (account, symbol, direction) but ingest_report only validates the first
@@ -423,6 +428,7 @@ TIER_2_ACTIONS = {
     "supersede-reset-orphan-artifacts",
     "supersede-intent-reduce-phantom-pnl",
     "fix-prop-mislinked-close",
+    "prop-ticket-expire",
     "repair-prop-fill-direction",
     "breakout-login-check",
     "breakout-terminal-probe",
