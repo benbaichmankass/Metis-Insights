@@ -332,6 +332,10 @@ verify-the-source-before-you-build.
 `ws_a_s2_retune.py` · `chop_scalp_study.py` · `session_gating.py` ·
 `hf_vectorized.py` + `hf_solo_sim.py` (HF candidates, research-only).
 
+Shared helper: `_fresh_run.py` (`run_fresh`) — runs a harness subprocess and returns its
+output file only if THIS run wrote it (deletes the target first, refuses non-zero exit /
+timeout), so a sweep can never record a previous run's numbers for a failed one (CA-B04).
+
 ---
 
 ## 11. Running the research itself — the standing queue (R4 + R5)
