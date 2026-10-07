@@ -31,7 +31,7 @@ sizing exists to replace, and never sizes from a number nobody measured.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -53,6 +53,10 @@ class SizingConfig:
     on_cushion_unknown: str = "skip"
     #: flat mode's declared cap (``sizing.flat.max_risk_usd``); ``None`` = not declared.
     flat_max_risk_usd: Optional[float] = None
+    #: flat mode's per-LEG risk overrides (``sizing.flat.per_leg_risk_usd``),
+    #: ``{strategy: usd}``. A leg not listed sizes at the account value. Every
+    #: value is validated at load to be in ``(0, flat_max_risk_usd]``.
+    per_leg_risk_usd: Dict[str, float] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -98,6 +102,12 @@ def load_sizing_config(ruleset_path: str | Path) -> SizingConfig:
         flat_max_risk_usd=(float(flat["max_risk_usd"])
                            if flat.get("max_risk_usd") is not None else None),
     )
+    per_leg = _parse_per_leg(ruleset_path, mode, flat)
+    if per_leg:
+        cfg = SizingConfig(
+            mode=cfg.mode, k=cfg.k, min_risk_usd=cfg.min_risk_usd,
+            on_cushion_unknown=cfg.on_cushion_unknown,
+            flat_max_risk_usd=cfg.flat_max_risk_usd, per_leg_risk_usd=per_leg)
     if not (0.0 < cfg.k <= 1.0):
         raise ValueError(f"{ruleset_path}: sizing.room.k must be in (0, 1], got {cfg.k}")
     if cfg.on_cushion_unknown != "skip":
@@ -105,6 +115,50 @@ def load_sizing_config(ruleset_path: str | Path) -> SizingConfig:
             f"{ruleset_path}: sizing.room.on_cushion_unknown supports only 'skip', "
             f"got {cfg.on_cushion_unknown!r}")
     return cfg
+
+
+def _parse_per_leg(ruleset_path: Any, mode: str, flat: Dict[str, Any]) -> Dict[str, float]:
+    """Validate ``sizing.flat.per_leg_risk_usd``. FAIL-CLOSED: any doubt RAISES.
+
+    A per-leg value may never exceed ``sizing.flat.max_risk_usd`` (the ruleset's
+    per-ticket cap), so the load-time check holds even when the runtime risk
+    gate is ``off``/``annotate``. No declared cap, a non-flat mode, a
+    non-positive or non-numeric value are all refused: a typo must not size a
+    live prop ticket.
+    """
+    raw = flat.get("per_leg_risk_usd")
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"{ruleset_path}: sizing.flat.per_leg_risk_usd must be a mapping")
+    if not raw:
+        return {}
+    if mode != FLAT:
+        raise ValueError(
+            f"{ruleset_path}: sizing.flat.per_leg_risk_usd is declared but sizing.mode is "
+            f"{mode!r} — per-leg sizing is flat-mode only (it would be silently ignored)")
+    cap = flat.get("max_risk_usd")
+    if cap is None:
+        raise ValueError(
+            f"{ruleset_path}: sizing.flat.per_leg_risk_usd needs sizing.flat.max_risk_usd "
+            "(the per-ticket cap each per-leg value is bounded by)")
+    cap = float(cap)
+    out: Dict[str, float] = {}
+    for leg, val in raw.items():
+        try:
+            v = float(val)
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"{ruleset_path}: sizing.flat.per_leg_risk_usd[{leg!r}] is not a number: {val!r}")
+        if isinstance(val, bool) or not (v > 0.0) or v != v:
+            raise ValueError(
+                f"{ruleset_path}: sizing.flat.per_leg_risk_usd[{leg!r}] must be > 0, got {val!r}")
+        if v > cap:
+            raise ValueError(
+                f"{ruleset_path}: sizing.flat.per_leg_risk_usd[{leg!r}]=${v:,.2f} exceeds the "
+                f"ruleset per-ticket cap sizing.flat.max_risk_usd=${cap:,.2f}")
+        out[str(leg)] = v
+    return out
 
 
 def room_risk_usd(
@@ -159,17 +213,30 @@ def resolve(
     ruleset_path: str | Path,
     risk_pct: float,
     rule_distance: Optional[Dict[str, Any]] = None,
+    strategy: Optional[str] = None,
 ) -> SizingDecision:
     """Decide how one ticket for ``account_id`` is sized.
 
     ``risk_pct`` is in PERCENT (the ``AccountBacktestUnit.risk_pct`` unit,
     e.g. 1.5). ``rule_distance`` is an injection seam for tests; ``None`` reads
     the live ``compute_rule_distance`` — ONLY in ``room`` mode.
+
+    ``strategy`` selects a ``sizing.flat.per_leg_risk_usd`` override (flat mode
+    only). A leg with no entry — and every call without ``strategy`` — gets the
+    pre-existing decision (``risk_usd=None``: the account's own risk_pct), so
+    an unlisted leg is byte-identical to before. A listed leg gets
+    ``risk_usd`` = its value and ``cap_usd`` = the same value.
     """
     cfg = load_sizing_config(ruleset_path)
     if cfg.mode == FLAT:
         # Deliberately reads nothing else: the flat ticket must be the
         # pre-existing ticket, byte for byte.
+        leg_usd = cfg.per_leg_risk_usd.get(strategy) if strategy else None
+        if leg_usd is not None:
+            return SizingDecision(
+                mode=FLAT, risk_usd=leg_usd, cap_usd=leg_usd,
+                detail={"per_leg_risk_usd": leg_usd, "strategy": strategy,
+                        "ruleset_cap_usd": cfg.flat_max_risk_usd})
         return SizingDecision(mode=FLAT, cap_usd=cfg.flat_max_risk_usd)
 
     if rule_distance is None:
