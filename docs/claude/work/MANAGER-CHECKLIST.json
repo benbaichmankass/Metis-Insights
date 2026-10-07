@@ -5506,6 +5506,21 @@
       "prs": [],
       "blocked_on": [],
       "note": "[2026-10-06T13:05Z manager] Found while surveying the 41 prop units for the operator's 'push prop roster research' ask. PI-20261006-APBY4NTV-0010 has the measurements (8 of 358 result rows discarded across 6 units; 005 and 659 each fired twice). The double-fire is a consequence of my own #16736 (hourly cadence); the yaml bug predates it (#16388). Closes when a fresh harness result carries a real verdict and two consecutive cycles fire nothing twice."
+    },
+    {
+      "id": "BREAKOUT1-RETIRE",
+      "title": "Retire breakout_1: roster cleared, VM executor timer off, surfaces read retired",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane BREAKOUT1-RETIRE",
+      "lane": "session_01Y2J2YaVPogBoJCqx748tfe",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 10,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-07 lane] OPERATOR DECISION 2026-10-07 (popup), verbatim: \"Dead: clear its roster, retire the row (Recommended)\". MEASURED: breakout_1 balance = equity $4,698.00 vs the $4,700 static-drawdown floor since 2026-10-04; mode dry_run since 2026-10-05 (#16568); executor latched since 2026-10-04 03:49Z. breakout_2 is the live Breakout account. DONE when: PR merged (roster []), ict-prop-executor.timer verified inactive via relay (issue #16251 for executor-disable-timer was cancelled by the one-pending concurrency limit, state not_planned, so the timer state is UNKNOWN until read), and the feed timer disposition recorded (feed-disable-timer is refused for breakout_1 in breakout_login_check_action.sh)."
     }
   ]
 }
