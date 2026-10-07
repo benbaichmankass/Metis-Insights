@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-14",
+    "kind": "date"
+  },
+  "id": "PI-20261007-JF32KQBY-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane EXIT-PARITY-RQ session_01Xz8wBZvFn1cmrjJF32kqbY (manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-07, while registering RQ-20261007-021; child of PI-20261006-KX6ZKFNA-0004",
+    "rerun": "python3 -c \"import sys;sys.path.insert(0,'scripts/research');import regime_debt_matrix as r;print([k for k in ('trail_decay_arm_r','trail_decay_stall_bars','trail_decay_tight_mult') if k not in r._PB_LEVER_FLAG])\"  # non-empty = still omitted; grep -c 'trail-decay' scripts/backtest_pullback.py  # >0 = the harness models it"
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "THE PULLBACK EVIDENCE ARGV OMITS A LEVER THE HARNESS MODELS. regime_debt_matrix._PB_LEVER_FLAG (the argv builder scripts/ops/build_strategy_evidence.py runs for every pullback leg) does not forward trail_decay_arm_r / trail_decay_stall_bars / trail_decay_tight_mult, although scripts/backtest_pullback.py models them (M20 P4.1, --trail-decay-* flags) and _TREND_LEVER_FLAG forwards the same three for the trend harness. MEASURED 2026-10-07 by parsing config/strategies.yaml: 9 pullback legs declare trail_decay_* (mhg_pullback_1d, gld_pullback_1d, ief_pullback_1d, tlt_pullback_1h, slv_pullback_1d, iaum_pullback_1d, eth_pullback_2h, xrp_pullback_2h, avax_pullback_2h), and every committed record for them grades fidelity approximate with omitted_levers naming exactly those keys -- a WIRING omission reported as a capability gap (the regime-debt-matrix design's own 5f distinction). Found by lane EXIT-PARITY-RQ building RQ-20261007-021, whose S arm has to add --trail-decay-* as raw flags to measure the shipped config at all. FIX (Tier-1, evidence tooling): add the three keys to _PB_LEVER_FLAG (mirror _TREND_LEVER_FLAG), extend conditional_omissions if the decay needs a reachability check against tp_r like _tp_r_binds, re-run build_strategy_evidence for the 9 legs and confirm the records flip to faithful (or name what else is omitted). Not done by the lane: it changes the fidelity grade of 9 committed records and belongs in its own reviewed PR."
+}

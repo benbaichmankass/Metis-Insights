@@ -457,8 +457,8 @@ def in_flight_rows(
 
     # --- the checklist -------------------------------------------------------
     try:
-        checklist = json.loads(
-            (repo_root / CHECKLIST_RELPATH).read_text(encoding="utf-8"))
+        from src.runtime import checklist_store as _ck  # noqa: PLC0415
+        checklist = _ck.load_path(repo_root / CHECKLIST_RELPATH)
     except (OSError, ValueError):
         checklist = None
     if isinstance(checklist, dict):

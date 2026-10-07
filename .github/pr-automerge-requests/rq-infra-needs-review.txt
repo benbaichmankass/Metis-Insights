@@ -1,0 +1,1 @@
+auto-merge: tier-1 observability (needs_review digest line)

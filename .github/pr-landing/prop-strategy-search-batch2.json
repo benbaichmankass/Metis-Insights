@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "PI-20261006-APBY4NTV-0001 batch 2 (lane PROP-STRATEGY-SEARCH): 41 pre-registered research units (14 Velotrade pace fits gated on RQ-20261007-201, 9 prop-book composition units x 3 rulesets, 16 harness-default breadth cells at 1h/2h, 2 blocked new-family units), 2 Tier-1 tooling pipeline items, and 10 CANDIDATE_PAIRS lines in scripts/ops/fetch_backtest_corpus.py that tests/test_fetch_corpus_candidate_pairs.py requires for the 16 breadth cells. No config, no src/, no live path.",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "research/queue/RQ-20261007-201..239.yaml and research/queue/blocked/RQ-20261007-240..241.yaml are new hand-written units; research/queue/*.yaml is STAMP_ONLY_SURFACE, so the guard cannot certify a self-land (R5) and the manager merges on green, as for W6-PROP-O1 (#13223)."
+}

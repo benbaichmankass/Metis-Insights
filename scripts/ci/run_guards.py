@@ -321,6 +321,14 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_redate.py", "--base", "origin/main"]],
     },
     {
+        # PI-20261004-APBY4NTV-0003: the per-row checklist store/loader/generator
+        # (step (a); the monolith-equals-render guard arrives with step (c)).
+        "name": "checklist-store-guard",
+        "when": {"globs": ["scripts/ops/checklist.py", "tests/test_checklist_store.py",
+                            "docs/claude/work/checklist/**"]},
+        "steps": [["python3", "scripts/ops/checklist.py", "--self-test"]],
+    },
+    {
         # SALVAGED FROM THREE REMOVED GOVERNANCE ENTRIES, 2026-09-21.
         #
         # `artifact-validity-guard`, `recurrence-ledger-guard` and
@@ -1268,6 +1276,16 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ci/check_research_script_run.py", "--self-test"],
             ["python3", "scripts/ci/check_research_script_run.py"],
         ],
+    },
+    {
+        # PI-20261005-RQ-ID-RACE-0001: generated units mint 001-899, hand-authored 900-999, and a
+        # PR may not add a unit whose id is taken or sits in the wrong band.
+        "name": "research-queue-id-bands",
+        "when": {"globs": ["research/queue/**", "scripts/ci/check_research_queue_id_bands.py",
+                            "scripts/research/next_rq_id.py", "scripts/research/queue_replenish.py"]},
+        "steps": [["python3", "scripts/ci/check_research_queue_id_bands.py", "--self-test"],
+                  ["python3", "scripts/ci/check_research_queue_id_bands.py",
+                   "--base", "origin/{base_ref}"]],
     },
     {
         # RQ-RUN (2026-09-28): the queue's self-replenishment + mechanical

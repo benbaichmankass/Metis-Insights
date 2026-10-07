@@ -100,3 +100,80 @@ def test_grader_does_not_close_on_wiring_only():
     assert g["verdict"] is None
     d = qg.decide({"cadence": "once", "decision_rule": {"id": "R"}, "generated": {}}, g, "2030-01-01")
     assert d["status"] is None and d["grading"]["needs_review"] is True
+
+
+# ── lane RQ-FIX (2026-10-06): a missing PyYAML is the RUNNER's defect ─────────
+# MEASURED: 8 of 358 result rows across 6 units landed wiring_only with the note
+# "queue file is missing/unreadable" while the file was present at every commit --
+# the result job of research-harness-dispatch.yml never installed PyYAML and
+# load_unit's blanket except turned the ImportError into "unit unreadable".
+
+def _no_yaml(monkeypatch):
+    import builtins
+    real = builtins.__import__
+
+    def fake(name, *a, **k):
+        if name == "yaml":
+            raise ImportError("No module named 'yaml'")
+        return real(name, *a, **k)
+    monkeypatch.setattr(builtins, "__import__", fake)
+
+
+def test_a_missing_yaml_dependency_raises_instead_of_reading_as_an_unreadable_unit(tmp_path, monkeypatch):
+    (tmp_path / "RQ-20300101-001.yaml").write_text("id: RQ-20300101-001\n")
+    _no_yaml(monkeypatch)
+    with pytest.raises(h.UnitLoaderUnavailable) as exc:
+        h.load_unit("RQ-20300101-001", tmp_path)
+    assert "PyYAML" in str(exc.value) and "RQ-20300101-001" in str(exc.value)
+
+
+def test_main_exits_nonzero_and_lands_nothing_without_yaml(tmp_path, monkeypatch, capsys):
+    (tmp_path / "RQ-20300101-001.yaml").write_text("id: RQ-20300101-001\n")
+    (tmp_path / "result.json").write_text('{"total_trades": 397, "net_total_r": -5.4539}')
+    monkeypatch.setattr(h, "QUEUE_DIR", tmp_path)
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    _no_yaml(monkeypatch)
+    rc = h.main(["--harness", "pullback", "--research-unit", "RQ-20300101-001",
+                 "--result-json", str(tmp_path / "result.json"), "--out-dir", str(tmp_path / "rr")])
+    assert rc == 2
+    assert "::error::" in capsys.readouterr().out
+    assert not (tmp_path / "rr" / "measurement.json").exists()
+
+
+def test_an_absent_or_malformed_unit_file_is_still_wiring_only_not_a_crash(tmp_path, capsys):
+    assert h.load_unit("RQ-20300101-009", tmp_path) is None            # no file
+    (tmp_path / "RQ-20300101-001.yaml").write_text("id: [unclosed\n")  # malformed
+    assert h.load_unit("RQ-20300101-001", tmp_path) is None
+    assert "::warning::" in capsys.readouterr().out
+
+
+def test_with_yaml_present_the_real_unit_reads_and_grades():
+    """Positive control over the unit the double-fire measured: present on main,
+    mechanical rule, and its landed measurement grades FAIL under it."""
+    unit = h.load_unit("RQ-20261006-005")
+    assert isinstance(unit, dict) and h.parse_rule(unit["decision_rule"]["rule"]) == 39
+    v, rid, _reg, _note = h.apply_unit_rule(unit, {"total_trades": 397, "net_total_r": -5.4539})
+    assert (v, rid) == ("fail", "RULE-RQ1006-005-XRPUSDT-1h-PULLBACK-STAGE0")
+
+
+def test_the_result_job_installs_pyyaml_before_deriving():
+    import yaml
+    wf = yaml.safe_load((REPO / ".github/workflows/research-harness-dispatch.yml").read_text())
+    steps = wf["jobs"]["research_result"]["steps"]
+    install = [i for i, s in enumerate(steps) if "pyyaml" in str(s.get("run", "")).lower()
+               and "pip install" in str(s.get("run", ""))]
+    derive = [i for i, s in enumerate(steps) if "harness_dispatch_result.py" in str(s.get("run", ""))]
+    assert install and derive and install[0] < derive[0], "pyyaml must be installed before the derive step"
+
+
+def test_the_grader_lets_a_regraded_row_supersede_its_wiring_only_original():
+    """The re-grade APPENDS (never edits), so {wiring_only, fail} would otherwise read
+    'not unanimous' forever. Same run_id -> superseded; a different run's wiring_only
+    row still blocks."""
+    wo = {"verdict": "wiring_only", "read_state": "measured", "produced_by": {"run_id": "1"}}
+    fail = {"verdict": "fail", "read_state": "measured", "produced_by": {"run_id": "1"}}
+    g = qg.grade_e5([("f/1.jsonl", wo), ("f/1.jsonl", fail)], 1)
+    assert g["verdict"] == "fail" and "superseded" in g["reason"], g
+    other = {"verdict": "wiring_only", "read_state": "measured", "produced_by": {"run_id": "2"}}
+    g2 = qg.grade_e5([("f/1.jsonl", wo), ("f/1.jsonl", fail), ("f/2.jsonl", other)], 1)
+    assert g2["verdict"] is None and "not unanimous" in g2["reason"], g2

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-13",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ZGQPHR3D-0010",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-ws-a-s3-significance-winners-curse",
+    "rerun": "read docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl and re-check the finding AUD-20260927-CA-B04-ws-a-s3-significance-winners-curse against current scripts/research/ws_a_s3_significance.py:175"
+  },
+  "state": "queued",
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('RESEARCH (re-pointed from RESEARCH (BACKLOG-BURNDOWN-2 2026-'); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "CA-B04 audit finding (high): scripts/research/ws_a_s3_significance.py:175 — Docstring: S3 answers \"is the edge statistically distinguishable from luck\" via block bootstrap on the S2-tuned survivors; the companion doc (docs/research/ws-a-s3-significance-202 || HARNESS-AUDIT-FIXES 2026-10-07: MITIGATED (not fully fixed) on branch claude/harness-audit-fixes: a proper fix is a permutation test over the full S2 grid, which needs the S2 sweep re-run. Now SUMMARY.md/results.json carry SEARCH_CAVEAT and selection_adjusted=false, and the verdict reads 'PASS — candidate, UNADJUSTED for the S2 search'. MUST RE-READ: docs/research/ws-a-s3-significance-2026-06-02.md -- its 2 PASS rows (Copper/pullback, Gold/pullback) are unadjusted for ~36 configs/target. Remaining: the grid-wide permutation test."
+}

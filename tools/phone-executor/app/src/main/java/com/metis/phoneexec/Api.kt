@@ -53,4 +53,10 @@ class Api(private val c: Context) {
     /** "terminal did not load": the page's control texts (our own UI labels, digits masked page-side). */
     suspend fun terminalMiss(reason: String, controls: JSONArray) =
         post("event", JSONObject().put("event", "terminal_miss").put("reason", reason.take(150)).put("controls", controls))
+
+    /** Account panel read (balance / equity as MEASURED off the terminal). Null fields stay absent, never 0. */
+    suspend fun accountStatus(balance: Double?, equity: Double?, equityLabel: String) =
+        post("report", JSONObject().put("kind", "account_status").put("source", "phone_executor")
+            .put("provenance", "MEASURED").put("equity_label", equityLabel)
+            .put("balance", balance ?: JSONObject.NULL).put("equity", equity ?: JSONObject.NULL))
 }

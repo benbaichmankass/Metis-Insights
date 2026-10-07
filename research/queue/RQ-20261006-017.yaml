@@ -1,6 +1,6 @@
 id: RQ-20261006-017
 title: 'Stage-0 backtest for a FASTER prop leg: pullback harness on DOGEUSDT 1h (PI-20261006-APBY4NTV-0001 slice 1)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 1
@@ -72,7 +72,6 @@ grading:
   - research/results/RQ-20261006-017/37546819573.jsonl
   graded_at: '2026-10-07'
   grader: scripts/research/queue_grade.py
-  needs_review: true
-  reason: 'verdicts not unanimous-mechanical: [''wiring_only'']'
+  reason: 1 row(s), all measured, all pass (1 earlier producer_failed / re-graded wiring_only row(s) superseded)
   rows: 1
-  verdict: null
+  verdict: pass
