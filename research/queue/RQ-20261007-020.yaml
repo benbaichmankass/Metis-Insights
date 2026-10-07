@@ -1,4 +1,4 @@
-id: RQ-20261007-001
+id: RQ-20261007-020
 title: 'Exit parity, prop real money: trend_donchian_eth_prop WITHOUT the stale_exit close lever the prop path
   cannot fire (vs the 2026-10-05-730d record WITH it) -- build the close op, or strip the lever?'
 status: queued
@@ -129,13 +129,13 @@ run:
   - --out
   - '{out_dir}'
   inputs:
-    research_unit: RQ-20261007-001
+    research_unit: RQ-20261007-020
 lands:
   store: research/results/
   assert_field: read_state
   min_rows: 1
-  note: 'research/results/RQ-20261007-001/<run_id>.jsonl (E5 contract via the batch collector); the per-arm harness summaries,
-    trade ledgers, exact argv and verdict.json land under comms/research/RQ-20261007-001/<run_id>/.'
+  note: 'research/results/RQ-20261007-020/<run_id>.jsonl (E5 contract via the batch collector); the per-arm harness summaries,
+    trade ledgers, exact argv and verdict.json land under comms/research/RQ-20261007-020/<run_id>/.'
 grading:
   auto: true
 related:
@@ -145,9 +145,9 @@ related:
 - src/prop/prop_trail.py (_CLOSE_LEVERS; PROP-TRAIL, operator decision 2026-10-01 "Build the trail instead")
 - src/units/accounts/clients.py (EXCHANGE_MANAGEMENT_CAPS["breakout"] is empty)
 - scripts/research/prop_bracket_exit_model.py (the earlier SL+TP-only arm, before the trail existed)
-- RQ-20261007-002 (the same question for xrp_pullback_2h's dead trail-decay arm)
+- RQ-20261007-021 (the same question for xrp_pullback_2h's dead trail-decay arm)
 result_preliminary: 'MEASURED 2026-10-07 by lane EXIT-PARITY-RQ on a session-local run of this unit''s exact command
-  through scripts/research/script_run.py (run id local-5fd0163ca; locator comms/research/RQ-20261007-001/local-5fd0163ca/verdict.json,
+  through scripts/research/script_run.py (run id local-5fd0163ca; locator comms/research/RQ-20261007-020/local-5fd0163ca/verdict.json,
   committed), AFTER the rule above was registered on commit 5fd0163ca. Positive control: W reproduced the committed record
   exactly (355 trades, net_total_r 13.0223, diff 0.0). W (stale exit on): n=355, net +13.0223 R, maxDD 13.0335 R, by_outcome
   stop 76 / trail_stop 187 / stale_stop 79 / take_profit 13, mean 12.2 bars, 0.072 R per capital-day. X (stale exit off,

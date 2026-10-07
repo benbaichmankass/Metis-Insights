@@ -1,4 +1,4 @@
-id: RQ-20261007-002
+id: RQ-20261007-021
 title: 'Dead lever, Bybit real money: xrp_pullback_2h''s trail_decay_arm_r 4.49 can never arm under tp_r 3.0 -- remove
   it, or re-arm it below 3 R? Same 730d corpus, rule before run'
 status: queued
@@ -135,13 +135,13 @@ run:
   - --out
   - '{out_dir}'
   inputs:
-    research_unit: RQ-20261007-002
+    research_unit: RQ-20261007-021
 lands:
   store: research/results/
   assert_field: read_state
   min_rows: 1
-  note: 'research/results/RQ-20261007-002/<run_id>.jsonl (E5 contract via the batch collector); per-arm harness summaries,
-    trade ledgers, exact argv and verdict.json under comms/research/RQ-20261007-002/<run_id>/.'
+  note: 'research/results/RQ-20261007-021/<run_id>.jsonl (E5 contract via the batch collector); per-arm harness summaries,
+    trade ledgers, exact argv and verdict.json under comms/research/RQ-20261007-021/<run_id>/.'
 grading:
   auto: true
 related:
@@ -152,9 +152,9 @@ related:
 - scripts/research/regime_debt_matrix.py (_PB_LEVER_FLAG omits trail_decay_*; _tp_r_flags forwards tp_r)
 - scripts/backtest_pullback.py (M20 P4.1 trail-decay lever)
 - RQ-20261006-004 (weekly walk-forward of the same leg)
-- RQ-20261007-001 (the same question for trend_donchian_eth_prop's close lever)
+- RQ-20261007-020 (the same question for trend_donchian_eth_prop's close lever)
 result_preliminary: 'MEASURED 2026-10-07 by lane EXIT-PARITY-RQ on a session-local run of this unit''s exact command
-  through scripts/research/script_run.py (run id local-5fd0163ca; locator comms/research/RQ-20261007-002/local-5fd0163ca/verdict.json,
+  through scripts/research/script_run.py (run id local-5fd0163ca; locator comms/research/RQ-20261007-021/local-5fd0163ca/verdict.json,
   committed), AFTER the rule above was registered on commit 5fd0163ca. Premise check: S (decay declared at 4.49) and N
   (no decay) are byte-identical: 122 trades, net +14.6686 R, maxDD 12.3084 R, by_outcome stop 63 / take_profit 45 /
   trail_stop 11 / timeout 3 -- the lever is dead under tp_r 3.0. Positive control: N reproduced the committed 730d-expand
