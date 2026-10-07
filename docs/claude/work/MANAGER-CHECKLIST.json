@@ -6138,6 +6138,21 @@
       "prs": [],
       "blocked_on": [],
       "note": "[2026-10-07T19:08Z manager] The read surface landed (#16943, TRAIL-OBSERVABILITY done); this is the announce half: the executor's existing prop_monitor_pulse carries trail_paused_since (null when not paused) so the digest/attention block can alarm on a latched trail instead of someone having to read the file."
+    },
+    {
+      "id": "APK-BUILD-CONCURRENCY",
+      "title": "phone-executor-apk.yml: queued builds on main cancel each other (concurrency group keeps one pending run) under today's 216-deep CI queue; key the group by sha + add workflow_dispatch",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane APK-BUILD-CONCURRENCY",
+      "lane": null,
+      "model": "claude-haiku-4-5-20251001",
+      "ceiling_usd": 4,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-07T19:12Z manager] MEASURED: main APK runs 37669454650 (18:46), 37669999484 (18:51), 37671256306 (19:00) all 'cancelled' with NO jobs started; cancel-in-progress is false but group phone-executor-apk-signing keeps only the latest PENDING run, and each phone-app merge to main (#16945, #16944, ...) cancelled the previous queued build; 216 runs queued repo-wide at 19:10Z. No cancel-queued-runs issue since 07:08Z. The operator has no artifact to install. Re-run of 37671256306 (attempt 2) pending meanwhile."
     }
   ]
 }
