@@ -277,16 +277,9 @@ READ_DRY_RUN_NOT_READ = "dry_run_not_read"
 READ_API_ERROR = "api_error"
 
 
-def _is_prop_account(acc: Dict[str, Any]) -> bool:
-    """A prop-firm account executes via a ticket/browser bridge: no broker API."""
-    return (
-        str(acc.get("type") or "").lower() == "prop"
-        or str(acc.get("account_class") or "").lower() == "prop"
-    )
-
-
 def _account_read_state(acc: Dict[str, Any], bal: Optional[Dict[str, Any]]) -> str:
-    if _is_prop_account(acc):
+    from src.prop.prop_identity import is_prop_account
+    if is_prop_account(acc):
         return READ_NO_API_BY_DESIGN
     if bal is not None:
         return READ_OK
