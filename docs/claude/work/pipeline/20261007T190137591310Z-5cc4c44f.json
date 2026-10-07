@@ -7,9 +7,14 @@
   },
   "id": "PI-20261007-AKGGTXPM-0001",
   "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-14",
+    "how_to_check": "python3 scripts/research/geometry_amend_census.py ; commit the dated file under docs/research/geometry-census/; compare to the 2026-10-07 baseline",
+    "what": "Weekly geometry amend census: TP amended count per account class (baseline 2026-10-07: 0 of 32 real money, 0 of 52 mirror, 0 of 664 paper) and SL amended count"
+  },
   "origin": {
     "kind": "research",
-    "ref": "GEOM-CENSUS 2026-10-07 (research/queue/PLANNING.md § 5 item 7)",
+    "ref": "GEOM-CENSUS 2026-10-07 (research/queue/PLANNING.md \u00a7 5 item 7)",
     "rerun": "python3 scripts/research/geometry_amend_census.py"
   },
   "state": "queued",

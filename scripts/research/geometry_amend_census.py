@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# wiring: manual-only — run weekly by the manager/brief session via pipeline row PI-20261007-AKGGTXPM-0001 (origin.rerun); output is committed, no workflow runs it.
 """Geometry amend census — "the SL moves, the TP never moves" as a number.
 
 ONE QUESTION: of the trades that CLOSED since ``--since``, how many had their
