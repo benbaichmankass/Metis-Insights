@@ -37,7 +37,7 @@ on every trader tick now (:func:`run_prop_expiry_prompts`):
 - **manual** account, ticket just expired with no fill → one NOTICE ("recorded
   as NOT placed") with a single ✅ "I did place it" button, then the ticket is
   set ``expired``. It never waits in ``expiry_prompted``.
-- **rest / phone** account → no Telegram at all. A ticket still ``emitted``
+- **rest / phone / browser** (machine-executed) account → no Telegram at all. A ticket still ``emitted``
   ``MACHINE_EXPIRY_GRACE`` after its ``valid_until`` is set ``expired`` (the
   REST executor normally reports its own terminal ``skipped`` first).
 - unanswered ``expiry_prompted`` / ``invalidated_prompted`` tickets past their
@@ -251,7 +251,7 @@ def run_prop_expiry_prompts(
         logger.warning("prop_expiry_prompt: scan failed: %s", exc)
         return stats
 
-    from src.prop.platform import FLOW_MANUAL, FLOW_REST, MACHINE_FLOWS
+    from src.prop.platform import FLOW_MANUAL, FLOW_PHONE, MACHINE_FLOWS
     flows = _flows()
     max_age = _max_age_hours()
     cutoff = now - timedelta(hours=max_age) if max_age > 0 else None
@@ -267,7 +267,7 @@ def run_prop_expiry_prompts(
         status = t.get("status")
         if flow in MACHINE_FLOWS:
             if status == "emitted" and now < vu + MACHINE_EXPIRY_GRACE:
-                if flow == FLOW_REST:
+                if flow != FLOW_PHONE:  # rest / browser: the VM executor's intake
                     stats["rest_left_to_executor"] += 1
                 continue  # its executor gets the first word; it blocks nothing
             stats["machine_expired"] += _expire(t, f"{flow} account, no fill logged")

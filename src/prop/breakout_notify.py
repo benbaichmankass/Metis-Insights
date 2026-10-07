@@ -120,7 +120,7 @@ def emit_prop_signal(ticket: Ticket, *, push: bool = True, telegram: bool = True
 
 
 def _machine_executed(account_id: Optional[str]) -> bool:
-    """True for a REST- or phone-executed prop account (Telegram is notify-only
+    """True for a machine-executed (REST, phone or browser) prop account (Telegram is notify-only
     for it). An unreadable platform file reads as manual (keyboard kept)."""
     if not account_id:
         return False

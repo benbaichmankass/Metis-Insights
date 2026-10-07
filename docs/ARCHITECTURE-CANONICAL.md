@@ -590,11 +590,25 @@ suppressed the next four ETH-short signals for 17 h.
 |---|---|---|---|
 | `rest` | `accounts.<id>.platform` in `API_PLATFORMS` (today: velotrade_1) | the VM executor (`src/prop/prop_executor.py`) over REST | the executor's own read-back → `POST /api/bot/prop/report` |
 | `phone` | `phone_accounts.<id>` (today: breakout_2) | the app on the operator's phone (`src/prop/phone_executor.py`) | the phone's read-back → `phone/report` |
-| `manual` | every other prop account (today: breakout_1, tradeify_1) | a human at the terminal, or the browser executor assisting one | the human's report: Telegram button, pasted report, or the executor |
+| `browser` | `accounts.<id>.ticket_flow: browser` (today: tradeify_1) | the VM browser executor (`prop_executor` over the dxtrade adapter) | the executor's read-back → `POST /api/bot/prop/report` |
+| `manual` | `accounts.<id>.ticket_flow: manual` (today: breakout_1, which has no live executor) | a human at the terminal | the human's report: Telegram button or pasted report |
 
-`rest` and `phone` are the **machine** types. If the file cannot be read,
-every account is `manual`. That fallback is safe, because no state in the
-`manual` flow blocks a re-ticket once the ticket's validity has passed.
+`rest`, `phone` and `browser` are the **machine** types. A REST platform is
+always `rest` and a `phone_accounts` entry always `phone`. A browser-terminal
+account must declare `ticket_flow`, because whether its executor places the
+tickets is VM state (`PROP_EXECUTOR_MODE_<ACCOUNT>`) that git cannot see.
+`test_every_prop_account_declares_its_ticket_flow` fails on any
+`exchange: breakout` account in `config/accounts.yaml` with no declared flow,
+so no account lands in `manual` by omission. At runtime an undeclared account,
+or an unreadable file, reads as `manual`. That fallback is safe, because no
+state in the `manual` flow blocks a re-ticket once the ticket's validity has
+passed.
+
+tradeify_1 is `browser` on MEASURED evidence: every `ict-prop-executor@tradeify_1`
+tick logged `env_mode: live` until its feed tripped at 2026-10-06 18:27:45Z
+(rc=4 feasibility stop, never retried). While the trip holds, its tickets are
+notify-only and expire unplaced; a human placing one reports it by pasting the
+fill with its ticket id.
 
 ### The rules
 
@@ -618,8 +632,8 @@ every account is `manual`. That fallback is safe, because no state in the
 
    This is what keeps one account from ever having two live tickets for one
    symbol and direction.
-4. **Machine accounts are not driven from Telegram.** `rest` and `phone`
-   tickets never enter `expiry_prompted`, `invalidated_prompted` or
+4. **Machine accounts are not driven from Telegram.** `rest`, `phone` and
+   `browser` tickets never enter `expiry_prompted`, `invalidated_prompted` or
    `awaiting_report`. They get no Yes/No keyboard: not on the ticket, not at
    expiry, not on price invalidation. A `propexp:*` tap naming such a ticket
    is refused and writes nothing. Telegram only notifies for them: the ticket
@@ -666,7 +680,7 @@ with no ticket id is journaled but stays unlinked, because the fallback match
 never links to an `expired` ticket. The position still blocks re-tickets,
 because the guard reads `prop_fills`.
 
-**rest**
+**rest** (and **browser**, the same VM executor over a browser adapter)
 
 ```
 emitted ──(executor: band ok, guards fit, click + read-back)──▶ filled ─▶ closed
@@ -1228,7 +1242,7 @@ filtered to architecture-level deltas only.
 | 2026-09-25 | E35 (Tier-3, landing hold) | **Symbol arbitration is PER ACCOUNT; the global election no longer routes.** `intent_multiplexer` still gates once (`intents.gate_intents`, one `regime_hard_gate` row per candidate per tick) and still elects a global headline (audit, signal writer, allocator soak), but the dispatch is now `arbitration_fanout.plan_per_account_election` over the same gated set: each account elects from its OWN declared candidates, and `pipeline._dispatch_rounds` sends one package per distinct elected strategy with `account_scope` = the accounts that elected it (an account is in at most one round → at most one package per tick; a strategy is one package however many accounts elected it). The four per-strategy monocle gates run PER ROUND on the round's own strategy. Retired: `ARBITRATION_FANOUT_MODE` / `ARBITRATION_FANOUT_ACCOUNTS` (ignored, warned once), the all-or-nothing `accepted_rounds` reader and `_round_order_package` (which stamped the global winner's meta under another strategy's name). `arbitration_fanout_soak` is kept as a v4 record graded against the per-account routing (`starved` = elected but in no round — a defect; `global_would_drop` = what the old routing dropped). Replay over 1000 live soak rows: `scripts/research/e35_per_account_election_replay.py`. |
 | 2026-10-05 | PHONE-EXEC-1B | **Phone-executed prop account.** `breakout_2` (Breakout 1-Step Turbo $5k, `mode: dry_run`) emits tickets through the unchanged `exchange: breakout` bridge; because the VM's egress is Cloudflare-blocked from the new terminal, an Android app on the operator's phone claims them (`POST /api/bot/prop/phone/claim`, atomic `emitted→claimed`, one attempt per ticket, 3-min watchdog), fills and reads back the order ticket, and reports via `phone/report` (account forced from a per-device token whose SHA-256 fingerprint is the only thing in git). Submit is `live` only when the account is live AND the device is armed; test tickets are always dry. | `src/prop/phone_executor.py`, `src/web/api/routers/prop.py`, `config/{accounts,prop_platforms,prop_phone_devices}.yaml`, `config/prop_rulesets/breakout_turbo_1step.yaml`, `tools/phone-executor/`, `.github/workflows/phone-executor-apk.yml`, `docs/integrations/breakout-phone-executor-DESIGN.md` § 7.11 | Merged ≠ deployed: nothing runs until the web API is redeployed, a device is paired, and the account is flipped by `set-account-mode`. |
 | 2026-10-06 | TP-DOCTRINE (lane, Tier-1) | **The TP doctrine is canonical and measured.** Operator directive 2026-10-06 (verbatim in § "TP doctrine"): no fictional take-profits — every leg's bracket carries a real predictive TP at entry, the prediction is re-estimated through the trade and moved via the `tp` verdict path, a momentum/trailing exit does not exempt a leg, and compliance is measured in audits. New guard `tp-doctrine-guard` (`scripts/ci/check_tp_doctrine.py`) grades every (account, leg) routing on `entry_tp` and `tp_revision` and RATCHETS: day-one debt (52 of 52 routings fail revision, 26 of 52 fail entry, measured at `233c9c28`) is carried in a dated visible baseline; the guard fails on NEW non-compliance, debt growth, or a stale baseline line; `--strict` is the audit shape, wired into the `/health-review` compliance-audit rotation. Research units `RQ-20261006-060/061` sweep finite targets for the real-money sentinel legs; pipeline row `PI-20261006-5FUGHVX8-0001` holds the ranked debt list with a disposition per leg. | `docs/ARCHITECTURE-CANONICAL.md`, `CLAUDE.md`, `.claude/skills/exit-refinement/SKILL.md`, `.claude/skills/health-review/SKILL.md`, `scripts/ci/check_tp_doctrine.py`, `scripts/ci/run_guards.py`, `tests/test_check_tp_doctrine.py`, `research/queue/RQ-20261006-06{0,1}.yaml`, `docs/claude/work/pipeline/` | None to what trades today: docs, a CI guard and research registrations only. No order path, config, strategy or param change. The guard blocks a future PR that rosters a leg with a sentinel / no target or a family that cannot move its TP, unless its debt is added to the baseline as a visible line (Tier-3 on real-money / prop). |
-| 2026-10-07 | PROP-FLOW-SEPARATION (lane, Tier-2) | **One prop ticket state machine per executor type** (§ "Prop ticket flow"; operator directive 2026-10-07 verbatim there). `src.prop.platform.ticket_flow()` classifies each prop account `rest` / `phone` / `manual` from `config/prop_platforms.yaml`. An expired ticket with no logged fill is now terminal `expired` (or the REST executor's `skipped expired unplaced; …`) on every path and never blocks a re-ticket; `STALE_PROMPT_GRACE` is retired. Machine (`rest`/`phone`) tickets get no Yes/No keyboard, no expiry or invalidation prompt, and `propexp:*` taps on them are refused. Manual tickets get one "recorded as NOT placed" notice with a single late-fill button. Every sweep write and tap is a compare-and-set (`prop_journal.transition_ticket_status`). The busy-symbol guard keeps blocking on a real open position, `placed` / `awaiting_report`, and now a phone `claimed` attempt. Builds on #16947 (REST expiry terminal). | `src/prop/{platform/__init__,prop_expiry_prompt,prop_invalidation_prompt,breakout_executor,breakout_notify,prop_journal,prop_reconcile}.py`, `tests/test_prop_flow_separation.py`, `tests/test_prop_{expiry_prompt,reticket_stale_prompt}.py`, this file | Merged ≠ deployed: needs a restart of the live trader (the sweep, the guard and the ticket keyboard run there) and of the prop bot for the callback change. Closes on observation: the next unplaced expiry on velotrade_1 or breakout_2 does not suppress the following signal. Revert: `git revert` the merge commit. |
+| 2026-10-07 | PROP-FLOW-SEPARATION (lane, Tier-2) | **One prop ticket state machine per executor type** (§ "Prop ticket flow"; operator directive 2026-10-07 verbatim there). `src.prop.platform.ticket_flow()` classifies each prop account `rest` / `phone` / `browser` / `manual` from `config/prop_platforms.yaml` (browser accounts declare `ticket_flow`; a test fails on any undeclared prop account). An expired ticket with no logged fill is now terminal `expired` (or the REST executor's `skipped expired unplaced; …`) on every path and never blocks a re-ticket; `STALE_PROMPT_GRACE` is retired. Machine (`rest`/`phone`/`browser`) tickets get no Yes/No keyboard, no expiry or invalidation prompt, and `propexp:*` taps on them are refused. Manual tickets get one "recorded as NOT placed" notice with a single late-fill button. Every sweep write and tap is a compare-and-set (`prop_journal.transition_ticket_status`). The busy-symbol guard keeps blocking on a real open position, `placed` / `awaiting_report`, and now a phone `claimed` attempt. Builds on #16947 (REST expiry terminal). | `src/prop/{platform/__init__,prop_expiry_prompt,prop_invalidation_prompt,breakout_executor,breakout_notify,prop_journal,prop_reconcile}.py`, `tests/test_prop_flow_separation.py`, `tests/test_prop_{expiry_prompt,reticket_stale_prompt}.py`, this file | Merged ≠ deployed: needs a restart of the live trader (the sweep, the guard and the ticket keyboard run there) and of the prop bot for the callback change. Closes on observation: the next unplaced expiry on velotrade_1 or breakout_2 does not suppress the following signal. Revert: `git revert` the merge commit. |
 
 ## Known gaps
 

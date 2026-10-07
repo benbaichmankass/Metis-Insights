@@ -38,7 +38,8 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     p = tmp_path / "prop_platforms.yaml"
     p.write_text(
         "accounts:\n"
-        "  breakout_1: {platform: dxtrade}\n"
+        "  breakout_1: {platform: dxtrade, ticket_flow: manual}\n"
+        "  tradeify_1: {platform: dxtrade, ticket_flow: browser}\n"
         "  velotrade_1: {platform: dxtrade_api, login_url: https://x.example/dxsca-web}\n"
         "phone_accounts:\n"
         "  breakout_2:\n"
@@ -85,8 +86,20 @@ def test_ticket_flow_reads_the_executor_type(env: Path) -> None:
 
     assert ticket_flow("velotrade_1") == "rest"
     assert ticket_flow("breakout_2") == "phone"
+    assert ticket_flow("tradeify_1") == "browser"
     assert ticket_flow("breakout_1") == "manual"
-    assert ticket_flow("tradeify_1") == "manual"       # not listed → manual
+    assert ticket_flow("someone_new") == "manual"      # undeclared → manual at runtime
+
+
+def test_an_invalid_declared_flow_reads_as_manual(env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import src.prop.platform as plat
+
+    p = env / "bad.yaml"
+    p.write_text("accounts:\n  x_1: {platform: dxtrade, ticket_flow: robot}\n"
+                 "  y_1: {platform: dxtrade_api, login_url: https://x.example/a, ticket_flow: manual}\n")
+    monkeypatch.setattr(plat, "PLATFORMS_PATH", p)
+    assert plat.ticket_flow("x_1") == "manual"         # the guard below refuses it in git
+    assert plat.ticket_flow("y_1") == "rest"           # a REST platform is always rest
 
 
 def test_unreadable_platform_file_reads_every_account_as_manual(
@@ -102,13 +115,31 @@ def test_the_real_config_classifies_the_live_prop_accounts() -> None:
 
     assert ticket_flow("velotrade_1") == "rest"
     assert ticket_flow("breakout_2") == "phone"
+    assert ticket_flow("tradeify_1") == "browser"     # browser executor live (MEASURED 2026-10-06)
     assert ticket_flow("breakout_1") == "manual"
-    assert ticket_flow("tradeify_1") == "manual"
+
+
+def test_every_prop_account_declares_its_ticket_flow() -> None:
+    # No prop account may land in `manual` by omission (manager, 2026-10-07):
+    # every account routed through the prop bridge (exchange: breakout) in
+    # config/accounts.yaml has a flow DECLARED in prop_platforms.yaml.
+    import yaml
+
+    from src.prop.platform import ticket_flows
+
+    accts = yaml.safe_load((Path(__file__).resolve().parents[1] / "config" / "accounts.yaml")
+                           .read_text())
+    accts = accts.get("accounts", accts)
+    prop = sorted(a for a, e in accts.items()
+                  if isinstance(e, dict) and str(e.get("exchange") or "") == "breakout")
+    assert prop, "found no prop accounts — the probe cannot have checked anything"
+    declared = ticket_flows()
+    assert [a for a in prop if a not in declared] == []
 
 
 # ── the general rule, and the re-ticket case on every path ───────────────
 
-@pytest.mark.parametrize("account", ["breakout_1", "velotrade_1", "breakout_2"])
+@pytest.mark.parametrize("account", ["breakout_1", "velotrade_1", "breakout_2", "tradeify_1"])
 def test_expired_unfilled_ticket_is_terminal_and_the_next_signal_tickets(
         env: Path, account: str) -> None:
     from src.prop.prop_expiry_prompt import run_prop_expiry_prompts
@@ -122,7 +153,7 @@ def test_expired_unfilled_ticket_is_terminal_and_the_next_signal_tickets(
     assert sent == (["prop-manual-old"] if account == "breakout_1" else [])
 
 
-@pytest.mark.parametrize("account", ["breakout_1", "velotrade_1", "breakout_2"])
+@pytest.mark.parametrize("account", ["breakout_1", "velotrade_1", "breakout_2", "tradeify_1"])
 def test_a_live_ticket_still_blocks_a_second_one(env: Path, account: str) -> None:
     # fail closed: never two live tickets for one key on one account
     _ticket("prop-manual-old", account)
@@ -130,7 +161,7 @@ def test_a_live_ticket_still_blocks_a_second_one(env: Path, account: str) -> Non
     assert _suppress(account) == "outstanding_ticket:emitted: prop-manual-live"
 
 
-@pytest.mark.parametrize("account", ["breakout_1", "velotrade_1", "breakout_2"])
+@pytest.mark.parametrize("account", ["breakout_1", "velotrade_1", "breakout_2", "tradeify_1"])
 def test_a_real_open_position_still_blocks(env: Path, account: str) -> None:
     from src.prop.prop_report import ingest_report
 
@@ -193,7 +224,7 @@ def _ticket_obj():
 
 
 @pytest.mark.parametrize("account,has_keyboard", [
-    ("breakout_1", True), ("velotrade_1", False), ("breakout_2", False)])
+    ("breakout_1", True), ("velotrade_1", False), ("breakout_2", False), ("tradeify_1", False)])
 def test_ticket_keyboard_only_on_manual_accounts(
         env: Path, monkeypatch: pytest.MonkeyPatch, account: str, has_keyboard: bool) -> None:
     from src.prop import breakout_notify
@@ -212,7 +243,7 @@ def test_ticket_keyboard_only_on_manual_accounts(
     assert (captured["reply_markup"] is not None) is has_keyboard
 
 
-@pytest.mark.parametrize("account", ["velotrade_1", "breakout_2"])
+@pytest.mark.parametrize("account", ["velotrade_1", "breakout_2", "tradeify_1"])
 @pytest.mark.parametrize("verb", ["y", "n"])
 def test_a_tap_on_a_machine_ticket_is_refused_and_writes_nothing(
         env: Path, account: str, verb: str) -> None:
@@ -229,7 +260,7 @@ def test_invalidation_prompter_skips_machine_accounts(
     from src.prop import prop_invalidation_prompt as pip
 
     for tid, acct in (("prop-manual-r", "velotrade_1"), ("prop-manual-p", "breakout_2"),
-                      ("prop-manual-h", "breakout_1")):
+                      ("prop-manual-b", "tradeify_1"), ("prop-manual-h", "breakout_1")):
         _ticket(tid, acct, vu=NOW + timedelta(minutes=30))
     found = {t["ticket_id"] for t in pip.find_tickets_to_check()}
     assert found == {"prop-manual-h"}

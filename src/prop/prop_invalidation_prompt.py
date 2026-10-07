@@ -192,7 +192,7 @@ def find_tickets_to_check(
     except Exception as exc:  # noqa: BLE001 — never break the trader loop
         logger.warning("prop_invalidation_prompt: list_tickets failed: %s", exc)
         return []
-    # A REST- or phone-executed account's ticket is never warned about here:
+    # A machine-executed (REST, phone, browser) account's ticket is never warned about here:
     # its executor checks the entry band itself, and flipping the ticket to
     # `invalidated_prompted` would pull it out of that executor's intake
     # (operator directive 2026-10-07: "the prop accounts should have their own
