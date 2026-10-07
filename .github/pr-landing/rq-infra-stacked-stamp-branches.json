@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "why": "Edits .github/actions/commit-to-main (the automation PR opener) so a caller's second commit is replayed onto main's tip instead of stacking on its first; plus a test. Tier-1 CI tooling, no order path, strategy config, risk cap, src/, deploy/ or VM file. Held for one human read per R12 because it is landing machinery.",
+  "hold_text": "Manager dispatch to lane RQ-INFRA: land Tier-1 PRs yourself; this one edits landing machinery (R12), so it is held for the manager to read once and land."
+}
