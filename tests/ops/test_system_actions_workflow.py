@@ -55,6 +55,8 @@ EXPECTED_ACTIONS = {
     "pull-latest-logs": "pull_logs.sh",
     # PR #1698: read-only IB Gateway container status + recent logs.
     "gateway-logs": "gateway_logs.sh",
+    # Read-only restart forensics for the ib-gateway container + its watchdog/reset timers.
+    "gateway-forensics": "gateway_forensics.sh",
     "inspect-closed-pnl": "inspect_closed_pnl_action.sh",
     "bybit-account-audit": "bybit_account_audit_action.sh",
     # Read-only broker-truth audit of Bybit protective-bracket COVERAGE

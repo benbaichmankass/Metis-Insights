@@ -56,6 +56,7 @@ Adding an action requires a PR that updates this doc, the workflow's
 | `status-check` | 1 | `scripts/ops/status_check.sh` | no |
 | `list-listening-ports` | 1 | `scripts/ops/list_listening_ports.sh` | no |
 | `gateway-logs` | 1 | `scripts/ops/gateway_logs.sh` | no |
+| `gateway-forensics` | 1 | `scripts/ops/gateway_forensics.sh` | Read-only, runs on the **gateway VM** (ProxyJump via the trader, like `gateway-logs`). Prints `docker inspect` RestartCount / State.ExitCode / State.FinishedAt / State.StartedAt / restart policy for the `ib-gateway` container, plus is-active / is-enabled and the last ~50 journal lines of `ict-ib-gateway-watchdog.{service,timer}` and `ict-ib-gateway-reset.{service,timer}`. Answers *who restarts the container* (watchdog vs Docker restart policy vs IBC) which `gateway-logs` cannot. No restart, no stop; IPv4 addresses and `DU…` account ids are masked in the output (public repo). Added 2026-10-08 for IB-GATEWAY-DOWN. |
 | `pull-latest-logs` | 1 | `scripts/ops/pull_logs.sh` | no |
 | `pull-and-deploy` | 2 | `scripts/ops/pull_and_deploy.sh` | git worktree + systemd units |
 | `restart-bot-service` | 2 | `scripts/ops/restart_bot.sh` | systemd unit only |
@@ -271,6 +272,7 @@ tiers but applied to *workflow dispatch* rather than PR merge.
 Claude may dispatch these without operator approval:
 
 - `status-check`
+- `gateway-forensics` — read-only restart forensics on the IB gateway VM
 - `verify-account-mode` — read-only post-state check of an account's mode
   on the VM (see § 2.1). Normally dispatched by `account-mode-verify.yml`.
 - `list-listening-ports`
@@ -920,7 +922,7 @@ Then poll the issue's comments for the github-actions[bot] reply.
 > 2026-10-04 on two OA-03/OA-01 de-risk steps (#16251, #16263), so it is now
 > mitigated in the workflow rather than only by this contract:
 > * **Read-only actions** (`scripts/ops/system_action_route.py::READ_ONLY` —
->   `status-check`, `list-listening-ports`, `gateway-logs`, `pull-latest-logs`,
+>   `status-check`, `list-listening-ports`, `gateway-logs`, `gateway-forensics`, `pull-latest-logs`,
 >   `inspect-insights`, `net-r-regrade`, `verify-account-mode`, `get-env`) each run
 >   in a concurrency group of their own: they never displace or get displaced.
 > * **Every other action** still shares the serial `system-actions` group (two
