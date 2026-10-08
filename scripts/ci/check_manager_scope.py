@@ -496,6 +496,8 @@ EXCEPTION_REL = "docs/claude/work/manager-scope-exception.yaml"
 #: `lane` to a session other than its own is a management act — see the module
 #: docstring for the false-positive / false-negative measurement.
 CHECKLIST_REL = "docs/claude/work/MANAGER-CHECKLIST.json"
+#: After the per-row cutover a row's history is its own file under here.
+STORE_REL = "docs/claude/work/checklist"
 
 #: The PER-BRANCH merge-slot claim `scripts/ops/claim_merge_slot.py
 #: --branch-claim` writes, and the faithful successor of the
@@ -767,7 +769,7 @@ def dispatch_observations(root: Path) -> tuple[list[tuple[datetime, str]], list[
     notes: list[str] = []
     rc, raw = _git(root, "log", "--all", "--reverse", "--unified=0", "-p",
                    "--pretty=format:%x00COMMIT%x00%H%x00%aI%x00%B%x00ENDMSG%x00",
-                   "--", CHECKLIST_REL)
+                   "--", CHECKLIST_REL, STORE_REL)
     if rc != 0:
         return [], [f"{CHECKLIST_REL} history unreadable — no dispatch "
                     f"observation could be derived (we could not look)"]
@@ -848,7 +850,7 @@ def dispatch_observations_exact(root: Path) -> tuple[list[tuple[datetime, str]],
     MEASUREMENT, and this function is what makes it one.
     """
     notes: list[str] = []
-    rc, out = _git(root, "log", "--all", "--pretty=%H", "--", CHECKLIST_REL)
+    rc, out = _git(root, "log", "--all", "--pretty=%H", "--", CHECKLIST_REL, STORE_REL)
     if rc != 0:
         return [], [f"{CHECKLIST_REL} history unreadable — nothing compared"]
     shas = [x for x in out.split() if x]
@@ -979,6 +981,17 @@ def _json_at(root: Path, ref: str, rel: str) -> tuple[str, Optional[dict]]:
     Three states, never two: *the file was not there* and *we could not read
     what was there* are different facts, and only `ok` may be reasoned from.
     """
+    if rel == CHECKLIST_REL:  # the monolith before the per-row cutover, row files after
+        import sys as _sys  # noqa: PLC0415
+        _repo = str(Path(__file__).resolve().parents[2])
+        if _repo not in _sys.path:
+            _sys.path.insert(0, _repo)
+        from src.runtime import checklist_store  # noqa: PLC0415
+        try:
+            obj = checklist_store.load_at(root, ref)
+        except (ValueError, OSError):
+            return ("unreadable", None)
+        return ("absent", None) if obj is None else ("ok", obj)
     rc, out = _git(root, "show", f"{ref}:{rel}")
     if rc != 0:
         return ("absent", None)
@@ -1752,6 +1765,8 @@ IDENTITY_SOURCES = (
 def _subject_state(root: Path, rel: str) -> str:
     """Is `rel` present at HEAD? `live` / `retired` — never guessed."""
     rc, _ = _git(root, "cat-file", "-e", f"HEAD:{rel}")
+    if rc != 0 and rel == CHECKLIST_REL:  # cut over: the store is the live subject
+        rc, _ = _git(root, "cat-file", "-e", f"HEAD:{STORE_REL}/_header.json")
     return SRC_LIVE if rc == 0 else SRC_RETIRED
 
 

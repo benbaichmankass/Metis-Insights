@@ -3,7 +3,7 @@ title: >-
   Active geometry, shorter timeframes: on the ict_scalp 5m/15m family (tp_at_r 1.5
   fixed, SL amended on 72 of 192 closes since 2026-09-01, TP on 0), does a re-estimated
   or thesis-extended target beat the fixed 1.5R target?
-status: blocked
+status: queued
 cadence: once
 kind: experiment
 theme: live_strategy
@@ -90,24 +90,21 @@ routing:
     Runner: ict-scalp-exit-sweep.yml already runs the 7 legs on 7 parallel runners
     (timeout-minutes 150) once it exposes the new cells. Estimate, not a measurement.
 
-blocked_on:
-  - what: >-
-      scripts/backtest_ict_scalp.py exposes --no-tp, --tp-cap-pct, stale/giveback and
-      a vol spec, no target revision (argparse read 2026-10-07), and mi307 grades the
-      family not_capped_capable for the clamp question. Same build as RQ-20261007-001/-003
-      extended to the scalp harness.
-    ref: PI-20261006-5FUGHVX8-0001 (BUILD B1) -- proposed checklist row GEOM-B1-HARNESS (scalp harness half)
-    clears_when: >-
-      scripts/backtest_ict_scalp.py accepts the --tp-retarget-* and --tp-extend-* flags
-      and .github/workflows/ict-scalp-exit-sweep.yml accepts `tp_revision` in `cells`.
-      Then: move to research/queue/, status queued, run.workflow:
-      ict-scalp-exit-sweep.yml with inputs {cells: tp_revision, research_unit:
-      RQ-20261007-004}.
-
 run:
-  workflow: null
-  note: Null until the scalp harness lever lands (blocked_on); the dispatch shape is in clears_when.
-
+  workflow: ict-scalp-exit-sweep.yml
+  inputs:
+    cells: tp_revision
+    research_unit: RQ-20261007-004
+    decision_rule_id: RULE-RQ1007-004-SCALP-TARGET-REVISION
+    decision_rule_registered_at: '2026-10-07'
+  note: >-
+    Unblocked 2026-10-07 by GEOM-B1-HARNESS. ict-scalp-exit-sweep.yml accepts
+    `tp_revision` (= tp_extend + tp_retarget on the LIVE tp_at_r bracket) and, for a
+    queue-dispatched run, now lands one record per matrix leg through the research-result
+    action (scripts/research/m27/scalp_sweep_result.py). The matrix has 7 legs, this
+    unit's rule names 6 (ict_scalp_mgc_15m has no feed and is not in the matrix); the
+    extra is ict_scalp_5m (BTC). ⚠️ The landing half of that workflow is proven only
+    on its first dispatch (nested composite, no CI run exercises it).
 lands:
   store: research/results/
   assert_field: read_state

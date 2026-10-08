@@ -172,6 +172,17 @@ The VM executor's order is: kill switch → read the terminal → reconcile → 
 | Submit | Re-hashes the live form; clicks **only if** it equals the verified hash and the token is unexpired | Never. Network loss between verify and click ⇒ **no click** (fail closed). |
 | Confirm | Re-reads positions/orders; classifies `confirmed / partial_no_sl_tp / absent` | Receives the report; `partial_no_sl_tp` triggers containment and an alert. |
 
+**Built (PHONE-GO-TOKEN, 2026-10-07; PI-20261005-YUVCGTMJ-0003).** `POST /api/bot/prop/phone/verify` and
+`POST /api/bot/prop/phone/go` (`src/prop/phone_executor.py::verify_readback` / `redeem_go_token`). As built, it differs
+from the table above in two stated ways: (1) the phone's own phase-1b checks are KEPT and run first; the server check is a
+second, independent one over the raw strings the page shows (symbol, selected side and order-type tabs, price, qty and
+its unit, TP, SL, submit label and its enabled state, TP/SL state), not a port of `check_form_shape`, because the
+proprietary terminal's form is not the DXtrade shape that function reads; (2) the 30 s token is REDEEMED on the server
+(`/phone/go`, consumed once, refused on replay, on a changed form hash, on expiry, or when the account / kill switch is
+no longer live) instead of being compared on the phone only. A `meta.test` ticket, a `dry_run` account or the kill
+switch get a `dry` token whose redeem always answers `go: false`; the dry path redeems it too, so a dry test exercises
+the whole route without a click.
+
 Why server-side for read-back: it keeps one tested implementation and means a fix lands without shipping an APK. The cost
 is that the phone cannot place an order while offline; that is correct, since it could not report either. The click
 guard on the phone is deliberately dumb (an equality check on a hash).
@@ -727,6 +738,35 @@ base before anything is typed — and additionally refuses if the chip, when the
 end on SOL with the chip and the submit label agreeing, make exactly one selection click, and submit nothing. They prove
 mechanics on synthetic DOM, **not** Breakout's real list: the proof is one `phone-dry-test` for `SOLUSDT` on breakout_2 with
 the terminal on ETH, after the operator installs the APK built from this change; its refusal reason, if any, names the route.
+
+### 7.14 Trail amends on the phone path (PROP-TRAIL-PHONE, 2026-10-07)
+
+**Why:** the prop trail (`src/prop/prop_trail.py::run_trail_step`) runs only in the VM executor tick, so breakout_2's
+`*_prop` legs traded a static SL+TP bracket while their Stage-0 record assumed the chandelier trail (§ 5.3 already named
+"no trailing amendments" as a cost of the phone path).
+
+**Server** (`src/prop/phone_trail.py`): the trail is planned with the same `plan_trail` replay, once per closed bar, for every
+`placed`/`filled` ticket. One amend is published in a single slot on the parent ticket (`meta.phone_trail`), so at most one
+is ever outstanding. The claim serves it ONLY to an app that posts `accepts: ["amend"]`. `submit` is the entry path's
+`submit_mode`, with ARMED on top. TP revisions travel through the same slot (`request_tp_amend`).
+
+**Phone** (`executeAmend`, `exec.js` `posInfo` / `posEdit` / `editDialog` / `dlg*`):
+1. Find the ONE Positions row for the symbol and side.
+2. The terminal must show the stop (and target) the server believes is resting. If it shows anything else, report
+   `human_moved` and never override it.
+3. Click the row's ONE edit control (text, aria-label or title naming edit / modify / TP-SL). Never a close control.
+4. Find the ONE dialog, then the SL (and TP) fields by label. Type the values and read every one back; the kept TP must
+   read back unchanged.
+5. **DRY:** cancel and report `dry_amended`. **LIVE:** click the ONE save button, then read the result back on the terminal:
+   the row's SL/TP columns, or else the dialog re-opened read-only and cancelled.
+
+Anything unverified before the save is `refused`; after it, `mismatch`. The server locks that ticket's trail on
+`mismatch`, `human_moved`, a second refusal, or a claimed amend with no report, and pings the operator. A locked trail is
+never retried.
+
+**UNMEASURED:** no capture has shown Breakout's Positions row edit control or its dialog. The headless fixtures
+(`test/exec_check.js`, "amend") prove the helpers' mechanics on synthetic DOM only. The first real amend, dry or live,
+either passes or refuses with the dump (row headers and controls, dialog inputs and buttons) that names the label to fix.
 
 ## 8. Open questions for the operator / manager
 

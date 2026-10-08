@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "GitHub Actions workflow fix (.github/workflows/phone-executor-apk.yml) — add 10-minute timeout to Playwright install step. Run 37667283602 hung for 29+ minutes inside 'playwright install --with-deps chromium'; failing fast prevents runner starvation (see PR #16985). This is a Tier-1 CI/tooling change affecting only build reliability, not live runtime behavior."
+}

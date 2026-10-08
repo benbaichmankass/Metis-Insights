@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "depends_on_unmerged_pr",
+  "hold_text": "Registers four pre-registered research units into the DISPATCHED queue (a new unit is a registration, so it cannot self-land) and files one pipeline row. Must merge AFTER #17000 (the harness levers) and #17010 (the workflow inputs the units dispatch with): the hourly dispatcher fires a queued unit as soon as it is on main, and it would fire against a workflow that does not yet accept the lever.",
+  "why": "GEOM-B1-HARNESS 3/3: RQ-20261007-001..004 move from research/queue/blocked/ to research/queue/ with the dispatch written into their run blocks. Research registrations only: no order path, config, strategy or param change."
+}

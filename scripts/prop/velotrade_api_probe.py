@@ -13,20 +13,40 @@ Safety, enforced in code (``_call``), not by convention:
     account codes are redacted from every printed string; accounts are counted,
     never named.
 
+``--account {velotrade_1,tradeify_1}`` (default velotrade_1) picks the host and env
+prefix via ``resolve_account``; output is booleans + shapes + one ``summary:`` JSON
+line, never balances, ids or tokens. ``read_state`` is one of env_absent (credentials
+not on the VM; says nothing about the login), unreachable, login_rejected, login_ok.
+
 Exit codes: 0 = login accepted and reads done, 3 = login rejected / no usable
-API (a MEASUREMENT, reported), 2 = no credentials, 1 = environment.
+API (a MEASUREMENT, reported), 2 = no credentials (env_absent), 1 = environment /
+account refused.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 
-BASE = "https://dx.velotrade.com/dxsca-web"
-SYMBOLS = ["ETHUSD", "SOLUSD", "XRPUSD", "BTCUSD"]
+# DXTRADE-PROBE-ACCOUNT (2026-10-08): the probe serves a FIXED choice of accounts.
+# Host and env-var names are resolved from config/prop_platforms.yaml; the choice is
+# argparse ``choices`` (never free text), and the hosts below are the only ones the
+# resolver will accept, so a config edit cannot point this probe at an arbitrary host.
+ACCOUNT_CHOICES = ("velotrade_1", "tradeify_1")
+DEFAULT_ACCOUNT = "velotrade_1"
+ALLOWED_HOSTS = {"velotrade_1": "dx.velotrade.com", "tradeify_1": "dx.tradeify247.co"}
+# Both are DXtrade deployments; tradeify_1 is still on the browser platform (`dxtrade`)
+# until this probe says otherwise, so the family is accepted, not only `dxtrade_api`.
+DXTRADE_PLATFORMS = ("dxtrade", "dxtrade_api")
+PLATFORMS_YAML = Path(__file__).resolve().parents[2] / "config" / "prop_platforms.yaml"
+BASE = "https://dx.velotrade.com/dxsca-web"  # set by main() from the resolved account
+SYMBOLS = ["ETHUSD", "SOLUSD", "XRPUSD", "BTCUSD", "ETH/USD", "SOL/USD", "XRP/USD"]
+WANTED = ("ETH", "SOL", "XRP")
 # Account fields that describe the account's TYPE, not its identity. Printed by
 # value; anything not listed here (account code, owner, ids) is never printed.
 # `isPositionBased` is the spec's name (rest/types/account-details.md: "shows if the
@@ -43,6 +63,42 @@ SPEC_FIELDS = (
 )
 UA = "metis-insights-velotrade-api-probe/1 (read-only; contact: repo owner)"
 _SECRETS: list[str] = []
+
+
+class AccountRefused(Exception):
+    """The requested account cannot be probed (unknown, wrong platform, bad host)."""
+
+
+def resolve_account(account: str, platforms: dict | None = None) -> dict:
+    """Resolve ``account`` to ``{base, username_env, password_env, domain_env}``.
+
+    ``platforms`` is the parsed ``prop_platforms.yaml`` mapping (read from disk when
+    omitted). Refuses an account outside ACCOUNT_CHOICES, one whose platform is not a
+    DXtrade platform, one missing its env names, and any host but the fixed one.
+    """
+    if account not in ACCOUNT_CHOICES:
+        raise AccountRefused(f"account {account!r} is not one of {list(ACCOUNT_CHOICES)}")
+    if platforms is None:
+        import yaml  # local: only the resolver needs it
+
+        platforms = yaml.safe_load(PLATFORMS_YAML.read_text()) or {}
+    block = (platforms.get("accounts") or {}).get(account)
+    if not isinstance(block, dict):
+        raise AccountRefused(f"{account} has no block in prop_platforms.yaml")
+    if block.get("platform") not in DXTRADE_PLATFORMS:
+        raise AccountRefused(f"{account} platform {block.get('platform')!r} is not a DXtrade platform")
+    parsed = urllib.parse.urlparse(str(block.get("login_url") or ""))
+    if parsed.scheme != "https" or parsed.hostname != ALLOWED_HOSTS[account]:
+        raise AccountRefused(f"{account} login_url host is not the fixed {ALLOWED_HOSTS[account]}")
+    u_env, p_env = block.get("username_env"), block.get("password_env")
+    if not (isinstance(u_env, str) and isinstance(p_env, str) and u_env.endswith("_USERNAME")):
+        raise AccountRefused(f"{account} has no username_env/password_env")
+    return {
+        "base": f"https://{parsed.hostname}/dxsca-web",
+        "username_env": u_env,
+        "password_env": p_env,
+        "domain_env": u_env[: -len("_USERNAME")] + "_DOMAIN",
+    }
 
 
 def _redact(text: str) -> str:
@@ -116,15 +172,35 @@ def _specs(js) -> list[dict]:
     return [i for i in (js or []) if isinstance(i, dict)]
 
 
-def main() -> int:
-    user = os.environ.get("VELOTRADE_DX_USERNAME", "")
-    pw = os.environ.get("VELOTRADE_DX_PASSWORD", "")
-    env_domain = os.environ.get("VELOTRADE_DX_DOMAIN", "")
+def main(argv: list[str] | None = None) -> int:
+    global BASE
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--account", choices=ACCOUNT_CHOICES, default=DEFAULT_ACCOUNT)
+    account = ap.parse_args(argv).account
+    try:
+        cfg = resolve_account(account)
+    except AccountRefused as e:
+        _out(f"account: {account} refused ({e})")
+        _out("read_state: account_refused")
+        return 1
+    BASE = cfg["base"]
+    _out(f"account: {account} (host fixed by the resolver; credentials from the VM .env)")
+    user = os.environ.get(cfg["username_env"], "")
+    pw = os.environ.get(cfg["password_env"], "")
+    env_domain = os.environ.get(cfg["domain_env"], "")
     _SECRETS.extend([user, pw, env_domain])
     _out(f"credentials: username {'set' if user else 'MISSING'}, password {'set' if pw else 'MISSING'} (values never printed)")
     if not (user and pw):
+        # Its own read_state: we did NOT look, so this says nothing about the login.
+        _out("read_state: env_absent")
         _out("feasibility: no_credentials")
+        _out("summary: " + json.dumps({"account": account, "read_state": "env_absent", "reachable": None,
+                                       "login_ok": None, "account_model": None, "symbols_present": None}))
         return 2
+    reachable = False
+    login_ok = False
+    account_model = None
+    present: dict[str, bool] = {}
 
     # Domain is a required login field. Try a configured one, then the platform default.
     login_user, dom_from_user = (user.split("@", 1) + [""])[:2] if "@" in user else (user, "")
@@ -134,6 +210,7 @@ def main() -> int:
     domain_used = None
     for i, dom in enumerate(domains):
         st, js, tx = _call("POST", "/login", body={"username": login_user, "domain": dom, "password": pw})
+        reachable = reachable or st > 0
         _out(f"login attempt {i + 1}/{len(domains)} (domain source: {'env' if dom == env_domain else 'user-suffix' if dom == dom_from_user else 'default'}): {_err(st, js, tx) if not (isinstance(js, dict) and js.get('sessionToken')) else 'http=%d sessionToken present' % st}")
         if isinstance(js, dict) and js.get("sessionToken"):
             token, domain_used = js["sessionToken"], dom
@@ -141,9 +218,14 @@ def main() -> int:
             _out(f"login: accepted (timeout={js.get('timeout')!r})")
             break
     if not token:
-        _out("login: rejected / unusable")
+        _out("login: rejected / unusable" if reachable else "login: host unreachable")
+        _out("read_state: " + ("login_rejected" if reachable else "unreachable"))
         _out("feasibility: rest_login_failed")
+        _out("summary: " + json.dumps({"account": account, "read_state": "login_rejected" if reachable else "unreachable",
+                                       "reachable": reachable, "login_ok": False, "account_model": None,
+                                       "symbols_present": None}))
         return 3
+    login_ok = True
 
     try:
         full_user = f"{login_user}@{domain_used}"
@@ -182,6 +264,9 @@ def main() -> int:
                     kept = {k: a[k] for k in ACCOUNT_TYPE_FIELDS
                             if k in a and isinstance(a[k], (bool, int, float, str)) and len(str(a[k])) <= 32}
                     _out(f"account#{n} type: {json.dumps(kept, sort_keys=True)}")
+                    pb = kept.get("isPositionBased", kept.get("positionBased"))
+                    if n == 1 and isinstance(pb, bool):
+                        account_model = "positionBased" if pb else "netBased"
 
         for n, code in enumerate(codes, 1):
             q = urllib.parse.quote(code, safe="")
@@ -197,8 +282,8 @@ def main() -> int:
             if isinstance(js, dict):
                 m = js.get("metrics", [js])
                 m0 = (m[0] if m else {}) or {}
-                keep = {k: m0[k] for k in ("balance", "equity", "availableFunds", "margin", "openPl") if k in m0}
-                _out(f"account#{n} metrics: http={st} {json.dumps(keep)}")
+                # Key NAMES only: balances / equity are never printed (DXTRADE-PROBE-ACCOUNT).
+                _out(f"account#{n} metrics: http={st} keys={sorted(m0.keys())}")
             else:
                 _out(f"account#{n} metrics: {_err(st, js, tx)}")
 
@@ -215,12 +300,18 @@ def main() -> int:
                 st, js, tx = _call("GET", path, token)
                 rows = [i for i in _specs(js) if str(i.get("symbol", "")).upper() == sym] if js is not None else []
                 if rows:
+                    present[sym.replace("/", "")[:3]] = True
                     _out(f"spec[{label}]: " + json.dumps({k: rows[0][k] for k in SPEC_FIELDS if k in rows[0]}, sort_keys=True))
                 else:
                     _out(f"spec[{label}] {sym}: no exact row ({_err(st, js, tx)}) shape={json.dumps(_shape(js), sort_keys=True)[:300]}")
     finally:
         st, js, tx = _call("POST", "/logout", token)
         _out(f"logout: http={st}")
+    _out("read_state: login_ok")
+    _out("summary: " + json.dumps({
+        "account": account, "read_state": "login_ok", "reachable": reachable, "login_ok": login_ok,
+        "account_model": account_model or "unknown",
+        "symbols_present": {b: bool(present.get(b)) for b in WANTED}}, sort_keys=True))
     return 0
 
 
