@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "why": "New scheduled workflow (pm-snapshot-collect) plus a data-pull-only collector for Kalshi/Polymarket macro prediction-market snapshots. No order path, no live-VM mutation, no key; Tier-2-ish because it adds a cron and an auto-merge data PR cadence. Manager merges by hand.",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Manager review: new scheduled workflow (every 6h) landing append-only data into comms/macro/pm_snapshots via automation PRs. Source terms: full ToS text for Kalshi and Polymarket could not be retrieved in-session (429 / stub page); only the public unauthenticated read endpoints and published rate limits were verified."
+}

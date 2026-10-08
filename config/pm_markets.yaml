@@ -1,0 +1,17 @@
+# Curated prediction-market list for scripts/macro/pm_snapshot_collect.py (PM-COLLECTOR).
+# A small fixed list, NOT a crawl. Data-pull only: nothing here is read by any order path.
+max_markets_per_series: 12     # cap per Kalshi series / Polymarket query (nearest-to-close first)
+kalshi:
+  base_url: https://api.elections.kalshi.com/trade-api/v2
+  series:
+    KXFEDDECISION: fed_rate_decision
+    KXFED: fed_funds_rate
+    KXCPI: cpi
+    KXPAYROLLS: nfp
+    KXRECSSNBER: recession
+polymarket:
+  gamma_url: https://gamma-api.polymarket.com
+  # public-search query -> (topic, event slug prefix that must match)
+  queries:
+    - {q: "fed decision", topic: fed_rate_decision, slug_prefix: "fed-decision-in-"}
+    - {q: "recession", topic: recession, slug_prefix: "us-recession-"}
