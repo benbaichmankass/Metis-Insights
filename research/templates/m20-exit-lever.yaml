@@ -7,7 +7,7 @@ priority: 3
 title: "M20 exit-lever sweep: {leg} (generated, monthly)"
 question: >-
   Which hard exit levers (stale_stop, giveback_stop, trail_geometry,
-  trail_decay, vol_trail) clear the exit-refinement P2 gate on {leg}
+  trail_decay, vol_trail, momentum_trail, momentum_stale) clear the exit-refinement P2 gate on {leg}
   ({symbol} {timeframe}) on the data available now -- and does last month's
   answer still hold?
 why_this_matters: >-
