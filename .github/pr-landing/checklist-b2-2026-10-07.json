@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "CHECKLIST step (b2)+(c'): history/text checklist readers on the loader (load_at), readers guard, Workflow-page freshness stamp. Read paths + a guard; rehearsed with rows seeded and the monolith deleted.",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "check_pr_landing R5 refuses self-land: the diff touches src/runtime/checklist_store.py and src/runtime/manager_status.py (Tier-2 by name) and scripts/check_claim_basis.py, scripts/check_soak_doctrine.py (outside TIER1_SURFACE). Manager lands by hand; b1 (#17013) is already on main."
+}

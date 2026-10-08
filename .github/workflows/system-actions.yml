@@ -232,7 +232,7 @@ on:
         required: false
         default: ""
       account_id:
-        description: "Target account name (set-account-mode only; e.g. bybit_2)"
+        description: "Target account name (set-account-mode, e.g. bybit_2; velotrade-api-probe: velotrade_1 or tradeify_1, default velotrade_1)"
         required: false
         default: ""
       mode:
@@ -1942,6 +1942,15 @@ jobs:
           fi
           if [ "${ACTION}" = "repair-prop-fill-direction" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID:-}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
+          fi
+          # velotrade-api-probe: read-only; the account is a FIXED choice
+          # (DXTRADE-PROBE-ACCOUNT). Empty => velotrade_1. Issue-body key: account_id.
+          if [ "${ACTION}" = "velotrade-api-probe" ]; then
+            case "${ACCOUNT_ID:-}" in
+              ""|velotrade_1|tradeify_1) : ;;
+              *) echo "::error::velotrade-api-probe account_id must be velotrade_1 or tradeify_1 (got '${ACCOUNT_ID}')."; exit 1 ;;
+            esac
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID:-velotrade_1}") ${REMOTE_CMD}"
           fi
           # velotrade-api-roundtrip: DRY unless apply=live AND confirm_account
           # echoes velotrade_1 (the wrapper re-checks both). One-shot latch in

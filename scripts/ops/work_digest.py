@@ -605,18 +605,30 @@ def _items_at(ref: str, path: str) -> tuple[str, dict[str, dict]]:
     * ``unreadable`` — it exists and we could not parse it. **We could not
       look.** Emphatically not ``absent`` and emphatically not empty.
     """
-    try:
-        raw = subprocess.run(
-            ["git", "show", f"{ref}:{path}"],
-            cwd=REPO_ROOT, capture_output=True, text=True, check=True,
-        ).stdout
-    except subprocess.CalledProcessError:
-        return "absent", {}
-    try:
-        doc = json.loads(raw)
-        items = doc["items"]
-    except (ValueError, KeyError, TypeError):
-        return "unreadable", {}
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from src.runtime import checklist_store as _ck  # noqa: PLC0415
+    if _ck.is_checklist_path(path):  # monolith before the per-row cutover, rows after
+        try:
+            doc = _ck.load_at(REPO_ROOT, ref)
+        except (ValueError, OSError):
+            return "unreadable", {}
+        if doc is None:
+            return "absent", {}
+        items = doc.get("items")
+    else:
+        try:
+            raw = subprocess.run(
+                ["git", "show", f"{ref}:{path}"],
+                cwd=REPO_ROOT, capture_output=True, text=True, check=True,
+            ).stdout
+        except subprocess.CalledProcessError:
+            return "absent", {}
+        try:
+            doc = json.loads(raw)
+            items = doc["items"]
+        except (ValueError, KeyError, TypeError):
+            return "unreadable", {}
     if not isinstance(items, list):
         return "unreadable", {}
     out: dict[str, dict] = {}

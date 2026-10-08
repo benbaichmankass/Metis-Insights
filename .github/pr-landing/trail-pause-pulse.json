@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "TRAIL-PAUSE-PULSE lane. Edits scripts/prop/prop_executor_tick.py (executor tick) and scripts/ops/attention_watch.py (hourly digest). The tick change is one best-effort pulse write + journal line after the cycle output, wrapped so it cannot raise; no order path, no config. The manager decides whether to merge.",
+  "why": "When the prop trail latches (modify_rollout.json) nobody was told beyond one per-ticket alert line. The executor now writes trail_paused_since (null / ISO / 'unknown') each tick and the digest has a prop_trail_paused_<account> probe: urgent after 2 consecutive paused ticks, clears on null, unknown never clears."
+}
