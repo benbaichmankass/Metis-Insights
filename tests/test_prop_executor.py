@@ -4736,3 +4736,51 @@ def test_positions_row_action_ignores_the_orders_icon_pattern(tpage):
                                                       r"^(cancel|cancel order|×|✕|x|remove)$", True)
     assert r["ok"] is False and "controls=0" in r["why"]
     assert _pressed(p) == {"modify": None, "cancelled": None}
+
+
+# ── PROP-CANCEL-FIX round 2 (2026-10-08 18:13Z): the click LANDED, the order stayed ──
+# Deployed code clicked the measured #icon-close-order on order 18912998 twice
+# (clicked=true) and the next reads still showed it, with no role=dialog
+# open. The click's product is now captured, and a confirmation is pressed
+# only when the overlay says "cancel" and exactly one new button is an
+# anchored confirm label.
+
+def _modal_cancel_btn(buttons, text="Are you sure you want to cancel order?"):
+    btns = "".join(f'<button class="m" onclick="{on}">{label}</button>' for label, on in buttons)
+    modal = (f'<div class="modal"><div class="t">{text}</div>{btns}</div>')
+    js = "document.body.insertAdjacentHTML('beforeend', " + repr(modal).replace('"', "&quot;") + ")"
+    return ('<button data-button-index="1" class="button button-icon grid-orders_control" '
+            f'onclick="{js}"><svg class="icon "><use xlink:href="#icon-close-order"></use></svg></button>')
+
+
+_DO_CANCEL = "window.__cancelled=(window.__cancelled||[]).concat(['18912998']);document.querySelector('.modal').remove()"
+
+
+def test_cancel_presses_the_one_confirm_of_a_non_aria_cancel_modal(tpage):
+    ctl = _MODIFY_BTN + _modal_cancel_btn([("Cancel Order", _DO_CANCEL), ("Keep Order", "window.__kept=1")])
+    p = tpage(html=_orders_page(["18912998"], controls=ctl))
+    r = DXtradeAdapter(timeout_ms=3_000).cancel_order(p, WorkingOrder(symbol="ETHUSD", order_id="18912998"), arm=True)
+    assert r["clicked"] is True and "confirm pressed (Cancel Order)" in r["why"], r
+    assert _pressed(p) == {"modify": None, "cancelled": ["18912998"]}
+    assert p.evaluate("window.__kept || null") is None
+
+
+@pytest.mark.parametrize("buttons, text", [
+    ([("OK", _DO_CANCEL), ("Yes", _DO_CANCEL)], "Cancel this order?"),         # two confirm labels: ambiguous
+    ([("Confirm", _DO_CANCEL)], "Session expired, please log in again"),     # overlay does not say cancel
+    ([("Cancel", _DO_CANCEL)], "Cancel this order?"),                         # bare "Cancel" is a dismiss word
+])
+def test_cancel_never_presses_an_ambiguous_or_unrelated_overlay(tpage, buttons, text):
+    ctl = _MODIFY_BTN + _modal_cancel_btn(buttons, text=text)
+    p = tpage(html=_orders_page(["18912998"], controls=ctl))
+    r = DXtradeAdapter(timeout_ms=3_000).cancel_order(p, WorkingOrder(symbol="ETHUSD", order_id="18912998"), arm=True)
+    assert r["clicked"] is True and "confirm pressed" not in r["why"], r
+    assert "appeared buttons=" in r["why"] and "row still present=True" in r["why"]
+    assert _pressed(p)["cancelled"] is None
+
+
+def test_cancel_reports_when_the_click_produced_nothing(tpage):
+    inert = _CANCEL_BTN.replace('onclick="window.__cancelled', 'data-x="window.__cancelled')
+    p = tpage(html=_orders_page(["18912998"], controls=_MODIFY_BTN + inert))
+    r = DXtradeAdapter(timeout_ms=3_000).cancel_order(p, WorkingOrder(symbol="ETHUSD", order_id="18912998"), arm=True)
+    assert r["clicked"] is True and "nothing new appeared" in r["why"] and "row still present=True" in r["why"], r

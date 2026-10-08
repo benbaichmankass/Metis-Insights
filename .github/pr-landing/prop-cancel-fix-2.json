@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane PROP-CANCEL-FIX dispatch from Manager Session 2026-10-08 (session_01Uq7MrjPQDRWqbhCjwuMava): 'Open the PR, mark it ready, then STOP and wake the manager to merge.' Tier-2 order-path change approved by the operator directive relayed in that dispatch (~16:22Z: 'the system needs to be a fully autonomous pipeline').",
+  "why": "Round 2 of the PROP-CANCEL-FIX order-path fix: round 1 (#17158) deployed and its cycles clicked the measured cancel icon on the stale tradeify_1 order twice without cancelling it. This captures what the click produces into the executor journal and presses a cancel confirmation only when exactly one anchored confirm button appears in an overlay that says 'cancel'. No strategy, sizing or risk change."
+}
