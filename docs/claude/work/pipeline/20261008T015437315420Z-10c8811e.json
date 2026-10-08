@@ -6,6 +6,11 @@
   },
   "id": "PI-20261006-KX6ZKFNA-0003",
   "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-10",
+    "how_to_check": "(a) vm journal relay for ict-prop-executor@tradeify_1: a {\"pulse\": {...}} line with trail_paused_since null after the deploy of #16997; (b) diag log_file?name=attention_watch_receipt after the next hourly digest: probe prop_trail_paused_tradeify_1 = ok. Requires #16997 deployed (ict-git-sync ~5 min after merge).",
+    "what": "the merged trail-pause pulse is running live on the executor and the digest probe reads it"
+  },
   "origin": {
     "kind": "session",
     "ref": "lane ACTIVE-GEOMETRY scan session_01WeYNGaK7Ao3hp4Kx6ZkFna (manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-06 ~08:15Z; child of PI-20261006-APBY4NTV-0003",
