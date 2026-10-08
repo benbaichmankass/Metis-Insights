@@ -104,7 +104,11 @@ def test_defaults_reproduce_pre_lever_golden(cid, tmp_path):
     golden = json.loads(GOLDEN.read_text())[cid]
     summary, rows = _run_case(cid, tmp_path)
     assert golden["rows"], f"{cid}: golden holds no trades -- the equality would prove nothing"
-    assert summary == golden["summary"]
+    # run_date is the wall clock of the run, not a harness output: a golden captured on one day
+    # failed every run after the next UTC midnight (2026-10-08). Everything else must match.
+    volatile = ("run_date",)
+    assert {k: v for k, v in summary.items() if k not in volatile} == \
+        {k: v for k, v in golden["summary"].items() if k not in volatile}
     assert rows == golden["rows"]
 
 
