@@ -1,6 +1,6 @@
 id: RQ-20261006-028
 title: 'Stage-0 backtest for a FASTER prop leg: fvg_range harness on ETHUSDT 5m (PI-20261006-APBY4NTV-0001 slice 1)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 1
@@ -73,9 +73,9 @@ grading:
   - research/results/RQ-20261006-028/37611849544.jsonl
   first_fail: 1 row(s), all measured, all fail (1 earlier producer_failed / re-graded wiring_only row(s)
     superseded)
-  graded_at: '2026-10-07'
+  graded_at: '2026-10-08'
   grader: scripts/research/queue_grade.py
-  note: 'first FAIL: re-queued for a confirmatory run (last_dispatched_at reset), not killed'
-  reason: 1 row(s), all measured, all fail (1 earlier producer_failed / re-graded wiring_only row(s) superseded)
+  note: two consecutive FAIL passes; closed as fail (never on one pass)
+  reason: 1 row(s), all measured, all fail
   rows: 1
   verdict: fail
