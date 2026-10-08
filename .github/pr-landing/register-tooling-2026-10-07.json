@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "REGISTER-TOOLING: pipeline.append stale-snapshot guard (based_on), pipeline.py --redate + redate-guard, soak-contract update-trap fix, flaky prop test isolation, read-only /api/diag/log_aggregate. No order path, no strategy/risk/sizing change."
+}
