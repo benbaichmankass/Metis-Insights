@@ -472,7 +472,8 @@ class MainActivity : Activity() {
         if (!resumed) { setStatus("backgrounded: no claim"); return }
         val now = System.currentTimeMillis()
         if (now < claimBackoffUntilMs) { setStatus("logged in · VM busy (5xx); backing off ${(claimBackoffUntilMs - now) / 1000 + 1} s (no claim)"); return }
-        val r = api.post("claim") ?: run { setStatus("logged in · VM unreachable (no claim, no click)"); return }
+        // accepts amend: this build executes trail amends (PROP-TRAIL-PHONE); the VM serves them to no older build
+        val r = api.post("claim", JSONObject().put("accepts", JSONArray().put("amend"))) ?: run { setStatus("logged in · VM unreachable (no claim, no click)"); return }
         if (!r.optBoolean("ok")) {
             // 5xx (e.g. the API restarting for a deploy): ONE attempt, no in-tick retry, and no execution -- we hold no
             // ticket, so nothing can be filled or submitted. Back off 1 -> 2 -> 4 -> 5 min. If the server committed the
@@ -489,6 +490,16 @@ class MainActivity : Activity() {
         claimedThisTick = true
         val t = r.optJSONObject("ticket")
         if (t == null) { setStatus("logged in · waiting for a ticket (none queued) · ${java.text.DateFormat.getTimeInstance().format(Date())}"); return }
+        if (t.optString("kind") == "amend") {
+            val aid = t.optString("amend_id")
+            try { executeAmend(t, r.optJSONObject("config") ?: JSONObject()) }
+            catch (e: JsTimeout) {
+                // after the save click the stop is UNKNOWN (mismatch, the VM locks the trail and pings); before it, nothing changed
+                if (ledger.last(aid) == "submitted") { ledger.append(aid, "unconfirmed"); amendResult(t, "mismatch", "page stopped answering after the save click", null, null, null) }
+                else if (ledger.last(aid) == "intended") { ledger.append(aid, "refused"); amendResult(t, "refused", "page stopped answering before any save (nothing saved)", null, null, null) }
+            }
+            return
+        }
         val id = t.optString("ticket_id")
         try { execute(t, r.optJSONObject("config") ?: JSONObject()) }
         catch (e: JsTimeout) {
@@ -689,6 +700,157 @@ class MainActivity : Activity() {
         ledger.append(id, "unconfirmed")
         api.event("mismatch", "submitted but not found in Open orders/Positions after 3 reads; CHECK the terminal", id)
         setStatus("ticket $id UNCONFIRMED — operator check")
+    }
+
+    // ---------------- trail amends (PROP-TRAIL-PHONE) ----------------
+    /** Edit the stop (and a TP revision) of ONE open position, the way the entry is filled: locate by label, demand
+     *  exactly one match, read EVERY value back, never save without the read-back, then re-read the terminal.
+     *  Order: Positions row (unique for symbol+side) -> the terminal must show the stop the VM believes is resting
+     *  (else human_moved: a human's stop is never overridden) -> the row's ONE edit control -> the ONE dialog -> SL
+     *  (and TP) by label, typed and read back, the kept TP read back unchanged -> DRY: cancel and report; LIVE: the ONE
+     *  save button, then the position re-read (row column, else the edit dialog re-opened read-only and cancelled).
+     *  Anything unread or ambiguous before the save is "refused" (nothing changed); after it, "mismatch" (the VM
+     *  locks this ticket's trail and pings). One attempt per amend id (the ledger), never retried here. */
+    private suspend fun executeAmend(t: JSONObject, cfg: JSONObject) {
+        val aid = t.getString("amend_id")
+        if (ledger.seen(aid)) return amendResult(t, "refused", "ledger already holds this amend", null, null, null)
+        ledger.append(aid, "intended")
+        val live = t.optString("submit") == "live"   // the server decides (ARMED-GATE: no device-local switch)
+        val sym = t.optString("symbol").uppercase()
+        val inst = cfg.optJSONObject("instruments")?.optJSONObject(sym)
+        val venue = t.optString("venue_symbol").ifEmpty { inst?.optString("venue") ?: "" }
+        if (venue.isEmpty() || inst == null) return amendRefuse(t, "symbol not mapped in prop_platforms phone_accounts", null)
+        val pStep = inst.optDouble("price_step", Double.NaN)
+        if (pStep.isNaN()) return amendRefuse(t, "price step not declared", null)
+        val long = t.optString("direction").lowercase() == "long"
+        val sideRe = if (long) "long|buy" else "short|sell"
+        val fromSl = t.optDouble("from_sl", Double.NaN); val sl = t.optDouble("sl", Double.NaN)
+        val fromTp = t.optDouble("from_tp", Double.NaN); val tp = t.optDouble("tp", Double.NaN)
+        if (fromSl.isNaN() || sl.isNaN()) return amendRefuse(t, "amend has no from_sl/sl", null)
+        val tpChange = !tp.isNaN() && !(!fromTp.isNaN() && close(tp, fromTp, pStep))
+        // never loosen: the trail only tightens; a TP revision carries the SL unchanged
+        if (if (long) sl < fromSl - pStep / 2 else sl > fromSl + pStep / 2) return amendRefuse(t, "amend would loosen the stop", null)
+        setStatus("amend $aid: ${if (live) "LIVE" else "DRY"} $venue SL ${fmt(fromSl, pStep)} -> ${fmt(sl, pStep)}${if (tpChange) " TP -> ${fmt(tp, pStep)}" else ""}")
+        // 1. the position row
+        js("__ex.clickText('^positions$')"); delay(1500); ensure()
+        var pos = jsObj("__ex.posInfo(${q(venue)}, ${q(sideRe)})") ?: return amendRefuse(t, "positions unreadable", null)
+        if (pos.optInt("n") == 0) {
+            ledger.append(aid, "no_position")
+            val rows = try { JSONArray(js("JSON.stringify(__ex.rows())")) } catch (e: org.json.JSONException) { JSONArray() }
+            return amendResult(t, "no_position", "no $venue ${if (long) "long" else "short"} row in Positions", null, null, JSONObject().put("rows", rows))
+        }
+        if (pos.optInt("n") != 1) return amendRefuse(t, "position row not unique (n=${pos.optInt("n")})", pos)
+        // 2. the terminal must show the stop/target the VM believes is resting (row columns, when the layout has them)
+        val rowSl = firstNum(pos.optString("sl", "")); val rowTp = firstNum(pos.optString("tp", ""))
+        if (rowSl != null && !close(rowSl, fromSl, pStep)) return amendHuman(t, "row SL $rowSl != expected ${fmt(fromSl, pStep)}", pos)
+        if (rowTp != null && !fromTp.isNaN() && !close(rowTp, fromTp, pStep)) return amendHuman(t, "row TP $rowTp != expected ${fmt(fromTp, pStep)}", pos)
+        // 3. the row's ONE edit control, then the ONE dialog
+        val e = js("__ex.posEdit(${q(venue)}, ${q(sideRe)})")
+        if (e != "clicked") return amendRefuse(t, "position edit control: $e", pos)
+        delay(1500); ensure()
+        val d0 = jsObj("__ex.editDialog()")
+        if (d0?.optInt("n") != 1) { js("__ex.dlgCancel()"); return amendRefuse(t, "edit dialog not unique (n=${d0?.optInt("n")})", pos) }
+        val fSl = Field("SL price", "stop ?loss|\\bsl\\b", "price"); val fTp = Field("TP price", "take ?profit|\\btp\\b", "price")
+        val slF = dlgField(fSl) ?: return amendCancelRefuse(t, "dialog SL field unreadable", d0)
+        val tpF = dlgField(fTp)
+        if (slF.optInt("n") != 1) return amendCancelRefuse(t, "dialog SL field not unique (n=${slF.optInt("n")}, labels ${slF.optJSONArray("labels")})", d0)
+        if ((tpChange || !fromTp.isNaN()) && tpF?.optInt("n") != 1) return amendCancelRefuse(t, "dialog TP field not unique (n=${tpF?.optInt("n")})", d0)
+        // 4. the dialog's own values must be the resting ones before anything is typed
+        val dSl = num(slF.optString("value"))
+        if (dSl == null || !close(dSl, fromSl, pStep)) { js("__ex.dlgCancel()"); return amendHuman(t, "dialog SL ${slF.optString("value")} != expected ${fmt(fromSl, pStep)}", d0) }
+        if (!fromTp.isNaN()) { val dTp = num(tpF?.optString("value")); if (dTp == null || !close(dTp, fromTp, pStep)) { js("__ex.dlgCancel()"); return amendHuman(t, "dialog TP ${tpF?.optString("value")} != expected ${fmt(fromTp, pStep)}", d0) } }
+        // 5. type + read back, all of it, by label
+        if (!dlgType(fSl, fmt(sl, pStep), sl, pStep)) return amendCancelRefuse(t, "SL did not read back in the dialog", jsObj("__ex.editDialog()"))
+        if (tpChange && !dlgType(fTp, fmt(tp, pStep), tp, pStep)) return amendCancelRefuse(t, "TP did not read back in the dialog", jsObj("__ex.editDialog()"))
+        delay(400)
+        val d1 = jsObj("__ex.editDialog()")
+        val slR = num(dlgField(fSl)?.optString("value")); val tpR = if (fromTp.isNaN() && !tpChange) null else num(dlgField(fTp)?.optString("value"))
+        val wantTp = if (tpChange) tp else fromTp
+        if (slR == null || !close(slR, sl, pStep)) return amendCancelRefuse(t, "SL read-back mismatch ($slR)", d1)
+        if (!wantTp.isNaN() && (tpR == null || !close(tpR, wantTp, pStep))) return amendCancelRefuse(t, "TP read-back mismatch ($tpR)", d1)
+        if (!live) {
+            val c = js("__ex.dlgCancel()"); delay(800)
+            ledger.append(aid, "dry_amended")
+            amendResult(t, "dry_amended", "typed + read back in the dialog, NOT saved (server mode dry; cancel: $c)", slR, tpR, d1)
+            setStatus("DRY amend $aid read back; not saved"); return
+        }
+        // 6. LIVE save: the ONE save button
+        ledger.append(aid, "submitted")
+        val sv = js("__ex.dlgSave()")
+        if (sv != "clicked") { ledger.append(aid, "refused"); return amendCancelRefuse(t, "dialog save control: $sv", d1) }
+        delay(1500); ensure()
+        // a follow-up confirmation is accepted only if it carries no input and its ONE save/confirm button is not a close
+        jsObj("__ex.editDialog()")?.let { d2 ->
+            if (d2.optInt("n") == 1 && (d2.optJSONArray("inputs")?.length() ?: 0) == 0) { js("__ex.dlgSave()"); delay(1500) }
+        }
+        if ((jsObj("__ex.editDialog()")?.optInt("n") ?: 0) > 0) {
+            js("__ex.dlgCancel()"); ledger.append(aid, "unconfirmed")
+            return amendResult(t, "mismatch", "edit dialog still open after the save click", null, null, jsObj("__ex.editDialog()"))
+        }
+        // 7. read back on the terminal: the row's SL/TP columns, else the edit dialog re-opened read-only and cancelled
+        js("__ex.clickText('^positions$')"); delay(1500); ensure()
+        val p2 = jsObj("__ex.posInfo(${q(venue)}, ${q(sideRe)})")
+        if (p2 == null || p2.optInt("n") != 1) { ledger.append(aid, "unconfirmed"); return amendResult(t, "mismatch", "position row not unique after the save (n=${p2?.optInt("n")})", null, null, p2) }
+        var vSl = firstNum(p2.optString("sl", "")); var vTp = firstNum(p2.optString("tp", ""))
+        if (vSl == null || (vTp == null && !wantTp.isNaN())) {
+            if (js("__ex.posEdit(${q(venue)}, ${q(sideRe)})") == "clicked") {
+                delay(1500); ensure()
+                vSl = num(dlgField(fSl)?.optString("value"))
+                if (!wantTp.isNaN()) vTp = num(dlgField(fTp)?.optString("value"))
+                js("__ex.dlgCancel()"); delay(800)
+            }
+        }
+        val okSl = vSl != null && close(vSl, sl, pStep)
+        val okTp = wantTp.isNaN() || (vTp != null && close(vTp, wantTp, pStep))
+        if (okSl && okTp) {
+            ledger.append(aid, "amended")
+            amendResult(t, "amended", "saved and read back on the terminal", vSl, vTp, p2)
+            setStatus("LIVE amend $aid: SL ${fmt(sl, pStep)} read back")
+        } else {
+            ledger.append(aid, "unconfirmed")
+            amendResult(t, "mismatch", "after the save the terminal shows SL $vSl TP $vTp (asked ${fmt(sl, pStep)} / ${if (wantTp.isNaN()) "-" else fmt(wantTp, pStep)})", vSl, vTp, p2)
+            setStatus("amend $aid NOT VERIFIED — operator check")
+        }
+    }
+
+    private suspend fun dlgField(f: Field): JSONObject? = jsObj("__ex.dlgRead(${q(f.re)}, ${q(f.prefer)})")
+
+    private suspend fun dlgType(f: Field, text: String, want: Double, step: Double): Boolean {
+        val res = jsObj("__ex.dlgSet(${q(f.re)}, ${q(f.prefer)}, ${q(text)})") ?: return false
+        if (res.optInt("n", 0) != 1) return false
+        delay(300)
+        if (close(num(dlgField(f)?.optString("value")), want, step)) return true
+        if (js("__ex.dlgFocus(${q(f.re)}, ${q(f.prefer)})") != "focused") return false
+        typeKeys(text); delay(400)
+        return close(num(dlgField(f)?.optString("value")), want, step)
+    }
+
+    private fun firstNum(s: String?): Double? = s?.let { Regex("-?[0-9][0-9,]*(\\.[0-9]+)?").find(it)?.value }?.let { num(it) }
+
+    private suspend fun amendRefuse(t: JSONObject, why: String, dump: JSONObject?) {
+        ledger.append(t.optString("amend_id"), "refused")
+        amendResult(t, "refused", why, null, null, dump)
+        setStatus("amend ${t.optString("amend_id")} REFUSED: $why")
+    }
+
+    private suspend fun amendCancelRefuse(t: JSONObject, why: String, dump: JSONObject?) {
+        val c = try { js("__ex.dlgCancel()") } catch (e: JsTimeout) { "timeout" }
+        amendRefuse(t, "$why (dialog cancel: $c)", dump)
+    }
+
+    private suspend fun amendHuman(t: JSONObject, why: String, dump: JSONObject?) {
+        ledger.append(t.optString("amend_id"), "human_moved")
+        amendResult(t, "human_moved", why, null, null, dump)
+        setStatus("amend ${t.optString("amend_id")}: terminal differs from the VM ($why); not touched")
+    }
+
+    /** The amend's one report. The VM re-checks an "amended" claim against what it asked for and pings any lock. */
+    private suspend fun amendResult(t: JSONObject, result: String, why: String, slRead: Double?, tpRead: Double?, dump: JSONObject?) {
+        val b = JSONObject().put("kind", "amend_result").put("ticket_id", t.optString("ticket_id"))
+            .put("amend_id", t.optString("amend_id")).put("result", result).put("reason", why).put("form", dump ?: JSONObject())
+        if (slRead != null) b.put("sl_read", slRead)
+        if (tpRead != null) b.put("tp_read", tpRead)
+        api.post("report", b)
     }
 
     /** What the page SHOWS for the server read-back: raw strings, never our own computed numbers. Side and order type

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Held for the manager (Manager Session 2026-10-01, session_01MM8o5js6TcDFeNAPBY4Ntv), lane PROP-TRAIL-PHONE (session_01YT5VE5mnD6LfbHaVMK2Q5Y). Tier-2: the phone app that executes breakout_2's live prop orders. Adds the trail-amend route (executeAmend + exec.js position/dialog helpers) and declares accepts:[amend] on claim and pending. Inert until the server half (#16959) is merged AND deployed AND the new APK is installed; with an older server the extra body/query is ignored. Live amends need submit=live from the server AND the app ARMED, exactly like entries. Revert: reinstall the previous APK (or revert this PR).",
+  "why": "Second half of PROP-TRAIL-PHONE (PI-20261006-KX6ZKFNA-0002): the phone edits the open position's stop on the terminal with the same fail-closed standard as the entry fill (unique row, unique edit control, unique dialog, fields by label, every value read back, never save without the read-back, re-read the terminal after the save), so breakout_2 trades the trail its Stage-0 record assumed."
+}

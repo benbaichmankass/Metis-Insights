@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-08",
+    "kind": "date"
+  },
+  "id": "PI-20261006-APBY4NTV-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv, operator request 2026-10-06 ~08:15Z",
+    "rerun": "python3 - <<'X'\nimport yaml;print(yaml.safe_load(open('config/pairs.yaml')))\nX"
+  },
+  "state": "done",
+  "terminal_reason": "Delivered by lane PAIRS-STOCKTAKE (session_011BUSVxr9kPZvkNn6TXSaL6), 2026-10-07: memo + verdict table docs/research/pairs-stocktake-2026-10-07.md; data gaps registered as research units RQ-20261007-005..008 (Stage-0 at configured params, full cost stack, auto-graded) and blocked/RQ-20261007-009 (prop fit); guard gap fixed in scripts/ci/check_roster_promotion_evidence.py (per-pair account_id); follow-ups filed as PI-20261007-N6TXSAL6-0001/0002/0003. Verdict: nothing live-ready (no Stage-0 record, no Gate-1 cell, not a rostered leg), nothing prop-feasible (no 2-leg prop order path; BTC-quote legs unplaceable at prop risk).",
+  "what": "PAIRS STRATEGIES STOCKTAKE (operator, 2026-10-06 ~08:15Z, verbatim: \"where do we stand on all of the pairs strategies? Is anything there ready to go live, and is anything there feasible for a prop account?\"). Post-reset. DO: (1) inventory every pairs/market-neutral leg (config/pairs.yaml M22 sleeve, src/units/strategies/pairs_executor, research/results pairs units, comms/strategy_evidence) with its ladder stage (Stage 0/1/2), committed evidence record, n, net-of-cost result vs its pre-registered rule, and its live/soak record; (2) LIVE-READY: which, if any, clear the S1->S2 promotion bar (MD-PROMOTE-S1-S2, cost_tolerance_bps 2.0) on committed evidence -- name the exact gap for the rest; (3) PROP-FEASIBLE: for each prop venue (tradeify_1, breakout_2, velotrade_1) check (a) both legs are tradeable instruments on that venue, (b) the venue allows the hedge (no-hedging / same-account opposite-position rules in prop_rulesets), (c) the executor path can place a 2-leg order (browser / phone / REST), (d) a prop ruleset sim (prop_ev_sim, risk gates first per operator 2026-10-06 06:40Z) on the pair's committed record; (4) one-page memo + verdict table + proposed actions (promotions under MD-PROMOTE-S1-S2 / Tier-3 proposals / research units for gaps). Ties to PI-20261006-APBY4NTV-0001 (faster prop strategies) and -0003 (active geometry)."
+}
