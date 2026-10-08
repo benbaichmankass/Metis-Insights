@@ -242,3 +242,15 @@ def test_mutation_folding_unreadable_into_absent_is_load_bearing():
     with pytest.raises(AssertionError):
         r = m["grade"](found=True, parse_ok=False, landing=None)
         assert r["arm"] is False
+
+
+def test_premerge_refuses_hold_missing_request_and_stale_state():
+    """#17038: hold + deleted request file must refuse at merge time."""
+    ok = dict(pr_open=True, head_unchanged=True, request_present=True,
+              found=True, parse_ok=True, landing="self")
+    assert G.grade_premerge(**ok)["merge"] is True
+    assert G.grade_premerge(**{**ok, "landing": "hold"})["merge"] is False
+    assert G.grade_premerge(**{**ok, "request_present": False})["merge"] is False
+    assert G.grade_premerge(**{**ok, "head_unchanged": False})["merge"] is False
+    assert G.grade_premerge(**{**ok, "pr_open": False})["merge"] is False
+    assert G.grade_premerge(**{**ok, "parse_ok": False})["merge"] is False

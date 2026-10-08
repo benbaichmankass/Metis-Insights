@@ -142,8 +142,6 @@ lands:
   min_rows: 1
   note: 'research/results/RQ-20261007-021/<run_id>.jsonl (E5 contract via the batch collector); per-arm harness summaries,
     trade ledgers, exact argv and verdict.json under comms/research/RQ-20261007-021/<run_id>/.'
-grading:
-  auto: true
 related:
 - PI-20261006-KX6ZKFNA-0004
 - comms/strategy_evidence/runs/2026-10-05-730d-expand/xrp_pullback_2h.json
@@ -167,3 +165,16 @@ result_preliminary: 'MEASURED 2026-10-07 by lane EXIT-PARITY-RQ on a session-loc
   trail_decay_tight_mult from xrp_pullback_2h (bybit_2, bybit_portfolio, bybit_1 in one PR). Status stays queued: the
   runner''s own run lands the durable E5 record and the grader closes the unit; this field is the session read, not the landing.'
 last_dispatched_at: '2026-10-08T03:51:53+00:00'
+grading:
+  auto: true
+  confirmatory_run: 1
+  decision_rule_id: RULE-RQ1007-002-XRP-DEAD-DECAY-ARM
+  evidence:
+  - research/results/RQ-20261007-021/37720493432.jsonl
+  first_fail: 1 row(s), all measured, all fail
+  graded_at: '2026-10-08'
+  grader: scripts/research/queue_grade.py
+  note: 'first FAIL: re-queued for a confirmatory run (last_dispatched_at reset), not killed'
+  reason: 1 row(s), all measured, all fail
+  rows: 1
+  verdict: fail

@@ -1,0 +1,42 @@
+{
+  "strategy": "pairs",
+  "pair": "SOLUSDT/ETHUSDT",
+  "timeframe": "1h",
+  "params": {
+    "lookback": 15,
+    "entry_z": 2.0,
+    "exit_z": 0.5,
+    "stop_z": 2.0,
+    "max_hold_bars": 20,
+    "hedge_beta": "rolling"
+  },
+  "total_trades": 304,
+  "fee_bps_roundtrip_per_leg": 7.5,
+  "slippage_bps_roundtrip_per_leg": 3.0,
+  "funding_bps_per_window_a": 1.0,
+  "funding_bps_per_window_b": 1.0,
+  "data_start": "2026-04-11 00:00:00+00:00",
+  "data_end": "2026-10-06 23:00:00+00:00",
+  "run_date": "2026-10-08",
+  "win_rate_pct": 56.91,
+  "net_total_r": 53.4048,
+  "net_total_r_fee_only": 53.5373,
+  "net_expectancy_r": 0.1757,
+  "trades_long": 151,
+  "trades_short": 153,
+  "max_drawdown_r": 7.8693,
+  "mean_hold_hours": 5.55,
+  "total_position_days": 70.29,
+  "net_r_per_pos_day": 0.7598,
+  "by_outcome": {
+    "stop": 115,
+    "revert": 184,
+    "timeout": 5
+  },
+  "by_year": {
+    "2026": {
+      "trades": 304,
+      "net_r": 53.4047
+    }
+  }
+}

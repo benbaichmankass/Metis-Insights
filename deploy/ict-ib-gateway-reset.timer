@@ -23,8 +23,11 @@
 # ============================================
 
 [Unit]
+# NO Requires= on the service this timer fires: starting (or restarting) a
+# timer with Requires=<its service> RUNS the service. On this timer that was a
+# docker restart of ib-gateway at every deploy-time timer restart (2026-10-07/08,
+# IB-GATEWAY-DOWN; tests/ops/test_timer_no_requires_on_service.py).
 Description=ICT IB Gateway daily reset — fires at 06:05 UTC
-Requires=ict-ib-gateway-reset.service
 
 [Timer]
 OnCalendar=*-*-* 06:05:00 UTC

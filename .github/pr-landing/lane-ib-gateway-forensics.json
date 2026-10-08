@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Manager dispatch for lane IB-GATEWAY-DOWN: 'landing hold, the manager merges'. After merge the lane dispatches the action once and reports who restarts ib-gateway.",
+  "why": "Adds one read-only Tier-1 system-action (gateway-forensics) that prints docker inspect restart facts plus watchdog/reset timer state and journal tails from the gateway VM, with IPv4 and account ids masked. It restarts, stops and writes nothing. Wrapper, allowlist, route, notify, docs row and tests only; no order path, config, or strategy touched."
+}

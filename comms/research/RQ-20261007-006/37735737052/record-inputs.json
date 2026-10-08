@@ -1,0 +1,17 @@
+{
+  "artifact_locator": "comms/research/RQ-20261007-006/37735737052/ (run-manifest.json + verdict.json + logs/)",
+  "artifact_store": "comms/research/RQ-20261007-006/37735737052",
+  "decision_rule_id": "RULE-RQ1007-006-BNB-BTC-CONFIGURED-STAGE0",
+  "decision_rule_registered_at": "2026-10-07",
+  "measurement_file": "comms/research/RQ-20261007-006/37735737052/measurement.json",
+  "min_rows": "1",
+  "n": "274",
+  "note": "PASS: net_total_r +102.4212 R over n=274 (floor 39); fee-only arm 102.5044 R reported, not graded. Ledger: trades.jsonl beside this file (entry_time/exit_time/net_r per pair trade).",
+  "population": "pairs_bnb_btc: 274 pair trades, BNBUSDT/BTCUSDT 1h at the configured params {'lookback': 15, 'entry_z': 2.0, 'exit_z': 0.5, 'stop_z': 2.0, 'max_hold_bars': 20, 'hedge_beta': 'rolling'}, 2026-04-11 00:00:00+00:00 -> 2026-10-06 23:00:00+00:00, net of fee+slippage+funding per leg",
+  "power_state": "accruing",
+  "read_state": "measured",
+  "records_file": "comms/research/RQ-20261007-006/37735737052/records.jsonl",
+  "research_unit": "RQ-20261007-006",
+  "tool": "python3 scripts/research/pairs_configured_stage0.py",
+  "verdict": "pass"
+}
