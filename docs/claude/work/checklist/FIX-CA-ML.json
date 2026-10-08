@@ -1,0 +1,18 @@
+{
+  "phase": "W6",
+  "spend_usd": 14.69,
+  "blocked_on": [],
+  "owner": "fix lane",
+  "id": "FIX-CA-ML",
+  "state": "done",
+  "lane": "session_01XojX3GqpCRSf2G2nyVDmVJ",
+  "prs": [
+    13252,
+    13253
+  ],
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 40,
+  "title": "FIX-CA-ML: FIX-CA-20",
+  "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-20..25 (ML serving/gates; 20-22 Tier 1, 23-25 Tier 2). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13252 (T1 gates) merged 011e122, #13253 (closed bars) merged 1ea0374 after review; the live scorer is running at f089c40. The trainer-side reinstall (install_trainer_publish_units.sh, *:0/15:30 timer) is with the lane: until it lands, fc_* rows can be refused (NaN) on the live side, which is observe-only. | 2026-09-28 00:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OBSERVED working: forecast_serve observed, lag 0, 6 served, 0 stale. Lane archived.",
+  "_seq": 161
+}

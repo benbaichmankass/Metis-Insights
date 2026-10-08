@@ -1,0 +1,21 @@
+{
+  "id": "BACKLOG-BURNDOWN-4",
+  "title": "Continuous backlog burndown, wave 3: drain the paced ~24/day due wave from 10-11 (416 old items still open, most without a live owner, per BURNDOWN-3 close-out); CLOSE/KILL over re-date",
+  "phase": "W6",
+  "state": "done",
+  "owner": "burndown lane",
+  "lane": "session_01FF7rXg93DhjUErmWop8C4X",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 15,
+  "spend_usd": 6.23,
+  "tier": 1,
+  "prs": [
+    16554,
+    16555,
+    16558,
+    16559
+  ],
+  "blocked_on": [],
+  "note": "2026-10-05 05:3xZ: dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv under the operator's pacing directive (2026-10-05, the weekly limit must last to the Wed reset). Sonnet, $15 ceiling, NO parallel sub-agent fan-out (BURNDOWN-3 ran $65.71 against $40 with 17 sub-agents). 06:14Z: wave result \u2014 MERGED #16554/#16555 (34 records: 6 done, 18 killed, 11 routed) and #16559 (exit-head tp_cap); #16558 (check_stale_in_flight ratchet fix + test, files PI-20261005-MWOP8C4X-0001..0003) auto-merge armed. M20 exit-head/matrix rows NOT killed: measured premises still hold on the 52-row matrix. MANAGER DECISION: the ~380 remaining archived rows slow-drain on their spread due dates (<=24/day from 10-11) and 30-day owner observations; no more spend now. Row goes done when #16558 merges. 06:45Z: #16558 MERGED c9436d58; OBSERVED on main by manager: check_stale_in_flight prints 'ratchet base=0 head=0 delta=+0' (was base_unreadable). Lane ended on manager stop. Row done.",
+  "_seq": 290
+}

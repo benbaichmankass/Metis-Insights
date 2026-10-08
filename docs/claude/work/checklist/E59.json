@@ -1,0 +1,18 @@
+{
+  "id": "E59",
+  "title": "Prop (breakout_1): is it receiving tickets now, what is the honest baseline, and what does the ruleset allow \u2014 sizing against a ~$95 DD cushion first",
+  "phase": "E",
+  "state": "done",
+  "owner": "research lane",
+  "lane": "session_01S6QEBu1xEVd76nMQ3CDmu6",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 50,
+  "spend_usd": null,
+  "tier": 3,
+  "prs": [
+    12848
+  ],
+  "blocked_on": [],
+  "note": "Merged via #12848 -> #12858. docs/research/prop-state-2026-09-24.{md,json} are on main. Final spend $4.20 against $50. Operator decision on -0001: leave the flat $75. -0003/-0004/-0005 stay open in the pipeline. OPERATOR DECISIONS 2026-09-24 ~13:05Z (popups in session_01Ljhs6sFAdWHdMDhJpL5aBP): PROP SIZING -> \"Leave flat $75\" (chosen over E59's cushion-scaled rule k=0.33/0.5 and over pausing tickets), with the measurement in front of them: $94.76 cushion, 0 full-size stop-outs survivable once #44 stops, and the 2026-08-31 \"enforce\" gate caps nothing. PI-20260924-MQ3CDMU6-0001 is therefore KILLED by operator decision; -0002 (enforce not implemented) was put to the operator as part of the same question. -0003/-0004/-0005 (stop not journaled, /tmp source_runs, baseline residual -$68.70) remain open lane work. Handoff R-G, operator priority (\"our most leveraged pool of capital\", visibly underutilized). Precondition E17 now read as resolved from 2026-09-23 (see E17). Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP. Analysis + PROPOSALS only; any roster/sizing/risk change is Tier-3 and goes to the operator.",
+  "_seq": 94
+}

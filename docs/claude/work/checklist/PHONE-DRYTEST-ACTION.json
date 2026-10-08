@@ -1,0 +1,18 @@
+{
+  "id": "PHONE-DRYTEST-ACTION",
+  "title": "phone-dry-test Tier-1 system-action: an always-dry phone test ticket by labelled issue, no config PR",
+  "phase": "W6",
+  "state": "done",
+  "owner": "lane PHONE-DRYTEST-ACTION",
+  "lane": "session_01JoHUxdN7RXftfnD7uEUQgp",
+  "model": "claude-fable-5-1",
+  "ceiling_usd": 10,
+  "spend_usd": 10.19,
+  "tier": 1,
+  "prs": [
+    16782
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-07T19:40Z manager] Lane archived 19:38Z; spend $10.19 final (Fable; its last turn died on the weekly limit after the action had merged and passed). || [2026-10-07T18:15Z manager] DONE. MERGED #16782 (2026-10-06 14:01Z). OBSERVED 2026-10-07: issue #16939 (18:10Z) -> ticket phone-test-72f5bfc0942e -> the backgrounded, armed phone came forward and dry_filled at 18:11:22Z (ETH limit/buy, TP/SL read back, submit not pressed). ~1 min from issue to ticket vs ~37 min on the config-PR path. Row created late: the lane was dispatched 2026-10-06 12:30Z on the operator's ask without a row (manager error, corrected). Lane died at the weekly limit before its own proof dispatch; spend $10.19 final. PI-20261006-APBY4NTV-0009 -> done.",
+  "_seq": 331
+}

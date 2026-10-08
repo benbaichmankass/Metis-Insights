@@ -1,0 +1,23 @@
+{
+  "id": "EXIT-PARITY-CHECK",
+  "title": "Four Tier-3 exit-lever candidates that passed Stage 0 on 2026-10-04 get the exit-refinement live-parity check, then a Tier-3 declare-or-kill proposal each",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane EXIT-PARITY-CHECK",
+  "lane": "session_0112fGb4EsirPgfhqtS5tKFo",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 25,
+  "spend_usd": 5.94,
+  "tier": 1,
+  "prs": [
+    16971
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-08T00:24Z manager] Lane archived; spend $5.94 final. || [2026-10-07T23:27Z manager] #16971 MERGED 23:24Z (491a8b0d0): RQ-20261007-904 queued; 3 kills recorded. Lane to archive. || [2026-10-07T19:42Z manager] DONE by the lane, PR #16971 held (new unit RQ-20261007-904): xrp_4h trail4 parity FAILED (sweep never forwarded side_filter=short; fixed + test; evidence withdrawn; short-only re-run = RQ-20261007-904, readout PI-20261007-ITYCHECK-0001 due 10-14); scha vt_hot90_t2 KILLED (effective 0/6); spy decay_stall6_t2 KILLED (effective 2/6); squeeze vt_cold10_t1.8 KILLED (no trail_vol code). No Tier-3 proposal; strategies.yaml untouched. Follow-up PI-20261007-ITYCHECK-0002 (sol_pullback_2h same defect) due 10-21. Manager merges #16971 on green, then archives. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-UQ9JJPRQ-0004. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+  "observation": {
+    "what": "#16971 merged and RQ-20261007-904 dispatched by the runner",
+    "how_to_check": "ls research/results/RQ-20261007-904 || grep -n result research/queue/RQ-20261007-904.yaml",
+    "due_by": "2026-10-14T18:00Z"
+  },
+  "_seq": 321
+}

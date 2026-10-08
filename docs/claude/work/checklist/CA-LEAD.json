@@ -1,0 +1,20 @@
+{
+  "id": "CA-LEAD",
+  "title": "Code audit LEAD: consolidate findings to docs/audits/code-audit-2026-09-27.md",
+  "phase": "CA",
+  "state": "done",
+  "owner": "audit lead lane",
+  "lane": "session_01FEyBLv4xbJQoAzTRs4df3M",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 70,
+  "spend_usd": 39.24,
+  "tier": 1,
+  "prs": [
+    13227,
+    13382,
+    13383
+  ],
+  "blocked_on": [],
+  "note": "Opus per the operator. Consolidates, dedupes, independently re-verifies every critical/high finding, splits evidence-settled fixes (-> manager fix lanes) from judgment calls (-> daily brief section 2), files pipeline items for what is not fixed at once. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01FEyBLv4xbJQoAzTRs4df3M (claude-opus-5-5; fresh). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): consolidated report merged #13227 (docs/audits/code-audit-2026-09-27.md): 1 critical + 29 high after re-verification; 24 evidence-settled briefs FIX-CA-02..25 dispatched to 6 fix lanes; 5 judgment calls JC-CA-01..05 -> daily brief. Lead re-consolidates after #13226 lands. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): turn 3 dispatched 17:17Z (trig_01CcJn2btM5Lbndf7SdwMCPB): consolidate Wave B, FIX-CA-26+/JC-CA-06+, mark 01..25 landed; ceiling $30. | 2026-09-28 00:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): DONE: final report merged (#13382, #13383); 0 findings left \"NEW, not dispatched\". Two open ends, carried on the CA row, not this lane: live verification needs the diag token (operator), and the CA-B05/B06 plant-a-defect guard re-proof is incomplete (coverage gap, not a defect). Lane archived.",
+  "_seq": 133
+}

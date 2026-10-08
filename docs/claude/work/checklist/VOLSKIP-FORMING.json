@@ -1,0 +1,18 @@
+{
+  "id": "VOLSKIP-FORMING",
+  "title": "M21 entry vol-skip gate reads a forming bar on live ada_pullback_2h (bybit_2): characterize the trade-set difference vs closed-bar behaviour, then fix",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "fix lane",
+  "lane": "session_01KLrfUqboyemcENVGtXTT9b",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 45,
+  "spend_usd": null,
+  "tier": 3,
+  "prs": [
+    14131
+  ],
+  "blocked_on": [],
+  "note": "2026-09-29 ~10:52Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): from #14101 / PI-20260929-EXITOPS-0005 (live packages created ~7 min into a 2h bar). Operator directive 09:50Z: data-missing -> task, no popup. Lane registers a rule, replays the gate both ways net of full cost, cross-checks live decisions, ships a held Tier-3 fix; manager ships under the data-backed authorization and notifies. || 2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): verdict KEEP_AND_REPORT (0 live decisions flipped over 43,725 audit rows; gate-local fix moves away from Stage 0 and was reverted). #14131 renumbered to RQ-20260929-201 (3b55065); guards RED (unit placeholder {klines_dir}, run.inputs.research_unit stale, replay script missing from the research capability index) -- sent back. Inert trail_vol lever (PI-20260929-VOLSKIP-0002) sent to M20-EXITS; blocks #14053. || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Lane archived; successor VOLSKIP-SIGNAL (session_01GvZxxxgFK3JVaBFhfzZx6N): pooled RQ-302 INCONCLUSIVE (dR -44.9R, 90% CI [-224,+138]); xrp_pullback_2h fails D1 under forming (n=77) -> resolver NEEDS-DATA (no mirror-window record); lane computing CI before any Tier-3 proposal. #14195 then #14218 (held).",
+  "_seq": 200
+}

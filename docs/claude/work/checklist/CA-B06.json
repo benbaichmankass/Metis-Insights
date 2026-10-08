@@ -1,0 +1,22 @@
+{
+  "id": "CA-B06",
+  "title": "Code audit Wave B: CI guards part 2 \u2014 each proven to fail on its defect",
+  "phase": "CA",
+  "state": "done",
+  "owner": "audit lane",
+  "lane": "session_01VQCPCfUdFFZ5N6B5EH5DbV",
+  "model": "claude-haiku-4-5-20251001",
+  "ceiling_usd": 15,
+  "spend_usd": 1.3,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [
+    {
+      "kind": "work_item",
+      "ref": "CA",
+      "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+    }
+  ],
+  "note": "Scope: Guards 45\u201389 in `python3 scripts/ci/run_guards.py --list` order (from corpus-row-floor-guard to the end), and each guard's script. Model reason: Haiku \u2014 mechanical plant-a-defect-and-run per guard; operator named Haiku. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B06.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main; lane archived.",
+  "_seq": 129
+}

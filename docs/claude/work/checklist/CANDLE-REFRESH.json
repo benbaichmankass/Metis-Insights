@@ -1,0 +1,20 @@
+{
+  "id": "CANDLE-REFRESH",
+  "title": "Give the trainer's 15m/5m candle CSVs a refresh owner that extends, never truncates, the multi-year files (PI-20260929-FCJRWVAK-0002; unblocks -0001)",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "build lane",
+  "lane": "session_014Wu5w92TH73rf2dvZQd9ii",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 25,
+  "spend_usd": 10.1,
+  "tier": 2,
+  "prs": [
+    14517,
+    14518,
+    14660
+  ],
+  "blocked_on": [],
+  "note": "2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane dispatched: session_014Wu5w92TH73rf2dvZQd9ii (claude-sonnet-5-5, ceiling $25). The trainer timer is Tier-2 (non-money path): held PR, manager merges, then deploy and verify under the standing data-backed authorization. || 2026-09-30 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14517, #14518 MERGED. DEPLOYED: ict-candle-refresh.timer installed on the trainer (#14653), enabled. OBSERVED on two MANUAL fires: SOL/XRP/ETH 15m extended to 2026-09-30 08:45; the second run appended exactly 1 bar each (idempotent); pre-install rows byte-identical to the backup. NOT OBSERVED: an unattended timer fire (first due 2026-10-01 03:28Z) -> PI-20260930-DVZQD9II-0001. Filed -0002: BNB/ADA/LINK/AVAX/BTC 15m and all 5m files have no refresh owner. FCJRWVAK-0002 closed done (#14660); FCJRWVAK-0001 (2026 ict_scalp per-leg re-count) still open and unowned. Revert: disable the timer and restore the 3 CSVs from /home/ubuntu/candle_backup_20260930/. Lane ARCHIVED ($10.1).",
+  "_seq": 223
+}

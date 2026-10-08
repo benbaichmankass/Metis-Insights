@@ -1,0 +1,18 @@
+{
+  "title": "Manager skill: re-dispatch lanes that refuse/stall; report-backs never forbidden (operator 2026-09-28)",
+  "phase": "W6",
+  "state": "done",
+  "owner": "docs lane",
+  "lane": "session_01Y9q5CAhdBWWCveBtGWab9k",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 10,
+  "spend_usd": 2.5,
+  "tier": 1,
+  "prs": [
+    13583
+  ],
+  "blocked_on": [],
+  "note": "2026-09-28 ~12:15Z: #13583 merged 558560a (manager opened the PR after the lane hit a 403).",
+  "id": "SKILL-FIX",
+  "_seq": 176
+}

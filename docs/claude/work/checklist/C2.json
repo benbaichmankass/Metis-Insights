@@ -1,0 +1,19 @@
+{
+  "id": "C2",
+  "title": "Make the 19 artifact-only research workflows commit to a corpus",
+  "phase": "C",
+  "state": "landed_unproven",
+  "owner": "build lane",
+  "lane": "session_01BDZbyNvCSWEKSjjCNfEgTN",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 20,
+  "spend_usd": 12.36,
+  "tier": 1,
+  "prs": [
+    13185,
+    13197
+  ],
+  "blocked_on": [],
+  "note": "19 of 23 produce an artifact and an issue comment and nothing else. A result nobody can query later is not evidence. [2026-09-27T13:47Z build lane] RE-DERIVED per PI-20260922-E5-SEVENTEEN-RESEARCH-WORKFLOWS-STILL-LAND-NO-DURABLE-RESULT's own origin.rerun rather than quoting the row's '19': 44 of 149 workflows upload-artifact, 5 already wired to .github/actions/research-result (dukascopy-span-probe added this PR; m20-exit-lever-sweep, research-exit-head-build, research-exit-head-replay-trainer, research-harness-dispatch pre-existing). Of the 39 remaining, 18 compute a research verdict/measurement (research-producing) and 22 are ops/deploy/relay/training workflows that compute none. PR #13185: (1) wired dukascopy-span-probe.yml -> scripts/research/dukascopy_span_probe_result.py -> research-result (per-instrument records-file fan-out, --self-test); (2) annotated all 22 ops workflows `# no-durable-result: <reason>`; (3) added scripts/ci/check_research_workflow_landing.py (research-workflow-landing-guard, whole-tree/ungated like soak-registered-guard, 8 self-tests incl. a planted unwired defect and an empty-annotation defect), wired into run_guards.py; (4) named the remaining 17 unconverted research-producing workflows in the guard's dated BASELINE (c1-conviction-ab, e35-bracket-sweep, flip-override-walkforward, gld-compat-matrix, ict-scalp-backtest, m20-capture-census, prop-tp-r-gate, pullback-frac-cross-leg-sweep, ranking-key-ab, regime-adx-cutpoint-sweep, regime-cell-walkforward, regime-debt-matrix, research-backtest-augment, research-e2-horizon-arm, research-panel-build, research-symbol-p0-build, vwap-backtest) as shrink-only debt, so a NEW unwired research workflow fails CI while this PR does not attempt all 18 at once (E5's own 'nineteen copies is nineteen chances to get it wrong', at PR-review scale). Self-landing Tier-1 (`.github/pr-landing/c2-research-durable-results.json`), auto-merge armed by claude-pr-automerge; not yet observed merged. Follow-up: convert the 17 BASELINE-listed workflows in small batches. [2026-09-27T14:22Z build lane] MERGED as 816dc482e (PR #13185, squash). Guards green on 938f98c8 before merge (ruff-lint + research-tooling-selftests fixed after first push). landed_unproven, not done: closes when (a) a future PR converts one of the 17 BASELINE workflows and research-workflow-landing-guard drops it from debt, or (b) dukascopy-span-probe.yml is dispatched at least once and a real research_result.py record is observed readable on main at research/results/_unattributed/<run_id>.jsonl (no dispatch has run yet -- same caveat E5 itself carried). | OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Dispatched as the eng queue-moving slot (stops research results being lost). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13197 merged; lane archived ($12.36).",
+  "_seq": 17
+}

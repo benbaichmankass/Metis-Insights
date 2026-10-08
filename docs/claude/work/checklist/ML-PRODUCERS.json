@@ -1,0 +1,18 @@
+{
+  "id": "ML-PRODUCERS",
+  "title": "Signal-time feature producers for the 4 demoted heads (conviction-meta-v1, setup-quality-lgbm-v2, btc-regime-1h funding, btc-regime-5m flow), milestone-planned",
+  "phase": null,
+  "state": "queued",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-08T06:55Z manager] Operator verbatim: \"Let's do three but we need to first plan the work and make sure that we can have like milestones ... that we don't waste all the usage ... and it doesn't ... end up like defaults taking priority over everything else\" (read as option 3, build all four). Eng backlog, by capacity, NOT this week. First step = a milestone plan, not code.",
+  "updated_at": "2026-10-08T06:54:19Z",
+  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "_seq": 350
+}

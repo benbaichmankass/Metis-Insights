@@ -1,0 +1,16 @@
+{
+  "id": "RESEARCH-PIPELINE-REPAIR",
+  "title": "Research queue repair: stale statuses, dispatch of 101-108, e35 not landing, unattributed results",
+  "phase": "C",
+  "state": "in_flight",
+  "owner": "lane RESEARCH-PIPELINE-REPAIR",
+  "lane": "session_015xtaJKCjcqxeQgFoJGfizf",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 25,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Dispatched 2026-10-04 after the operator's research-queue review ask; write-ups/decisions (Breakout shortlist, 4 M20 exit PASSes, regime readout) queue behind it.",
+  "_seq": 279
+}

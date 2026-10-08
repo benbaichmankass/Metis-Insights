@@ -1,0 +1,18 @@
+{
+  "id": "ML-REVIEW-20261004",
+  "title": "/ml-review 2026-10-04",
+  "phase": "floor",
+  "state": "done",
+  "owner": "lane ML-REVIEW",
+  "lane": "session_011rsPvFXySRXoyMAHcvAAF5",
+  "model": "claude-fable-5-1 (review, Fable headroom)",
+  "ceiling_usd": 25,
+  "spend_usd": 16,
+  "tier": 1,
+  "prs": [
+    16337
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-04T14:10Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] MERGED #16337. Trainer ok (69 trained / 0 failed of 72 attempted, disk 43%); 3 of 3 advisory heads HOLD. 5 Tier-3 cleanup proposals batched for the operator.",
+  "_seq": 282
+}

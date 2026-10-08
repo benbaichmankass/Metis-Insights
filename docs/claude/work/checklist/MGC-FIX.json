@@ -1,0 +1,18 @@
+{
+  "title": "ib_paper MGC trade 5531 journal vs venue: fresh read then correct; file IB divergence detector",
+  "phase": "W6",
+  "state": "done",
+  "owner": "ops lane",
+  "lane": "session_01466jj6SeKPsWCqdeUtuj78",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 12,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    13596
+  ],
+  "blocked_on": [],
+  "note": "2026-09-28 ~12:15Z: operator popup \"Fresh read, then correct (Recommended)\". || 2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): fresh read: trade 5531 closed by the reconciler on 09-08, ib_paper flat at the venue (flatten dry-run noop_already_flat, run 36418538991), 0 MGC open orders. OI closed; IB divergence detector filed as PI-20260928-DEUTUJ78-0001. Manager added the missing landing file; auto-merge armed.",
+  "id": "MGC-FIX",
+  "_seq": 178
+}

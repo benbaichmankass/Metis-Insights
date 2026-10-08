@@ -932,6 +932,16 @@ def shipped_lever_cells(cfg: dict,
     return out
 
 
+def momentum_stale_cells() -> list[tuple[str, str, list[str]]]:
+    """MOMENTUM-TRAIL-LEVER `momentum_stale` grid (memo § 4.2): N in {8, 12}
+    (the two shipped stale bar counts) x A in {20, 25} (the regime detector's
+    chop / trending cut-points)."""
+    return [(f"ms{n}_a{a}", "momentum_stale",
+             ["--momentum-stale-bars", str(n),
+              "--momentum-stale-adx-below", str(a)])
+            for n in (8, 12) for a in (20, 25)]
+
+
 # GEOM-B1: the two TP-GEOMETRY lever columns. Backtest-only today -- the LIVE
 # producer of a `{"tp": ...}` verdict is lane TP-DOCTRINE's (BUILD B1) -- and
 # graded by the same Path A/B gate and walk-forward as every other column.
@@ -1158,6 +1168,34 @@ def cells_for(cfg: dict, fam: str | None = None,
         for tag, extra in vt:
             out.append((tag, "vol_trail",
                         extra + ["--trail-vol-tight-mult", str(tight)]))
+    # MOMENTUM-TRAIL-LEVER cells (memo docs/research/cross-signal-exits-2026-10-07.md
+    # § 4.1 / § 4.2): a stop that reads MOMENTUM (Wilder ADX), not price path.
+    # `momentum_trail` tightens the trail on bars where ADX < A (k=0) or ADX < A
+    # AND ADX_j < ADX_{j-3} (k=3); T is the same config-relative tight mult the
+    # decay / vol cells use and must sit BELOW the leg's own trail (the lever can
+    # only tighten, and the harness CLI refuses T >= trail_mult). `momentum_stale`
+    # is a time stop keyed to ADX decay instead of open R. trend + pullback only:
+    # squeeze computes no ADX. On a leg that ships a stale stop the COMBO cells
+    # here run against the config-exact base. The stale-SWAP base (shipped
+    # R-keyed stale removed, momentum_stale in its place) is NOT emitted: the
+    # lever-off arm is pinned to `shipped_*` cells only
+    # (tests/test_m20_fleet_capital_report.py, the invariant the arm rests on).
+    if fam in ("donchian", "pullback"):
+        if tm is not None:
+            tight = max(1.5, round(float(tm) / 2.0, 1))
+            if tight < float(tm):
+                for a in (20, 25):
+                    for k in (0, 3):
+                        extra = ["--trail-adx-below", str(a)]
+                        if k:
+                            extra += ["--trail-adx-falling-bars", str(k)]
+                        out.append((f"adx{a}_k{k}_t{tight:g}", "momentum_trail",
+                                    extra + ["--trail-adx-tight-mult",
+                                             str(tight)]))
+            elif skipped is not None:
+                skipped.append({"cell": "adx*", "lever": "momentum_trail",
+                                "reason": f"tight_mult_{tight:g}_not_below_trail_mult_{float(tm):g}"})
+        out += momentum_stale_cells()
     if tp_geometry_cells:
         out.extend(_tp_geometry_cells(cfg, fam, skipped))
     return out

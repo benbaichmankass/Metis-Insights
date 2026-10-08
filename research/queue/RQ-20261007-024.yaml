@@ -82,3 +82,4 @@ related:
 - RQ-20261003-004 (monthly M20 sweep of this leg at the default boundary)
 - PI-20260930-KZWVN6MG-0001 (vol_trail log-only shadow, the P5 instrument)
 - scripts/research/vol_trail_parity_report.py
+last_dispatched_at: '2026-10-08T06:55:50+00:00'

@@ -1,0 +1,17 @@
+{
+  "phase": "W6",
+  "spend_usd": 2.17,
+  "blocked_on": [],
+  "owner": "fix lane",
+  "id": "P4-FIX",
+  "state": "done",
+  "lane": "session_01My6w5rLi7Yy3y1bDJ25pHy",
+  "prs": [
+    13218
+  ],
+  "model": "claude-sonnet-5",
+  "ceiling_usd": null,
+  "title": "P4-FIX",
+  "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): breakout-login-check venv bootstrap. #13218 merged 15:16Z; the #13231 rerun at 15:16:59Z still ran the pre-merge script (git-sync had not pulled). Rerun pending; operator to be told whether BREAKOUT_DX_* creds work. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13218 worked: #13238 got past the venv; #13239 (apply: install-deps) logged in to breakout_1 (login: ok, credentials VALID); operator told 15:30Z.",
+  "_seq": 164
+}

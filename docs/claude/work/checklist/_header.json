@@ -1,0 +1,78 @@
+{
+  "_comment": [
+    "THE MANAGER'S ONE REGISTER. Adopted 2026-09-21 (operator-directed operating reset).",
+    "Scope of record: docs/plans/OPERATING-PLAN-2026-09-21.md. Manager contract: .claude/skills/manager/SKILL.md.",
+    "The previous 323-row file is preserved verbatim at",
+    "docs/archive/2026-09-21-operating-reset/work/MANAGER-CHECKLIST.json.pre-reset.",
+    "",
+    "RULES FOR THIS FILE, because the last one grew 67 top-level keys and 323 rows:",
+    "  1. items[] is the content. Top-level keys are schema only - no narrative,",
+    "     no timestamped manager_observation_* / manager_tick_* entries, no incident logs.",
+    "     Three observations an hour apart on one row is the failure mode, not diligence.",
+    "  2. ONE status field: `state`, from the `states` vocabulary below. There is no `status`.",
+    "  3. `done` and `landed_unproven` are DIFFERENT FACTS and are never collapsed.",
+    "  4. A row that is neither a plan item nor a live lane does not belong here.",
+    "     A question goes to research/queue/<id>.yaml instead.",
+    "  5. This file is served to the operator as the live Workflow page via",
+    "     GET /api/bot/work/checklist, read from the VM's working tree. ict-git-sync",
+    "     pulls main every ~5 min, so the page is as fresh as the last push TO MAIN.",
+    "     PUSH, THEN ANSWER."
+  ],
+  "schema_version": 2,
+  "updated_at": "2026-10-07T18:50:00Z",
+  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "last_review": {
+    "report_id": "work-report 2026-10-08T05:30Z",
+    "reviewed_at": "2026-10-08T05:55:00Z",
+    "by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+    "counts": {
+      "due": 52,
+      "unrouted": 11,
+      "ask_operator_open": 26,
+      "soaks_ready": 23,
+      "alarms_breached": [
+        "inflight"
+      ]
+    }
+  },
+  "cycle": "CY-20260921-OPERATING-RESET",
+  "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
+  "priorities": {
+    "decided": "operator, AskUserQuestion popup in manager session_01KAQRJxRbRwpYTkPgBjNVyQ, 2026-09-28 ~08:55Z, verbatim answer \"Prop first (Recommended)\"",
+    "floor": "anything broken on a live-money or prop money path jumps the queue, whatever its theme",
+    "order": [
+      "1 Prop account \u2014 roster (candidates ONLY from https://www.breakoutprop.com/symbols/), sizing, exits",
+      "2 Active trade management (M20)",
+      "3 Independent AI trader (M19)",
+      "4 New strategies and models",
+      "5 Macro sleeve (M28 re-shape via research; M29 dormant until it reads out)"
+    ],
+    "how_used": "Lanes are assigned top-down; the research queue is weighted ~30/25/20/15/10 in this order; Fable goes to the highest-value research items at the manager's discretion (operator 2026-09-28: most Fable budget to high-value research, not every research task). Operator decisions surface as popups ranked by this order.",
+    "change_by": "operator only"
+  },
+  "plan": "docs/plans/OPERATING-PLAN-2026-09-21.md",
+  "states": {
+    "queued": "scoped and agreed, nobody started it",
+    "in_flight": "a lane is actively working it",
+    "blocked": "waiting on the typed edge(s) in blocked_on",
+    "landed_unproven": "merged; effect NOT yet observed",
+    "done": "merged AND its effect observed",
+    "dropped": "deliberately not doing; note says why"
+  },
+  "item_schema": {
+    "id": "plan item id (A1..D3) or a lane id",
+    "title": "one line",
+    "phase": "A | B | C | D",
+    "state": "one of `states`",
+    "owner": "who runs it",
+    "lane": "session id once dispatched, else null",
+    "model": "the model chosen for the lane, with the reason in `note`",
+    "ceiling_usd": "per-lane dollar ceiling; on breach READ what it produced, then kill or re-scope",
+    "spend_usd": "actual, filled in by the cost meter (A1)",
+    "tier": "1 | 2 | 3 - the approval the resulting change needs",
+    "prs": "PR numbers",
+    "blocked_on": "typed edges [{kind, ref, what}] \u2014 kind is `work_item` or `operator_decision`, ref names the blocker, what says why. Empty list = nothing declared blocks it.",
+    "note": "what is true about this row. Not a log."
+  },
+  "items": null
+}

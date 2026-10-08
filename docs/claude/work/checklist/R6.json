@@ -1,0 +1,16 @@
+{
+  "id": "R6",
+  "title": "Decide whether the system should trade at all right now",
+  "phase": "R",
+  "state": "dropped",
+  "owner": "operator",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 3,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Asked explicitly rather than assumed. Lifetime real-money expectancy is -0.3231R over n=431. If R1 demotes most of the fleet the live books may be near-empty for a period. THAT IS AN ACCEPTABLE OUTCOME, not a failure -- the operator's own principle is that only proven-edge strategies run. No leg is kept live to avoid an empty roster. [!] OPERATOR DECIDED 2026-09-21: KEEP THE ROSTER AS-IS, DECIDE AFTER D1/R1. Asked as one of four popup decisions with the measurement stated (lifetime real-money expectancy -0.3231R over n=431, against a fee-only corpus optimistic by an unknown amount). They chose to hold current exposure rather than derisk now or pause real money. [!] THIS IS A DEFERRAL, NOT A CLOSURE, and deferrals are the class that gets silently settled \u2014 so it is ALSO filed as PI-20260921-M08 with a due condition tied to R1 landing, rather than left as a sentence here. The question comes BACK; it was not answered away. [!] THE STANDING derisk_only MANDATES ARE UNAFFECTED \u2014 they read live measurement rather than the corpus and are explicitly NOT blocked by D1, so a leg going net-negative on the mirror can still be pulled without re-asking. [!] KILLED 2026-09-22 ON OPERATOR INSTRUCTION, with the reason stated because a row that stops being mentioned instead of ending is the failure the pipeline rules name. Asked directly whether to dispatch a lane to build the decision packet, answer it in chat, or kill it, the operator chose KILL. TERMINAL REASON: this is not a decision anyone will ever take. The Prime Directive is that the trader runs 24/7 and never switches itself off \u2014 no auto-flip, no breaker that toggles mode, no safety default that goes dry on boot \u2014 and what trades is decided leg by leg through the two execution gates, on evidence, with demotion as the mechanism. A standing 'should the system trade at all' row has no decision procedure behind it and no evidence that would resolve it; it was a mood, not a question. If the real question ever returns it will arrive as a SPECIFIC demotion or an account-mode flip, which are Tier-3 and have their own path. \u26a0\ufe0f THIS KILL IS NOT A JUDGEMENT THAT EVERYTHING IS FINE \u2014 E30 (the paper books' P&L is mostly unmeasured) and R8/E39 (which legs clear the bar) are the rows that carry the real content, and both are open.",
+  "_seq": 33
+}

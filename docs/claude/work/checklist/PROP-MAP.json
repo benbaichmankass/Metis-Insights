@@ -1,0 +1,18 @@
+{
+  "title": "Map ADAUSDT->ADAUSD, XRPUSDT->XRPUSD on Breakout (operator-confirmed specs)",
+  "phase": "W6",
+  "state": "done",
+  "owner": "fix lane",
+  "lane": "session_01TH2dUuCf3p9NXgUjF6eCAD",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 15,
+  "spend_usd": 2.52,
+  "tier": 3,
+  "prs": [
+    13522
+  ],
+  "blocked_on": [],
+  "note": "2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): merged 4cef5fb (operator: \"Add both + min-size note\"). Mapping only, no leg routed. Venue 10-lot minimum unenforced: PI-20260928-PGBJNVYQ-0001 must land before either leg routes. Lane archived.",
+  "id": "PROP-MAP",
+  "_seq": 169
+}

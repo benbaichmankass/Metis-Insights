@@ -1,0 +1,18 @@
+{
+  "id": "REVIEW-14106",
+  "title": "Independent review of #14106 (exit-reason relabel sweep, order_monitor label-only, Tier 2)",
+  "phase": "W6",
+  "state": "done",
+  "owner": "review lane",
+  "lane": "session_01PGeebjCu5XDevmrtoomPRb",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 20,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    14106
+  ],
+  "blocked_on": [],
+  "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): READ-ONLY reviewer, opus (touches the live order monitor). Verdict gates the manager's merge of #14106. || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): verdict MERGE (no blockers); non-blocking (a) concurrent-mark guard, (b) partial-TP mislabel, (d) stale doc sent to EXIT-CLUSTER to fold in before merge. Lane ARCHIVED ($2.06).",
+  "_seq": 201
+}

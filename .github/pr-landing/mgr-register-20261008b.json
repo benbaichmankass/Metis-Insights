@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register batch on the new per-row store (docs/claude/work/checklist/*.json via scripts/ops/checklist.py): operator decisions of 2026-10-08, merges and final spends, new roadmap rows (ML research, ML eng, ops), last_review header. Docs only; no code, config, test or order-path change."
+}

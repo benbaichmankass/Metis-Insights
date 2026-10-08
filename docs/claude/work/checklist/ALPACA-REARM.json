@@ -1,0 +1,20 @@
+{
+  "id": "ALPACA-REARM",
+  "title": "Harden the Alpaca naked-position re-arm: never strip sibling protection; position-presence + marketable-stop guard; re-arm coverage gaps; bound repeat re-arms (real money: alpaca_live)",
+  "phase": "W6",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01FWD56p45DUf3cUzpDiPmDA",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 40,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    14545,
+    14569,
+    14576
+  ],
+  "blocked_on": [],
+  "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Money path, priority 1. Items PI-20260929-PR6YRTQY-0001/-0003/-0005 and K1XNYYAQ-0003. Lane dispatched. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here. || 2026-09-30 ~05:51Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): 4 of 5 brief items were ALREADY fixed on main (#14127, #14177, #14241, #14347), re-verified by mutation. #14545 (sweep counters for every early exit, unaccounted==0, the cap pinned at 3 by a replay test; NO order-path change) passed independent review with MERGE (206+417 tests, ruff clean, no consumer of the renamed keys). Un-drafted, auto-merge armed. The lane observes the live sweep line after deploy. || 2026-09-30 ~06:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14545, #14569, #14576 MERGED; #14545 deployed and observed on the live sweep line (unaccounted=0). Lane ARCHIVED.",
+  "_seq": 226
+}

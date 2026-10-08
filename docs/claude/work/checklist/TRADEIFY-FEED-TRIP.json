@@ -1,0 +1,23 @@
+{
+  "id": "TRADEIFY-FEED-TRIP",
+  "title": "tradeify_1 (live prop, $10k eval) has placed NOTHING since 2026-10-06 18:27:45Z: its executor feed is TRIPPED rc=4 (feasibility stop: challenge/CAPTCHA/2FA/login rejected/login timeout/no creds) and is never retried -- every tick since exits before the executor runs; status snapshot stale since 18:21Z; 4 tickets suppressed/expired today",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane TRADEIFY-FEED-TRIP",
+  "lane": "session_01SnkD6HKaDafuixx2yoQe7a",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 15,
+  "spend_usd": 6.77,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-08T04:40Z manager] #17021 MERGED 03:4xZ (4c8ff4df3): diagnosis memo (trip sub-reason unknown_page, not a broker human step) + read-only prop_feed attention probe + pipeline 0006 update / 0007 new. Tier-2 re-arm of tradeify_1's feed HELD for the morning sync (manager dispatches the system-action after the operator's OK). Lane archived, FINAL spend $6.77. Deployed: VM at 4c8ff4df3 (03:47Z) so the probe is live. || [2026-10-07T20:44Z manager] FOUND by lane PROP-FLOW-SEPARATION reading the diag relay (not by any alert: PROP-SILENCE-ALERTS reads tradeify_1 idle 'ok 2.6d' because the silence probe keys on fills, not on the trip). ONE QUESTION for the lane: what tripped the tradeify_1 feed at 2026-10-06 18:27:45Z (exact journal lines around rc=4), does the credential/terminal still log in (breakout-login-check for tradeify_1, read-only), and what clears it -- an allowlisted feed-enable / executor restart (Tier-2, held for the manager) or a human step at the broker (CAPTCHA/2FA/new password: say exactly what the operator must do, per the before-asking-the-operator skill). Also: why a feasibility stop never retries and never pages after N hours (a tripped live account should alarm) -> file the gap. Nothing is to be re-armed without the manager. [2026-10-08T06:55Z manager] OPERATOR \"Re-arm now\": issue #17078 breakout-login-check reset-feed ok 05:25Z, feed re-armed, 0 positions/orders. Next tick not yet observed.",
+  "observation": {
+    "what": "tradeify_1 feed re-armed (Tier-2, morning) and the next tick shows the feed not tripped; prop_feed attention probe fires on a future trip",
+    "how_to_check": "GET /api/bot/prop/status?account_id=tradeify_1 -> feed state; docs/research/tradeify-feed-trip-2026-10-07.md section on re-arm",
+    "due_by": "2026-10-10T00:00Z"
+  },
+  "updated_at": "2026-10-08T06:54:00Z",
+  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "_seq": 345
+}

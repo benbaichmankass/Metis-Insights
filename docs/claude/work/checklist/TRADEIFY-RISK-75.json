@@ -1,0 +1,19 @@
+{
+  "id": "TRADEIFY-RISK-75",
+  "title": "tradeify_1 executor was handed breakout_1's $75 ticket (cross-account sidecar read) and refused it at its own $50 cap: root-cause, fix with a test, sweep all 12 accounts in config/accounts.yaml",
+  "phase": "floor",
+  "state": "landed_unproven",
+  "owner": "lane TRADEIFY-RISK-75",
+  "lane": "session_01PRvrUNAqLAPL6UWgo5DrfX",
+  "model": "claude-opus-5-5 (order-path sizing)",
+  "ceiling_usd": 15,
+  "spend_usd": null,
+  "tier": 3,
+  "prs": [
+    16243,
+    16264
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-04T09:25Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] ROOT CAUSE (lane, verified): NOT the producer -- tradeify_1's own 08:01:29Z ETH ticket was risk_usd 50.0. src/prop/prop_journal.py::list_outbound_tickets read prop_tickets with no account_id filter and keyed by order_package_id alone; both prop accounts roster trend_donchian_eth_prop, so both views returned breakout_1's $75 ticket. FIX #16243: MERGED aab5c817 09:07Z (operator 'Let the lane ship it'); DEPLOYED (diag version 09:19:50Z ce43aaa69 contains aab5c817, restart_pending false); OBSERVED read path: ?account_id=tradeify_1 returns only its own ticket (risk 50.0). NOT YET OBSERVED: a tradeify_1 executor intake under the fix -- closes on PI-20261004-WGO5DRFX-0001. Population: 12 of 12 accounts have producer risk == config; the read defect touched exactly the 2 prop accounts. Revert: git revert aab5c817.",
+  "_seq": 273
+}

@@ -1,0 +1,25 @@
+{
+  "id": "DXTRADE-PROBE-ACCOUNT",
+  "title": "Make the DXtrade REST reachability probe account-selectable (velotrade_1 | tradeify_1) so the $0 Tradeify probe the operator approved can actually run through the system-actions allowlist (memo 7.2 of DXTRADE-REST-PILOT, PR #16990)",
+  "phase": "W6",
+  "state": "done",
+  "owner": "lane DXTRADE-PROBE-ACCOUNT",
+  "lane": "session_013hoQQE92KjrGuyMtyyAyB5",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 10,
+  "spend_usd": 1.73,
+  "tier": 1,
+  "prs": [
+    17038
+  ],
+  "blocked_on": [
+    16990
+  ],
+  "note": "[2026-10-08T02:35Z manager] #17038 MERGED 02:25Z (e401b907c) \u2014 by github-actions[bot], NOT the manager, despite the hold declaration, the deleted request file and GitHub auto-merge being disabled at 01:35Z. Content is Tier-1 and was on the merge list, so no harm; the relay behaviour is filed as PI-20261008-APBY4NTV-0003 (root-cause the land sweep). Next: Tier-2 issue `velotrade-api-probe / account_id: tradeify_1` for the $0 Tradeify reachability probe \u2014 dispatched in the morning with the other Tier-2 items, since a probe against the prop broker is 'anything needing [a decision] waits till morning'. || [2026-10-08T02:03Z manager] #17038 guards were RED for a pre-existing reason (pr-landing R5: declares Tier-1 self-land but touches scripts/prop/velotrade_api_probe.py, outside the guard's Tier-1 surface). Manager (lane archived) switched the declaration to landing: hold (hold_reason unvouchable_paths), removed the automerge request, disabled GitHub auto-merge (eb1f11a01); manager merges by hand on green. || [2026-10-08T00:31Z manager] Re-dispatched lane done in 8 min: PR #17038 armed (account_id choice reused on the issue body; resolver accepts platform dxtrade or dxtrade_api since tradeify_1 is still 'dxtrade'; env-absent is its own read_state). After merge the manager files: action: velotrade-api-probe / account_id: tradeify_1 / reason: DXTRADE-PROBE-ACCOUNT $0 reachability probe for Tradeify pilot (operator 2026-10-07). Lane archived 00:31Z; spend $1.73 final. || [2026-10-08T00:24Z manager] FIRST DISPATCH DEAD: the session was created without the repository attached (session_context had no sources; add_repo push access denied) and did no work ($0.13). Archived; RE-DISPATCHED 00:24Z with source_url set explicitly. Lesson for the manager skill: pass source_url on every create_session. || [2026-10-07T19:42Z manager] Operator decision 2026-10-07 (popup): DXtrade = '$0 reachability probe only'. Tier-1 code: scripts/prop/velotrade_api_probe.py gets a fixed-choice --account (host + env-var prefix resolved from config/accounts.yaml / the account's platform block, never free text), the action script + system-actions.yml input follow; refuses any account whose platform is not dxtrade_api; prints only reachability/login/instrument-shape booleans, never balances or ids. Self-land. Then the manager dispatches the probe issue for tradeify_1 (Tier-2 read-only) and reads the result into 7.3.",
+  "observation": {
+    "what": "#17038 merged; the manager files the Tier-2 issue (action: velotrade-api-probe / account_id: tradeify_1) and the run's summary JSON shows reachable/login_ok/account_model or read_state env_absent",
+    "how_to_check": "the system-actions run's 'summary:' line on the issue",
+    "due_by": "2026-10-09T18:00Z"
+  },
+  "_seq": 343
+}

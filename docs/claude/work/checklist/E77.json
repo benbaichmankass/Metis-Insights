@@ -1,0 +1,18 @@
+{
+  "id": "E77",
+  "title": "Exit-head shadow-scoring twin-dedup fix for PI-20260926-96NDZSOD-0001 (review-pack D2)",
+  "phase": "E",
+  "state": "done",
+  "owner": "build lane",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    13076
+  ],
+  "blocked_on": [],
+  "note": "OPERATOR DECISION 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D2), verbatim: \"Dispatch now\" for a Tier-2 build lane fixing PI-20260926-96NDZSOD-0001 (exit-head shadow-scoring twin-dedup bug -- the sole blocker to evaluating exit-head-donchian-1h-v1's shadow->advisory promotion, which already has a marginal-pass OOS re-grade sitting idle, +1.3127R n=119, PR #13046). The build lane that already did this work was session_01WGMUnzr1kaHpJB9TqLiVur (PR #13076) -- recorded here in prose rather than in the structured `lane` field, since that lane has already landed and this row's `lane` reflects who is CURRENTLY working it (nobody, right now). ALREADY DONE, VERIFIED THIS SESSION rather than assumed (RULE ONE): MERGED -- PR #13076 (\"fix(exit_head_shadow): cache the per-bar score so twin accounts both get the verdict\") read via the GitHub PR API shows merged:true, merged_at 2026-09-27T09:37:52Z, base main, head commit b1253206; `git log origin/main` independently confirms commit 4a8b29e (\"...#13076\") is on origin/main. DEPLOYED -- confirmed via GitHub Actions run 36309997882 (\"system-action: pull-and-deploy 63348e7a3 (#13047 Alpaca GTC entry brackets + #13076 exit-head twin cache)\"), status completed, conclusion success, started 2026-09-27T09:38:10Z, i.e. within a minute of the merge, and naming #13076 explicitly in its title. OBSERVED -- NOT established this session: no fresh diag/runtime read of the running trader's exit_head_shadow.py behaviour was taken here, so per RULE ONE (\"merged is not deployed is not observed\") only the first two facts are claimed. The fix is stated INERT on arrival regardless (every exit-head artifact is currently stage=shadow; exit_head_verdict only acts on stage=advisory), so there is no live order-path behaviour change to observe yet even once a read is taken. PI-20260926-96NDZSOD-0001 should be closed/updated against this PR by whoever next reads the pipeline store, per the PR's own stated follow-up note.\n\nOBSERVED THIS SESSION (ml-review W7, 2026-09-29): the gap this row itself flagged ('OBSERVED -- NOT established') is now closed. `git merge-base --is-ancestor 4a8b29e2c b9d518516` (the live trader's CURRENTLY RUNNING process sha, per api/diag/version) = true -- the fix is not just on-disk, it is running right now. Independently corroborated by live behavior: pulled api/bot/shadow/predictions?model_id=exit-head-donchian-1h-v1 since the merge timestamp -- scores are held constant across multiple calls within the same closed 1h bar (e.g. 0.102045 repeated across 5 calls 21:00-21:57, then a new bar's value from 22:00) and code inspection (src/runtime/exit_head_shadow.py L80-100) confirms the dedup cache key is (model_id, order_package_id, bar_ts) where order_package_id is the ONE id shared by a Stage-2 twin pair -- consistent with the fix design, not merely present in the diff. Marking this row done; PI-20260926-96NDZSOD-0001 was already closed (done) by a prior session with the same merged/deployed claim -- this adds the OBSERVED leg. Separately: exit-head-donchian-1h-v1's own marginal-pass OOS re-grade (+1.3127R n=119, PR #13046) can now proceed to a proper promotion gate-check now that its blocker is confirmed cleared -- next step, not done here (exit-head isn't in `ml.list-models`'s registry; its gate lives in the exit-refinement pipeline, not ml-review's `ml gate-check`).",
+  "_seq": 145
+}

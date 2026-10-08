@@ -1,0 +1,18 @@
+{
+  "id": "C1",
+  "title": "decision_rule in the research queue schema, plus a guard that refuses a unit without one",
+  "phase": "C",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_018ZrLU4TiW7Dhjh8FX7sD8T",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 10,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    12921
+  ],
+  "blocked_on": [],
+  "note": "Decide before you measure: the result IS the decision, removing the interpretation step where everything currently dies (1 actioned disposition of 117).\n[2026-09-25T07:35Z manager] WAVE 3, with E6 (same lane).\n[2026-09-25T12:10Z manager] MERGED 6dc23d0b9 (manager merge of a landing: hold; manager read). Guard live; 6 of 18 units grandfathered without decision_rule. Deployed in 4ce4f6b88. Unproven until a new research unit is refused / accepted by it in CI. [VERIFICATION 2026-09-25T13:30Z, this session] Directly reproduced the CI check rather than trusting self-test alone. (1) --self-test: 16/16 PASS. (2) --base origin/main on HEAD==origin/main (25125c3e0): units=18, missing_decision_rule=6, failures=0 -- exact match to \"6 of 18 grandfathered.\" (3) End-to-end on a real git diff: disposable branch+worktree off origin/main, added research/queue/RQ-verify-no-rule.yaml with no decision_rule, ran the same guard with --base origin/main -- FAILED (exit 1), \"NEW unit with no pre-registered decision_rule\"; branch/worktree deleted afterward, no residue. (4) Confirmed wiring in scripts/ci/run_guards.py:1450-1469 (globs research/queue/**, --base origin/{base_ref}, pr_only:True). This satisfies the row's own closing bar directly.",
+  "_seq": 16
+}

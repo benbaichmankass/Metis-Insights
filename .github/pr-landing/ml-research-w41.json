@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Research queue units (research/queue/RQ-20261008-900/902/903, RQ-20261007-042/043) are outside TIER1_SURFACE because queued units get dispatched; Tier-1 content only (no code, config, order path). One read then merge.",
+  "why": "ML-RESEARCH-W41: new research queue units with decision rules registered before any run, plus 042/043 moved out of blocked/ after their levers landed in #17042."
+}

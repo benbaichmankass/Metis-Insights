@@ -1,0 +1,18 @@
+{
+  "id": "ML-DEMOTE",
+  "title": "Audit JC-SA-02 (a): demote to candidate the shadow heads whose declared features are never served (re-measured first)",
+  "phase": "W6",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_011f6jYBLZThQ4HuK85q64Sf",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 15,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    14166
+  ],
+  "blocked_on": [],
+  "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): DECIDED (a): de-risk, data-backed; only heads the re-measure confirms. Stops if any head feeds a live decision. || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): DEMOTED shadow->candidate, OBSERVED on the trainer registry (issue #14152): conviction-meta-v1, setup-quality-lgbm-v2, btc-regime-1h funding-svble-v1, btc-regime-5m flow-v1-offload. MES baselines NOT demoted (audit claim refuted: 341 preds each; silent since 09-01, filed). None advisory/live. #14166 self-lands. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. #14166 on main as 847f3ad9. The effect was already OBSERVED per this row's 12:20Z note: 4 heads demoted shadow->candidate on the trainer registry (issue #14152). Return paths are filed as PI-20260929-K85Q64SF-0001..0004, and the MES discrepancy as -0005 (all queued).",
+  "_seq": 209
+}

@@ -1,0 +1,24 @@
+{
+  "id": "CA-B07",
+  "title": "Code audit Wave B: tests coverage",
+  "phase": "CA",
+  "state": "done",
+  "owner": "audit lane",
+  "lane": "session_0176ddjoUxwveWpnJT7Jw9cr",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 35,
+  "spend_usd": 10.83,
+  "tier": 1,
+  "prs": [
+    13219
+  ],
+  "blocked_on": [
+    {
+      "kind": "work_item",
+      "ref": "CA",
+      "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+    }
+  ],
+  "note": "Scope: tests/** (1,224 files) mapped against src/**. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B07.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main; lane archived.",
+  "_seq": 130
+}

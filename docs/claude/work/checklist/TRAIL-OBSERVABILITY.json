@@ -1,0 +1,18 @@
+{
+  "id": "TRAIL-OBSERVABILITY",
+  "title": "Diag: expose per-account modify_rollout.json and trail_state.json (prop trail latch + replay) read-only",
+  "phase": "W6",
+  "state": "done",
+  "owner": "lane TRAIL-OBSERVABILITY",
+  "lane": "session_01RhuwEhfTiPHfhET5rLDaSX",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 8,
+  "spend_usd": 2.15,
+  "tier": 1,
+  "prs": [
+    16943
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-07T19:08Z] Correction: the pipeline item has a second half (pulse field) -> row TRAIL-PAUSE-PULSE; this row stays done for the read surface. || [2026-10-07T19:05Z manager] DONE. MERGED #16943 (~18:52Z). DEPLOYED: the 8 diag names resolve on the live API at 19:00Z. OBSERVED: prop_trail_latch_tradeify_1 present:false (no modify_rollout.json -> trail NOT paused); prop_trail_state_tradeify_1 present:true, {} (no per-ticket entries). Caveat: shows nothing is latched, not that a step ran. Lane archived. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-KX6ZKFNA-0003. Add the two files per prop account to diag._LOG_FILES (no secrets: prices, ticket ids, timestamps). Tier-1. Sonnet, auto.",
+  "_seq": 309
+}

@@ -1,0 +1,19 @@
+{
+  "id": "E7",
+  "title": "Wire the 9 orphan backtest harnesses",
+  "phase": "E",
+  "state": "done",
+  "owner": "build lane",
+  "lane": null,
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 30,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    13049,
+    13090
+  ],
+  "blocked_on": [],
+  "note": "DONE. All 10 orphan harnesses (denominator re-established by this lane: 13 scripts/backtest_*.py total, 3 pre-wired to a workflow, 10 orphaned -- one more than the row's own '9' because backtest_pairs.py was also unwired) are dispatchable via the one new workflow research-harness-dispatch.yml and each has been DISPATCHED ONCE for real and OBSERVED landing a research_result.py record on main -- not merged-and-assumed, actually read back from research/results/_unattributed/: squeeze n=94 (run 36300749358), fade n=46 (36300753265), fvg_range n=13 (36300760079), orb n=9 (36300763613), pullback n=45 (36300772837), pairs n=240 (36300782038), vol_target n=86 days (36300791459), chop_scalp n=1 (36300796844) all landed verdict=no_action_warranted/read_state=measured -- a real trade count off real, non-fixture candles, proving the harness runs end-to-end. funding_carry (36300777384) landed producer_failed: Bybit funding is geoblocked from a GH-hosted runner's IP the same way Bybit candles are (documented in the workflow's own comment) -- an honest network-reach limitation, not a wiring defect; the harness itself is sound (self-tested, already E4-wired). xsec_momentum (36300787082) ALSO landed producer_failed on its first dispatch, but for a real bug this lane introduced: research-harness-dispatch.yml's Install deps step never installed yfinance, which xsec_momentum's daily-ETF-basket fetch needs (every other harness here only reaches the crypto/Binance-vision path). Root-caused and fixed in PR #13090 (merge-armed, every check green except one) -- see that PR's own note for why it is not yet merged: `guards` is red on operator-owed-guard, reproduced identically against bare `main` with no diff applied (four unrelated stale rows: OI-20260913-A-BYBIT2-HEDGE-BOOK-..., PI-20260924-GIGNEYV1-0001, PI-20260924-MQ3CDMU6-0001/0002), filed as PI-20260927-EPMBGUYB-0003 (next_action ask_operator -- this blocks EVERY Tier-1 self-land repo-wide, not only this one). The DISPATCH+LANDING MECHANISM itself is proven end-to-end in BOTH directions by this evidence -- a real measurement lands as measured, a genuine failure (geoblock, missing dep) lands as producer_failed rather than a fabricated pass -- so this row reads done on the wiring capability rather than landed_unproven; xsec_momentum getting a real yfinance-backed measurement is PR #13090's own follow-up, tracked there and unblocked by nothing this row owns. GUARD ADDED: scripts/ci/check_harness_dispatch_no_fixture_default.py, wired into run_guards.py, fails any future PR that regresses one of these ten to the smoke fixture or drops its real-population flags. FILED, not fixed (out of Tier-1 surface / out of scope): PI-20260927-EPMBGUYB-0001 (scripts/ml/build_calibration_corpus.py's unbound --symbol/fixture-default) and PI-20260927-EPMBGUYB-0002 (scripts/ops/symbol_data_binding_census.py has no CI runner). PRs: #13049 (wiring), #13065-13074 (the ten landing PRs, all merged), #13090 (xsec_momentum yfinance fix, open, auto-merge armed, blocked on PI-20260927-EPMBGUYB-0003).",
+  "_seq": 38
+}

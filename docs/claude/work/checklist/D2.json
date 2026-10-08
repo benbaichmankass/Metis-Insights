@@ -1,0 +1,22 @@
+{
+  "id": "D2",
+  "title": "Cut Stage 2 to what actually passes",
+  "phase": "D",
+  "state": "dropped",
+  "owner": "operator + build lane",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 3,
+  "prs": [],
+  "blocked_on": [
+    {
+      "kind": "work_item",
+      "ref": "D1",
+      "what": "Until the corpus is re-run with the cost defaults on, we do not know which legs clear Stage 0."
+    }
+  ],
+  "note": "KILLED 2026-09-22 (session_017aScqdVcFoXxqffMcsf5Ge) as a DUPLICATE of R2 -- the same de-dup the engineering lane did for D1/R1. Both rows describe the identical work (cut the Stage-2 rosters down to the legs that clear the evidence bar) under two numbering schemes. R2 is the survivor: it is the row the operator instruction of 2026-09-22 was dispatched against and it carries the lane, the ceiling and the PR. See R2 for the real work. Original note, preserved rather than deleted: 'Depends on D1: until the re-run we do not know which legs clear Stage 0. Today 3 of 44 meet the live_money_ready bar and none is on bybit_2. Tier-3.' \u26a0\ufe0f That '3 of 44 / none on bybit_2' figure is SUPERSEDED and must not be re-quoted: it predates B1's four-clause bar and R1's cost re-run. The current MEASURED figure, over the population that actually gates real money, is 8 of 12 risk-bearing roster slots clearing the bar (scripts/ci/check_roster_promotion_evidence.py --population, run on f3746ab), of which three of the six bybit_2 slots DO clear it.",
+  "_seq": 22
+}

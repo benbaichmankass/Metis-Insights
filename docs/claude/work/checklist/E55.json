@@ -1,0 +1,16 @@
+{
+  "id": "E55",
+  "title": "The trend/pullback evidence harness does not model tp_r, so a record can measure a counterfactual no-TP leg \u2014 model it and count the verdict flips",
+  "phase": "E",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_014QFYLHEvRPsPqDeDNBnMSg",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 40,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Merged #12853 (93bd060, 15:42Z). The deliverable is the regenerated evidence corpus on main: 8 of 41 Stage-0 verdicts flip, none on a real-money roster, and the pre-registered qqq prediction HELD (E41 strip stands). Follow-up PI-20260924-EDNBNMSG-0001. \u26a0\ufe0f CEILING BREACH: final spend $106.24 against $40 + $10 (2.1x). It regenerated 41 records through the harness, then re-resolved conflicts twice, and the manager did not catch it mid-flight. DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: a harness is not an order path; positive control + flip count required. Scope of record: PI-20260924-JN54P2HH-0005 (graded continuation of PI-20260922-E41-0006; clearing one clears both). Pre-stated prediction from -0006: with the TP modelled, qqq_trend_long_1d arm-present vs arm-absent should AGREE. Evidence corpus only: no config/strategies.yaml or accounts.yaml edit. The corpus B1 reads for real-money promotion is at stake, so a positive control and a flip count are the deliverable. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP.",
+  "_seq": 89
+}

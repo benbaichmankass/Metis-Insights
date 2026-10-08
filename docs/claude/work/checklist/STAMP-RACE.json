@@ -1,0 +1,16 @@
+{
+  "id": "STAMP-RACE",
+  "title": "research-queue-dispatch 'Land the dispatch stamps on main' fails on a 30-min wait race (run 70): re-check main once before failing",
+  "phase": "W7",
+  "state": "in_flight",
+  "owner": "fix lane",
+  "lane": "session_01345Wffk9foaxLK53jgMBQP",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 10,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-01T20:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Dispatched. Run 70 (36910217777) red although stamp PR #15276 merged 13 s after the wait expired. Manager decision: re-check once, do not raise the timeout or change stamp-PR checks. Closes PI-20261001-1MX1RCZS-0003.",
+  "_seq": 259
+}

@@ -1,0 +1,20 @@
+{
+  "id": "HEALTH-REVIEW",
+  "title": "/health-review 2026-10-04",
+  "phase": "floor",
+  "state": "landed_unproven",
+  "owner": "lane HEALTH-REVIEW",
+  "lane": "session_01NJpbH7r3b4D7iXPUq1aPTh",
+  "model": "claude-fable-5-1 (review, Fable headroom)",
+  "ceiling_usd": 25,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    16237,
+    16239,
+    16240
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Verdict investigate (1 concern, 3 watch). Restart filter #15830 works (15/15 restarts followed runtime commits). INV-2 false positive fix #16237 MERGED 74cb0cd3 by manager (one trader restart on deploy). Filed PI-20261004-PUQ1APTH-0001..0006. Closes when #16240 merges and INV-2 reads recent=0 on the hourly run.",
+  "_seq": 277
+}

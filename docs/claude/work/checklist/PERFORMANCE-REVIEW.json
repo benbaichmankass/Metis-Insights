@@ -1,0 +1,18 @@
+{
+  "id": "PERFORMANCE-REVIEW",
+  "title": "/performance-review 2026-10-04 (after HEALTH-REVIEW + OPS-AUDIT; reads the post-repair research pipeline)",
+  "phase": "floor",
+  "state": "landed_unproven",
+  "owner": "lane PERFORMANCE-REVIEW",
+  "lane": "session_013rQhqo11aVJrH3zbHFJg6X",
+  "model": "claude-fable-5-1 (review, Fable headroom)",
+  "ceiling_usd": 25,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    16284
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-04T14:10Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Review complete (caution; real money 5 closes, all ~1R SL, -$18.90, n=5 too small for any per-leg conclusion). #16284 conflict resolved 13:44Z; closes when it merges. | [2026-10-04T10:10Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Dispatched per the operator's 2026-10-04 ops plan (reviews paced on usage). Reports via a comment on its review PR (no triggers: default-mode prompts block lanes).",
+  "_seq": 280
+}

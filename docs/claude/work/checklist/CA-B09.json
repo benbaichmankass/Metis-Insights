@@ -1,0 +1,24 @@
+{
+  "id": "CA-B09",
+  "title": "Code audit Wave B: skills and canonical docs vs code",
+  "phase": "CA",
+  "state": "done",
+  "owner": "audit lane",
+  "lane": "session_018bJ1sbCPELjF9s3th2sPgL",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 30,
+  "spend_usd": 15.81,
+  "tier": 1,
+  "prs": [
+    13226
+  ],
+  "blocked_on": [
+    {
+      "kind": "work_item",
+      "ref": "CA",
+      "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+    }
+  ],
+  "note": "Scope: .claude/skills/**/SKILL.md and docs/CLAUDE-RULES-CANONICAL.md, docs/ARCHITECTURE-CANONICAL.md, CLAUDE.md, docs/reference/*. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B09.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings combined into the landing steward's #13226 (dirty after B07 landed separately; steward refreshing, trig_01FNyZV7ncHttTNpr3xB39aL). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main via #13226 (1247cc8); lane archived.",
+  "_seq": 132
+}

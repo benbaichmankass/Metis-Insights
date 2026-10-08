@@ -1,0 +1,25 @@
+{
+  "id": "PHONE-BG",
+  "title": "Breakout phone app claims and runs tickets while backgrounded (operator: needed for real automated trading)",
+  "phase": "W6",
+  "state": "done",
+  "owner": "lane PHONE-BG",
+  "lane": "session_01LLrWmPZRqeZAMX5tpSuYdG",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 20,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    16764,
+    16773,
+    16781
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-06T13:12Z manager] DONE. MERGED #16764 (bounded js(), read-only /phone/pending peek, bring-to-front then claim). OBSERVED bg-2 (ticket phone-test-3268df038732): app backgrounded at 13:07:46Z -> saw the waiting test -> came to the front by itself -> dry_filled 13:09:28Z (ETH 2,629.96 / 0.01 / TP 2,735.16 / SL 2,577.36, submit enabled, not pressed) -> back in the background 13:09:57Z. Operator-confirmed verbatim: 'it popped up and then minimized itself'. bg-1 (12:24Z) had only filled because the operator opened the app: Android 'restricted settings' had refused Display over other apps; the operator allowed it (Settings > Apps > Metis Executor > Allow restricted settings). || [2026-10-06T10:36Z manager] Operator ~10:35Z: quick fix before the reset if small, else post-reset (PI-20261006-APBY4NTV-0006). INFERRED root cause: backgrounded WebView -> evaluateJavascript never calls back -> tick wedged (busy=true, no heartbeat 10:03-10:24Z). Plan: js() timeout, HTTP-only pending peek while backgrounded, bring Activity to front (overlay perm) to claim+fill, then moveTaskToBack. Closes when a dry_test_request dry_fills with the app backgrounded.",
+  "observation": {
+    "what": "app backgrounded, test ticket queued, app comes forward by itself, dry_fills, minimises",
+    "how_to_check": "GET /api/bot/prop/tickets?account_id=breakout_2 + phone_heartbeat (fg false before and after)",
+    "due_by": "2026-10-06T14:00Z"
+  },
+  "_seq": 300
+}

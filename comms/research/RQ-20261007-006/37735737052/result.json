@@ -1,0 +1,42 @@
+{
+  "strategy": "pairs",
+  "pair": "BNBUSDT/BTCUSDT",
+  "timeframe": "1h",
+  "params": {
+    "lookback": 15,
+    "entry_z": 2.0,
+    "exit_z": 0.5,
+    "stop_z": 2.0,
+    "max_hold_bars": 20,
+    "hedge_beta": "rolling"
+  },
+  "total_trades": 274,
+  "fee_bps_roundtrip_per_leg": 7.5,
+  "slippage_bps_roundtrip_per_leg": 3.0,
+  "funding_bps_per_window_a": 1.0,
+  "funding_bps_per_window_b": 1.0,
+  "data_start": "2026-04-11 00:00:00+00:00",
+  "data_end": "2026-10-06 23:00:00+00:00",
+  "run_date": "2026-10-08",
+  "win_rate_pct": 56.93,
+  "net_total_r": 102.4212,
+  "net_total_r_fee_only": 102.5044,
+  "net_expectancy_r": 0.3738,
+  "trades_long": 152,
+  "trades_short": 122,
+  "max_drawdown_r": 7.286,
+  "mean_hold_hours": 5.66,
+  "total_position_days": 64.67,
+  "net_r_per_pos_day": 1.5838,
+  "by_outcome": {
+    "revert": 163,
+    "stop": 107,
+    "timeout": 4
+  },
+  "by_year": {
+    "2026": {
+      "trades": 274,
+      "net_r": 102.421
+    }
+  }
+}

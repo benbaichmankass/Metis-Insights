@@ -1,0 +1,28 @@
+{
+  "id": "HYRO-STRATS",
+  "title": "Feasibility of intraday crypto-perp strategies that fit HyroTrader's rules AND are profitable net of the full cost stack; pre-register the best candidates",
+  "phase": "W6",
+  "state": "dropped",
+  "owner": "build lane",
+  "lane": "session_011sppGNJr87nzGbLjf2zFxf",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 40,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    14559,
+    14560,
+    14583,
+    14586,
+    14616,
+    14619,
+    14630,
+    14646,
+    14698,
+    14703,
+    14772
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-01T16:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] DISPOSITION after lane archived (PRs re-read 16:50Z: merged state only, not deploy): blocked -> dropped. Operator popup 19:10Z: 'Park it (Recommended)'. RQ-502/RQ-503 FAIL; the only PASS (RQ-501) assumes no flagged fills. No purchase, no hyro_1. 11/11 PRs merged. || [2026-10-01T16:45Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Lane session session_011sppGNJr87nzGbLjf2zFxf is ARCHIVED (create_trigger refused 'session not active' at 16:41Z), so it cannot report; this row's in_flight state is unverified until the manager re-checks its PRs and sets a disposition. || 2026-09-30 ~05:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR, verbatim: \"regarding the hydro option, in general, that's looking better. Uh, it is an issue that we don't have a lot of strategies that are geared towards it, but maybe we can scope out like the feasibility of getting of building a few strategies that are shorter time frames so that they fit within that framework, but also, you know, like are also profitable.\" Lane dispatched: a rule-fit table for the <=1h families, committed net-of-cost evidence, prop Monte Carlo pass probability with a HyroTrader ruleset, candidate new designs, and 1-3 pre-registered units (held; the manager merges them before any run). Nothing live. || 2026-09-30 ~05:44Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR added a requirement (trading propensity), verbatim: \"we do need to make sure that like if we only figure out, you know, let's say one or two strategies and they only trade once or twice a month, then it's not necessarily going to be a worthwhile path as opposed to building some sort of local option for breakout.\" Relayed to the lane: whether trading-day rules apply to the FUNDED phase too; measured trades/month and qualifying days/month per candidate and portfolio; Monte Carlo time-to-pass; a worthwhileness test (EV/month net of fees vs build effort) against the Breakout L3 route and Breakout's measured ticket rate; the bottom line must say plainly if it trades only 1-2x/month. || 2026-09-30 ~06:06Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): memo #14559 (self-land) says MARGINAL, leaning NOT FEASIBLE. Best case P(pass both eval phases) ~0.27 for the ict_scalp 15m book (n=378), ~0.47 for eth_15m alone (n=117), vs break-even ~0.23 at the $59 deposit; with half the fills flagged by the demo-realism rule (all our entries are market orders) it falls to 0.03-0.05. Same-day closing is NOT binding (92-97% same-UTC-day, ~2.4 qualifying days/week). Binding: thin edge (0.03-0.08 R/trade), market-order flag exposure, 4% trailing daily / 5% static. #14560 (rulesets, MC scripts, RQ-20260930-501 queued, -502/-503 blocked) reviewed (additions only) and merged-on-green; the lane runs 501 on the trainer and builds the maker-entry harness flag (unblocks 502). Ceiling $40 -> $70. Operator buy/park decision after 501/502 grade. || 2026-09-30 ~08:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RQ-501 PASS, re-run 36687577503 on 9edcf5f8 with a measured record: n=1597 pooled trades, full-cost net +62.84R, P(pass both phases) 0.269/0.267/0.272 against a 0.25 bar, gate C 0.171/0.161/0.174 against 0.10. The first run's record would have landed producer_failed through a read_state contract bug, fixed in #14619; annotation #14646. RQ-504 sweep merged (#14586) and dispatched 08:43Z. RQ-502 held (#14616) until 501's record lands. #14630 (trend day-flat fixes) gates 503. The 1m grid split into RQ-505. || 2026-09-30 ~13:25Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14703 MERGED 54781a4d (RQ-503 day-flat 1h trend promoted out of blocked/; hyro_fit_verdict.py --mode dayflat; decision_rule byte-identical). RQ-504 FAIL (K=90, 5 Stage-A survivors, none confirmed). #14698 (the 504/505 SMOKE mislabel fix) was red on guards since 10:52Z. The manager re-ran the guards locally against current main (64 PASS), and the lane merged main in (head 0e968e535; guards clean locally), awaiting CI. The operator's HyroTrader decision waits on RQ-502's fill rate; RQ-502/503/601 are not yet dispatched as of 12:53Z. || 2026-09-30 ~16:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14698 MERGED (SMOKE mislabel fix). RQ-502/503/601 hand-dispatched by the manager at 14:51Z (runs 36732222189/36732226552/36732230587, all success; stamp PR #14772 merged). Results are not yet on main; I dispatched research-queue-dispatch at ~16:52Z to collect them. The 502 fill rate is for the operator's HyroTrader decision. || 2026-09-30 ~19:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RQ-502 FAIL (fill 0.9887, +61.92R, gate B P(both) 0.2753/0.2687/0.2293 vs 0.25), RQ-503 FAIL (gates B ~0.13, C ~0.06). Only registered PASS is RQ-501 (pooled 15m market, P(both) 0.267-0.272) and it assumes no flagged fills (half flagged -> 0.019). No confirmatory clause in 502/503. OPERATOR POPUP 19:10Z, verbatim: \"Park it (Recommended)\". PARKED: no purchase, no hyro_1. Lane closes its rows in its results PR (branch claude/hyro-results-close) and winds down; then archive.",
+  "_seq": 239
+}

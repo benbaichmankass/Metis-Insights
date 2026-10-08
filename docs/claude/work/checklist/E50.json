@@ -1,0 +1,18 @@
+{
+  "id": "E50",
+  "title": "arbitration_fanout_soak has written nothing since 2026-09-23T01:52Z at mode apply \u2014 find the cause, and make a broken soak distinguishable from an idle one",
+  "phase": "E",
+  "state": "landed_unproven",
+  "owner": "build lane",
+  "lane": "session_019mw6kFz9EL3AuHL1AUT4ff",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 60,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    12837
+  ],
+  "blocked_on": [],
+  "note": "Merged #12837 (37cf483, 13:21Z). NOT YET OBSERVED: the next diag relay comment that truncates a list must show the new \"ONLY THE FIRST n of N\" marker. Final spend $4.08 against $60. LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). LANE RESULT 2026-09-24 ($3.60 running at 12:36Z): THE SOAK WAS NEVER DARK. Direct read (diag_fetch.sh, lines=1000) shows 65 rows inside the claimed-silent window; the relay renderer head-cut a 100-row tail (#12820 passed limit=, which log_file ignores) and the 35th-oldest row was read as newest. Reproduced byte-exact (149,082). Fix = renderer cuts lists at whole elements and says which survived (#12837, Tier-1, armed by the manager 12:45Z). Latent risk (record() failures swallowed at DEBUG) filed PI-20260924-L1AUT4FF-0001, Tier-2. DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH opus-5-5: order-election path. Scope of record: PI-20260924-JN54P2HH-0004. Precondition for E17 and for all prop work (R-G): breakout_1 cannot be diagnosed on a soak that cannot be read. FRESH, opus: the call site is intent_multiplexer.py, on the live order-election path. One question: WHY is it silent. Tier-1 if the fix is observability-only; anything touching election behaviour is held for the operator. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP. NOT YET OBSERVED still (checked 2026-09-25): zero log_file diag-request issues opened since #12837 merged (2026-09-24T13:21Z) -- verified via GH issue search label:vm-diag-request filtered to log_file titles, most recent is #12820 (09:48Z, pre-fix). Recheck after any future log_file relay comment for the marker text.",
+  "_seq": 84
+}

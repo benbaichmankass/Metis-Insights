@@ -1,0 +1,18 @@
+{
+  "id": "PROP-FIRM-SCAN",
+  "title": "Quick scan: which prop firms we could automate with the least new engineering, judged against our DXtrade/Bybit/Breakout experience",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane PROP-FIRM-SCAN",
+  "lane": "session_019tHEHEzdqkL16zbNWmXSjf",
+  "model": "claude-fable-5-1 (web research, Fable headroom)",
+  "ceiling_usd": 15,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    16247
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Ranked: Velotrade (DXtrade + API, bots/VPS expressly permitted, firm very young/D-grade) > HyroTrader (already deep-dived) > Crypto Fund Trader > Propr; Topstep/Apex/MFFU/FTMO etc ruled out. Deep-dive filed PI-20261004-BNWMXSJF-0001 (due 2026-10-11). Closes when #16247 merges.",
+  "_seq": 276
+}

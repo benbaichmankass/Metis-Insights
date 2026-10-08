@@ -1,0 +1,103 @@
+id: RQ-20261007-043
+title: >-
+  Time-stop keyed to momentum decay instead of R: on the same six legs, does closing a
+  trade at bar N only when ADX has fallen below its entry value (and below the chop
+  cut-point) beat both the config-exact base and the shipped R-keyed stale stop?
+status: queued
+cadence: once
+kind: experiment
+theme: live_strategy
+priority: 2
+question: >-
+  The fleet's only time stop is R-keyed: `--stale-exit-bars N --stale-exit-below-r R`
+  closes at bar N when open R is still below R (backtest_trend.py:784-791,
+  backtest_pullback.py:680-682; shipped as stale8 on trend_donchian_xrp_4h and stale12 on
+  trend_donchian_eth_prop). It reads the trade's PRICE PATH. The operator's idea
+  (2026-10-07) is that the exit should read a different dimension than the entry: for a
+  market-structure entry whose thesis is "momentum carries the breakout / the trend
+  resumes", the natural time stop is "N bars in and the momentum that justified the entry
+  has decayed", whatever the open R. Question: on trend_donchian_eth_4h,
+  trend_donchian_xrp_4h, xrp_pullback_2h, ada_pullback_2h, trend_donchian_eth_prop,
+  trend_donchian_sol_prop, does closing at bar CLOSE once (j - entry) >= N AND ADX_j <
+  ADX_entry AND ADX_j < A clear Path A or Path B in BOTH IS and OOS and the yearly
+  walk-forward against (a) the config-exact base and (b) on the two legs that ship a stale
+  stop, the same base with that stale stop REPLACED by this one (lever swap, not combo)?
+  Grid, fixed now: N in {8, 12} (the two shipped stale bar counts), A in {20, 25}.
+why_this_matters: >-
+  A momentum-keyed time stop is the cheapest honest test of the operator's framing that is
+  NOT a tighten: it changes WHICH trades get cut (those whose momentum faded) rather than
+  how tight the trail is, so it probes the hypothesis on a different axis from
+  RQ-20261007-042 and the two results are informative together. It also answers a question
+  the shipped stale stops never asked -- whether the R-keyed cut was a proxy for momentum
+  decay all along. Memo § 3 (matrix) and § 5 (falsifiers).
+power:
+  expected_n: 32
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Same derivation and the same six legs as RQ-20261007-042 (d=0.45 -> 39; gate floor 25;
+    MIN measured base OOS across the legs 32). Per leg, never pooled.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      The treated population (trades still open at bar N with faded ADX) is unknown until
+      the lever runs once; bounded above by the base OOS counts. Nothing accrues forward.
+decision_rule:
+  id: RULE-RQ1007-043-MOMENTUM-STALE-STOP
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: >-
+    Per leg, per cell {N in (8, 12)} x {A in (20, 25)}: IS and OOS delta net_R and delta
+    maxDD vs the comparison base, Path A or Path B (grant cap), yearly walk-forward, base
+    OOS trade count, net of the full cost stack (resolve_cost_policy). Two comparison bases
+    where a stale stop ships: (a) config-exact (combo) and (b) stale-swapped (the shipped
+    stale lever removed, this one in its place). Attribution: net_R of the trades the new
+    lever closed vs what the base did with the same trades (truncation-honest: the base's
+    actual exits, no barrier re-simulation).
+  rule: >-
+    PASS IF a cell clears the gate in BOTH IS and OOS with base_trades_OOS >= 25 and wins
+    >= 4 of 6 effective folds, against base (b) where one exists and base (a) otherwise ->
+    Tier-3 proposal (momentum_stale_bars N, momentum_stale_adx_below A), replacing the
+    shipped stale stop where (b) applied. honest_negative IF no cell clears on a leg with
+    base_trades_OOS >= 25. insufficient_base IF < 25. A cell that passes against (a) but
+    not (b) on a stale-shipping leg is 'adds to the R-keyed stop, does not replace it' and
+    is a COMBO result: reported, no proposal (one lever per leg). HYPOTHESIS READ as in
+    RQ-042: supported >= 2 legs, leg-specific 1, refuted-in-this-form 0 with >= 4 gradeable.
+    One pass per leg; a FAIL re-queues once before it is read as a kill.
+  what_it_does_not_do: >-
+    Builds nothing and touches no config. Does not test an unconditional time stop (that is
+    --timeout-bars / the shipped stale levers, already in the matrix) or a momentum
+    divergence exit (no swing detector in any harness; memo § 3 marks it NEEDS-A-LEVER,
+    lowest priority). Does not grade mirrors separately.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 4.0
+  est_minutes: 120
+  basis: >-
+    Runner via m20-exit-lever-sweep.yml once the lever exists; 4 cells x 6 legs, two bases
+    on two of them. Estimate, not a measurement.
+run:
+  workflow: m20-exit-lever-sweep.yml
+  inputs:
+    legs: "trend_donchian_eth_4h,trend_donchian_xrp_4h,xrp_pullback_2h,ada_pullback_2h,trend_donchian_eth_prop,trend_donchian_sol_prop"
+    levers: momentum_stale
+    tp_cap_pct: '0.099'
+    split_mode: oos-trades
+    research_unit: RQ-20261007-043
+  note: >-
+    Lever landed in #17042 (f111ec755); flags, cells_for cells and workflow input verified on
+    main 2026-10-08 by lane ML-RESEARCH-W41. Moved from blocked/ on that basis.
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- docs/research/cross-signal-exits-2026-10-07.md
+- RQ-20261007-042
+- docs/research/exit-refinement-coverage.json
+- docs/research/M20-exit-refinement-2026-07-12.md
+last_dispatched_at: null

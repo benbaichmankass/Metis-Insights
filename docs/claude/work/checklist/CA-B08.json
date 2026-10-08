@@ -1,0 +1,24 @@
+{
+  "id": "CA-B08",
+  "title": "Code audit Wave B: leftover scripts",
+  "phase": "CA",
+  "state": "done",
+  "owner": "audit lane",
+  "lane": "session_016jKXsmN6pj5g9CeJ89Y6iE",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 30,
+  "spend_usd": 17.67,
+  "tier": 1,
+  "prs": [
+    13205
+  ],
+  "blocked_on": [
+    {
+      "kind": "work_item",
+      "ref": "CA",
+      "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+    }
+  ],
+  "note": "Scope: Top-level scripts/*.py and *.sh (74), scripts/{analysis,macro,micro,options,llm,reports,session_handoff,sprint015,sprint047,git-hooks}/**. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B08.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main; lane archived.",
+  "_seq": 131
+}

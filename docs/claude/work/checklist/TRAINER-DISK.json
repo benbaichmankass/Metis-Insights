@@ -1,0 +1,21 @@
+{
+  "id": "TRAINER-DISK",
+  "title": "Trainer root disk 92% used (44.26 of 48.3 GB, read 2026-09-29 12:04Z, trainer-diag #14157): journald/snap cleanup, compress m20_exit_head in place, grow boot volume to 100 GB (operator-approved)",
+  "phase": "W6",
+  "state": "done",
+  "owner": "ops lane",
+  "lane": "session_01BuzwdjYBjCo5bQCmxYTHSp",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 40,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    14273,
+    14275,
+    14305,
+    14339
+  ],
+  "blocked_on": [],
+  "note": "2026-09-29 ~13:57Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): operator popup 'All three (Recommended)'. Resize stops and reports before any charge beyond Always Free. Opus: VM + cloud mutations. Clears PI-20260929-BTG1YDOI-0002 when trainer disk.used_pct < 85. 2026-09-29 ~15:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane measured tenancy block storage at 241 GB against the 200 GB Always Free allowance (ict-bot-data-vol 100 + three 47 GB boot volumes = 241), so the resize to 100 GB stopped before any charge. vm-topology.md says live /data/bot-data is a directory on the boot volume; a read-only attachment/use check of ict-bot-data-vol is running. Deleting it (irreversible) goes to the operator with evidence; 241-100+53 = 194 GB would make the resize free. 2026-09-29 ~19:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Operator 'Back up, then delete'. #14305 (325fb35) pinned backup+delete action; ict-bot-data-vol backed up (AVAILABLE) then TERMINATED 17:53Z; tenancy 141 GB then trainer boot 47->100 GB online; trainer disk 41.7% used (trainer_status 18:03Z; was 90%); tenancy 194 of 200 GB free tier. Closure PR #14339. Lane archived 18:51Z.",
+  "_seq": 218
+}

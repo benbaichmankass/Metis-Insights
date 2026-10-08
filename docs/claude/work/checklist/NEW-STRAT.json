@@ -1,0 +1,18 @@
+{
+  "id": "NEW-STRAT",
+  "title": "Disposition graded research results; Stage-0 for passes; >=10 new pre-registered units",
+  "phase": "W6",
+  "state": "done",
+  "owner": "manager",
+  "lane": "session_01AT3PLEoboqj3jkyggMzWk7",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    14070
+  ],
+  "blocked_on": [],
+  "note": "[2026-09-29T09:40Z manager] Priority 4. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:05Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14070 draft held: disposition RQ-20260928-018 underpowered; PI-20260929-YGGMZWK7-0001..0004; 10 new pre-registered units RQ-20260929-101..110. || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14070 still draft; guards red (no pr-landing file). Sent back. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. #14070 on main as 16b47412. The deliverable is the records, and I observed them on main: 10 new pre-registered units, RQ-20260929-101..108 in research/queue (status queued) and 109..110 in research/queue/blocked. The PASS dispositions are filed as PI-20260929-YGGMZWK7-0001..0004 (queued), and their Stage-0 runs are carried there, not by this row.",
+  "_seq": 188
+}

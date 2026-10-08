@@ -1,0 +1,24 @@
+{
+  "id": "PROP-LIMIT-GUARD",
+  "title": "Pre-submit guard: never click submit on a marketable prop LIMIT (long >= ask / short <= bid); reuse awaiting_resting_price; protects live tradeify_1",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "manager-dispatched lane",
+  "lane": "session_017NKfdLEY6VtcraLnuhXbu5",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 10,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    16571,
+    16569
+  ],
+  "blocked_on": [],
+  "note": "2026-10-05 06:52Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv; operator approved verbatim \"Yes, fix it now (Recommended)\". Tier-2 hold PR, manager merges + verifies deploy. [08:13Z manager] #16571 MERGED a20e90f9; DEPLOYED (VM bfeaf7639 contains it); tradeify_1 executor 08:08Z cycle exit 0, 08:13Z cycle code_sha bfeaf7639. Also #16569 (breakout_1 -> dry_run, operator popup) MERGED bfeaf763, account-mode-verify success, /api/bot/config breakout_1 dry_run live=false. Reverts: git revert a20e90f9; set-account-mode breakout_1 live.",
+  "observation": {
+    "what": "the next tradeify_1/velotrade_1 ticket whose LIMIT is marketable logs presubmit_marketable (or presubmit_quote_unreadable) and clicks nothing",
+    "how_to_check": "bash scripts/ops/diag_fetch.sh '/api/diag/journalctl?unit=ict-prop-executor@tradeify_1.service' | grep presubmit_",
+    "due_by": "2026-10-12"
+  },
+  "_seq": 294
+}

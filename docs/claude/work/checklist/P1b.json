@@ -1,0 +1,16 @@
+{
+  "id": "P1b",
+  "title": "breakout_1 sizing decision (flat $75 vs DD-cushion-fit) -- attributed to lane P1b (review-pack D12)",
+  "phase": "P",
+  "state": "done",
+  "owner": "research/build lane",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 3,
+  "prs": [],
+  "blocked_on": [],
+  "note": "FIRST TRACKING ROW for lane P1b (the continuation of the wave-6 \"P1 prop EV evaluator\" lane, session_01LDBj5SQ3KpCZDsCstGv2yt) -- no distinct checklist row existed for it before this PR. This row's `lane` field is null rather than session_01LDBj5SQ3KpCZDsCstGv2yt -- that lane was dispatched separately, before and outside this PR, and this row only records where it is, not a fresh assignment made here. ATTRIBUTION recorded per the joint operator/manager review (docs/plans/review-pack-2026-09-27.md D12): the sizing decisions from the 2026-09-27 ~11:12Z joint-review discussion sit WITH this lane/session, not as a fresh decision made or taken in this PR. D12 SYNTHESIS, carried here as context rather than re-decided: three independently-filed findings point at the same breakout_1 gap -- flat $75 tickets vs a $94.76 DD-floor cushion (PI-20260924-MQ3CDMU6-0001), the operator-approved PROP_TICKET_RISK_GATE_MODE=enforce (08-31) having no code path that actually caps size (PI-20260924-MQ3CDMU6-0002), and PR #13084's fresh B6 EV-simulator reading the CURRENT 1.5%-risk flat-$75 sizing as INDETERMINATE (central estimate -$10.08/account-life) vs +$173 at a cushion-fit 1.0% sizing. SEE ALSO E59, where the operator's earlier 2026-09-24 decision (\"Leave flat $75\", made without the B6 simulator's numbers) is recorded and PI-20260924-MQ3CDMU6-0001 was KILLED on that basis -- D12 revisits the question with new evidence rather than being independent of E59. Tier 3 because any resulting sizing/gate-enforcement change is a risk-caps/sizing change on a live prop account. THIS PR DOES NOT IMPLEMENT OR AUTHORIZE the sizing fix itself -- it only records where the decision now lives. See lane P1b / session_01LDBj5SQ3KpCZDsCstGv2yt for the actual disposition. || 2026-09-28 ~13:35Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR DECISION, popup verbatim \"Keep flat $75\" (options offered: size to fit the cushion [recommended] / keep flat $75 / let it run to breach then re-buy), asked with breakout_1 at balance $4,724 vs the $4,700 static-DD floor (prop status 12:57Z). Sizing stays flat $75; the executor guards (enforce) will refuse tickets that do not fit. || [2026-10-04T20:15Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Closed by disposition: the decision this row tracked was made by the operator on 2026-09-28 (\"Keep flat $75\") and is enforced by the executor guards. No lane work remains. Surfaced by the attention-watch in_flight silence alarm (6d quiet).",
+  "_seq": 147
+}

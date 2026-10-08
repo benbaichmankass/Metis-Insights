@@ -1,0 +1,16 @@
+{
+  "id": "LEDGER-REFRESH",
+  "title": "broker_truth_ledger ~77 days stale (bybit_2 SUB is CSV-only); bybit_1/bybit_portfolio daily journal-vs-wallet delta",
+  "phase": "W6",
+  "state": "queued",
+  "owner": "unassigned",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-01T20:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator popup ~20:55Z: selected for wave 3, queued behind wave 2. || 2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here.",
+  "_seq": 233
+}

@@ -1,0 +1,18 @@
+{
+  "id": "BREAKOUT-BLOCKERS",
+  "title": "Read-only verdict for the operator: is there a STRUCTURAL blocker to automated execution on Breakout DXtrade (gates buying a replacement account)?",
+  "phase": "W6",
+  "state": "done",
+  "owner": "manager-dispatched lane",
+  "lane": "session_01P3B4ThDiTRvrKgiKGmv63B",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 10,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    16570
+  ],
+  "blocked_on": [],
+  "note": "2026-10-05 06:43Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv on operator popup answer \"Yes, assess blockers (Recommended)\". Same session: operator chose \"Set it to dry_run (Recommended)\" for breakout_1 ($4,698 vs $4,700 static floor, executor latched) -> set-account-mode issue #16568 (opens a Tier-3 hold PR; manager merges + verifies). 06:49Z verdict: STRUCTURAL - no new DXtrade accounts sold (Breakout FAQ 14215629, updated 2026-09-03, re-fetched by manager). DXtrade itself blocks nothing. 1 FIXABLE: PI-20261005-BRKBLOCK-0001 -> PROP-LIMIT-GUARD.",
+  "_seq": 295
+}

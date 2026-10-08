@@ -1,0 +1,18 @@
+{
+  "id": "CA-A06",
+  "title": "Code audit Wave A: rest of src/runtime: alerts, telegram, reports, health, provenance, insights, soaks",
+  "phase": "CA",
+  "state": "done",
+  "owner": "audit lane",
+  "lane": "session_01R1zbNc2v4Rkxs93z13XiHK",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 45,
+  "spend_usd": 8.77,
+  "tier": 1,
+  "prs": [
+    13199
+  ],
+  "blocked_on": [],
+  "note": "Scope: Every src/runtime/*.py and subpackage NOT listed in CA-A01/A02/A03/A05 \u2014 i.e. *_alert.py, alert_cooldown, notify, claude_ping, decision_push, decision_channel_alert, telegram_*, signal_notifications, signal_writer, mobile_push/, hourly_report, api_reporting, health, heartbeat, liveness_watchdog, boot_audit, exit_loop_health, execution_diagnostics, provenance, r_provenance, registry_fingerprint, research_results_gate, insights/, every *_soak.py, manager_status, work_decisions, operator_owed, gpu_spend, hold_vs_cash, evidence_horizon, election_track_record, strategy_monocle, strategy_verdict, monitor_verdict, shadow_adapter, telegram_poll_registry, and the rest (run `ls src/runtime` and subtract the other lanes' lists; state the subtraction). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A06.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01R1zbNc2v4Rkxs93z13XiHK (claude-sonnet-5; fresh). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A06.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main.",
+  "_seq": 114
+}

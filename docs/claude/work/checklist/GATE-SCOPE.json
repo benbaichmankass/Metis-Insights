@@ -1,0 +1,20 @@
+{
+  "id": "GATE-SCOPE",
+  "title": "Open-package gate is strategy-wide across accounts: a paper IEF package blocks the live IEF leg (PI-20260930-QZSE4AMA-0001); scope it per account",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "build lane",
+  "lane": "session_01C4qod5gogYDwASmek2XMWT",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 30,
+  "spend_usd": null,
+  "tier": 3,
+  "prs": [
+    14590,
+    14634,
+    14639
+  ],
+  "blocked_on": [],
+  "note": "2026-09-30 ~06:45Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): found by LIVE-NO-TRADES. Fix PR #14590 (open-package gate per ACCOUNT, landing hold, Tier-3) is open as a draft; awaiting the lane's report, then independent review, then the manager decides under the data-backed Tier-3 authorization and notifies the operator. Model opus: live order path. || 2026-09-30 ~08:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14590 MERGED (2926c22f, 08:04Z) after two review rounds (fail-closed reads; Stage-2 pairs coupled per the 2026-09-21 mirror-identity decision). DEPLOYED: VM git_sha 1f7297a78 contains it. PARTLY OBSERVED: open_package_blocked rows carry the new fields; open_package_read_failed 0 rows; pair-coupled IEF case not yet observable (needs a US-hours ief signal). Follow-ups filed (#14634, #14639: MEK2XMWT-0004..0006). Lane ARCHIVED.",
+  "_seq": 242
+}

@@ -1,0 +1,16 @@
+{
+  "id": "SA-ROUTE",
+  "title": "Audit JC-SA-06: route the 143 unrouted due pipeline items (kill with a stated reason, or assign to a checklist row / queue unit)",
+  "phase": "W6",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01TS7BCzqWEkmwLXESEmZ6fg",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 25,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): queued behind SA-DOCS's section-0 cap. Most archived rows should be killed explicitly, not carried. || E75 dispositions (manager, 11:55Z) #14108 MERGED 2e6ae44 (consolidated report). Dispositions: FIX-SA-01->SA-DATA; FIX-SA-02->EXIT-CLUSTER (#14106); FIX-SA-03->FIX-SA-03 lane; FIX-SA-04/05/06->SA-PROV; FIX-SA-07/13->SA-SEC; FIX-SA-08/11/12->SA-INFRA (WEBAPI-RESTART lane closed); FIX-SA-09/10->SA-DOCS (JC-GIT/EXEC-FIX/EXIT-OPS/ADMIN already corrected off in_flight). JC-SA-01 (a)->GRADE; JC-SA-02 (a)->ML-DEMOTE; JC-SA-03 (b) = status quo, no change beyond FIX-SA-05; JC-SA-06 cap+alarm->SA-DOCS, routing lane queued (SA-ROUTE); JC-SA-07 (a)->GUARD-PROOF; JC-SA-08 -> data task on the FIX-SA-03 lane (mirror-vs-live exit divergence census) before any choice. JC-SA-04 (revoke the leaked Telegram token + testnet key) and JC-SA-05 (split the PAT) are OPERATOR-ONLY credential actions: raised to the operator. || 2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane SA-ROUTE session_01TS7BCzqWEkmwLXESEmZ6fg (claude-sonnet-5-5, ceiling $25): route or kill the due unrouted pipeline items (212 unrouted / 241 due at 04:55Z per pipeline.py --check), batches of ~40, a per-item reason, money-path items routed and never killed. || 2026-09-30 ~06:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): the rows it was blocked on landed with #14550. Mapping sent for its 29 unmapped items (each routed to an existing row after its rerun still reproduces, else killed with a reason); M16 and Phase-H are killed if stale, queued if data-settleable, else surfaced. || 2026-09-30 ~08:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): DONE. Of 211 unrouted items: 178 routed, 28 killed with reasons, 5 closed by other lanes. The pipeline read 13 unrouted afterwards (all filed since, none from the 211). Lane ARCHIVED.",
+  "_seq": 211
+}

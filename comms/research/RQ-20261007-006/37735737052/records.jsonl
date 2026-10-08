@@ -1,0 +1,1 @@
+{"leg": "pairs_bnb_btc", "verdict": "pass", "n": 274, "net_total_r": 102.4212, "population": {"lookback": 15, "entry_z": 2.0, "exit_z": 0.5, "stop_z": 2.0, "max_hold_bars": 20, "hedge_beta": "rolling"}}

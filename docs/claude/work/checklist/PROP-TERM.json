@@ -1,0 +1,33 @@
+{
+  "title": "Breakout proprietary-terminal adapter (breakout_terminal): read path + place_bracket behind the same platform-adapter interface, so a re-bought account can be automated",
+  "phase": "W6",
+  "state": "blocked",
+  "owner": "lane BREAKOUT-TERM-ACCESS",
+  "lane": "session_01TarfPrbZozhifNG9YXhVGJ",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 40,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    13658,
+    14366,
+    14604,
+    14645,
+    14666,
+    14680,
+    14799,
+    14802,
+    14854,
+    16187
+  ],
+  "blocked_on": [
+    {
+      "kind": "work_item",
+      "ref": "PHONE-EXEC-DESIGN",
+      "what": "VM route closed (Cloudflare 1005 + safety-classifier stop on the click test); the route is now the phone executor, paused by the operator"
+    }
+  ],
+  "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] VM route CLOSED: #16205 merged (1e8af0e); click test stopped by a safety classifier and NOT to be re-dispatched. Lane archived. Breakout automation now = PHONE-EXEC-DESIGN. [2026-10-04T07:55Z lane BREAKOUT-TERM-ACCESS session_01TarfPrbZozhifNG9YXhVGJ] The operator approved the (b) runner click test ('Let's try the click test first', relayed by the manager ~07:51Z). It was STOPPED by a safety classifier on 2026-10-04 and NOT attempted: nothing built, dispatched or linked. Per the manager (~07:53Z) it is not re-dispatched to another lane. Open questions remain unanswer",
+  "id": "PROP-TERM",
+  "_seq": 185
+}

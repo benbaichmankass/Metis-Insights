@@ -36,6 +36,7 @@ READ_ONLY = frozenset({
     "status-check",
     "list-listening-ports",
     "gateway-logs",
+    "gateway-forensics",
     "pull-latest-logs",
     "inspect-insights",
     "net-r-regrade",

@@ -1,0 +1,23 @@
+{
+  "id": "PAIRS-STOCKTAKE",
+  "title": "Pairs strategies stocktake: ladder stage + evidence per leg, which is live-ready under MD-PROMOTE-S1-S2, which is prop-feasible per venue",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane PAIRS-STOCKTAKE",
+  "lane": "session_011BUSVxr9kPZvkNn6TXSaL6",
+  "model": "claude-fable-5-1",
+  "ceiling_usd": 20,
+  "spend_usd": 70.11,
+  "tier": 1,
+  "prs": [
+    16964
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-08T02:48Z manager] #16964 MERGED 02:46Z (b0c29a109) by the manager (Tier-1 hold: new research-queue registrations RQ-20261007-005..008 now dispatchable; blocked/009 promotes on a PASS ledger). Lane archived; FINAL spend $70.11 against ceiling $20 -- OVER CEILING, and the session ran on claude-fable-5-1, which IS the model this row names (dispatched on the Fable pool deliberately); the 3.5x overrun is the finding, not the model. (Correction 02:52Z: an earlier version of this note wrongly said the row named Sonnet.) The overrun was not caught mid-flight because the lane's work was already landed_unproven on a held PR by the time its running total was read. Stale safety-net trigger trig_01Q7yszDCdfRKc1Xh73u2Rrr deleted. || [2026-10-07T23:27Z manager] #16964 green but conflicts with main; lane woken 23:29Z. || [2026-10-07T19:42Z manager] Lane confirms renumber 005-009 on head 7547c3930 (all cross-refs, 91 tests, dispatcher dry-run would_dispatch 005-008); RQ-20260922-011 blocked_on HARNESS-AUDIT-FIXES. Manager merges #16964 on green, then archives. || [2026-10-07T18:58Z manager] VERDICT: nothing live-ready, nothing prop-feasible -- both data/build gaps: pairs_sol_eth and pairs_bnb_btc have NO Stage-0 record and no Gate-1 cost cell; no 2-leg prop order path on any venue; BTC/ETH legs floor at venue lot sizes at $25 risk. Units registered (renumbered to 005-009 after the id collision with #16955/#16960). Guard fix: check_roster_promotion_evidence.py now reads per-pair account_id (E36's premise stale). For the sync: Velotrade Terms 8.2 bans 'arbitrage' -- venue question, nothing blocks today. PR #16964 held; manager lands. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0004. Operator 2026-10-06 ~08:15Z verbatim: 'where do we stand on all of the pairs strategies? Is anything there ready to go live, and is anything there feasible for a prop account?'. Report + any queue units it needs. Fable, auto. || [lane row from #16964, merged 02:5xZ] [2026-10-07 lane] Records only. VERDICT: nothing live-ready -- no configured pair has a Stage-0 evidence record (E37), no Gate-1 cost-fidelity cell exists for a pairs leg, and the sleeve is not a rostered leg so MD-PROMOTE-S1-S2 cannot evaluate it; nothing prop-feasible -- no 2-leg prop order path exists on tradeify_1 / breakout_2 / velotrade_1 (pairs_executor builds a Bybit client only; the prop bridge is one ticket per leg), and the BTC-quote pairs' BTC leg sizes to ~$1-2 notional at $25-$50 flat risk (unlisted on two venues, below velotrade's 0.001 lot). Memo + table: docs/research/pairs-stocktake-2026-10-07.md. DATA TASKS REGISTERED: RQ-20261007-005..008 (Stage-0 at the CONFIGURED params, net of full cost stack, via scripts/research/pairs_configured_stage0.py + research-script-run.yml, auto-graded; dispatcher dry run: would_dispatch), blocked/RQ-20261007-009 (prop fit, blocked on a PASS ledger). GUARD FIX in the same PR: check_roster_promotion_evidence.py now resolves the PER-PAIR account_id the executor honours (a per-pair `account_id: bybit_2` line was invisible to it). FILED: PI-20261007-N6TXSAL6-0001 (no Gate-1 pairs cell), -0002 (leg-close asymmetry 145/141, 153/152 + 80 reconciler closes), -0003 (pairs soak alarm). Only operator preference left: Velotrade Terms 8.2 'arbitrage' ban -- for the next sync, not a popup.",
+  "observation": {
+    "what": "first dispatcher cycle after 02:46Z dispatches one of RQ-20261007-005..008 and a research_result lands for it",
+    "how_to_check": "grep -n last_dispatched_at research/queue/RQ-20261007-00[5-8].yaml; ls research/results/RQ-20261007-005 research/results/RQ-20261007-006 2>/dev/null",
+    "due_by": "2026-10-10T00:00Z"
+  },
+  "_seq": 302
+}

@@ -1,0 +1,23 @@
+{
+  "id": "API-COLLAPSED-STATES",
+  "title": "Read paths that collapse could-not-look into error/empty: Hourly Snapshot 'API ERROR' on browser-prop accounts; alpaca_open_orders omits held bracket legs; order-packages/trades-closed `since` parsing returns [] silently",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane API-COLLAPSED-STATES",
+  "lane": "session_01LTcc4ccHr2rcL85zFjcTnR",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 25,
+  "spend_usd": 5.71,
+  "tier": 1,
+  "prs": [
+    16963
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-08T00:24Z manager] Lane archived; spend $5.71 final. || [2026-10-07T23:27Z manager] #16963 MERGED 23:21Z (6b57aab9e). Observation: next Hourly Snapshot renders prop accounts from executor status, not 'API ERROR'. Lane to archive. || [2026-10-07T18:58Z manager] PR #16963 held (src diff): hourly read_state per account; alpaca held legs + held_legs_state; ?since= filter_state/422. ib_live 'API ERROR' = NOT a fault (dry_run, read path never dials the gateway). NEW: PI-20261007-5ZFJCTNR-0001 ib_paper could_not_look + watchdog inactive + stale ict-prop-executor.service failed -> row IB-GATEWAY-DOWN. Close the 4 items after the next Hourly Snapshot reads correctly post-deploy. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-APBY4NTV-0002, PI-20261005-APBY4NTV-0002, PI-20261005-MWOP8C4X-0002, PI-20261005-MWOP8C4X-0003. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+  "observation": {
+    "what": "the first Hourly Snapshot after #16963 (6b57aab9e) is deployed renders the browser-prop accounts from executor status instead of 'API ERROR', and /api/bot/orders/open?account_id=alpaca_live lists held bracket legs with held_legs_state",
+    "how_to_check": "scripts/ops/diag_fetch.sh version | grep 6b57aab9e; latest Hourly Snapshot ping text (comms/) has no 'API ERROR' line for breakout_2/tradeify_1; GET /api/bot/orders/open?account_id=alpaca_live -> held_legs_state present",
+    "due_by": "2026-10-10T00:00Z"
+  },
+  "_seq": 324
+}

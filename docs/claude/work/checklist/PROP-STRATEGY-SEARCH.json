@@ -1,0 +1,23 @@
+{
+  "id": "PROP-STRATEGY-SEARCH",
+  "title": "Strategy search for faster prop passes (+10%/month target, <=6 months): scope and register the next research batch across all tradeable instruments",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane PROP-STRATEGY-SEARCH",
+  "lane": "session_017LifR4MR2duWpfZkggkTAg",
+  "model": "claude-fable-5-1",
+  "ceiling_usd": 25,
+  "spend_usd": 23.26,
+  "tier": 1,
+  "prs": [
+    16965
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-07T19:53Z manager] #16965 MERGED 19:52Z (885549f54): 41 units RQ-20261007-201..241 on main; the runner now owns them (gate unit 201 first). Lane archived 19:53Z; spend $23.26 final (Fable). || [2026-10-07T19:03Z manager] BATCH 2 = 41 units RQ-20261007-201..241 (2xx block, no collision): 14 Velotrade pace fits p1 (trend_donchian 1h ZEC/UNI/LINK/FIL/XRP/ADA/HYPE/SUI; ict_scalp 15m HYPE/AAVE/ONDO/SUI/ZEC/DOGE -- the P2r2 cells net-positive in both halves never fitted at the operator's risk), 9 prop-BOOK composition units p1 (trend6 / fast6 / mixed6 x velotrade/tradeify/breakout_turbo at 0.5/0.75/1.0% per leg; PACE CANDIDATE = p_breach<=0.05 and days_to_pass p50<=60d), 16 breadth Stage-0 cells p2 (pullback/squeeze 1h-2h on ZEC/UNI/FIL/SUI/HYPE/AVAX/TRX/AAVE/DOGE/LINK), 2 new pace families blocked (ORB session-range with time stop; squeeze with time stop; fixing backtest_orb.py's cost stack is the cheaper path, PI-20261007-ZKGGKTAG-0001/-0002). Deviation: 10 CANDIDATE_PAIRS lines in fetch_backtest_corpus.py (required by the corpus test; same as batch 1). PR #16965 held; manager lands. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0001. Operator 2026-10-06 ~07:15Z. EVIDENCE from batch 1 (RQ-20261006-005..031, Stage-0 net of cost): 5 PASS all at 1h (ADA/DOGE/LINK pullback, DOGE squeeze, SLV fade); 17 FAIL incl. every 15m/5m leg (BTC 15m fade -1820R/4214 trades) -- the cost stack kills the fast timeframes with these harnesses; chop scalps underpowered. Pace, not risk, binds (velotrade median ~220d to +10%). The next batch should buy pace via breadth and higher-frequency 1h-4h signals, new families, and the prop-bar fit, not via 5m bars. Fable, auto.",
+  "observation": {
+    "what": "PR #16965 lands AND RQ-20261007-201 (the gate: first p2_breakout_symbol_screen run on a GH runner) produces a measured record, releasing 202-223",
+    "how_to_check": "ls research/results/RQ-20261007-201/ on main; dispatcher receipt; a producer_failed there = tooling task",
+    "due_by": "2026-10-10T18:00Z"
+  },
+  "_seq": 313
+}

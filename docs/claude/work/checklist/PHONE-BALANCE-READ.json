@@ -1,0 +1,23 @@
+{
+  "id": "PHONE-BALANCE-READ",
+  "title": "Phone executor reads the terminal's account panel and posts account_status (balance/equity) for breakout_2; room sizing becomes possible (Tier-3 flip proposed, not applied)",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane PHONE-BALANCE-READ",
+  "lane": "session_01PZMASvu7ertVZeHdx56jrf",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 15,
+  "spend_usd": 2.84,
+  "tier": 2,
+  "prs": [
+    16962
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-07T21:11Z manager] #16962 MERGED 21:10Z (0ff7938ac): phone reads the account panel and posts kind=account_status. Merged != observed: needs the next main APK installed (a second build follows the overnight phone merges). The Tier-3 sizing flip (flat -> room, RQ-20261005-851/852) stays a proposal until a non-null balance is seen and matches the terminal. Lane archived 21:11Z, spend $2.84 final. || [2026-10-07T19:30Z manager] #16962 dirty after #16944 landed on the same files; lane woken 19:25Z to merge origin/main (trigger trig_01MVEXpMk3K7cv3KWEGy6NZC). || [2026-10-07T18:58Z manager] PR #16962 held Tier-2: accountPanel() label-anchored read (null unless exactly one match), kind=account_status every 5 min on the terminal with no ticket open, server stores unread as NULL, MEASURED. Real DOM labels NOT established (only 'Portfolio #,###.## USD' known): if Balance/Equity absent, balance NULL and equity = Portfolio tagged equity_label=portfolio -- operator compares to the terminal. Tier-3 room-sizing flip proposed only after a non-null balance matches the terminal. Manager merges; then one APK install covers SOL + screenshots + balance. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-YUVCGTMJ-0002. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+  "observation": {
+    "what": "after the operator installs the next main APK, /api/bot/prop/status?account_id=breakout_2 shows status_freshness ok with a non-null balance that matches the terminal",
+    "how_to_check": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_2' | python3 -c \"import json,sys;d=json.load(sys.stdin);print(d['status_freshness'], d['status'] and d['status'].get('balance'))\"",
+    "due_by": "2026-10-09T18:00Z"
+  },
+  "_seq": 316
+}

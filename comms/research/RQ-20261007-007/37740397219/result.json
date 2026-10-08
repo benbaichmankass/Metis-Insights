@@ -1,0 +1,42 @@
+{
+  "strategy": "pairs",
+  "pair": "SOLUSDT/BTCUSDT",
+  "timeframe": "1h",
+  "params": {
+    "lookback": 15,
+    "entry_z": 2.0,
+    "exit_z": 0.5,
+    "stop_z": 2.0,
+    "max_hold_bars": 20,
+    "hedge_beta": "rolling"
+  },
+  "total_trades": 286,
+  "fee_bps_roundtrip_per_leg": 7.5,
+  "slippage_bps_roundtrip_per_leg": 3.0,
+  "funding_bps_per_window_a": 1.0,
+  "funding_bps_per_window_b": 1.0,
+  "data_start": "2026-04-11 00:00:00+00:00",
+  "data_end": "2026-10-06 23:00:00+00:00",
+  "run_date": "2026-10-08",
+  "win_rate_pct": 57.34,
+  "net_total_r": 92.6354,
+  "net_total_r_fee_only": 92.6972,
+  "net_expectancy_r": 0.3239,
+  "trades_long": 141,
+  "trades_short": 145,
+  "max_drawdown_r": 6.9733,
+  "mean_hold_hours": 5.87,
+  "total_position_days": 70.0,
+  "net_r_per_pos_day": 1.3234,
+  "by_outcome": {
+    "stop": 107,
+    "revert": 175,
+    "timeout": 4
+  },
+  "by_year": {
+    "2026": {
+      "trades": 286,
+      "net_r": 92.6356
+    }
+  }
+}

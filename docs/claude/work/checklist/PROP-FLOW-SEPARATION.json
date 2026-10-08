@@ -1,0 +1,25 @@
+{
+  "id": "PROP-FLOW-SEPARATION",
+  "title": "Prop ticket flow per executor type (operator 2026-10-07): expiry without a logged fill = not placed and the opportunity stays live; REST/phone prop accounts never enter the Telegram prompt/report states",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane PROP-FLOW-SEPARATION",
+  "lane": "session_01QhZ61suEMNrBnDGq8XWqDR",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 40,
+  "spend_usd": 25.71,
+  "tier": 2,
+  "prs": [
+    17007
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-07T23:27Z manager] #17007 green but conflicts with main; lane woken 23:29Z. || [2026-10-07T20:44Z manager] Lane: tradeify_1 = MACHINE flow ('browser'): diag shows ict-prop-executor@tradeify_1.timer active, every tick mode live through 2026-10-06 18:23Z. Classification now explicit and tested: prop_platforms.yaml accounts.<id>.ticket_flow (browser|manual) for browser-terminal accounts (tradeify_1 browser, breakout_1 manual); REST always rest, phone_accounts always phone; test fails on any breakout-type account without a declared flow. Head e2634ba81 (main merged), 2201 tests pass (one known main-red docstring test), guards 102/0. Merge on green under the operator's Tier-2 OK; deploy = trader + prop bot restart. SIDE FINDING -> row TRADEIFY-FEED-TRIP. || [2026-10-07T20:17Z manager] PR #17007 open (Tier-2 hold, main merged in after #16947). State table: rest = executor 'skipped expired unplaced' then trader CAS emitted->expired at valid_until+30min; phone = never-claimed -> expired at +30min, claimed blocks; manual = one 'recorded as NOT placed' notice + single 'I did place it' button, then expired. STALE_PROMPT_GRACE retired; no keyboard/expiry/invalidation prompts for rest/phone; all taps CAS. 477 tests, guards 102/0. Deploy = restart live trader + prop bot (operator Tier-2 OK covers the directive's implementation). OPEN POINT decided by the manager 20:17Z: the class boundary is 'does a machine executor place the tickets' -- tradeify_1 goes in the machine flow if its executor is live (lane verifying from the VM); 'manual' only for accounts with no executor (breakout_1, retiring). Filed by the lane: PI-20261007-QHZ61SUE-0001 (observation), -0002 (docstring test already red on main). || [2026-10-07T19:46Z manager] Lane's state-machine reading (ARCHITECTURE-CANONICAL \u00a7 'Prop ticket flow -- one state machine per executor type', branch claude/prop-flow-separation, carries #16947): executor type from prop_platforms.yaml (rest=velotrade_1, phone=breakout_2, manual=rest incl. tradeify_1); expiry with no fill = terminal 'expired' on every path and never blocks (STALE_PROMPT_GRACE retired; trader sweep CAS emitted->expired after valid_until+30min for rest/phone); rest/phone get no Telegram prompt states and propexp taps are refused; manual gets ONE notice with a single 'I did place it' button and late fills reconcile by explicit ticket_id paste in any status. Manager read it against the operator's words 19:46Z: consistent (the OPPORTUNITY stays alive via re-ticketing; the ticket row itself ends). Code PR follows; #16947 merges first. || [2026-10-07T19:16Z manager] OPERATOR, verbatim: \"In general, if a ticket expires and I haven't logged a trade, the system should assume that the trade wasnt placed and the ticket should be kept alive. And the prop accounts should have their own separate flow that isn't contaminated by the telegram channels activity.\" PI-20261007-APBY4NTV-0003 carries the design reading. Opus (live ticket state machine on both prop accounts), auto mode; PR held Tier-2; manager merges and notifies. Builds on #16947 / #16977 (VELOTRADE-TICKET) rather than replacing them. [2026-10-08T06:55Z manager] OPERATOR \"OK all five\": #17007 MERGED (2a35bce82) + deployed (VM 64206a6ba), services active; behaviour unobserved (no prop signal since 10-07 11:01Z), PI-20261007-QHZ61SUE-0001 due 10-14. Lane archived FINAL $25.71.",
+  "observation": {
+    "what": "after deploy, the stuck prop-manual-4fa7266cfcf0 is swept to expired on the first tick; the next velotrade_1 or breakout_2 ticket that expires unplaced ends 'expired' with no Telegram prompt and does not block the following signal; manual accounts get one 'recorded as NOT placed' notice with a single 'I did place it' button",
+    "how_to_check": "GET /api/bot/prop/tickets?account_id=velotrade_1 and breakout_2 (statuses); pipeline PI-20261007-QHZ61SUE-0001",
+    "due_by": "2026-10-14T18:00Z"
+  },
+  "updated_at": "2026-10-08T06:54:01Z",
+  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "_seq": 340
+}

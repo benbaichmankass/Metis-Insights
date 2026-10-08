@@ -1,0 +1,18 @@
+{
+  "id": "HIBERNATION-SKILL",
+  "title": "Manager skill: how to hibernate the work before a usage-limit outage and pick it up after (operator ask 2026-10-07)",
+  "phase": "W6",
+  "state": "done",
+  "owner": "lane HIBERNATION-SKILL",
+  "lane": "session_018paujgDwqD1DxKFy1tnWwN",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 8,
+  "spend_usd": 0.86,
+  "tier": 1,
+  "prs": [
+    16954
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-07T19:40Z manager] Lane archived 19:39Z; spend $0.86 final. #16954 merged 19:30Z: manager SKILL.md \u00a7 'Hibernating before a usage-limit outage' on main. || [2026-10-07T18:55Z manager] PR #16954 auto-merging; may need a main merge after #16942. || [2026-10-07T18:41Z manager] Operator, verbatim: \"you did a good job of 'hibernating' the work ahead of the usage limit outage, so I want us to add to the manager skill instructions for how to prepare for that properly.\" Doc-only; written from the measured 2026-10-06/07 sequence (what worked: auto-merge armed, lanes told to self-land, pick-up reminder, routines paused; what broke: lanes died at the limit unlanded, queue ran but produced nothing, stranded register commits). Row written after dispatch (manager slip, corrected).",
+  "_seq": 330
+}

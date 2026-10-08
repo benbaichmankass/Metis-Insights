@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-15",
+    "kind": "date"
+  },
+  "id": "PI-20261008-BFOAI4ZM-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "REGISTER-TOOLING session_012xSAmZaaxVR3W8bFoai4zM 2026-10-08 (seed PR #17073, guard-liveness run)",
+    "rerun": "python3 scripts/ci/check_guard_liveness.py 2>&1 | grep -A4 'check_register_ids\\|check_scope_overlap\\|check_claim_basis\\|check_manager_scope'; confirm MANAGER-CHECKLIST.json is still listed as an absent subject"
+  },
+  "state": "queued",
+  "what": "After the checklist per-row cutover (#17073) four guards still declare docs/claude/work/MANAGER-CHECKLIST.json (deleted) among their module-level subjects: check_register_ids.py, check_scope_overlap.py, check_claim_basis.py, check_manager_scope.py. All four are already in the guard-liveness BASELINE (degraded/dead for other absent files too) so the baseline did not grow, but each names a subject it cannot see. check_register_ids/check_scope_overlap are DEAD (every subject absent) and grade nothing; check_claim_basis and check_manager_scope read the checklist via the loader so they still grade, only the declared subject is stale. Fix: re-point the declared subject at docs/claude/work/checklist (derive the legacy path for the loader call, as check_manager_checklist_vocabulary.py now does) or RETIRE the two dead guards with a stated reason."
+}

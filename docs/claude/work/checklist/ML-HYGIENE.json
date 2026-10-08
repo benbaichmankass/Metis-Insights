@@ -1,0 +1,18 @@
+{
+  "id": "ML-HYGIENE",
+  "title": "ML hygiene: constant-score baselines, registry count reconcile, exit-head demote observation, conviction-meta drift, regime-model demote proposal, 4 demoted-head producers, 4 quarantined manifests",
+  "phase": "W6",
+  "state": "queued",
+  "owner": "unassigned",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here. [2026-10-08T06:55Z manager] Overlapping scope moved to ML-DATASET-FIXES / ML-STAGE-DECISIONS.",
+  "updated_at": "2026-10-08T06:54:20Z",
+  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "_seq": 234
+}

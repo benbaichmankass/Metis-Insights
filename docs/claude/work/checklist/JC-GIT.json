@@ -1,0 +1,18 @@
+{
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "fix lane",
+  "blocked_on": [],
+  "spend_usd": null,
+  "prs": [
+    13609
+  ],
+  "id": "JC-GIT",
+  "title": "Operator decisions JC-CA-01 (set-account-mode commits to main) + JC-CA-03 (auto-land PR via GITHUB_TOKEN) + JC-CA-06 (retire account_state fold after 01 observed)",
+  "lane": "session_01GxXaAMqxdL3p1XTuRC5mjc",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 45,
+  "tier": 2,
+  "note": "2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Dispatched per the operator decisions recorded on the CA row. Opus: touches the account-mode gate and the armed auto-land mandate route. | 2026-09-28 12:10Z JC-CA-03 RE-DECIDED by the operator after the lane measured option B unworkable (PI-20260928-TURC5MJC-0004; probe PR #13502: dispatched check runs left the PR blocked, the pull_request-run control read clean). Popup answer, verbatim: \"Keep PAT, verify run (Recommended)\": \"Keep the current token, and make the safety check verify via GitHub's API that the PR really came from the scheduled demotion-gate run on main. Unforgeable, and all required CI checks stay.\" Relayed by manager session_01KAQRJxRbRwpYTkPgBjNVyQ; lane JC-GIT builds it as a landing-machinery HOLD PR. | JC-CA-01: #13508 MERGED 3deb2385, landed_unproven (PI-20260928-TURC5MJC-0006, no test flip); verify half observed converged on the VM, issue #13572. || 2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13609 (A7 verifies the r4-demotion-gate run via the API) independent Opus review BLOCK: (B1) in CI A7 grades the synthetic merge commit, so merge_base is main's tip and the route refuses every genuine PR (the merge commit's authorship also fails the bot-email check, which predates this PR, so MD-DEMOTE-S2-S1 auto-land cannot currently pass in CI at all); (B2) nothing binds PR content to the run, so a session could replay a genuine apply=false run id. Sent back to the lane with both findings. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): state corrected in_flight -> landed_unproven: lane is ARCHIVED (status_bucket COMPLETED) and #13609 are on main (git log --grep). Deploy/observation not verified by this session; the lane's own pipeline items carry the observation that closes it. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): CORRECTION of my own 09:50Z edit: JC-CA-03's #13609 merged 2026-09-28 16:40Z AFTER the 13:20Z review BLOCK (B1 synthetic-merge-commit grading refuses every genuine PR; B2 no binding of PR content to run id), and no record shows either was fixed (0 reviews / 0 threads on the PR). CA-VERIFY (docs/audits/code-audit-2026-09-27-deploy-verification.md, #14052) reports it as not re-landed. Back to in_flight: new lane on row JC-CA-03-FIX answers whether main still has B1/B2. JC-CA-01 half remains landed_unproven on issue #13572. || 2026-09-29 ~10:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): back to landed_unproven: JC-CA-03 fixes verified present on main (row JC-CA-03-FIX). Closing observation: the first real MD-DEMOTE-S2-S1 producer PR passing R16 in CI; JC-CA-01 half on issue #13572.",
+  "_seq": 167
+}

@@ -1,0 +1,54 @@
+{
+  "verdict": "pass",
+  "read_state": "measured",
+  "population": "pairs_sol_btc: 286 pair trades, SOLUSDT/BTCUSDT 1h at the configured params {'lookback': 15, 'entry_z': 2.0, 'exit_z': 0.5, 'stop_z': 2.0, 'max_hold_bars': 20, 'hedge_beta': 'rolling'}, 2026-04-11 00:00:00+00:00 -> 2026-10-06 23:00:00+00:00, net of fee+slippage+funding per leg",
+  "n": 286,
+  "measurement": {
+    "pair": "pairs_sol_btc",
+    "symbol_a": "SOLUSDT",
+    "symbol_b": "BTCUSDT",
+    "timeframe": "1h",
+    "params": {
+      "lookback": 15,
+      "entry_z": 2.0,
+      "exit_z": 0.5,
+      "stop_z": 2.0,
+      "max_hold_bars": 20,
+      "hedge_beta": "rolling"
+    },
+    "n_trades": 286,
+    "net_total_r": 92.6354,
+    "net_total_r_fee_only": 92.6972,
+    "net_expectancy_r": 0.3239,
+    "win_rate_pct": 57.34,
+    "max_drawdown_r": 6.9733,
+    "cost_stack_bps": {
+      "fee_roundtrip_per_leg": 7.5,
+      "slippage_roundtrip_per_leg": 3.0,
+      "funding_per_window_a": 1.0,
+      "funding_per_window_b": 1.0
+    },
+    "data_start": "2026-04-11 00:00:00+00:00",
+    "data_end": "2026-10-06 23:00:00+00:00",
+    "aligned_bars": 4296,
+    "min_n": 39,
+    "rule": "PASS iff net_total_r > 0 AND n >= min_n; FAIL iff net_total_r <= 0 AND n >= min_n; indeterminate iff n < min_n"
+  },
+  "note": "PASS: net_total_r +92.6354 R over n=286 (floor 39); fee-only arm 92.6972 R reported, not graded. Ledger: trades.jsonl beside this file (entry_time/exit_time/net_r per pair trade).",
+  "records": [
+    {
+      "leg": "pairs_sol_btc",
+      "verdict": "pass",
+      "n": 286,
+      "net_total_r": 92.6354,
+      "population": {
+        "lookback": 15,
+        "entry_z": 2.0,
+        "exit_z": 0.5,
+        "stop_z": 2.0,
+        "max_hold_bars": 20,
+        "hedge_beta": "rolling"
+      }
+    }
+  ]
+}

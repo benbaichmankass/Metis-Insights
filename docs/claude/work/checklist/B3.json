@@ -1,0 +1,16 @@
+{
+  "id": "B3",
+  "title": "R4 as the DEMOTION gate",
+  "phase": "B",
+  "state": "landed_unproven",
+  "owner": "operator + build lane",
+  "lane": null,
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 15,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Flip to enforcing, pointed at demotion rather than promotion. A mirror carrying an identical roster only holds data for legs already live, so it cannot gate entry - it gates exit. Recommended 2026-07-30, built, shipped observe-only, never armed. Tier-2.\n[2026-09-26 06:40Z manager session_01Ljhs6sFAdWHdMDhJpL5aBP] OPERATOR 2026-09-25 popup 'Merge + deploy'. #12963 MERGED f6466583f (enforcer scripts/ops/r4_demotion_gate.py + daily r4-demotion-gate.yml 07:41Z). DEPLOYED via #12971 (deploy log: VM HEAD f6466583f, trader restarted active). Runtime-config read NOT independently observed (manager's read refused by the permission classifier). Dry run at merge: 0 of 7 Stage-2 legs demoted (all abstain_thin; max n 6 vs min 20). OPERATOR 2026-09-25 'Build auto-land route' for PI-20260925-WCUZRAA3-0002 -> held Tier-3 lane session_01Nrp6ZbnQ1rYuGnhSmbu7G9. Closes when: the first daily run's output is read (07:41Z 09-26).\n[2026-09-26 14:05Z manager session_01Ljhs6sFAdWHdMDhJpL5aBP] First enforcing R4 run 36241851581 (schedule 07:41Z, fired 12:25Z -- GitHub cron delay): 30d window, 0 of 7 Stage-2 legs demoted, all abstain_thin (max n 6 < 20); bybit_2 all four legs net-negative R (xrp_pullback_2h -5.38R n6). Auto-land route #12974 MERGED b9d7116df, UNARMED (operator 'Merge, stay unarmed', 2026-09-26): no mandate carries autoland: true, so a FIRE still lands by hand. Closes when: a demotion (or a clean multi-week run) is observed end to end.",
+  "_seq": 13
+}

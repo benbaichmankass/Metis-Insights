@@ -1,0 +1,16 @@
+{
+  "title": "SPA: Trades 422 fix (limit cap) + Load more + Refresh + Overview last-closed-trades",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "dashboard lane",
+  "lane": "session_012Wa41UeTzkAizB1JBRHpUR",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 15,
+  "spend_usd": 7.41,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "2026-09-28 ~12:15Z: ict-trader-dashboard PR #220 merged dc79a39, live bundle verified by probe. Needs operator eyes for render.",
+  "id": "DASH-TRADES",
+  "_seq": 174
+}

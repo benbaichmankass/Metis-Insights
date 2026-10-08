@@ -1,0 +1,17 @@
+{
+  "phase": "W6",
+  "spend_usd": 5.14,
+  "blocked_on": [],
+  "owner": "fix lane",
+  "id": "FIX-CA-RISK",
+  "state": "landed_unproven",
+  "lane": "session_01DkqJWZsHsYTkP7ba49Gepj",
+  "prs": [
+    13245
+  ],
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 35,
+  "title": "FIX-CA-RISK: FIX-CA-09 daily-loss cap attributed by open date (Tier 3, data-backed: ship, verify, notif",
+  "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-09 daily-loss cap attributed by open date (Tier 3, data-backed: ship, verify, notify operator). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Tier-3 data-backed: daily-loss cap now attributes PnL by close date. Merged a334a23; running at f089c40 (#13263); operator notified in chat 16:50Z with the revert. Not yet observed changing a cap decision. Lane archived.",
+  "_seq": 158
+}

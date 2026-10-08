@@ -1,0 +1,22 @@
+{
+  "id": "E8",
+  "title": "The testing queue",
+  "phase": "E",
+  "state": "blocked",
+  "owner": "build lane",
+  "lane": null,
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 40,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [
+    {
+      "kind": "work_item",
+      "ref": "E5",
+      "what": "A queue of runs that land nothing durable is faster waste."
+    }
+  ],
+  "note": "The operator's original ask: 'always tests running, maximizing the infrastructure we have.' [!] IT GOES LAST ON PURPOSE -- a queue keeping runners busy against a fee-only corpus and a 3.5-day fixture manufactures wrong answers faster. Capacity is NOT the constraint; results not becoming decisions is, and E3-E7 fix that. Idle capacity that exists: GitHub-hosted runners, free for this repo.",
+  "_seq": 39
+}

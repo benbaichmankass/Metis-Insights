@@ -1,0 +1,24 @@
+{
+  "id": "CA-B05",
+  "title": "Code audit Wave B: CI guards part 1 \u2014 each proven to fail on its defect",
+  "phase": "CA",
+  "state": "done",
+  "owner": "audit lane",
+  "lane": "session_019T77vFGQ7zPvNNronM6LfN",
+  "model": "claude-haiku-4-5-20251001",
+  "ceiling_usd": 15,
+  "spend_usd": 0.81,
+  "tier": 1,
+  "prs": [
+    13226
+  ],
+  "blocked_on": [
+    {
+      "kind": "work_item",
+      "ref": "CA",
+      "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+    }
+  ],
+  "note": "Scope: The first 44 guards in `python3 scripts/ci/run_guards.py --list` order (through candle-fixture-variance-guard), and each guard's script under scripts/ci/ or scripts/. Model reason: Haiku \u2014 mechanical plant-a-defect-and-run per guard; operator named Haiku. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B05.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings combined into the landing steward's #13226 (dirty after B07 landed separately; steward refreshing, trig_01FNyZV7ncHttTNpr3xB39aL). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main via #13226 (1247cc8); lane archived.",
+  "_seq": 128
+}

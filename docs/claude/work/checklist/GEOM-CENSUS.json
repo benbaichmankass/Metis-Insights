@@ -1,0 +1,23 @@
+{
+  "id": "GEOM-CENSUS",
+  "title": "Active geometry: commit the SL-vs-TP amend census as a script with a weekly pipeline rerun, so 'TP never moves' stays a measured number",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane GEOM-CENSUS",
+  "lane": "session_019nL2fabQkHnqwZAKggtxPm",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 10,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    16992
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-07T19:42Z manager] Lane done: PR #16992 auto-merge armed. Baseline (closed since 09-01): SL amended real_money 4/32, mirror 16/52, paper 111/664; TP amended 0 everywhere; prop read_state no_closed_rows. Weekly re-run PI-20261007-AKGGTXPM-0001. Archive after merge. || [2026-10-07T18:57Z manager] Proposed by ACTIVE-GEOMETRY-PLAN. MEASURED 2026-10-07 (closed trades since 2026-09-01 with a package; amend = order_packages.sl/tp vs entry-time level > 0.05%): real money 4 SL / 0 TP of 32; mirror 16/0 of 52; paper 111/0 of 668; fleet 131/0 of 748; prop 0 closed rows. scripts/research/geometry_amend_census.py reproducing PLANNING.md \u00a7 5 from the diag surface + a pipeline row with weekly due_when.",
+  "observation": {
+    "what": "#16992 merged; first weekly census re-run lands",
+    "how_to_check": "python3 scripts/research/geometry_amend_census.py",
+    "due_by": "2026-10-14T18:00Z"
+  },
+  "_seq": 334
+}

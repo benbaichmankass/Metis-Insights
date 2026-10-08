@@ -1,0 +1,16 @@
+{
+  "id": "E36",
+  "title": "The pairs sleeve is SINGLE-ACCOUNT by construction, so 'push a passing pair to live money' is a build, not a config flip",
+  "phase": "E",
+  "state": "queued",
+  "owner": "build lane",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": 40,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "FOUND 2026-09-22 by the manager while answering the operator's 'we can push those straight to live money once they pass'. MEASURED by reading the code: config/pairs.yaml carries ONE top-level `account_id: bybit_1`, and src/units/strategies/pairs_executor.py threads that single id through every call site -- _pair_leg_state(pair, account_id, ...), _pair_is_open(pair, account_id, ...), _alert_half_open_pair(..., account_id). [!] SO THERE IS NO PER-PAIR ACCOUNT ASSIGNMENT. Changing `account_id` to a real-money account would MOVE THE WHOLE SLEEVE off its paper soak -- all four pairs, including the two the 2026-07-16 backtest graded deeply negative -- rather than promote the one that passed. That is the opposite of what the directive intends. [!] DELIVERABLE: per-pair account assignment, so a pair that clears Stage 0 can be routed to a real-money account while the rest stay on bybit_1. \u26a0\ufe0f AND IT MUST CARRY THE MIRROR RULE WITH IT: bybit_2's paper mirror bybit_portfolio is CI-enforced to be identical (tests/test_paper_portfolio_accounts.py), so a pair routed to bybit_2 needs the same treatment or the invariant breaks the moment it lands. [!] SECOND FINDING, SAME FILE, FIELD BEATS COMMENT: config/pairs.yaml's header still asserts 'Validated 3yr IS + 2025-26 OOS (net-positive, no expectancy decay)'. The 2026-07-16 readiness log CONTRADICTS that -- net_R +513..+825 collapses to net-negative in dollars, and '7.5bps taker x 2 legs x ~2800 trades tips all four deeply negative'. The config's own validation claim is stale in the favourable direction, on the file that decides what trades. Fix the comment in the same PR. [!] MEASURED 2026-10-07 (lane PAIRS-STOCKTAKE, src/units/strategies/pairs_executor.py run_pairs_tick): the executor ALREADY resolves the account PER PAIR -- `account_id = str(pair.get(\"account_id\") or default_account)` -- and threads that id through _pair_leg_state / _close_pair / _place_pair inside the per-pair loop. So this row's premise ('NO PER-PAIR ACCOUNT ASSIGNMENT') no longer holds in the field; the granularity exists as a per-pair `account_id:` line. What did NOT exist until this lane's PR: the promotion guard (scripts/ci/check_roster_promotion_evidence.py) only read the top-level line, so that per-pair route was unguarded -- fixed in the PAIRS-STOCKTAKE PR. State left for the manager to re-grade (landed_unproven or done once an operator-visible test of a per-pair override is observed).",
+  "_seq": 72
+}

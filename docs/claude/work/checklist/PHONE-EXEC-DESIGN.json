@@ -1,0 +1,20 @@
+{
+  "id": "PHONE-EXEC-DESIGN",
+  "title": "Breakout phone executor (Android WebView on the operator's phone): design + no-account checks before the 'purchase account now' gate",
+  "phase": "W6",
+  "state": "done",
+  "owner": "lane PHONE-EXEC-DESIGN",
+  "lane": "session_01FuWi5xUmKJf6ps9HEp9LyP",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 15,
+  "spend_usd": 30.98,
+  "tier": 1,
+  "prs": [
+    16215,
+    16229,
+    16574
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-05T17:58Z manager] Phase 1a done: #16574 merged 5df52889 (probe 1a.3 + design 7.9/7.10). Build continues in PHONE-EXEC-1B. || [2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] PAUSED by operator ~08:30Z ('we can pause that lane'). Design doc docs/integrations/breakout-phone-executor-DESIGN.md merged (#16215, #16229). Step zero: app.breakoutprop.com served in Comet over LTE on the operator's phone (existing DXtrade account; not the new terminal). Resume needs the operator's Chrome + Wi-Fi step-zero results, then phase 1a only on manager go. No purchase until the lane says a login is required. [2026-10-05T06:52Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] BREAKOUT-BLOCKERS verdict (#16570; FAQ quote re-verified by the manager): Breakout sells no new DXtrade accounts, so a re-buy lands on the proprietary terminal (VM is Cloudflare-blocked). Operator popup answer: 'Revisit the phone executor'. Still blocked on the operator's step-zero (design doc section 7.6: Chrome, home Wi-Fi + mobile data, one line) - requested in chat 06:53Z; on a pass the manager dispatches phase 1a only. [2026-10-05T07:01Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR (verbatim): 'i can sign into the breached dx account on chrome on my phone. we're gonna skip step 1 (they are unresponsive) - we need to focus on technical viability to get to a real-account test.' Terms read / support questions SKIPPED by operator decision. Dispatched lane PHONE-EXEC-1A: WebView probe APK (Actions-built), public-page probe, operator hand-login to breached breakout_1 inside the WebView (2FA, session life, redacted mobile-terminal shape; read-only), fixtures; verdict GO/STOP for purchase gate in design doc section 7.9.",
+  "_seq": 275
+}
