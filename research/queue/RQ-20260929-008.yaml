@@ -69,7 +69,7 @@ grading:
   decision_rule_id: RULE-EXIT-REFINEMENT-P2-GATE
   evidence:
   - research/results/RQ-20260929-008/36731568765.jsonl
-  graded_at: '2026-10-07'
+  graded_at: '2026-10-08'
   grader: scripts/research/queue_grade.py
   latest: true
   needs_review: false
