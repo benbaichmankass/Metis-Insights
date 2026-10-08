@@ -332,7 +332,8 @@ def emit_prop_ticket(
     # minimum or when the cushion cannot be read. See src/prop/prop_sizing.py.
     from src.prop import prop_sizing
     sizing = prop_sizing.resolve(
-        account_id, ruleset_path=unit.source, risk_pct=unit.risk_pct)
+        account_id, ruleset_path=unit.source, risk_pct=unit.risk_pct,
+        strategy=strategy)
     if sizing.skip_reason:
         trade_id = f"{MANUAL_FILL_PREFIX}{uuid.uuid4().hex[:12]}"
         logger.info(
@@ -527,7 +528,8 @@ def emit_prop_ticket(
             # unchanged; room sizing and any gate resize are recorded.
             **({"meta": {"sizing_mode": sizing.mode, "sizing": sizing.detail,
                          "risk_gate": gate_cap}}
-               if (sizing.mode != prop_sizing.FLAT or gate_cap is not None) else {}),
+               if (sizing.mode != prop_sizing.FLAT or gate_cap is not None
+                   or sizing.detail) else {}),
         })
     except Exception as exc:  # noqa: BLE001 — journaling never blocks emission
         logger.warning("breakout_executor: ticket journal failed for %s: %s",

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "TRAIL-OBSERVABILITY lane. The diff edits src/web/api/routers/diag.py, and src/** is Tier-2 by path in check_pr_landing.py, so this lane does not self-land it. The change is read-only: eight names added to the token-gated /api/diag/log_file allowlist. The manager decides whether to merge.",
+  "why": "Read-only observability for the prop trail pause latch (modify_rollout.json) and replay state (trail_state.json) per type: prop account. No order path, no write, no config change. The files hold prices, symbol, side and timestamps only."
+}

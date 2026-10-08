@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "CHECKLIST step (b1): loader core to src/runtime/checklist_store.py and the pure-data checklist readers (API read path, decision_subject, manager_wake, render_daily_brief, session_registry + 3 downstream, owner_liveness, lane_reconcile, soak_report, vocabulary guard) made path-aware: monolith today, seeded rows after cutover, identical data both ways (tests). Read paths only.",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "scripts/ops/session_registry.py is landing machinery per check_pr_landing R12, so a human reads it once. Tier-1, no order path. Manager-approved plan: routine trig_018gszfncW1VqiuWXyu8BP9G."
+}

@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "Android app source is outside the guard Tier-1 surface; manager lands. Phone-executor Android app only (tools/phone-executor): scopes FLAG_SECURE to credential screens and adds 5xx backoff on claim. No VM runtime, order path, config or strategy change; the claim route and its one-attempt-per-ticket server contract are untouched.",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "MainActivity.kt (Android app) is outside the pr-landing guard Tier-1 surface; the manager reads and lands it."
+}
