@@ -300,6 +300,9 @@ GEOMETRY_SENSITIVE_LEVERS = frozenset({
     # cells were measured net-of-fees WITH the cap applied, so none is stale
     # today — the entry states the RULE, not a current condition.
     "bracket_geometry",
+    # GEOM-B1 (2026-10-07): the two TP-geometry columns sweep the take-profit
+    # itself, so a verdict on either is conditioned on the geometry modelled.
+    "tp_extend", "tp_retarget",
 })
 
 _DATE = re.compile(r"20\d{2}-\d{2}-\d{2}")
@@ -733,6 +736,12 @@ _COLUMNS_WITH_THEIR_OWN_DRIVER = frozenset({
     "exit_head_ml",       # scripts/research/m20_exit_head_round.py
     "regime_flip_exit",   # scripts/research/m20_flip_replay_sweep.py
     "bracket_geometry",   # scripts/research/e35_bracket_geometry_sweep.py
+    # GEOM-B1 (2026-10-07): emitted by m20_fleet_exit_sweep.cells_for ONLY when
+    # `--levers` names them (opt-in, so no existing sweep grows), which is why
+    # the DEFAULT-emission probe in COLUMNS_WITH_A_SWEEP_PRODUCER does not list
+    # them. They have a driver; nothing has run it yet.
+    "tp_extend",          # scripts/research/m20_fleet_exit_sweep.py --levers tp_extend
+    "tp_retarget",        # scripts/research/m20_fleet_exit_sweep.py --levers tp_retarget
 })
 
 
