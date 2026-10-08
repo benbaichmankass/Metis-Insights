@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records only. Closes PI-20261004-4GA8WQPA-0003 (log_aggregate built, merged, deployed, observed) and PI-20261005-4GA8WQPA-0002 (lapse-wave cliff measured gone: max 34 items/day over 849 open items; recurrence guarded by redate-guard). Two new record files under docs/claude/work/pipeline/; no code, config or runtime change."
+}
