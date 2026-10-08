@@ -90,6 +90,34 @@ def ladder_cells(tp_at_r: float) -> list:
     return out
 
 
+# GEOM-B1 `tp_revision` cell group (RQ-20261007-004): a take-profit that MOVES, on
+# the scalp's LIVE `tp_at_r` bracket. ONE definition of the grid -- imported from
+# the fleet sweep rather than re-listed here, so the two sweeps cannot drift on
+# what a tp_extend / tp_retarget cell is. `--cells tp_revision` selects both
+# matrix levers; `--cells tp_extend` / `tp_retarget` select one.
+TP_REVISION_ALIAS = {"tp_revision": {"tp_extend", "tp_retarget"}}
+
+
+def tp_revision_cells() -> list:
+    spec = _ilu.spec_from_file_location(
+        "_m20_fleet_for_tp", str(_REPO / "scripts" / "research" / "m20_fleet_exit_sweep.py"))
+    mod = _ilu.module_from_spec(spec)
+    sys.modules["_m20_fleet_for_tp"] = mod
+    spec.loader.exec_module(mod)
+    return mod._tp_geometry_cells({}, "scalp")
+
+
+def want_levers(cells_arg: str | None) -> set | None:
+    """`--cells` CSV -> matrix-lever set, expanding the `tp_revision` alias."""
+    if not cells_arg:
+        return None
+    want: set = set()
+    for c in (x.strip() for x in cells_arg.split(",")):
+        if c:
+            want |= TP_REVISION_ALIAS.get(c, {c})
+    return want
+
+
 def declared_lever_flags(leg_cfg: dict) -> list:
     """The leg's OWN shipped exit levers — part of its config-exact BASE.
 
@@ -148,6 +176,9 @@ def metrics(summary: dict) -> dict:
         "win_rate_pct": summary.get("win_rate_pct", 0.0),
         "by_outcome": summary.get("by_outcome", {}),
         "error": summary.get("error"),
+        # GEOM-B1: present ONLY when the run was armed (--tp-*), so every
+        # pre-existing verdict.json is byte-identical.
+        **({"tp_geometry": summary["tp_geometry"]} if summary.get("tp_geometry") else {}),
     }
 
 
@@ -303,14 +334,18 @@ def main(argv: list[str]) -> int:
 
     # Cells = the stale/giveback grid + the config-relative ladder grid,
     # optionally filtered to one matrix lever.
-    cells = list(CELLS) + ladder_cells(tp_at_r)
-    if args.cells:
-        want = {c.strip() for c in args.cells.split(",") if c.strip()}
-        cells = [c for c in cells if c[1] in want]
+    # The GEOM-B1 tp_extend / tp_retarget cells are OPT-IN: present only when
+    # `--cells` names them (or the `tp_revision` alias), so an empty / legacy
+    # `--cells` still means exactly what it meant.
+    want = want_levers(args.cells)
+    all_cells = list(CELLS) + ladder_cells(tp_at_r)
+    if want and want & {"tp_extend", "tp_retarget"}:
+        all_cells += tp_revision_cells()
+    cells = [c for c in all_cells if want is None or c[1] in want]
     if not cells:
         print(f"ERROR: no cells selected (--cells {args.cells!r}); "
               f"available levers: "
-              f"{sorted({c[1] for c in list(CELLS) + ladder_cells(tp_at_r)})}",
+              f"{sorted({c[1] for c in all_cells} | set(TP_REVISION_ALIAS) | {'tp_extend', 'tp_retarget'})}",
               file=sys.stderr)
         return 2
     print(f"leg={leg_name or '(explicit)'} symbol={symbol} tf={timeframe} "
@@ -339,6 +374,12 @@ def main(argv: list[str]) -> int:
     jobs = []  # (result_key, window, extra, out_json)
     for w, csv in windows.items():
         jobs.append((("base", w), csv, [], out / f"base_{w}.json"))
+    tp_cells_on = any(c[1] in ("tp_extend", "tp_retarget") for c in cells)
+    if tp_cells_on:
+        # The config-exact base read WITH `--tp-report` (no exit changes) so a cell's
+        # calibration share has a base beside it; kept out of the graded `base`.
+        for w, csv in windows.items():
+            jobs.append((("base_tp", w), csv, ["--tp-report"], out / f"base_tp_{w}.json"))
     for tag, lever, extra in cells:
         for w, csv in windows.items():
             jobs.append(((tag, w), csv, extra, out / f"{tag}_{w}.json"))
@@ -368,6 +409,17 @@ def main(argv: list[str]) -> int:
                                  "IS": cell["IS"], "OOS": cell["OOS"],
                                  "is_beat": is_beat, "oos_beat": oos_beat,
                                  "verdict": verdict}
+        if lever in ("tp_extend", "tp_retarget"):
+            tpg = {}
+            for w in ("IS", "OOS"):
+                g = (cell[w].get("tp_geometry") or {})
+                b = (computed[("base_tp", w)].get("tp_geometry") or {})
+                cs, bs = g.get("calibration_share"), b.get("calibration_share")
+                tpg[w] = {"cell": g or None, "base": b or None,
+                          "calibration_share_cell": cs, "calibration_share_base": bs,
+                          "calibration_ge_base": (None if cs is None or bs is None
+                                                  else cs >= bs)}
+            results["cells"][tag]["tp_geometry"] = tpg
         print(f"  {tag:18s} [{lever}]  "
               f"IS ΔR={cell['IS']['total_r'] - base['IS']['total_r']:+.2f} "
               f"ΔDD={cell['IS']['max_dd_r'] - base['IS']['max_dd_r']:+.2f} "
