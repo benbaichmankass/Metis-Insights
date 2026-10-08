@@ -22,7 +22,6 @@
 
 [Unit]
 Description=ICT Trading Bot — AI Analyst slow tier (every 120 min)
-Requires=ict-insights-generator-strategies.service
 
 [Timer]
 OnBootSec=7min

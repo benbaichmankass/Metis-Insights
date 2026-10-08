@@ -6,7 +6,6 @@
 
 [Unit]
 Description=Trigger ict-work-report daily at 05:30 UTC
-Requires=ict-work-report.service
 
 [Timer]
 # Explicit UTC so the schedule does not move with the VM's local timezone.

@@ -15,7 +15,6 @@
 
 [Unit]
 Description=ICT Liveness Watchdog — fires every 60 s
-Requires=ict-liveness-watchdog.service
 
 [Timer]
 # Initial fire 60 s after boot so the trader has had a chance to write

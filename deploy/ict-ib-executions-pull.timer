@@ -17,7 +17,6 @@
 
 [Unit]
 Description=Trigger ict-ib-executions-pull hourly (broker-truth IBKR fills)
-Requires=ict-ib-executions-pull.service
 
 [Timer]
 OnCalendar=*-*-* *:17:00

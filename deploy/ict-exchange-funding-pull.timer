@@ -23,7 +23,6 @@
 
 [Unit]
 Description=Trigger ict-exchange-funding-pull daily (capture Bybit funding for the broker-truth cost sweep)
-Requires=ict-exchange-funding-pull.service
 
 [Timer]
 OnCalendar=*-*-* 00:35:00

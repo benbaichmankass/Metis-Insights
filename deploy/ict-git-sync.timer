@@ -6,7 +6,6 @@
 
 [Unit]
 Description=Trigger ict-git-sync every 5 minutes
-Requires=ict-git-sync.service
 
 [Timer]
 OnBootSec=2min
