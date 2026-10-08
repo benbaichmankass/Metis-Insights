@@ -1,0 +1,95 @@
+id: RQ-20261008-904
+title: >-
+  Regime head as entry gate: does the mes-regime-5m-lgbm-v2 vol label (advisory) drop money-
+  losing entries on MES legs out of sample? BLOCKED (see blocked_on)
+status: blocked
+cadence: once
+theme: live_strategy
+priority: 3
+kind: experiment
+question: >-
+  Do entries on MES legs filtered by the live ADVISORY mes-regime-5m-lgbm-v2 regime head's vol
+  label add net R out of sample? Legs with a harness: mes_trend_long_1d. Method per
+  .claude/skills/regime-selectivity/SKILL.md: replay the head's per-bar calm/volatile labels
+  (ml_vol_label_replay.py replay, then verify against the live gate's audit rows before use),
+  then for each leg run regime_cell_walkforward.py --regime <trend cell> --vol <calm|volatile>
+  --vol-labels <labels> over the six (trend, vol) cells the router can gate. A cell is a
+  candidate gate only if it loses money and the loss generalizes.
+why_this_matters: >-
+  Operator 2026-10-08 asks for ML research that can be prioritised this week; the advisory
+  regime heads currently observe only. The skill's Rule 1 (no cosmetic cells) and Rule 2
+  (walk-forward before Tier-3) bind: a healthy book is expected to return NO cell, and that is
+  a valid result.
+power:
+  expected_n: 40
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Gate floor MIN_OOS_TRADES = 25 base trades per leg in the target cell's OOS folds; d=0.45
+    needs ~39 and a leg under 39 is graded only on the gate's own verdict, never pooled across
+    legs. Fold structure is the tool's fixed FOLD_PANEL, independent of --folds.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      History is fixed; nothing accrues.
+decision_rule:
+  id: RULE-RQ1008-904-MES-REGIME-HEAD-GATE
+  registered_at: '2026-10-08'
+  registered_before_run: true
+  statistic: >-
+    Per leg and per (trend, vol) cell: regime_cell_walkforward.py stable_drag verdict (pooled
+    net R < 0 AND strict majority-negative folds in every FOLD_PANEL member), cell net R and n
+    per fold, net of the full cost stack (fee + venue slippage + funding via
+    execution_costs.resolve_cost_policy as resolved in each harness main; exit-head arms
+    additionally charge round-trip cost per truncated trade); plus net R added by dropping the
+    cell = -(cell OOS net R). Labels from ml_vol_label_replay.py with verify mismatches
+    reported; in_sample caveat of the head's training window stamped in the result.
+  rule: >-
+    A cell is a PASS-candidate IF stable_drag is true AND base OOS trades in the cell >= 25 AND
+    dropping it adds net R > 0 OOS AND the leg's ungated book is not all-folds-profitable (Rule
+    1). IF no cell qualifies: honest_negative, observer state stands (this is the expected
+    result for a healthy book). IF a cell qualifies: a Tier-3 draft for
+    config/regime_policy.yaml is PROPOSED to the operator with the walk-forward attached; this
+    unit authors nothing. IF the verify step shows replay/live label disagreement beyond the
+    tool's own tolerance, the result is not_applicable / producer_failed, never graded.
+  what_it_does_not_do: >-
+    Edits no config/regime_policy.yaml, flips no router mode, authors no cell. Vol axis only:
+    the replay reproduces P(volatile), not the head's trend class.
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 4.0
+  est_minutes: 90
+  basis: >-
+    Estimate, not a measurement.
+blocked_on:
+  - what: >-
+      The MES advisory head is 5m while mes_trend_long_1d trades 1d bars on a Yahoo MES feed; no
+      committed path maps the 5m head's per-bar labels onto 1d bars (ml_vol_label_replay replays
+      against a built market_features dataset at the head's own timeframe), and the head's retrain
+      on 2026-10-04 degraded (macro_f1 0.7132 to 0.7023, PI-20261004-AHCVAAF5-0001).
+    ref: >-
+      comms/reviews/ml-review-20261004-125000.json model_status mes-regime-5m-lgbm-v2;
+      scripts/research/ml_vol_label_replay.py
+    clears_when: >-
+      A documented, tested label-aggregation rule (5m labels to the leg's bar, e.g. fraction
+      volatile in the bar) in ml_vol_label_replay.py or a sibling, plus a verify run against MES
+      audit rows; then git mv to research/queue/ and set status queued.
+run:
+  workflow: null
+  note: >-
+    Null until blocked_on clears.
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- RQ-20261007-040
+- .claude/skills/regime-selectivity/SKILL.md
+- scripts/research/ml_vol_label_replay.py
+- scripts/research/regime_cell_walkforward.py
+- comms/reviews/ml-review-20261004-125000.json
+last_dispatched_at: null
