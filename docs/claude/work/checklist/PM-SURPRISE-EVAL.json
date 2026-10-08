@@ -1,0 +1,18 @@
+{
+  "id": "PM-SURPRISE-EVAL",
+  "title": "Research: do macro-release surprises measured against prediction-market implied probabilities predict post-release returns better than consensus surprises (extends scripts/macro/econ_event_study.py)",
+  "phase": null,
+  "state": "queued",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-08T10:40Z manager] Operator 2026-10-08 (verbatim): \"Ok, lets do that - I want us to add the bigger build out to the roadmap, gated on the system successfully passing milestones (POCs that prove trust worthy and add value)\". POC 2 of the WEPE gate. Blocked on PM-COLLECTOR (needs point-in-time prediction-market snapshots); unit written as research/queue/blocked/ naming that lever. Rule: beat the consensus-surprise IC at the same releases and horizons, honest n, net of cost.",
+  "updated_at": "2026-10-08T11:19:31Z",
+  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "_seq": 357
+}
