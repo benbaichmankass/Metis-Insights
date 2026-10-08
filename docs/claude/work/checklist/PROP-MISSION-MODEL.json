@@ -1,0 +1,18 @@
+{
+  "id": "PROP-MISSION-MODEL",
+  "title": "Define what the prop-mission policy model should predict (label is degenerate: 0 of 267 missions taken) before any rebuild",
+  "phase": null,
+  "state": "queued",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-08T06:55Z manager] Operator verbatim: \"This does seem like something important and if we don't have something else to replace it then we should build out here like what it means ... It doesn't need to like happen this week ... an item that we know to take care of\". Eng backlog by capacity.",
+  "updated_at": "2026-10-08T06:54:19Z",
+  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "_seq": 351
+}

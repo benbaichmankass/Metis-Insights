@@ -1,0 +1,18 @@
+{
+  "id": "ML-DATASET-FIXES",
+  "title": "ML hygiene: setup_labels killzone/bias 100% NaN at build; conviction-meta manifest stale optional; registry 97 files vs 96 models; calibrator in-sample ECE + coverage report; trainer-vm-diag YAML block pitfall",
+  "phase": null,
+  "state": "queued",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-08T06:55Z manager] From ml-review 2026-10-04 experiments/anomalies. Supersedes the never-dispatched ML-HYGIENE scope where they overlap. Eng backlog by capacity.",
+  "updated_at": "2026-10-08T06:54:20Z",
+  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "_seq": 354
+}
