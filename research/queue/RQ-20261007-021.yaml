@@ -1,7 +1,7 @@
 id: RQ-20261007-021
 title: 'Dead lever, Bybit real money: xrp_pullback_2h''s trail_decay_arm_r 4.49 can never arm under tp_r 3.0 -- remove
   it, or re-arm it below 3 R? Same 730d corpus, rule before run'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: live_strategy
@@ -174,7 +174,7 @@ grading:
   first_fail: 1 row(s), all measured, all fail
   graded_at: '2026-10-08'
   grader: scripts/research/queue_grade.py
-  note: 'first FAIL: re-queued for a confirmatory run (last_dispatched_at reset), not killed'
+  note: two consecutive FAIL passes; closed as fail (never on one pass)
   reason: 1 row(s), all measured, all fail
   rows: 1
   verdict: fail

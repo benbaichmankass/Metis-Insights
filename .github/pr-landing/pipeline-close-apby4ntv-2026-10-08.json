@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records + one tooling fix. Closes PI-20261004-APBY4NTV-0003 (per-row checklist cutover observed live), files PI-20261008-BFOAI4ZM-0003 (the owed post-cutover conflict-rate observation), updates the REGISTER-TOOLING lane row through the new checklist.py CLI, and makes `checklist.py --check` report the per-row store instead of crashing on the deleted monolith (with a test). No runtime or order-path change."
+}

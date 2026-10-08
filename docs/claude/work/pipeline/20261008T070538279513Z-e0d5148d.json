@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-15",
+    "kind": "date"
+  },
+  "id": "PI-20261008-BFOAI4ZM-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "REGISTER-TOOLING session_012xSAmZaaxVR3W8bFoai4zM 2026-10-08 (close-out of PI-20261004-APBY4NTV-0003)",
+    "rerun": "git log --since=2026-10-08 --format='%h %an %s' -- docs/claude/work/checklist | wc -l; git log --since=2026-10-08 --format=%an -- docs/claude/work/checklist | sort | uniq -c; then for open PRs whose files are only under docs/claude/work/checklist/, check mergeable_state (dirty = still conflicting)"
+  },
+  "state": "queued",
+  "what": "OWED OBSERVATION for the per-row checklist cutover (#17073, merged d62f06bec 2026-10-08T06:53Z; the Workflow page itself was observed fine at 07:03Z). Still unobserved: (1) the manager's first scripts/ops/checklist.py add|set|note write reaching main, and (2) that concurrent row edits no longer conflict on GitHub. The original MEASURE was 20 of 41 commits touching MANAGER-CHECKLIST.json appended a row, with #16494 conflicting twice and #16500 once, all on that one file. Close when: over >=5 days after the cutover, git log shows >=10 commits touching docs/claude/work/checklist/ from >=2 distinct authors/sessions AND zero PRs that touched only that tree went `dirty` on GitHub; otherwise find which path still conflicts (a header edit? a reader writing the old path?) and fix or file it. The first test of the claim is real, not inferred: REGISTER-TOOLING's own row edit on 2026-10-08 was the first lane-side use of the CLI."
+}

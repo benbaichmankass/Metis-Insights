@@ -4,7 +4,7 @@ title: >-
   m20 gate on ada_pullback_2h's three real-money siblings (xrp_pullback_2h,
   trend_donchian_eth_4h, trend_donchian_xrp_4h) on the same fresh window -- or is the ADA
   pass leg-specific? (CROSS-SIGNAL-RESEARCH, operator idea 2026-10-07)
-status: queued
+status: done
 cadence: once
 theme: live_strategy
 priority: 2
@@ -111,8 +111,6 @@ lands:
   store: research/results/
   assert_field: read_state
   min_rows: 3
-grading:
-  auto: true
 related:
 - RQ-20261007-040
 - docs/research/exit-refinement-coverage.json
@@ -120,3 +118,13 @@ related:
 - docs/research/cross-signal-exits-2026-10-07.md
 - config/accounts.yaml
 last_dispatched_at: '2026-10-08T08:53:00+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-RQ1007-041-SIBLINGS-VOLTRAIL-CONTROL
+  evidence:
+  - research/results/RQ-20261007-041/37752835337.jsonl
+  graded_at: '2026-10-08'
+  grader: scripts/research/queue_grade.py
+  reason: 3 row(s), all measured, all no_action_warranted
+  rows: 3
+  verdict: no_action_warranted

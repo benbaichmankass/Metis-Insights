@@ -25,7 +25,7 @@ and the served shape is identical. `render()` is byte-identical to the monolith
 the SPA route and the old readers read until they are migrated.
 
 CUTOVER: `--seed` splits the CURRENT monolith into rows + header (once, at the
-cutover; the manager keeps editing the monolith until then). `--check` fails if
+cutover; the monolith was deleted 2026-10-08). `--check` (while a monolith exists) fails if
 the monolith differs from `render()` -- the rows become the truth.
 
 Usage: checklist.py --self-test | --seed | --render | --check | --write-row FILE
@@ -270,6 +270,16 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write(render())
         return 0
     if a.check:
+        if not (REPO / MONOLITH).exists():
+            # Post-cutover (2026-10-08): the monolith was deleted, the rows ARE the register,
+            # so there is nothing to compare -- but "store unreadable" must still fail loudly.
+            try:
+                n = len(load()["items"])
+            except (OSError, ValueError) as exc:
+                print(f"checklist: store unreadable: {type(exc).__name__}: {exc}")
+                return 1
+            print(f"checklist: monolith retired; the per-row store is the register ({n} rows, readable)")
+            return 0
         problems = check()
         for p in problems:
             print(f"  ✗ {p}")
