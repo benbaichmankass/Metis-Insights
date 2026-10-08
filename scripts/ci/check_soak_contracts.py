@@ -42,6 +42,7 @@ import yaml
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts" / "ops"))
+sys.path.insert(0, str(REPO))
 import soak_state as ss  # noqa: E402
 
 CHECKLIST = "docs/claude/work/MANAGER-CHECKLIST.json"
@@ -115,11 +116,15 @@ def _prior_next_action(base: str, item_id: str) -> Optional[str]:
 def diff_findings(base: str, contracts: List[dict]) -> List[str]:
     ids = {c.get("id") for c in contracts}
     out = []
-    old = _git("show", f"{base}:{CHECKLIST}")
-    new_rows = json.loads((REPO / CHECKLIST).read_text()).get("items") or []
+    from src.runtime import checklist_store  # noqa: PLC0415
+    new_rows = checklist_store.load_path(REPO / CHECKLIST).get("items") or []
     old_state = {}
-    if old.returncode == 0:
-        old_state = {r.get("id"): r.get("state") for r in json.loads(old.stdout).get("items") or []}
+    try:  # the monolith before the per-row cutover, row files after
+        old_doc = checklist_store.load_at(REPO, base)
+    except (ValueError, OSError):
+        old_doc = None
+    if old_doc is not None:
+        old_state = {r.get("id"): r.get("state") for r in old_doc.get("items") or []}
     for r in new_rows:
         if r.get("state") == "landed_unproven" and old_state.get(r.get("id")) != "landed_unproven" \
                 and r.get("id") not in ids:
