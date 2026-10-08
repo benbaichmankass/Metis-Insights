@@ -1,0 +1,94 @@
+id: RQ-20261008-900
+title: >-
+  Exit-head XRP ict_scalp 15m multi-fold confirmation: is the head's recovered_R_oos > 0 on a
+  majority of the 2022-2024 folds (completes the XRP per-fold table beside 2025 and 2026)?
+status: queued
+cadence: once
+theme: ml_health
+priority: 3
+kind: experiment
+question: >-
+  RQ-20260930-402 graded FAIL on the 2025 fold (recovered_R_oos -6.1584, n_oos 108) after
+  RQ-20260929-401 read +0.2102 on 2026. Two folds disagree in sign, so neither settles whether
+  XRP has any persistent exit-head signal. This unit scores the SAME shipped {below_half_r,
+  tau 0.10, below_r 0.5} head on ict_scalp_xrp_15m for the remaining years-mode test folds
+  2022, 2023 and 2024, one replay per fold, and reads the full 5-fold table. Leg set is XRP
+  alone.
+why_this_matters: >-
+  Closes the XRP exit-head question with a per-fold table instead of two points. If the head
+  is not positive on a majority of folds the lever is retired for ict_scalp XRP and trainer
+  time goes elsewhere (operator 2026-10-08: prioritise ML research this week). Lane note: the
+  manager brief called 402 'left at REFINE'; the file on main records it graded FAIL, so this
+  is a confirmation, not a rescue.
+power:
+  expected_n: 100
+  min_detectable_effect: 0.35
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Same paired design as RQ-20260930-402: unit = per-trade difference head-on minus head-off on
+    the SAME trades, one-sample on the mean; floor n_oos >= 64 per fold (1.96+0.8416)^2/0.35^2 =
+    64.07, never lowered. XRP harness trades per year from the RQ-20260929-401 census (XRP
+    2021..2026 = 78/109/77/98/108/98): 2022 109, 2023 77, 2024 98. A fold with n_oos < 64 is
+    indeterminate for that fold, not dropped silently. 2022 trains on a single prior year, so
+    its booster is weak by construction; it is reported but a PASS or FAIL leans on 2023 and
+    2024.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      History is fixed; nothing accrues.
+decision_rule:
+  id: RULE-RQ1008-900-XRP-EXIT-HEAD-MULTIFOLD
+  registered_at: '2026-10-08'
+  registered_before_run: true
+  statistic: >-
+    Per fold Y in (2022, 2023, 2024): recovered_R_oos(Y) = head_net_r - baseline_net_r over the
+    calendar-Y walk-forward test fold of ict_scalp_xrp_15m, UNROUNDED, same trades, net of the
+    full cost stack (fee + venue slippage + funding via execution_costs.resolve_cost_policy as
+    resolved in each harness main; exit-head arms additionally charge round-trip cost per
+    truncated trade). Everything else is inherited unchanged from RQ-20260930-402 (producer
+    m20_exit_head_round.py --fold-mode years, replay exit_head_final_fold_replay.py --expect-
+    year Y, grader exit_head_final_fold_grade.py --rule single-leg --expect-year Y, same harness
+    parameters, candles, embargo and floor). Both arm sums are reported beside R.
+  rule: >-
+    Let k = number of folds in (2022, 2023, 2024) with n_oos >= 64 and R > 0 strictly, and m =
+    number of those folds with n_oos >= 64. IF any fold hits a PRODUCER problem (no report,
+    replay_mismatch, cost_policy_mismatch, join_incomplete, wrong fold): that fold is
+    not_applicable / producer_failed and is not counted in m. IF m < 2: indeterminate
+    (underpowered), floor never lowered. ELSE IF k >= 2 AND pooled R over the m folds > 0: PASS
+    -- XRP head is positive on a majority of graded folds, so with 2025 (-6.1584) and 2026
+    (+0.2102) already on record it goes to exit-refinement E1 as a candidate with the 5-fold
+    table attached (Tier-3 to flip live, not this unit's act). ELSE: FAIL -- retire the exit-
+    head lever for ict_scalp XRP.
+  what_it_does_not_do: >-
+    Declares no exit_head_model, promotes no head, changes no live exit, does not re-score
+    2025/2026 or SOL/ETH. Any flip is Tier-3.
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 4.0
+  est_minutes: 30
+  basis: >-
+    Estimate, not a measurement.
+run:
+  workflow: 'trainer-vm-diag (issue label trainer-vm-diag-request)'
+  inputs:
+    legs: ict_scalp_xrp_15m
+    tf: 15m
+    data_dir: /home/ubuntu/refresh_15m_20260929
+    fold_mode: years
+    expect_years: [2022, 2023, 2024]
+    research_unit: RQ-20261008-900
+  note: >-
+    One replay + grade per year, each with --expect-year Y; copy the round dir first and delete
+    per-leg final_fold_net.json before each replay (procedure in RQ-20260930-402 run.note). If the round dir is gone, re-run m20_exit_head_round.py --legs ict_scalp_xrp_15m --tf 15m --fold-mode years first.
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- RQ-20260930-402
+- RQ-20260929-401
+last_dispatched_at: null

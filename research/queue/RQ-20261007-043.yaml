@@ -2,9 +2,8 @@ id: RQ-20261007-043
 title: >-
   Time-stop keyed to momentum decay instead of R: on the same six legs, does closing a
   trade at bar N only when ADX has fallen below its entry value (and below the chop
-  cut-point) beat both the config-exact base and the shipped R-keyed stale stop? BLOCKED on
-  harness lever --momentum-stale-* (spec in docs/research/cross-signal-exits-2026-10-07.md § 4.2)
-status: blocked
+  cut-point) beat both the config-exact base and the shipped R-keyed stale stop?
+status: queued
 cadence: once
 kind: experiment
 theme: live_strategy
@@ -81,31 +80,17 @@ routing:
   basis: >-
     Runner via m20-exit-lever-sweep.yml once the lever exists; 4 cells x 6 legs, two bases
     on two of them. Estimate, not a measurement.
-blocked_on:
-  - what: >-
-      No harness keys a time stop to a momentum series: the stale lever reads open R only
-      (backtest_trend.py:784-791, backtest_pullback.py:680-682), ADX is computed only when
-      an entry gate or the soft weight arms it (backtest_trend.py:360-362), and
-      m20_fleet_exit_sweep.cells_for has no momentum-stale cell.
-    ref: >-
-      docs/research/cross-signal-exits-2026-10-07.md § 4.2 (lever spec B) -- proposed build
-      row for the manager, lane CROSS-SIGNAL-RESEARCH 2026-10-07
-    clears_when: >-
-      backtest_trend.py and backtest_pullback.py list --momentum-stale-bars /
-      --momentum-stale-adx-below (default 0 / 0 = off, byte-identical), the ADX series is
-      computed whenever the lever is armed, the emitted trade rows carry exit_reason
-      momentum_stale and adx_at_entry / adx_at_exit, the golden tests in the spec pass,
-      cells_for emits ms8_a20 / ms8_a25 / ms12_a20 / ms12_a25 under matrix lever
-      `momentum_stale` with the stale-swap base for legs that declare stale_exit_bars, and
-      m20-exit-lever-sweep.yml accepts `momentum_stale` in `levers`. Then: git mv to
-      research/queue/, status queued, run.workflow m20-exit-lever-sweep.yml with inputs
-      {legs: "trend_donchian_eth_4h,trend_donchian_xrp_4h,xrp_pullback_2h,ada_pullback_2h,trend_donchian_eth_prop,trend_donchian_sol_prop",
-      levers: momentum_stale, tp_cap_pct: '0.099', split_mode: oos-trades,
-      research_unit: RQ-20261007-043}.
 run:
-  workflow: null
+  workflow: m20-exit-lever-sweep.yml
+  inputs:
+    legs: "trend_donchian_eth_4h,trend_donchian_xrp_4h,xrp_pullback_2h,ada_pullback_2h,trend_donchian_eth_prop,trend_donchian_sol_prop"
+    levers: momentum_stale
+    tp_cap_pct: '0.099'
+    split_mode: oos-trades
+    research_unit: RQ-20261007-043
   note: >-
-    Null until the lever lands (blocked_on). Intended dispatch written in clears_when.
+    Lever landed in #17042 (f111ec755); flags, cells_for cells and workflow input verified on
+    main 2026-10-08 by lane ML-RESEARCH-W41. Moved from blocked/ on that basis.
 lands:
   store: research/results/
   assert_field: read_state
