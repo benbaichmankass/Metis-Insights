@@ -64,3 +64,14 @@ generated:
     symbol: TLT
     timeframe: 1d
 last_dispatched_at: '2026-10-08T16:02:24+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-TPL-ROSTER-WALKFORWARD-NET-OF-COST
+  evidence:
+  - research/results/RQ-20261005-816/37805385867.jsonl
+  graded_at: '2026-10-08'
+  grader: scripts/research/queue_grade.py
+  needs_review: true
+  reason: 'verdicts not unanimous-mechanical: [''wiring_only'']'
+  rows: 1
+  verdict: null
