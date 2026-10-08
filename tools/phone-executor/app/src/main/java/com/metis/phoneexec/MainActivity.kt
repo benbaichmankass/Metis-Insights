@@ -105,6 +105,9 @@ class MainActivity : Activity() {
         const val PAUSE_MAX_MS = 10 * 60_000L
         const val JS_TIMEOUT_MS = 10_000L
         const val BG_WAKE_MAX_MS = 3 * 60_000L
+        // Server read-back (design 3.4): "key=value" lines in THIS order, hashed with SHA-256. Must equal
+        // src/prop/phone_executor.py READBACK_FIELDS (tests/test_phone_executor.py compares the two lists).
+        val READBACK_FIELDS = listOf("ticket_id", "symbol", "side", "order_type", "price", "qty", "qty_unit", "tp", "sl", "submit_label", "submit_disabled", "tpsl")
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -625,16 +628,41 @@ class MainActivity : Activity() {
         if (tk.optBoolean("tpsl") != true) return refuse(id, "TP/SL box not on at read-back", tk)
         if (!sideRe.containsMatchIn(subText) || oppRe.containsMatchIn(subText)) return refuse(id, "submit label does not match the side", tk)
         if (sub?.optBoolean("disabled") != false) return refuse(id, "submit disabled after fill", tk)
+        // 5b. SERVER read-back (design 3.4, PHONE-GO-TOKEN): a SECOND, independent check; every phone-side check above
+        //     stays. The phone posts what the page SHOWS (raw strings); the server re-verifies it against the ticket and
+        //     the venue steps and issues ONE token bound to the ticket id + the read-back hash (30 s). No token
+        //     (unreachable, refused) = no submit. Test tickets and dry accounts get a "dry" token that never says go.
+        val fieldsRb = listOf(fPrice, fQty, fTp, fSl)
+        val unitSrc = unitNow.ifEmpty { qNear.ifEmpty { alerts } }
+        val rb = readBack(id, tk, fieldsRb, unitSrc)
+        val rbHash = sha256(readBackLines(rb))
+        val v = api.post("verify", JSONObject().put("ticket_id", id).put("readback", rb).put("readback_sha256", rbHash))
+            ?: return refuse(id, "server verify unreachable (no go-token; not submitted)", tk)
+        if (!v.optBoolean("ok")) return refuse(id, "server read-back refused: ${v.optJSONArray("reasons")?.toString()?.take(200) ?: "http " + v.optInt("http")}", tk)
+        val token = v.optString("token")
+        val serverLive = v.optString("mode") == "live"
+        if (token.isEmpty() || v.optString("readback_sha256") != rbHash) return refuse(id, "server verify answered without a token bound to this read-back", tk)
 
-        if (!live) {
+        if (!live || !serverLive) {
+            // exercise the redeem on the dry path too: a DRY token must answer go=false (never a click either way). A LIVE
+            // token on a locally-dry path (app not armed) is left to expire unredeemed.
+            val g = if (serverLive) null else api.post("go", JSONObject().put("ticket_id", id).put("token", token).put("readback_sha256", rbHash))
+            val goTxt = if (serverLive) "live token not redeemed (app dry)" else if (g == null) "go unreachable" else if (g.optBoolean("go")) "go=TRUE on a dry token" else "go=false (${g.optString("reason").take(40)})"
+            if (g?.optBoolean("go") == true) api.event("mismatch", "server said go on a DRY token; not submitted", id)
             ledger.append(id, "dry_filled")
-            report(id, "dry_filled", if (test) "test ticket (always dry)" else if (!armed()) "app not armed" else "server mode dry", tk)
-            api.event("dry_fill_ok", "filled + read back, NOT submitted: $sideTab ${fmt(qty, qStep)} $venue lim ${fmt(entry, pStep)} tp ${fmt(tp, pStep)} sl ${fmt(sl, pStep)}", id)
+            report(id, "dry_filled", (if (test) "test ticket (always dry)" else if (t.optString("submit") != "live" || !serverLive) "server mode dry" else "app not armed") + "; server verify ok, ${v.optString("mode")} token, $goTxt", tk)
+            api.event("dry_fill_ok", "filled + read back + SERVER verified (${v.optString("mode")} token, $goTxt), NOT submitted: $sideTab ${fmt(qty, qStep)} $venue lim ${fmt(entry, pStep)} tp ${fmt(tp, pStep)} sl ${fmt(sl, pStep)}", id)
             js("__ex.setByLabel('quantity', '', '')")
             setStatus("DRY ticket $id filled and read back; not submitted")
             return
         }
-        // 6. LIVE submit
+        // 6. LIVE submit: re-read the form NOW, re-hash, redeem the token (one-shot, server-side); click only on go=true
+        val tkNow = jsObj("__ex.ticket()") ?: return refuse(id, "ticket unreadable before submit", null)
+        val hashNow = sha256(readBackLines(readBack(id, tkNow, fieldsRb, unitSrc)))
+        if (hashNow != rbHash) return refuse(id, "form changed since the server verified it (not submitted)", tkNow)
+        val go = api.post("go", JSONObject().put("ticket_id", id).put("token", token).put("readback_sha256", hashNow))
+            ?: return refuse(id, "go-token redeem unreachable (not submitted)", tkNow)
+        if (!go.optBoolean("go")) return refuse(id, "go-token refused: ${go.optString("reason").ifEmpty { "http " + go.optInt("http") }}", tkNow)
         ledger.append(id, "submitted")
         if (js("__ex.submit()") != "clicked") { ledger.append(id, "refused"); return refuse(id, "submit not clickable", tk) }
         delay(1500)
@@ -671,6 +699,28 @@ class MainActivity : Activity() {
         api.event("mismatch", "submitted but not found in Open orders/Positions after 3 reads; CHECK the terminal", id)
         setStatus("ticket $id UNCONFIRMED — operator check")
     }
+
+    /** What the page SHOWS for the server read-back: raw strings, never our own computed numbers. Side and order type
+     *  are the SELECTED tabs read off the ticket; "" when none or several are selected (the server refuses ""). */
+    private suspend fun readBack(id: String, tk: JSONObject, f: List<Field>, unitSrc: String): JSONObject {
+        val tabs = tk.optJSONArray("tabs") ?: JSONArray()
+        fun selected(re: Regex): String {
+            val hit = (0 until tabs.length()).map { tabs.optJSONObject(it) }.filter { it != null && it.optBoolean("selected") && re.matches(it.optString("text").trim()) }
+            return if (hit.size == 1) hit[0]!!.optString("text").trim() else ""
+        }
+        val sub = tk.optJSONObject("submit")
+        val vals = f.map { (readField(it)?.optString("value") ?: "").trim() }
+        val tpsl = if (tk.isNull("tpsl")) "" else tk.optBoolean("tpsl").toString()
+        return JSONObject().put("ticket_id", id).put("symbol", tk.optString("symbol").trim())
+            .put("side", selected(Regex("(?i)buy|sell"))).put("order_type", selected(Regex("(?i)market|limit|trigger|stop")))
+            .put("price", vals[0]).put("qty", vals[1]).put("qty_unit", unitSrc.replace("\n", " ").trim()).put("tp", vals[2]).put("sl", vals[3])
+            .put("submit_label", (sub?.optString("text") ?: "").trim())
+            .put("submit_disabled", if (sub == null) "" else sub.optBoolean("disabled").toString()).put("tpsl", tpsl)
+    }
+
+    private fun readBackLines(rb: JSONObject) = READBACK_FIELDS.joinToString("\n") { "$it=" + rb.optString(it).trim() }
+
+    private fun sha256(s: String) = java.security.MessageDigest.getInstance("SHA-256").digest(s.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
 
     /** A ticket field named by its LABEL (regex), with an optional narrowing regex when several labels match. */
     private class Field(val name: String, val re: String, val prefer: String = "")

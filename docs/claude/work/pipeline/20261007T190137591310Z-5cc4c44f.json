@@ -1,0 +1,22 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a census run shows tp_amended > 0 on real_money AND the TP-doctrine producer (BUILD B1) is observed live; until then rerun weekly and commit the dated file",
+    "kind": "observation",
+    "last_checked": "2026-10-07"
+  },
+  "id": "PI-20261007-AKGGTXPM-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-14",
+    "how_to_check": "python3 scripts/research/geometry_amend_census.py ; commit the dated file under docs/research/geometry-census/; compare to the 2026-10-07 baseline",
+    "what": "Weekly geometry amend census: TP amended count per account class (baseline 2026-10-07: 0 of 32 real money, 0 of 52 mirror, 0 of 664 paper) and SL amended count"
+  },
+  "origin": {
+    "kind": "research",
+    "ref": "GEOM-CENSUS 2026-10-07 (research/queue/PLANNING.md \u00a7 5 item 7)",
+    "rerun": "python3 scripts/research/geometry_amend_census.py"
+  },
+  "state": "queued",
+  "what": "Weekly rerun of the geometry amend census: does 'the SL moves, the TP never moves' still hold? Baseline 2026-10-07 (closed since 2026-09-01, matched package): real_money SL 4/32 TP 0/32; mirror 16/52, 0/52; paper 111/664, 0/664; fleet 131/748, 0/748; prop 0 closed rows. Read the new docs/research/geometry-census/ file; the signal is TP amended > 0 once a thesis-extension producer ships (BUILD B1)."
+}

@@ -23,7 +23,7 @@ from tests.test_prop_trail import SOL, Api, bars, cfg, now_after
 @pytest.fixture
 def fixed_rule(monkeypatch):
     """A registered rule that predicts `entry + k*risk` (k from params)."""
-    def rule(*, direction, entry, risk, bars, entry_time, params):
+    def rule(*, direction, entry, risk, bars, entry_time, params, leg=None):
         k = float(params.get("k", 1.5))
         return (entry + k * risk if direction == "long" else entry - k * risk), {"k": k}
     monkeypatch.setitem(tr.RULES, "fixed_k", rule)
