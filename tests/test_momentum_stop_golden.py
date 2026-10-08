@@ -85,7 +85,9 @@ def run_case(case_id, tmp_path, extra=None):
     out = mod.run_backtest(_candles().copy(), emit_path=str(emit),
                            **{**base, **over, **(extra or {})})
     rows = [json.loads(ln) for ln in emit.read_text().splitlines()] if emit.exists() else []
-    return json.loads(json.dumps(out, default=str)), rows
+    summary = json.loads(json.dumps(out, default=str))
+    summary.pop("run_date", None)   # the only wall-clock field in the summary
+    return summary, rows
 
 
 @pytest.mark.skipif(not GOLDEN.exists(), reason="golden not captured")
