@@ -43,7 +43,7 @@ def http_get_json(url: str, retries: int = 4) -> Any:
             req = urllib.request.Request(url, headers={"User-Agent": _UA})
             with urllib.request.urlopen(req, timeout=30) as r:
                 return json.load(r)
-        except Exception:
+        except (OSError, ValueError):  # URLError/HTTPError/timeouts are OSError; bad JSON is ValueError
             if i == retries - 1:
                 raise
             time.sleep(delay)
@@ -113,13 +113,16 @@ def polymarket_records(cfg: Dict[str, Any], fetch: Fetch, now: str) -> List[Dict
     return out
 
 
-def collect(cfg: Dict[str, Any], fetch: Fetch, now: str) -> List[Dict[str, Any]]:
+def collect(cfg: Dict[str, Any], fetch: Fetch, now: str, failed: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """One source failing must not drop the other; failures are named in ``failed`` (never silent)."""
     recs: List[Dict[str, Any]] = []
     for name, fn in (("kalshi", kalshi_records), ("polymarket", polymarket_records)):
         try:
             recs += fn(cfg, fetch, now)
-        except Exception as e:  # one source failing must not drop the other
+        except (OSError, ValueError, KeyError, AttributeError) as e:
             print(f"::warning::{name} degraded: {type(e).__name__}: {e}", file=sys.stderr)
+            if failed is not None:
+                failed.append(name)
     return recs
 
 
@@ -141,7 +144,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     a = ap.parse_args(argv)
     cfg = yaml.safe_load(a.config.read_text())
     now = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    recs = collect(cfg, http_get_json, now)
+    failed: List[str] = []
+    recs = collect(cfg, http_get_json, now, failed)
     by = {}
     for r in recs:
         by[r["source"]] = by.get(r["source"], 0) + 1
@@ -152,8 +156,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
     if not recs:
         print("no rows collected; nothing written", file=sys.stderr)
-        return 0
-    print(f"appended to {append_snapshots(recs, a.out_dir, now)}")
+        return 1  # a run that collected nothing must be red, not a quiet no-op
+    path = append_snapshots(recs, a.out_dir, now)
+    # Fixed-path liveness receipt (overwritten each run; NOT part of the PIT log, which stays append-only).
+    (a.out_dir / "LATEST.json").write_text(json.dumps(
+        {"collected_at_utc": now, "rows": len(recs), "by_source": by, "failed_sources": failed, "file": path.name},
+        sort_keys=True) + "\n")
+    print(f"appended to {path}")
     return 0
 
 

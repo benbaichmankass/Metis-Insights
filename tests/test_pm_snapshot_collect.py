@@ -63,7 +63,7 @@ def test_append_only_never_overwrites(tmp_path):
     pm.append_snapshots(recs, tmp_path, "2026-10-08T18:00:00Z")
     assert path.read_text().startswith(first)  # past lines byte-identical
     assert len(path.read_text().splitlines()) == 2 * len(recs)
-    assert all(json.loads(l)["content_hash"] for l in path.read_text().splitlines())
+    assert all(json.loads(ln)["content_hash"] for ln in path.read_text().splitlines())
 
 
 def test_one_source_failing_keeps_the_other():
@@ -79,3 +79,14 @@ def test_network_refused_without_offvm_env(monkeypatch):
     monkeypatch.delenv("ICT_OFFVM_BUILD_HOST", raising=False)
     with pytest.raises(RuntimeError):
         pm.http_get_json("https://example.invalid")
+
+
+def test_main_writes_receipt_and_fails_when_nothing_collected(tmp_path, monkeypatch):
+    cfgp = tmp_path / "c.yaml"
+    import yaml
+    cfgp.write_text(yaml.safe_dump(CFG))
+    monkeypatch.setattr(pm, "http_get_json", fake)
+    assert pm.main(["--config", str(cfgp), "--out-dir", str(tmp_path / "o")]) == 0
+    assert json.loads((tmp_path / "o" / "LATEST.json").read_text())["rows"] == 3
+    monkeypatch.setattr(pm, "http_get_json", lambda u: (_ for _ in ()).throw(OSError("down")))
+    assert pm.main(["--config", str(cfgp), "--out-dir", str(tmp_path / "o2")]) == 1
