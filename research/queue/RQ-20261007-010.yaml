@@ -1,7 +1,7 @@
 id: RQ-20261007-010
 title: 'Breakout 1-Step Turbo prop fit on the committed Stage-0 record: pullback_ada_1h at flat 0.5% of balance, with days-to-target
   reported (PI-20261006-APBY4NTV-0001 slice 1, follow-on to RQ-20261006-009 PASS)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 1
@@ -95,8 +95,6 @@ lands:
   store: research/results/
   assert_field: read_state
   min_rows: 1
-grading:
-  auto: true
 related:
 - PI-20261006-APBY4NTV-0001
 - RQ-20261006-009
@@ -106,3 +104,16 @@ related:
 - RQ-20261006-034
 - docs/integrations/breakout-instruments-2026-09-27.md
 last_dispatched_at: '2026-10-07T22:53:25+00:00'
+grading:
+  auto: true
+  awaiting: more_data
+  decision_rule_id: RULE-RQ1007-010-BREAKOUT-TURBO-FIT-pullback_ada_1h-f050
+  evidence:
+  - research/results/RQ-20261007-010/37699011696.jsonl
+  graded_at: '2026-10-08'
+  grader: scripts/research/queue_grade.py
+  note: 'indeterminate is the pre-registered under-powered/null outcome: complete, but NOT a pass and
+    NOT a kill'
+  reason: 1 row(s), all measured, all indeterminate
+  rows: 1
+  verdict: indeterminate
