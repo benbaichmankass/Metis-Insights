@@ -147,6 +147,26 @@
     "--tp-revision-width-mult": {
       "state": "needs_column",
       "reason": "Parameter of --tp-revision: the measured-move multiple of the Donchian channel height (swept {0.5,1.0,1.5,2.0} by RQ-20261007-080). Maps to the same future column as --tp-revision."
+    },
+    "--trail-adx-below": {
+      "state": "needs_column",
+      "reason": "MOMENTUM-TRAIL-LEVER `momentum_trail` (2026-10-08): an ADX-conditioned trail tighten, a stop keyed to MOMENTUM not price path. Swept by m20_fleet_exit_sweep.cells_for (cells adx{20,25}_k{0,3}_t*) under matrix lever `momentum_trail`, but the coverage matrix has NO such column yet - adding one is a schema change to the 765 KB artifact that matrix-corpus-agreement / matrix-config-agreement read, deliberately not made in the lever PR. Open until the first sweep (RQ-20261007-042) produces rows to put in it."
+    },
+    "--trail-adx-falling-bars": {
+      "state": "needs_column",
+      "reason": "MOMENTUM-TRAIL-LEVER `momentum_trail` (2026-10-08): an ADX-conditioned trail tighten, a stop keyed to MOMENTUM not price path. Swept by m20_fleet_exit_sweep.cells_for (cells adx{20,25}_k{0,3}_t*) under matrix lever `momentum_trail`, but the coverage matrix has NO such column yet - adding one is a schema change to the 765 KB artifact that matrix-corpus-agreement / matrix-config-agreement read, deliberately not made in the lever PR. Open until the first sweep (RQ-20261007-042) produces rows to put in it."
+    },
+    "--trail-adx-tight-mult": {
+      "state": "needs_column",
+      "reason": "MOMENTUM-TRAIL-LEVER `momentum_trail` (2026-10-08): an ADX-conditioned trail tighten, a stop keyed to MOMENTUM not price path. Swept by m20_fleet_exit_sweep.cells_for (cells adx{20,25}_k{0,3}_t*) under matrix lever `momentum_trail`, but the coverage matrix has NO such column yet - adding one is a schema change to the 765 KB artifact that matrix-corpus-agreement / matrix-config-agreement read, deliberately not made in the lever PR. Open until the first sweep (RQ-20261007-042) produces rows to put in it."
+    },
+    "--momentum-stale-bars": {
+      "state": "needs_column",
+      "reason": "MOMENTUM-TRAIL-LEVER `momentum_stale` (2026-10-08): a time stop keyed to ADX decay rather than open R. Swept by cells_for (cells ms{8,12}_a{20,25}) under matrix lever `momentum_stale`; the coverage matrix has NO such column yet (same schema-change reason as momentum_trail). Open until RQ-20261007-043 produces rows."
+    },
+    "--momentum-stale-adx-below": {
+      "state": "needs_column",
+      "reason": "MOMENTUM-TRAIL-LEVER `momentum_stale` (2026-10-08): a time stop keyed to ADX decay rather than open R. Swept by cells_for (cells ms{8,12}_a{20,25}) under matrix lever `momentum_stale`; the coverage matrix has NO such column yet (same schema-change reason as momentum_trail). Open until RQ-20261007-043 produces rows."
     }
   },
   "summary_2026_09_12": {
