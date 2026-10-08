@@ -2130,7 +2130,9 @@ def _expire_resting(res: CycleResult, adapter: Any, page: Any, live: bool, ledge
       if the order is still on the next read, that attempt counts as failed.
       A failed cancel alerts and retries, up to
       :data:`CANCEL_EXPIRED_MAX_ATTEMPTS`, then alerts that it gave up and
-      re-alerts every :data:`CANCEL_EXHAUSTED_REALERT` while the order rests;
+      re-alerts every :data:`CANCEL_EXHAUSTED_REALERT` while the order rests,
+      still trying the guarded cancel quietly every cycle so that a fixed
+      row matcher cancels it without a human;
     - ``misses`` is reset with ``cancel_requested`` so the existing
       ``placed -> not_found`` path takes its full two reads before reporting
       the ticket skipped with the expiry as its reason."""
@@ -2142,6 +2144,9 @@ def _expire_resting(res: CycleResult, adapter: Any, page: Any, live: bool, ledge
     orders = list(found.get("orders") or [])
     if not orders:
         return False
+    venue = str(spec.get("venue_symbol") or "").upper()
+    side = spec.get("side")
+    held = [p for p in positions if p.symbol.upper() == venue and p.side == side]
     if row.get("cancel_exhausted"):
         # Still resting after the attempts ran out: the busy-symbol guard
         # refuses every new ticket on this symbol meanwhile, so say so again
@@ -2152,6 +2157,24 @@ def _expire_resting(res: CycleResult, adapter: Any, page: Any, live: bool, ledge
             res.alerts.append(f"{tid}: resting entry past valid_until {vu.isoformat()} is STILL RESTING "
                               f"(cancel attempts exhausted); cancel it on the terminal -- new tickets on "
                               f"{spec.get('venue_symbol')} are refused while it rests")
+        # Keep TRYING, quietly, every cycle (PROP-CANCEL-FIX 2026-10-08: the
+        # first live expiry cancel on tradeify_1 exhausted on a matcher that
+        # could not see the row's icon control; with the attempts spent, a
+        # fixed matcher would never have been tried and the order would rest
+        # until a human cancelled it). The row action clicks only when
+        # exactly one row and one cancel control match, so a refused attempt
+        # changes nothing on the venue. A click records cancel_requested and
+        # leaves the row exhausted: gone on the next read -> the
+        # placed->not_found path reports it expired; still there -> this
+        # branch again, quietly (no per-cycle alert storm).
+        if held or found.get("positions"):
+            return False
+        results = [adapter.cancel_order(page, o, arm=live) for o in orders]
+        res.log("cancel_expired_resting", ticket_id=tid, valid_until=vu.isoformat(),
+                order_ids=[o.order_id for o in orders], results=results, exhausted=True)
+        if live and all(bool(r.get("ok")) and bool(r.get("clicked")) for r in results):
+            ledger.record(tid, "placed", cancel_requested=vu.isoformat(), misses=0)
+            return True
         return False
     n_prior = int(row.get("cancel_attempts") or 0)
     if row.get("cancel_requested"):
@@ -2170,9 +2193,6 @@ def _expire_resting(res: CycleResult, adapter: Any, page: Any, live: bool, ledge
             return False
         res.alerts.append(f"{tid}: cancel of resting entry past valid_until did not take (order still "
                           f"present; attempt {n_prior}/{CANCEL_EXPIRED_MAX_ATTEMPTS}); retrying")
-    venue = str(spec.get("venue_symbol") or "").upper()
-    side = spec.get("side")
-    held = [p for p in positions if p.symbol.upper() == venue and p.side == side]
     if held or found.get("positions"):
         res.log("expired_resting_not_cancelled", ticket_id=tid,
                 why=f"{len(held)} position(s) open on {venue} {side}: possible partial fill")
