@@ -1,0 +1,17 @@
+{
+  "based_on": "20261008T000303659712Z-5556c057.json",
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261005-WFBREDQP-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-BURNDOWN-3 session_016hpYjaAbdSHe5SwfBreDQp (2026-10-05), triage of OI-20260902-BYBIT-COVERAGE-BASIS",
+    "rerun": "bash scripts/ops/diag_fetch.sh 'log_file?name=bybit_coverage_soak'  # read mode/apply_scope/binding per account; then grep the config/code that sets them"
+  },
+  "state": "done",
+  "terminal_reason": "Closed with the aggregate this item asked for. OBSERVED live 2026-10-08T04:58Z after #16974 deployed (git_sha 669846d98 == on-disk, restart_pending false): GET /api/diag/log_aggregate?name=bybit_coverage_soak&fields=mode,binding&count_true=verdicts_differ -> 200, read_state=complete, 137,172 rows scanned (0 unparseable, 0 without a day), 37 UTC days 2026-09-02..2026-10-08. mode: annotate 133,991 / apply 3,181; binding: false 133,991 / true 3,181 (mode==apply and binding==true on exactly the same rows: 3,181 = 2.3%); verdicts_differ truthy on ZERO rows over the whole file (true_counts empty; field exists on every row, tail sample shows false). ARMING HAPPENED: apply rows appear on 2026-09-27 (132) and 2026-10-02..10-08 (e.g. 916, 270, 548, 104, 135 per day), so the OI's 'arming held for a soak' premise is stale and the 10-05 reading was real; the 10-07 'all annotate' tail was a 1000-row window that missed it. MEANING (line that sets it): src/runtime/bybit_coverage_basis.py:216 `binding = mode == MODE_APPLY` after `mode, scope = effective_mode(global_mode, account_id, allowlist_raw)` (:215); needs BYBIT_GRADED_COVERAGE_MODE=apply AND the account in BYBIT_GRADED_COVERAGE_ACCOUNTS. CAVEAT, not resolved here: a 40-row tail (04:57Z) shows bybit_1 rows split 10 annotate/not_apply and 10 apply/allowlisted with the same source (partial_sl_legs) while bybit_2/bybit_portfolio are annotate only -- global_mode differs between rows of the SAME account, so two writers/environments appear to share this log; filed as PI-20261008-BFOAI4ZM-0002.",
+  "what": "bybit_coverage_soak rows read mode: apply, apply_scope: allowlisted, binding: true for bybit_1 (read live by a BACKLOG-BURNDOWN-3 triage agent from the log tail, 2026-10-05), which contradicts the premise of OI-20260902-BYBIT-COVERAGE-BASIS ('arming deliberately held for a soak'). Either the arming happened and the item's soak clause is stale, or the log field does not mean what it reads as. Unverified beyond a 100-row tail of an 83 MB log; not settled by this lane. || MEASURED 2026-10-07 08:37Z-18:40Z over the latest 1000 rows of bybit_coverage_soak via /api/diag/log_file (bybit_1 488 rows, bybit_2 256, bybit_portfolio 256): every row mode=annotate, global_mode=annotate, apply_scope=not_apply, binding=false, basis=side_blind; verdicts_differ true = 0. The 10-05 'apply/allowlisted/binding true' reading is NOT reproduced in that window. MEANING (src/runtime/bybit_coverage_basis.py::effective_mode): mode=apply + apply_scope=allowlisted + binding=true require BYBIT_GRADED_COVERAGE_MODE=apply AND the account in BYBIT_GRADED_COVERAGE_ACCOUNTS; the fields mean what they say. Whether it was EVER armed between 2026-09-08 and now cannot be read from a 1000-row tail; needs /api/diag/log_aggregate (PR #16974) once deployed: log_aggregate?name=bybit_coverage_soak&fields=mode,binding&count_true=verdicts_differ. Close this item with that result."
+}
