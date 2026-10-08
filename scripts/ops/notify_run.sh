@@ -213,7 +213,7 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="high" ;;
         esac
         ;;
-    egress-landing-probe|velotrade-api-probe)
+    egress-landing-probe|velotrade-api-probe|velotrade-trade-history-read)
         # READ-ONLY landing-page reachability probe of a fixed host allowlist.
         # Any HTTP outcome is a measurement; only an environment fault fails.
         tier=2

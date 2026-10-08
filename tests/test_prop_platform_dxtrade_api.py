@@ -455,3 +455,69 @@ def test_rest_tick_refuses_browser_measurement_modes(monkeypatch, capsys, tmp_pa
     rc = tick.main(["--account", "velotrade_1", "--login", "fresh", "--probe-ticket", "ETHUSD",
                     "--state-dir", str(tmp_path)])
     assert rc == tick.EXIT_FEASIBILITY and '"feasibility": "api_platform"' in capsys.readouterr().out
+
+
+# ── read_trade_history (VELOTRADE-RECON) ────────────────────────────────
+# Fixture follows the REST spec's Order model (orders[].legs[], executions[]
+# with lastPrice / lastQuantity). Re-record from the live read (system-action
+# velotrade-trade-history-read) if a field name differs.
+HISTORY = {"orders": [
+    {"clientOrderId": "vtrt-E", "orderCode": "s:1", "type": "MARKET", "instrument": "ETHUSD", "side": "BUY",
+     "status": "COMPLETED", "finalStatus": "COMPLETED", "issueTime": "2026-10-06T10:18:01Z",
+     "legs": [{"positionEffect": "OPEN", "filledQuantity": 0.01, "averagePrice": 2450.5}],
+     "executions": [{"lastPrice": "2450.5", "lastQuantity": "0.01", "executionTime": "2026-10-06T10:18:02.250Z"}]},
+    {"clientOrderId": "x-Bulk", "orderCode": "s:2", "type": "MARKET", "instrument": "ETHUSD", "side": "SELL",
+     "status": "COMPLETED", "finalStatus": "COMPLETED", "issueTime": "2026-10-06T10:18:30Z",
+     "legs": [{"positionEffect": "CLOSE", "filledQuantity": 0.01, "averagePrice": 2449.9}],
+     "executions": [{"lastPrice": 2449.9, "lastQuantity": 0.01, "commission": 0.0147,
+                     "executionTime": "2026-10-06T10:18:31+00:00"}]},
+    {"clientOrderId": "tp-never", "type": "LIMIT", "instrument": "ETHUSD", "side": "SELL", "status": "CANCELED",
+     "finalStatus": "CANCELED", "legs": [{"positionEffect": "CLOSE"}], "executions": []},
+]}
+
+
+def test_read_trade_history_returns_the_browser_row_shape_read_only():
+    s = FakeServer()
+    s.on(("GET", f"{A}/orders/history"), 200, HISTORY)
+    a, _ = _adapter(s)
+    rows = a.read_trade_history(None)
+    assert [r["effect"] for r in rows] == ["opening", "closing"]      # canceled TP has no execution
+    close = rows[1]
+    assert (close["symbol"], close["side"], close["volume"], close["price"]) == ("ETHUSD", "short", 0.01, 2449.9)
+    assert close["ts"].isoformat() == "2026-10-06T10:18:31+00:00" and close["commission"] == 0.0147
+    assert close["net_closed_pnl"] is None and close["closed_pnl"] is None   # never fabricated
+    assert rows[0]["side"] == "long" and rows[0]["ts"].minute == 18
+    assert [r["method"] for r in s.requests if "history" in r["path"]] == ["GET"]
+    assert "SECRETACCT77" not in json.dumps(rows, default=str)
+
+
+def test_read_trade_history_feeds_match_exit_and_exit_reason():
+    from datetime import datetime, timezone
+    from src.prop.prop_executor import exit_reason, match_exit
+    s = FakeServer()
+    s.on(("GET", f"{A}/orders/history"), 200, HISTORY)
+    a, _ = _adapter(s)
+    j = {"symbol": "ETHUSDT", "direction": "long", "qty": 0.01, "opened_at": "2026-10-06T10:18:05+00:00",
+         "sl": 1960.0, "tp": 2940.0}
+    hit, why = match_exit(j, a.read_trade_history(None), datetime(2026, 10, 6, 10, 30, tzinfo=timezone.utc))
+    assert why == "matched" and hit["price"] == 2449.9
+    assert exit_reason("long", hit["price"], 1960.0, 2940.0) == "manual"   # a Bulk Close, between SL and TP
+    assert exit_reason("long", 1959.0, 1960.0, 2940.0) == "sl" and exit_reason("long", 2941.0, 1960.0, 2940.0) == "tp"
+
+
+def test_read_trade_history_non_200_raises_and_empty_is_empty():
+    s = FakeServer()
+    s.on(("GET", f"{A}/orders/history"), 500, {"errorCode": 1})
+    a, _ = _adapter(s)
+    with pytest.raises(RuntimeError):
+        a.read_trade_history(None)
+    s.on(("GET", f"{A}/orders/history"), 200, {"orders": []})
+    assert a.read_trade_history(None) == []
+
+
+def test_unparseable_execution_is_skipped_not_defaulted():
+    from src.prop.platform.dxtrade_api import trade_history_rows
+    rows = trade_history_rows({"orders": [{"instrument": "ETHUSD", "side": "SELL", "legs": [{"positionEffect": "CLOSE"}],
+                                           "executions": [{"lastPrice": "n/a", "lastQuantity": 1},
+                                                          {"lastPrice": 5, "lastQuantity": 0}]}]})
+    assert rows == []
