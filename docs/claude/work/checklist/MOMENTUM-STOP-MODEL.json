@@ -1,0 +1,18 @@
+{
+  "id": "MOMENTUM-STOP-MODEL",
+  "title": "Learned momentum-conditioned stop, only if RQ-20261007-042/043 show edge",
+  "phase": null,
+  "state": "queued",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 3,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-08T06:55Z manager] Roadmap 2026-10-08; gated on the cross-signal research results.",
+  "updated_at": "2026-10-08T06:54:19Z",
+  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "_seq": 353
+}

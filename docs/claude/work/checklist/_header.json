@@ -22,22 +22,18 @@
   "updated_at": "2026-10-07T18:50:00Z",
   "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
   "last_review": {
-    "report_id": "WR-20261006-0538Z",
-    "reviewed_at": "2026-10-06T06:00:00Z",
+    "report_id": "work-report 2026-10-08T05:30Z",
+    "reviewed_at": "2026-10-08T05:55:00Z",
     "by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
     "counts": {
-      "digest_entries": 12,
-      "due": 12,
-      "unrouted": 9,
-      "ask_operator_open": 27,
+      "due": 52,
+      "unrouted": 11,
+      "ask_operator_open": 26,
+      "soaks_ready": 23,
       "alarms_breached": [
         "inflight"
-      ],
-      "soaks_ready": 23,
-      "soaks_dead": 2,
-      "soaks_overdue": 2
-    },
-    "note": "Lean review (usage pacing to Wed 18:00Z reset). No incident: report present 05:38Z, no errored sections, digest hourly. Due 12: phone items (heartbeat alert, go-token read-back, SL/TP-at-venue survival, per-leg sizing, report export) ride lane PHONE-EXEC-1B AFTER breakout_2 go-live; PI-20261005-9HEP9LYP-0002 (stay-logged-in) observed: 1a session held 11:47Z->20:12Z (8.4h) and the executor session held overnight -> close at next lane touch; exit-lever parity (UQ9JJPRQ-0004), wake-contract (APBY4NTV-0001), #16494 observation deferred to post-reset. Soak grading stays with PI JC8KDKLF-0002 (due 10-11). inflight alarm: PACE-W40/PROP-GOLIVE-PREAPPROVAL are manager rows, touched now."
+      ]
+    }
   },
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
