@@ -203,7 +203,17 @@ def test_measured_state_2026_08_17():
     # has a sweep path for other families (pullback/donchian/squeeze), so filing
     # it there would overstate the finding to "no run of this LEVER can ever
     # move any cell," which is false. `movable` is therefore 0, not 4.
-    assert len(cut.get("movable", [])) == 0
+    #
+    # 0 -> 76 on 2026-10-07 (GEOM-B1-HARNESS): the `tp_extend` / `tp_retarget`
+    # columns were added with a `pending` cell on each of the 38 donchian /
+    # pullback / scalp legs that has the harness lever. Unlike the cells above,
+    # these ARE movable by a session -- the harness flags exist, the fleet sweep
+    # emits the cells on `--levers tp_extend,tp_retarget`, and nothing blocks the
+    # run -- so counting them is the cut doing its job, not a regression. Pinned
+    # as exactly those two columns so any OTHER cell becoming movable still fails.
+    movable = cut.get("movable", [])
+    assert {i[3] for i in movable} == {"tp_extend", "tp_retarget"}
+    assert len(movable) == 76
     #
     # E65 (2026-09-24, PR #12868): 4 -> 2. The `exit_ladder` cells on
     # trend_donchian_eth_prop and trend_donchian_sol_prop RESOLVED to
@@ -247,7 +257,7 @@ def test_internal_keys_are_not_printed_as_buckets():
     # ...while the measured count IS rendered (0 since the 2026-09-29
     # out_of_scope_family correction, 1 since the 2026-09-29
     # regime_flip_exit resolution; see test_measured_state_2026_08_17 above).
-    assert "MOVABLE BY A SESSION: 0" in text
+    assert "MOVABLE BY A SESSION: 76" in text   # 0 before GEOM-B1 added the two tp columns
     assert "NO SWEEP PATH AT ALL: 1" in text
 
 
