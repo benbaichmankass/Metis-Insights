@@ -5,6 +5,11 @@
   },
   "id": "PI-20261007-9ARZOHV6-0001",
   "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-21",
+    "how_to_check": "ls research/results/RQ-20261007-040 research/results/RQ-20261007-041; grep -n 'section 6\\|readout' docs/research/cross-signal-exits-2026-10-07.md; grep -n 'RQ-20261007-04[01]' docs/research/exit-refinement-coverage.json",
+    "what": "research/results/RQ-20261007-040/ and RQ-20261007-041/ carry a landed result each, and docs/research/cross-signal-exits-2026-10-07.md section 6 records the section-5 readout applied verbatim (040: declare proposal | needs_review | honest_negative; 041: per-leg verdicts) plus whether build rows for lever spec 4.1 and the flip_exit cell exist"
+  },
   "origin": {
     "kind": "research",
     "ref": "docs/research/cross-signal-exits-2026-10-07.md (lane CROSS-SIGNAL-RESEARCH session_01FRPsG9ZsFVMoYE9ARzoHV6, manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-07)",
