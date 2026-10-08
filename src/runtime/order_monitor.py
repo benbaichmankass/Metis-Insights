@@ -1667,8 +1667,9 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             cur_tp=_coerce_float(open_pkg.get("tp")),
         )
         logger.info(
-            "order_monitor: exchange modify for pkg=%s trade=%s account=%s → %s",
+            "order_monitor: exchange modify for pkg=%s trade=%s account=%s → %s%s",
             pkg_id, leg.get("id"), leg.get("account_id"), ex_result,
+            f" (tp_reason: {decision.tp_reason})" if decision.tp_reason else "",
         )
         if ex_result.get("ok"):
             leg_outcomes.append({"leg": leg, "outcome": "applied"})
@@ -1792,7 +1793,9 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         if "sl" in updates:
             changes.append(f"SL → {updates['sl']:g}")
         if "tp" in updates:
-            changes.append(f"TP → {updates['tp']:g}")
+            # TP doctrine: a moved TP names the prediction that moved it.
+            changes.append(f"TP → {updates['tp']:g}"
+                           + (f" ({decision.tp_reason})" if decision.tp_reason else ""))
         # ONE ping per package, not per leg — N pings for a single trail move
         # is the desensitized-alarm shape. But say how many legs moved, so a
         # multi-account package does not read as a single-leg one.

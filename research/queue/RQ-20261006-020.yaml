@@ -1,6 +1,6 @@
 id: RQ-20261006-020
 title: 'Stage-0 backtest for a FASTER prop leg: chop_scalp harness on DOGEUSDT 15m (PI-20261006-APBY4NTV-0001 slice 1)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 1
@@ -68,12 +68,15 @@ related:
 last_dispatched_at: '2026-10-07T01:37:15+00:00'
 grading:
   auto: true
+  awaiting: more_data
   decision_rule_id: RULE-RQ1006-020-DOGEUSDT-15m-CHOP_SCALP-STAGE0
   evidence:
   - research/results/RQ-20261006-020/37558020726.jsonl
   graded_at: '2026-10-07'
   grader: scripts/research/queue_grade.py
-  needs_review: true
-  reason: 'verdicts not unanimous-mechanical: [''wiring_only'']'
+  note: 'indeterminate is the pre-registered under-powered/null outcome: complete, but NOT a pass and
+    NOT a kill'
+  reason: 1 row(s), all measured, all indeterminate (1 earlier producer_failed / re-graded wiring_only
+    row(s) superseded)
   rows: 1
-  verdict: null
+  verdict: indeterminate

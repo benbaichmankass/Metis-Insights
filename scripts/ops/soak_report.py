@@ -68,6 +68,7 @@ import yaml
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pipeline  # noqa: E402
+import checklist  # noqa: E402
 
 STAGE1_ACCOUNTS = ("bybit_1", "alpaca_paper")
 GRADE_DIR = "comms/research/soak_book_grade"
@@ -346,7 +347,7 @@ def build(today: date, ref: str = "HEAD", grade_file: Optional[Path] = None) -> 
                           refs_for(s)))
 
     prs = pr_merge_dates(ref)
-    ck = json.load(open(REPO / CHECKLIST))
+    ck = checklist.load_path(REPO / CHECKLIST)
     for row in ck.get("items") or []:
         if row.get("state") != "landed_unproven":
             continue
@@ -517,7 +518,7 @@ def sync_pipeline(b: Dict[str, Any], store: Path) -> List[str]:
                       terminal_reason=f"soak ended {date.today().isoformat()}: {subj} is no longer on a "
                                       f"Stage-1 roster / no longer execution: shadow (soak_report.py sync)")
         closed.pop("routed_to", None)
-        pipeline.append(closed, store, intent="update")
+        pipeline.append(closed, store, intent="update", based_on=res.sources[it["id"]])
         wrote.append(f"{it['id']} (closed)")
     return wrote
 

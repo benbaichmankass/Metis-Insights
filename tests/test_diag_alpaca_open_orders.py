@@ -181,15 +181,20 @@ def test_the_payload_states_alpaca_has_no_position_level_protection(client, monk
 # The accessor: prices, nesting, and the read that decides `None`
 # --------------------------------------------------------------------------
 class _FakeAlpaca:
-    def __init__(self, orders_env, positions=None, positions_raises=False):
+    def __init__(self, orders_env, positions=None, positions_raises=False,
+                 closed_env=None):
         self._orders_env = orders_env
+        self._closed_env = closed_env or {"retCode": 0, "result": []}
         self._positions = positions
         self._positions_raises = positions_raises
 
     def _request(self, method, path, json_body=None):
         assert method == "GET" and path.startswith("/v2/orders")
         # nested=true is what keeps an un-triggered bracket's children visible.
-        assert "nested=true" in path and "status=open" in path
+        assert "nested=true" in path
+        if "status=closed" in path:
+            return self._closed_env
+        assert "status=open" in path
         return self._orders_env
 
     def positions(self):
@@ -275,3 +280,54 @@ def test_a_genuinely_flat_account_reads_empty_not_null(monkeypatch):
                                              positions=[]))
     assert got["orders"] == [] and got["positions"] == []
     assert got["positions_state"] == "positions_read"
+
+
+# --------------------------------------------------------------------------
+# `held` legs of FILLED bracket parents (PI-20261005-APBY4NTV-0002)
+# --------------------------------------------------------------------------
+def test_held_stop_of_a_filled_bracket_parent_is_included_with_its_status(monkeypatch):
+    """status=open never returns this leg; without it a fully protected
+    position reads unprotected."""
+    open_env = {"retCode": 0, "result": []}
+    closed_env = {"retCode": 0, "result": [{
+        "id": "entry", "symbol": "GLD", "status": "filled", "type": "market",
+        "legs": [
+            {"id": "stop-leg", "symbol": "GLD", "type": "stop",
+             "stop_price": "240", "status": "held"},
+            {"id": "tp-leg", "symbol": "GLD", "type": "limit",
+             "limit_price": "260", "status": "new"},
+            {"id": "dead-leg", "symbol": "GLD", "type": "limit",
+             "limit_price": "1", "status": "canceled"}]}]}
+    got = _accessor(monkeypatch, _FakeAlpaca(open_env, positions=[], closed_env=closed_env))
+    by_id = {o["order_id"]: o for o in got["orders"]}
+    assert set(by_id) == {"stop-leg", "tp-leg"}          # canceled leg is not resting
+    assert by_id["stop-leg"]["status"] == "held"
+    assert by_id["stop-leg"]["parent_id"] == "entry"
+    assert got["held_legs_state"] == "read"
+
+
+def test_a_held_leg_already_seen_nested_is_not_duplicated(monkeypatch):
+    open_env = {"retCode": 0, "result": [{
+        "id": "p", "symbol": "SPY", "legs": [
+            {"id": "s", "symbol": "SPY", "type": "stop", "status": "held"}]}]}
+    closed_env = {"retCode": 0, "result": [{
+        "id": "e", "symbol": "SPY", "status": "filled", "legs": [
+            {"id": "s", "symbol": "SPY", "type": "stop", "status": "held"}]}]}
+    got = _accessor(monkeypatch, _FakeAlpaca(open_env, positions=[], closed_env=closed_env))
+    assert [o["order_id"] for o in got["orders"]].count("s") == 1
+
+
+def test_a_failed_closed_read_is_flagged_not_rendered_as_no_held_legs(monkeypatch):
+    open_env = {"retCode": 0, "result": []}
+    got = _accessor(monkeypatch, _FakeAlpaca(
+        open_env, positions=[], closed_env={"retCode": -1, "retMsg": "nope"}))
+    assert got is not None                       # open-orders answer survives
+    assert got["held_legs_state"] == "could_not_look"
+
+
+def test_a_full_closed_page_is_flagged_truncated(monkeypatch):
+    open_env = {"retCode": 0, "result": []}
+    page = [{"id": f"o{i}", "symbol": "X", "status": "canceled"} for i in range(500)]
+    got = _accessor(monkeypatch, _FakeAlpaca(
+        open_env, positions=[], closed_env={"retCode": 0, "result": page}))
+    assert got["held_legs_state"] == "truncated"
