@@ -313,5 +313,33 @@ document.getElementById('f').onsubmit=function(e){e.preventDefault();window.__su
     eq(await rM("window.__submitted || 0"), 0, `market ${mode}: nothing submitted`);
     eq(await rM("[__ex.symbolStep('ETHUSD'), __ex.symbolStep('ETHUSD')]"), ["opened_market", mode === "J" ? "market_no_row" : "picked_market"], `market ${mode}: and back to ETH from SOL`);
   }
+  // SERVER READ-BACK (PHONE-GO-TOKEN, design 3.4): the app builds the read-back from these page reads (MainActivity.kt
+  // readBack: SELECTED tabs, the submit label + disabled state, the TP/SL box, the by-label values) and hashes
+  // "key=value" lines in READBACK_FIELDS order (== src/prop/phone_executor.py). Mirrors the app; proves the page reads
+  // it depends on, and that any change to the form between verify and click changes the hash (no click).
+  const crypto = require("crypto");
+  const FIELDS = ["ticket_id", "symbol", "side", "order_type", "price", "qty", "qty_unit", "tp", "sl", "submit_label", "submit_disabled", "tpsl"];
+  await r("__ex.setByLabel('take ?profit', 'price', '2600.00')"); await r("__ex.setByLabel('stop ?loss', 'price', '2450.00')");
+  const readBack = async () => {
+    const tk = await r("__ex.ticket()");
+    const sel = (re) => { const h = tk.tabs.filter((x) => x.selected && re.test(x.text.trim())); return h.length === 1 ? h[0].text.trim() : ""; };
+    const val = async (re, pref) => ((await r(`__ex.readByLabel(${JSON.stringify(re)}, ${JSON.stringify(pref)})`)).value || "").trim();
+    return {ticket_id: "t1", symbol: tk.symbol.trim(), side: sel(/^(buy|sell)$/i), order_type: sel(/^(market|limit|trigger|stop)$/i),
+      price: await val("limit price", "limit price"), qty: await val("quantity", "quantity"), qty_unit: "ETH",
+      tp: await val("take ?profit|\\btp\\b", "price"), sl: await val("stop ?loss|\\bsl\\b", "price"),
+      submit_label: tk.submit.text.trim(), submit_disabled: String(tk.submit.disabled), tpsl: tk.tpsl === null ? "" : String(tk.tpsl)};
+  };
+  const hash = (rb) => crypto.createHash("sha256").update(FIELDS.map((k) => k + "=" + String(rb[k]).trim()).join("\n")).digest("hex");
+  const rb1 = await readBack();
+  eq([rb1.symbol, rb1.side, rb1.order_type, rb1.price, rb1.qty, rb1.tp, rb1.sl, rb1.submit_label, rb1.submit_disabled, rb1.tpsl],
+    ["ETHUSD", "Buy", "Limit", "2500.10", "0.01", "2600.00", "2450.00", "Long (buy) ETHUSD", "false", "true"], "read-back: what the page shows");
+  eq(hash(await readBack()), hash(rb1), "re-read of an unchanged form hashes the same (go allowed)");
+  await r("__ex.setByLabel('quantity', '', '0.02')");
+  eq(hash(await readBack()) === hash(rb1), false, "a changed quantity changes the hash (no click)");
+  await r("__ex.setByLabel('quantity', '', '0.01')"); await r("__ex.tab('Sell')");
+  const rbS = await readBack();
+  eq([rbS.side, /short/i.test(rbS.submit_label), hash(rbS) === hash(rb1)], ["Sell", true, false], "a flipped side changes side, label and hash");
+  await r("__ex.tab('Buy')");
+  eq(await r("window.__submitted || 0"), 0, "nothing submitted by the read-back path");
   await b.close(); console.log("exec_check: all passed");
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -53,6 +53,7 @@ __all__ = [
     "TP_KEY", "TP_REASON_KEY", "DECLARATION_KEY", "TpRevision", "RULES",
     "register_rule", "declared_rule", "rule_params", "tp_revision_rejection",
     "clamp_to_venue_cap", "plan_tp_revision", "as_verdict", "merge_verdict",
+    "RULE_DONCHIAN_MEASURED_MOVE", "measured_move_path",
 ]
 
 TP_KEY = "tp"
@@ -76,8 +77,10 @@ class TpRevision:
     detail: Dict[str, Any] = field(default_factory=dict)
 
 
-#: rule name -> fn(*, direction, entry, risk, bars, entry_time, params) ->
-#: (target, detail) | None. `bars` is a DataFrame of CLOSED bars only.
+#: rule name -> fn(*, direction, entry, risk, bars, entry_time, params, leg) ->
+#: (target, detail) | None. `bars` is a DataFrame of CLOSED bars only; `leg` is
+#: the full leg config / package meta (a rule reads its structural params,
+#: e.g. `donchian`, from it).
 RuleFn = Callable[..., Optional[tuple]]
 RULES: Dict[str, RuleFn] = {}
 
@@ -161,7 +164,7 @@ def plan_tp_revision(*, leg: Optional[Mapping[str, Any]], direction: str, entry:
         if fn is None or e is None or r is None or r <= 0 or p is None:
             return None
         out = fn(direction=direction, entry=e, risk=r, bars=bars,
-                 entry_time=entry_time, params=rule_params(leg))
+                 entry_time=entry_time, params=rule_params(leg), leg=leg)
         if not out:
             return None
         target, detail = out
@@ -196,3 +199,90 @@ def merge_verdict(base: Optional[Dict[str, Any]],
     if base.get("action") == "close":
         return base
     return {**base, **as_verdict(rev)}
+
+
+# ---------------------------------------------------------------------------
+# Rule 1 -- trend_donchian family: the Donchian MEASURED MOVE (2026-10-07)
+# ---------------------------------------------------------------------------
+RULE_DONCHIAN_MEASURED_MOVE = "donchian_measured_move"
+
+
+def measured_move_path(highs: Any, lows: Any, *, start: int, end: int, n: int,
+                       direction: str, width_mult: float = 1.0) -> Optional[tuple]:
+    """The measured-move prediction after bar ``end`` closed. Pure, index-based,
+    so the live unit, the prop trail and ``scripts/backtest_trend.py`` call the
+    SAME arithmetic on the same bars.
+
+    For every closed bar ``k`` in ``[start, end]`` with a full ``n``-bar
+    window, the channel INCLUDING bar k is ``hi_k = max(high[k-n+1..k])``,
+    ``lo_k = min(low[k-n+1..k])``; the projection is the classic measured move
+    -- the channel height carried past the edge the trade broke:
+    ``hi_k + width_mult * (hi_k - lo_k)`` for a long,
+    ``lo_k - width_mult * (hi_k - lo_k)`` for a short.
+
+    The prediction is the most favourable projection seen so far (extend-only):
+    the target follows the structure out as the trend makes new channel
+    extremes, and does not contract on a pullback -- deciding the thesis has
+    failed is the trail's job (doctrine clause 3), not the target's.
+    Returns ``(target, detail)`` or None when no bar has a full window.
+    """
+    if n <= 0 or end < start or direction not in ("long", "short"):
+        return None
+    long_ = direction == "long"
+    best = None
+    best_k = None
+    hi = lo = None
+    for k in range(max(start, n - 1), end + 1):
+        hk = max(float(x) for x in highs[k - n + 1:k + 1])
+        lk = min(float(x) for x in lows[k - n + 1:k + 1])
+        w = hk - lk
+        if not (w > 0 and math.isfinite(w)):
+            continue
+        proj = hk + width_mult * w if long_ else lk - width_mult * w
+        if best is None or (proj > best if long_ else proj < best):
+            best, best_k, hi, lo = proj, k, hk, lk
+    if best is None:
+        return None
+    return best, {"channel_hi": hi, "channel_lo": lo, "width": hi - lo,
+                  "at_bar": best_k - start, "bars": end - start + 1, "n": n,
+                  "width_mult": width_mult}
+
+
+def _ts_utc(value: Any):
+    import pandas as pd
+    if value is None:
+        return None
+    try:
+        if isinstance(value, str) and value.strip().lstrip("-").isdigit():
+            value = int(value.strip())      # str(df["timestamp"]) of an epoch-ms column
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return pd.Timestamp(int(value), unit="ms", tz="UTC")
+        ts = pd.Timestamp(value)
+        return ts.tz_localize("UTC") if ts.tzinfo is None else ts.tz_convert("UTC")
+    except (TypeError, ValueError):
+        return None
+
+
+@register_rule(RULE_DONCHIAN_MEASURED_MOVE)
+def _donchian_measured_move(*, direction: str, entry: float, risk: float, bars: Any,
+                            entry_time: Any, params: Mapping[str, Any],
+                            leg: Mapping[str, Any]) -> Optional[tuple]:
+    """``bars``: CLOSED bars (timestamp/high/low), history before entry
+    included. The managed span starts at the bar holding ``entry_time`` (the
+    signal bar: its structure is what the entry broke) and ends at the last
+    closed bar. An unreadable entry time is *could not look* -> None."""
+    import pandas as pd
+    n = int(_f(params.get("donchian")) or _f(leg.get("donchian")) or 0)
+    width_mult = _f(params.get("width_mult"))
+    width_mult = 1.0 if width_mult is None or width_mult <= 0 else width_mult
+    t_entry = _ts_utc(entry_time)
+    if n <= 0 or t_entry is None or bars is None or len(bars) == 0:
+        return None
+    ts = bars["timestamp"]
+    ts = (pd.to_datetime(ts, unit="ms", utc=True) if pd.api.types.is_numeric_dtype(ts)
+          else pd.to_datetime(ts, utc=True))
+    at_or_before = (ts <= t_entry).to_numpy().nonzero()[0]
+    start = int(at_or_before[-1]) if len(at_or_before) else 0
+    return measured_move_path(bars["high"].to_numpy(), bars["low"].to_numpy(), start=start,
+                              end=len(bars) - 1, n=n, direction=direction,
+                              width_mult=width_mult)
