@@ -33,7 +33,8 @@ class Api(private val c: Context) {
      *  when the VM is unreachable / refused. Claims nothing (the claim happens only once the Activity is resumed). */
     suspend fun pending(): Int? = withContext(Dispatchers.IO) {
         try {
-            val u = URL(base() + "/api/bot/prop/phone/pending")
+            // accepts=amend: this build executes trail amends (PROP-TRAIL-PHONE), so a waiting amend wakes it too
+            val u = URL(base() + "/api/bot/prop/phone/pending?accepts=amend")
             if (u.protocol != "https") return@withContext null
             val conn = u.openConnection() as HttpURLConnection
             conn.connectTimeout = 10000; conn.readTimeout = 20000

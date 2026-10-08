@@ -3,7 +3,7 @@ title: >-
   Active geometry, prop: can a CALIBRATED target (reach-rate >= 20%) plus thesis-conditioned
   extension match the 6R near-sentinel's EV per life on trend_donchian_{eth,sol}_prop
   under the prop rulesets -- or does doctrine compliance cost measurable EV?
-status: blocked
+status: queued
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -107,27 +107,24 @@ routing:
     24 cells x 2 legs x 3 rulesets x 5 seeds at the simulator's measured seconds per
     sim. Estimate, not a measurement.
 
-blocked_on:
-  - what: >-
-      Same harness gap as RQ-20261007-001: scripts/backtest_trend.py has no target
-      extension lever (argparse read 2026-10-07: --tp-r fixed at entry, --tp-cap-pct,
-      --timeout-bars only).
-    ref: PI-20261006-5FUGHVX8-0001 (BUILD B1, harness half) -- proposed checklist row GEOM-B1-HARNESS
-    clears_when: >-
-      The flags named in RQ-20261007-001's clears_when exist on scripts/backtest_trend.py.
-      Then: move this file to research/queue/, set status queued, run.workflow:
-      research-script-run.yml with run.commands = one harness invocation per cell
-      (config-exact argv from scripts/research/regime_debt_matrix.build_harness_cmd plus
-      the tp_* flags, --emit-trades {out_dir}/<leg>__<cell>__trades.jsonl) followed by
-      scripts/research/prop_ev_grid.py over the emitted records on the three rulesets,
-      inputs {research_unit: RQ-20261007-002}.
-
 run:
-  workflow: null
+  workflow: m20-exit-lever-sweep.yml
+  inputs:
+    legs: trend_donchian_eth_prop,trend_donchian_sol_prop
+    levers: tp_extend
+    tp_cap_pct: '0.099'
+    split_mode: oos-trades
+    research_unit: RQ-20261007-002
   note: >-
-    Null until the harness lever lands (blocked_on); the dispatch shape is in
-    clears_when.
-
+    Unblocked 2026-10-07 by GEOM-B1-HARNESS, and ONLY HALF-DISPATCHED. This run covers
+    statistics (a) calibration share vs the base and (b) the harness P2 gate (IS/OOS,
+    walk-forward, net of the venue-aware cost stack) on the two prop legs. It does NOT
+    cover (c), the scripts/research/prop_ev_sim.py union-book EV on the three prop
+    rulesets: that needs per-cell emitted trades (--emit-trades) and a runner that can
+    fetch the legs' candles, and the research-script-run runner holds no data source
+    (it is token-free and sees only the checkout). (c) is filed as a pipeline row
+    (filed as PI-20261007-HY7G7NYF-0001) -- until it lands this unit CANNOT grade `pass` or `costed_null`
+    under its own rule, only report (a)+(b).
 lands:
   store: research/results/
   assert_field: read_state

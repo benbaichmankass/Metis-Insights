@@ -264,6 +264,7 @@ strategy_modules:
     - src.runtime.exit_levers
     - src.runtime.position_telemetry
     - src.runtime.target_extension_soak
+    - src.runtime.tp_revision
     - src.runtime.tp_venue_cap
     - src.runtime.trail_decay
     - src.runtime.trail_vol

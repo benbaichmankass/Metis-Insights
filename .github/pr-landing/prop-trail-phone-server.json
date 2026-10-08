@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Held for the manager (Manager Session 2026-10-01, session_01MM8o5js6TcDFeNAPBY4Ntv), lane PROP-TRAIL-PHONE (session_01YT5VE5mnD6LfbHaVMK2Q5Y), pipeline PI-20261006-KX6ZKFNA-0002. Tier-2: the live order path of breakout_2 (a live $5k prop evaluation executed by the operator's phone). Server half only: src/prop/phone_trail.py plans the leg's declared chandelier trail with the ONE replay (prop_trail.plan_trail) once per closed bar and publishes an SL amend in a single slot on the parent ticket's meta (one outstanding per ticket, compare-and-swap writes). The claim route serves an amend ONLY to an app that posts accepts:[amend]; the installed APK posts no body, so this PR changes nothing the current phone does until the app PR (#2 of this lane) is installed. Every unverifiable result (mismatch, human_moved, a claimed amend with no report, a second refusal) locks that ticket's trail and pings; never retried. Revert: revert this PR (no schema change, state lives in prop_tickets.meta.phone_trail).",
+  "why": "breakout_2's trend_donchian_eth_prop / _sol_prop trade a static SL+TP bracket on real prop money while their Stage-0 record assumed a chandelier trail (trail_mult 3.5, atr_stop_mult 2.5). run_trail_step is called only from the VM executor tick; the phone path had no trail/modify call. This gives the phone-executed account the trail its evidence assumed, through the existing claim channel, and wires TP amends (request_tp_amend) for lane TP-DOCTRINE."
+}
