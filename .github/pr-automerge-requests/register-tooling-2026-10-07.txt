@@ -1,0 +1,1 @@
+REGISTER-TOOLING: Tier-1 tooling/tests/read-only diag route; manager-dispatched lane (session_01MM8o5js6TcDFeNAPBY4Ntv).

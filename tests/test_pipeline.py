@@ -159,9 +159,10 @@ def test_a_preexisting_flat_file_is_still_read_as_a_migration_safety_net(tmp_pat
 def test_state_changes_append_and_the_audit_trail_survives(tmp_path):
     store = tmp_path / "pipeline"
     P.append(_item(id="X"), store, intent="new")
-    P.append(_item(id="X", state="routed", routed_to="A7"), store, intent="update")
+    P.append(_item(id="X", state="routed", routed_to="A7"), store, intent="update",
+             based_on=P.version_of("X", store))
     P.append(_item(id="X", state="killed", terminal_reason="superseded"), store,
-             intent="update")
+             intent="update", based_on=P.version_of("X", store))
 
     res = P.read_log(store)
     assert res.items["X"]["state"] == "killed", "current state is the LAST record"
@@ -214,7 +215,7 @@ def test_intent_update_refuses_a_different_finding_reusing_the_id(tmp_path):
     with pytest.raises(P.PipelineError, match="does not look like a state change"):
         P.append(_item(id="X", what="pr-landing-guard remedy text is stale",
                         origin={"kind": "session", "ref": "sess_2", "rerun": "y"}),
-                  store, intent="update")
+                  store, intent="update", based_on=P.version_of("X", store))
     # And the refusal actually stopped the write -- the store is untouched.
     assert P.read_log(store).items["X"]["what"] == "board-pointer readers still exist"
 
@@ -235,7 +236,7 @@ def test_identity_check_allows_append_only_elaboration_of_what(tmp_path):
     P.append(base, store, intent="new")
     grown = dict(base, what="the short version, now with more detail",
                  state="routed", routed_to="A7")
-    P.append(grown, store, intent="update")  # must not raise
+    P.append(grown, store, intent="update", based_on=P.version_of(grown["id"], store))  # must not raise
     assert P.read_log(store).collisions == []
 
 
@@ -245,7 +246,7 @@ def test_identity_check_rejects_a_what_that_is_not_a_pure_extension(tmp_path):
     P.append(base, store, intent="new")
     with pytest.raises(P.PipelineError, match="does not look like a state change"):
         P.append(dict(base, what="a rewritten and unrelated text"), store,
-                  intent="update")
+                  intent="update", based_on=P.version_of(base["id"], store))
 
 
 def test_check_reports_a_collision_instead_of_reading_clean(tmp_path, capsys):
@@ -425,3 +426,32 @@ def test_an_undated_unrouted_item_is_reported_not_treated_as_young():
     items["OI-nodate"] = {**next(iter(items.values())), "id": "OI-nodate"}
     p, r = _res(items)
     assert p.unrouted_alarm(r.items.values(), date(2026, 9, 29))["undated"] == 1
+
+
+# ── stale-snapshot guard (PI-20261004-4GA8WQPA-0002) ────────────────────────
+def test_update_based_on_a_superseded_version_is_refused(tmp_path):
+    """A writer that read version v1 must not overwrite the v2 another writer
+    landed in between -- the revert PR #16505 caused on 10 items."""
+    store = tmp_path / "pipeline"
+    P.append(_item(id="X"), store, intent="new")
+    v1 = P.version_of("X", store)
+    P.append(_item(id="X", state="routed", routed_to="A7"), store,
+             intent="update", based_on=v1)
+    with pytest.raises(P.PipelineError, match="STALE SNAPSHOT"):
+        P.append(_item(id="X", state="routed", routed_to="OLD-ROW"), store,
+                 intent="update", based_on=v1)
+    assert P.read_log(store).items["X"]["routed_to"] == "A7", "stale write must not land"
+
+
+def test_update_without_based_on_is_refused_and_current_version_accepted(tmp_path):
+    store = tmp_path / "pipeline"
+    P.append(_item(id="X"), store, intent="new")
+    with pytest.raises(P.PipelineError, match="requires based_on"):
+        P.append(_item(id="X", state="routed", routed_to="A7"), store, intent="update")
+    P.append(_item(id="X", state="routed", routed_to="A7"), store, intent="update",
+             based_on=P.version_of("X", store))
+    assert P.read_log(store).items["X"]["based_on"]
+
+
+def test_version_of_unknown_id_is_none(tmp_path):
+    assert P.version_of("NOPE", tmp_path / "pipeline") is None

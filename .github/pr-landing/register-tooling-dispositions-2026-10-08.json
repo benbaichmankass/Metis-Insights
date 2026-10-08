@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "REGISTER-TOOLING dispositions for the 7 pipeline items, written through the new based_on / redate tooling: PI-20261004-4GA8WQPA-0002, PI-20261005-WFBREDQP-0001, PI-20261005-KQIWJZWX-0001 closed done (landed in #16973); PI-20261004-4GA8WQPA-0003, PI-20261004-APBY4NTV-0003, PI-20261005-4GA8WQPA-0002 re-dated with a new observation; PI-20261005-WFBREDQP-0002 annotated with the live measurement. Pipeline records only."
+}
