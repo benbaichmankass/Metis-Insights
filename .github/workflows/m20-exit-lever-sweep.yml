@@ -43,7 +43,7 @@ on:
         required: false
         default: '0.099'
       levers:
-        description: "CSV of matrix lever columns to sweep (stale_stop,giveback_stop,trail_geometry,trail_decay,vol_trail). Empty = all."
+        description: "CSV of matrix lever columns to sweep (stale_stop,giveback_stop,trail_geometry,trail_decay,vol_trail,momentum_trail,momentum_stale). Empty = all. momentum_trail / momentum_stale read ADX (a stop keyed to momentum, not price path); for momentum_stale on a leg that ships a stale stop, also run once with without_declared_levers=stale_stop to get the swap base."
         required: false
         default: ''
       split:

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research-harness tooling only: two default-off exit levers (momentum_trail, momentum_stale) on backtest_trend/pullback, their sweep cells and workflow input, with a pre-change byte-identical golden over 14 existing arms. src/research/trail_levers.py is backtest-only (imported by scripts/backtest_*.py), not on the live order path; no strategy logic, no config/strategies.yaml or accounts.yaml edit."
+}

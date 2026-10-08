@@ -61,6 +61,15 @@ import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
 sys.path.insert(0, str(_REPO_ROOT / "scripts" / "research"))  # noqa: E402
 from regime_weight import soft_regime_weight, soft_weight_armed  # noqa: E402
 import tp_geometry as _tpg  # noqa: E402  (GEOM-B1: a take-profit that moves; every lever off by default)
+from src.research.trail_levers import (  # noqa: E402  (the ONE trail-lever rule)
+    effective_trail_mult,
+    momentum_flag_errors,
+    momentum_stale_armed,
+    momentum_stale_fires,
+    momentum_trail_armed,
+    momentum_trail_fired,
+    vol_trail_armed,
+)
 
 # Execution-realism cost knobs (P1, FAITHFUL-BACKTEST-PLATFORM-DESIGN § 3.B).
 # MANDATORY venue-aware cost is applied by main() (the CLI / production path): unset
@@ -92,6 +101,8 @@ class Trade:
     r_multiple: float
     mfe_r: float
     confidence: float = 0.0
+    # MOMENTUM-TRAIL-LEVER attribution; None unless a momentum lever is armed.
+    mom: Optional[Dict[str, Any]] = None
     # SRQ-20260618-002 soft regime-weight refinement — see backtest_trend.py's
     # identical fields and scripts/research/regime_weight.py for the shared rule.
     adx_at_entry: Optional[float] = None
@@ -233,6 +244,11 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  trail_vol_above_pctl: float = 0.0,
                  trail_vol_below_pctl: float = 0.0,
                  trail_vol_tight_mult: float = 0.0,
+                 trail_adx_below: float = 0.0,
+                 trail_adx_falling_bars: int = 0,
+                 trail_adx_tight_mult: float = 0.0,
+                 momentum_stale_bars: int = 0,
+                 momentum_stale_adx_below: float = 0.0,
                  side_filter: str = "both",
                  tp_geometry: Optional[_tpg.TPGeometrySpec] = None,
                  subbar_df: Optional[pd.DataFrame] = None,
@@ -333,8 +349,8 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
     # (rank within the previous `vol_pctl_window` bars — causal; NaN until
     # the window fills → never skip, fail-permissive). Exits untouched.
     # M20-X vol-conditional trail lever shares the same percentile series.
-    vol_trail_on = (trail_vol_tight_mult > 0.0
-                    and (trail_vol_above_pctl > 0.0 or trail_vol_below_pctl > 0.0))
+    vol_trail_on = vol_trail_armed(trail_vol_tight_mult, trail_vol_above_pctl,
+                                   trail_vol_below_pctl)
     atr_pctl = None
     if (vol_skip_above_pctl > 0.0 or vol_skip_below_pctl > 0.0
             or vol_trail_on):
@@ -365,6 +381,18 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
     adx_active = adx_min is not None or adx_max is not None or soft_weight_on
     if adx_active:
         df["adx"] = _adx(df, adx_period)
+    # MOMENTUM-TRAIL-LEVER (default off = byte-identical): the momentum-keyed
+    # exits read the SAME Wilder ADX series, but arming them must NOT turn on
+    # the ENTRY band (`adx_active` also gates admission and warm-up), so they
+    # get their own flags and entries stay untouched.
+    mom_trail_on = momentum_trail_armed(trail_adx_below, trail_adx_falling_bars,
+                                        trail_adx_tight_mult)
+    mom_stale_on = momentum_stale_armed(momentum_stale_bars,
+                                        momentum_stale_adx_below)
+    mom_any = mom_trail_on or mom_stale_on
+    adx_series = None
+    if mom_any:
+        adx_series = df["adx"] if adx_active else _adx(df, adx_period)
     # Direction-aware regime filter (Phase 2, MB-20260717 / BL-20260717-REGIME-COVERAGE-DEBT):
     # ADX measures trend STRENGTH not DIRECTION, so a long-only pullback buyer
     # fires into a strong DOWN-trend (the 2026-07-16 falling-knife losses). This
@@ -608,40 +636,28 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         flip_streak = 0
         banked = False
 
-        def _eff_tm(peak_px: float, peak_j: int, j: int) -> float:
-            # M20 P4.1 trail-decay lever (tight_mult 0 = off, byte-identical):
-            # tighten the trail mult once the move shows exhaustion — R-armed
-            # (peak R >= arm_r) and/or stall-armed (>= stall_bars since the
-            # last new favourable extreme; re-loosens the MULT on a new peak,
-            # never the price-ratcheted stop). Design:
-            # docs/research/M20-momentum-exhaustion-DESIGN.md § P4.1.
-            if trail_decay_tight_mult <= 0.0:
-                return trail_mult
+        mom_fired_bars = 0        # momentum_trail attribution (only read if armed)
+        mom_tightened = False
+
+        def _tm(peak_px: float, peak_j: int, j: int) -> float:
+            # The chandelier mult in force on leg bar j: M20 P4.1 trail-decay,
+            # M20-X vol-conditional trail and MOMENTUM-TRAIL-LEVER momentum_trail
+            # (all default-off = byte-identical), composed by minimum. The ONE
+            # rule lives in src/research/trail_levers.effective_trail_mult and
+            # is shared with backtest_trend.py; this harness used to carry its
+            # own inline copy (_eff_tm/_vol_tm) of it. Re-loosening happens in
+            # the MULT on a new peak, never in the price-ratcheted stop.
             pr = ((peak_px - entry) if direction == "long"
                   else (entry - peak_px)) / risk
-            if ((trail_decay_arm_r > 0.0 and pr >= trail_decay_arm_r)
-                    or (trail_decay_stall_bars > 0
-                        and (j - peak_j) >= trail_decay_stall_bars)):
-                return trail_decay_tight_mult
-            return trail_mult
+            return effective_trail_mult(
+                trail_mult, pr, j - peak_j,
+                trail_decay_tight_mult > 0.0, trail_decay_arm_r,
+                trail_decay_stall_bars, trail_decay_tight_mult,
+                vol_trail_on, atr_pctl, j,
+                trail_vol_above_pctl, trail_vol_below_pctl,
+                trail_vol_tight_mult, mom_trail_on, adx_series,
+                trail_adx_below, trail_adx_falling_bars, trail_adx_tight_mult)
 
-        def _vol_tm(base_tm: float, j: int) -> float:
-            # M20-X vol-conditional trail lever (tight_mult 0 = off,
-            # byte-identical): tighten the mult on any managed bar whose
-            # trailing ATR percentile sits in the gated tail — conditional,
-            # not a ratchet (the price-ratcheted stop never loosens).
-            # Undefined percentile ⇒ inert (fail-permissive). Tightest wins.
-            # Design: docs/research/M20X-vol-conditional-trail-DESIGN.md.
-            if not vol_trail_on:
-                return base_tm
-            vp = atr_pctl.iloc[j]
-            if pd.isna(vp):
-                return base_tm
-            fired = ((trail_vol_above_pctl > 0.0
-                      and float(vp) > trail_vol_above_pctl)
-                     or (trail_vol_below_pctl > 0.0
-                         and float(vp) < trail_vol_below_pctl))
-            return min(base_tm, trail_vol_tight_mult) if fired else base_tm
         # The three grain arms share ONE definition of the stop/target
         # test, the ratchet and the levers — written once as closures so an
         # arm cannot drift from the baseline by an editing accident. Each
@@ -663,11 +679,12 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
             # Advances ext/mfe/trail over ONE window — a leg bar in arm A,
             # a sub-bar in B/C. `ext_j` stays a LEG-bar index so the
             # stall-armed decay keeps counting in the strategy's own bars.
-            nonlocal ext, ext_j, trail, mfe
+            nonlocal ext, ext_j, trail, mfe, mom_tightened
+            _trail_prev = trail
             if direction == "long":
                 if h > ext:
                     ext, ext_j = h, j
-                trail = max(trail, ext - _vol_tm(_eff_tm(ext, ext_j, j), j) * atr)
+                trail = max(trail, ext - _tm(ext, ext_j, j) * atr)
                 mfe = max(mfe, (ext - entry) / risk)
                 # MI-165 break-even FLOOR (0 = off, byte-identical). Once the
                 # trade has SEEN >= be_floor_r R, the stop may never again sit
@@ -681,11 +698,16 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
             else:
                 if lo < ext:
                     ext, ext_j = lo, j
-                trail = min(trail, ext + _vol_tm(_eff_tm(ext, ext_j, j), j) * atr)
+                trail = min(trail, ext + _tm(ext, ext_j, j) * atr)
                 mfe = max(mfe, (entry - ext) / risk)
                 # MI-165 break-even FLOOR — short side; `min()` tightens here.
                 if be_floor_r > 0.0 and mfe >= be_floor_r:
                     trail = min(trail, entry)
+            # momentum_trail attribution: was the stop last moved on a bar the
+            # ADX condition fired on?
+            if mom_trail_on and trail != _trail_prev:
+                mom_tightened = momentum_trail_fired(
+                    adx_series, j, trail_adx_below, trail_adx_falling_bars)
 
         def _levers(px: float):
             nonlocal rr_min
@@ -705,6 +727,12 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
             if (stale_exit_bars is not None and (j - i) >= stale_exit_bars
                     and o_r < stale_exit_below_r):
                 return px, "stale_stop"
+            # MOMENTUM-TRAIL-LEVER `momentum_stale` (off = byte-identical): time
+            # stop keyed to ADX decay, not open R. After stale, before rr_floor.
+            if mom_stale_on and momentum_stale_fires(
+                    adx_series, j, i, momentum_stale_bars,
+                    momentum_stale_adx_below):
+                return px, "momentum_stale"
             # M31 P5 rr_floor. LAST in the precedence chain, so composing it
             # with an already-declared lever cannot re-grade that lever's own
             # recorded verdict.
@@ -754,6 +782,9 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
             # be pre-empted (stop-first stays conservative because the levers
             # only ever fire at the close of a bar the stop did NOT hit).
             bc = float(df["close"].iloc[j])
+            if mom_trail_on:
+                mom_fired_bars += int(momentum_trail_fired(
+                    adx_series, j, trail_adx_below, trail_adx_falling_bars))
             if flip_exit_bars is not None:
                 bar_mid = df["mid"].iloc[j]
                 if not pd.isna(bar_mid):
@@ -844,6 +875,8 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
             outcome=exit_reason, r_multiple=round(r, 4), mfe_r=round(mfe, 3),
             confidence=confidence, adx_at_entry=adx_at_entry,
             regime_weight=round(regime_weight, 4),
+            mom=_mom_attribution(adx_series, i, exit_idx, mom_fired_bars,
+                                 mom_tightened) if mom_any else None,
             **({} if _tpt is None else dict(
                 final_target_r=_tpt.final_target_r, n_extends=_tpt.n_extends,
                 n_retargets=_tpt.n_retargets, tp_exit_r=round(_tp_exit_r, 4)))))
@@ -891,6 +924,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                     "exit_time": str(t.exit_time),
                     "mfe_r": t.mfe_r,
                     "exit_reason": t.outcome,
+                    **(t.mom or {}),
                     **(_tpg_row(t) if tp_geom.armed else {})}, default=str) + "\n")
     params: Dict[str, Any] = {"trend_lookback": trend_lookback,
                               "pullback_lookback": pullback_lookback,
@@ -917,6 +951,15 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         params["stale_exit_below_r"] = stale_exit_below_r
     if rr_floor_on:
         params["rr_floor"] = rr_floor
+    if mom_trail_on:
+        params["trail_adx_below"] = trail_adx_below
+        params["trail_adx_falling_bars"] = trail_adx_falling_bars
+        params["trail_adx_tight_mult"] = trail_adx_tight_mult
+        params["adx_period"] = adx_period
+    if mom_stale_on:
+        params["momentum_stale_bars"] = momentum_stale_bars
+        params["momentum_stale_adx_below"] = momentum_stale_adx_below
+        params["adx_period"] = adx_period
     if flip_exit_bars is not None:
         params["flip_exit_bars"] = flip_exit_bars
     if bank_frac > 0.0:
@@ -961,6 +1004,16 @@ def _tpg_row(t: "Trade") -> Dict[str, Any]:
     """The TP-geometry fields of one trade (only emitted when a lever is armed)."""
     return {"final_target_r": t.final_target_r, "n_extends": t.n_extends,
             "n_retargets": t.n_retargets, "exit_r": t.tp_exit_r}
+
+
+def _mom_attribution(adx_series, entry_i: int, exit_idx: int, fired_bars: int,
+                     tightened: bool) -> Dict[str, Any]:
+    """Per-trade momentum-lever attribution (emitted only when a lever is armed)."""
+    def _at(k):
+        v = adx_series.iloc[k]
+        return None if pd.isna(v) else round(float(v), 4)
+    return {"trail_adx_fired_bars": fired_bars, "trail_adx_tightened": tightened,
+            "adx_entry_bar": _at(entry_i), "adx_at_exit": _at(exit_idx)}
 
 
 def _cost_breakdown(t: Trade) -> Dict[str, float]:
@@ -1272,6 +1325,24 @@ def main(argv: List[str]) -> int:
     p.add_argument("--trail-vol-tight-mult", type=float, default=0.0,
                    help="The tightened trail mult while the vol condition fires "
                         "(0 disables the lever).")
+    p.add_argument("--trail-adx-below", type=float, default=0.0,
+                   help="MOMENTUM-TRAIL-LEVER `momentum_trail` (0=off, "
+                        "byte-identical): tighten the trail mult to "
+                        "--trail-adx-tight-mult on bars where ADX < this.")
+    p.add_argument("--trail-adx-falling-bars", type=int, default=0,
+                   help="momentum_trail: also (AND) require ADX_j < ADX_{j-k}. "
+                        "0 = no falling test. Alone (with --trail-adx-below 0) "
+                        "it is the falling-only condition.")
+    p.add_argument("--trail-adx-tight-mult", type=float, default=0.0,
+                   help="The tightened trail mult while the momentum condition "
+                        "fires (0 disables the lever; must be < --trail-mult).")
+    p.add_argument("--momentum-stale-bars", type=int, default=0,
+                   help="MOMENTUM-TRAIL-LEVER `momentum_stale` (0=off, "
+                        "byte-identical): close at bar CLOSE after N bars once "
+                        "ADX < ADX at entry and ADX < --momentum-stale-adx-below, "
+                        "regardless of open R.")
+    p.add_argument("--momentum-stale-adx-below", type=float, default=0.0,
+                   help="See --momentum-stale-bars (0 disables the lever).")
     p.add_argument("--subbar-data",
                    help="Finer OHLCV frame for the intrabar exit-evaluation arms "
                         "(docs/live-exit-monitor-cadence-DESIGN.md § 4). Entries stay "
@@ -1328,6 +1399,14 @@ def main(argv: List[str]) -> int:
     # BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP
     # (kept on ONE line: a wrapped tracking id resolves to no filed row).
     # Refusing costs one command line; a silent inert row costs a wrong verdict.
+    _mom_errs = momentum_flag_errors(
+        args.trail_mult, args.trail_adx_below, args.trail_adx_falling_bars,
+        args.trail_adx_tight_mult, args.momentum_stale_bars,
+        args.momentum_stale_adx_below)
+    if _mom_errs:
+        for _e in _mom_errs:
+            print(f"ERROR: {_e}", file=sys.stderr)
+        return 2
     if args.rr_floor > 0.0 and args.tp_cap_pct <= 0.0:
         print("ERROR: --rr-floor requires --tp-cap-pct > 0 (production uses "
               "0.099). Without a capped TP there is no r_to_target, so the "
@@ -1430,6 +1509,11 @@ def main(argv: List[str]) -> int:
                        trail_vol_above_pctl=args.trail_vol_above_pctl,
                        trail_vol_below_pctl=args.trail_vol_below_pctl,
                        trail_vol_tight_mult=args.trail_vol_tight_mult,
+                       trail_adx_below=args.trail_adx_below,
+                       trail_adx_falling_bars=args.trail_adx_falling_bars,
+                       trail_adx_tight_mult=args.trail_adx_tight_mult,
+                       momentum_stale_bars=args.momentum_stale_bars,
+                       momentum_stale_adx_below=args.momentum_stale_adx_below,
                        side_filter=args.side_filter,
                        tp_geometry=args.tp_geometry,
                        subbar_df=subbar_df,

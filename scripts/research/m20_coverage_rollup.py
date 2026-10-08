@@ -293,6 +293,7 @@ GEOMETRY_LIVE_PARITY = "live_parity"
 GEOMETRY_SENSITIVE_LEVERS = frozenset({
     "trail_geometry", "stale_stop", "giveback_stop", "trail_decay",
     "vol_trail", "exit_ladder", "regime_flip_exit", "exit_head_ml",
+    "momentum_trail", "momentum_stale",
     # `bracket_geometry` (2026-08-20) is not a ninth lever but it belongs here
     # for the strongest possible reason: it SWEEPS the take-profit, so a cell
     # measured before the harness could place the live capped TP is not merely
@@ -718,7 +719,7 @@ CORPUS_HARNESS_UNFIXED = "harness_never_modelled_the_tp"
 # to say it rather than let someone discover it at the console.
 COLUMNS_WITH_A_SWEEP_PRODUCER = frozenset({
     "stale_stop", "giveback_stop", "trail_decay", "vol_trail",
-    "trail_geometry",
+    "trail_geometry", "momentum_trail", "momentum_stale",
 })
 # Declared rather than introspected, because regexing `cells_for`'s source for
 # lever literals is a probe adjacent to the question. Kept honest by a test
