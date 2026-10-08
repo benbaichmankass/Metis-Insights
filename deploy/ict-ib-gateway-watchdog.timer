@@ -21,8 +21,10 @@
 # ============================================
 
 [Unit]
+# NO Requires= on the service this timer fires: it made every timer restart run
+# an extra probe off the 5-min cadence (IB-GATEWAY-DOWN, 2026-10-08;
+# tests/ops/test_timer_no_requires_on_service.py).
 Description=ICT IB Gateway watchdog — reactive probe + bounded auto-restart (~5 min)
-Requires=ict-ib-gateway-watchdog.service
 
 [Timer]
 # Reactive cadence: first probe 3 min after boot, then every 5 min. Bounded

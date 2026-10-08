@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Manager dispatch for lane IB-GATEWAY-DOWN: landing hold, the manager merges under the standing data-backed authorization, then the lane dispatches the deploy to the gateway VM and observes one timer restart.",
+  "why": "Removes Requires=<own service> from the two ib-gateway timers (deploy/ict-ib-gateway-reset.timer, deploy/ict-ib-gateway-watchdog.timer). Evidence: gateway-forensics #17104 showed ict-ib-gateway-reset.service (a docker restart of ib-gateway) ran at every deploy-time timer restart, not only at 06:05. Tier 2 by effect (systemd timer unit on the gateway VM). Adds a ratchet test so no timer can newly declare Requires= on the service it fires. Revert: restore the single line in each timer file."
+}
