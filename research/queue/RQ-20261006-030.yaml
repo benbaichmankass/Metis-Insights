@@ -1,6 +1,6 @@
 id: RQ-20261006-030
 title: 'Stage-0 backtest for a FASTER prop leg: squeeze harness on SPY 1h (PI-20261006-APBY4NTV-0001 slice 1)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -74,9 +74,9 @@ grading:
   - research/results/RQ-20261006-030/37660124143.jsonl
   first_fail: 2 row(s), all measured, all fail (2 earlier producer_failed / re-graded wiring_only row(s)
     superseded)
-  graded_at: '2026-10-07'
+  graded_at: '2026-10-08'
   grader: scripts/research/queue_grade.py
-  note: 'first FAIL: re-queued for a confirmatory run (last_dispatched_at reset), not killed'
-  reason: 2 row(s), all measured, all fail (2 earlier producer_failed / re-graded wiring_only row(s) superseded)
+  note: two consecutive FAIL passes; closed as fail (never on one pass)
+  reason: 2 row(s), all measured, all fail
   rows: 2
   verdict: fail

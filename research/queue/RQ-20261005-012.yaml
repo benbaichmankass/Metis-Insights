@@ -70,7 +70,7 @@ grading:
   evidence:
   - research/results/RQ-20261005-012/37634854684.jsonl
   - research/results/RQ-20261005-012/37643678140.jsonl
-  graded_at: '2026-10-07'
+  graded_at: '2026-10-08'
   grader: scripts/research/queue_grade.py
   needs_review: true
   reason: 'verdicts not unanimous-mechanical: [''wiring_only'']'
