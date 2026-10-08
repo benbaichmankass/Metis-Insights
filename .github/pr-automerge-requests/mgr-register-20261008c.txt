@@ -1,0 +1,1 @@
+auto-merge: manager register batch (Tier 1, docs only)
