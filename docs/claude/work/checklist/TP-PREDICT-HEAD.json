@@ -1,0 +1,18 @@
+{
+  "id": "TP-PREDICT-HEAD",
+  "title": "ML head that predicts move extent, to give legs a real predictive take-profit (TP doctrine: 0 of 52 routings compliant)",
+  "phase": null,
+  "state": "queued",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 3,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-08T06:55Z manager] Manager proposal accepted onto the roadmap 2026-10-08. After research; eng backlog by capacity.",
+  "updated_at": "2026-10-08T06:54:19Z",
+  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "_seq": 352
+}

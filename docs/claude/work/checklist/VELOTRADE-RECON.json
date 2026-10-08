@@ -2,17 +2,24 @@
   "id": "VELOTRADE-RECON",
   "title": "dxtrade_api adapter: read_trade_history so velotrade_1 close reconciliation reads the venue instead of falling back",
   "phase": "W6",
-  "state": "in_flight",
+  "state": "landed_unproven",
   "owner": "lane VELOTRADE-RECON",
   "lane": "session_01DZSAXAAYAWhKdcWpbhwthS",
   "model": "claude-sonnet-5-5",
   "ceiling_usd": 20,
-  "spend_usd": null,
+  "spend_usd": 6.44,
   "tier": 2,
   "prs": [
     16978
   ],
   "blocked_on": [],
-  "note": "[2026-10-07T19:05Z manager] PR #16978 held Tier-2: DXtradeApiAdapter.read_trade_history (GET orders/history -> Trade History row shape) + read-only system-action velotrade-trade-history-read. Live read not yet possible (action not on main). After merge: dispatch the action once; parsed_rows must show the 2026-10-06 ~10:18Z ETHUSD 0.01 BUY+SELL; pnl never fabricated. PI-20261007-WPBHWTHS-0001. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261006-ZRM27CBW-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+  "note": "[2026-10-07T19:05Z manager] PR #16978 held Tier-2: DXtradeApiAdapter.read_trade_history (GET orders/history -> Trade History row shape) + read-only system-action velotrade-trade-history-read. Live read not yet possible (action not on main). After merge: dispatch the action once; parsed_rows must show the 2026-10-06 ~10:18Z ETHUSD 0.01 BUY+SELL; pnl never fabricated. PI-20261007-WPBHWTHS-0001. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261006-ZRM27CBW-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator. [2026-10-08T06:55Z manager] OPERATOR \"OK all five\" (Tier-2 batch): merged 05:0xZ, lane archived; deploy rides git-sync.",
+  "updated_at": "2026-10-08T06:54:57Z",
+  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "observation": {
+    "what": "the first velotrade_1 close after #16978 deploy is reconciled from venue trade history (journal close carries the venue exit price/time, read via velotrade-trade-history-read)",
+    "how_to_check": "GET /api/bot/prop/fills?account_id=velotrade_1 newest close row + the read-only system-action velotrade-trade-history-read",
+    "due_by": "2026-10-21T00:00Z"
+  },
   "_seq": 318
 }
