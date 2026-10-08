@@ -2,17 +2,24 @@
   "id": "ML-DATASET-FIXES",
   "title": "ML hygiene: setup_labels killzone/bias 100% NaN at build; conviction-meta manifest stale optional; registry 97 files vs 96 models; calibrator in-sample ECE + coverage report; trainer-vm-diag YAML block pitfall",
   "phase": null,
-  "state": "in_flight",
+  "state": "landed_unproven",
   "owner": "manager",
   "lane": "session_01JtCi7hLsC5PQn1TAHZ25Uu",
   "model": "claude-sonnet-5-5",
   "ceiling_usd": 12,
-  "spend_usd": null,
+  "spend_usd": 1.55,
   "tier": 1,
-  "prs": [],
+  "prs": [
+    17137
+  ],
   "blocked_on": [],
-  "note": "[2026-10-08T06:55Z manager] From ml-review 2026-10-04 experiments/anomalies. Supersedes the never-dispatched ML-HYGIENE scope where they overlap. Eng backlog by capacity. [2026-10-08T13:51Z manager] Dispatched as serial-queue item 4: lane session_01JtCi7hLsC5PQn1TAHZ25Uu, Sonnet, $12, ONE question: root-cause + fix setup_labels killzone/bias 100% NaN at build, with a coverage test. Other hygiene items on this row stay queued.",
-  "updated_at": "2026-10-08T13:51:25Z",
+  "note": "[2026-10-08T06:55Z manager] From ml-review 2026-10-04 experiments/anomalies. Supersedes the never-dispatched ML-HYGIENE scope where they overlap. Eng backlog by capacity. [2026-10-08T13:51Z manager] Dispatched as serial-queue item 4: lane session_01JtCi7hLsC5PQn1TAHZ25Uu, Sonnet, $12, ONE question: root-cause + fix setup_labels killzone/bias 100% NaN at build, with a coverage test. Other hygiene items on this row stay queued. [2026-10-08T14:55Z manager] Root cause (lane): _log_trade_to_journal in src/units/accounts/execute.py never wrote killzone/bias into trades, so setup_labels read 100% NaN; the builder is correct. Fix #17137 (5 lines + test) MERGED d024e84e2 by the manager under the standing data-backed Tier-2/3 authorization (additive journal columns, every producer emits str, test fails without the fix). Revert: revert d024e84e2. Lane ARCHIVED, final $1.55. Limits: new rows only; only vwap confirmed to emit both; no retrain/promotion. Remaining hygiene items on this row (conviction-meta stale optionals, registry 97 vs 96, calibrator ECE, trainer-vm-diag YAML pitfall) move to ML-HYGIENE (queue #11).",
+  "updated_at": "2026-10-08T14:53:12Z",
   "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "observation": {
+    "what": "New trades rows written after the #17137 deploy carry non-NULL killzone/bias where the signal meta has them (vwap legs at minimum), and a setup_labels build over rows after the deploy shows killzone/bias coverage > 0%.",
+    "how_to_check": "bash scripts/ops/diag_fetch.sh version (git_sha includes d024e84e2, restart_pending false); then a journal diag query: SELECT strategy_name, COUNT(*), SUM(killzone IS NOT NULL AND killzone<>\"\") FROM trades WHERE timestamp > <deploy time> GROUP BY 1.",
+    "due_by": "2026-10-15"
+  },
   "_seq": 354
 }
