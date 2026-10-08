@@ -2,17 +2,17 @@
   "id": "MANAGER-SKILL-LANDING",
   "title": "Record the lane-landing rule in the manager skill: Tier-1 lanes self-land when the classifier allows; when refused they report in one line and the manager lands",
   "phase": "W6",
-  "state": "in_flight",
+  "state": "done",
   "owner": "lane MANAGER-SKILL-LANDING",
   "lane": "session_01B1fGwYEXcE5edSy8mDW1UQ",
   "model": "claude-haiku-4-5-20251001",
   "ceiling_usd": 5,
-  "spend_usd": null,
+  "spend_usd": 2.27,
   "tier": 1,
   "prs": [
     16942
   ],
   "blocked_on": [],
-  "note": "[2026-10-08T02:03Z manager] #16942 guards RED on pr-landing: landing/automerge files named manager-skill-landing-1007 while the slug is manager-skill-landing-2026-10-07, and `why` was empty (R3). Manager renamed both files and wrote the why (b3fd20953); auto-merge armed. || [2026-10-07T18:55Z manager] PR #16942 auto-merging. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-KX6ZKFNA-0005. Manager decision 2026-10-07 18:20Z (closes PI-20261006-KX6ZKFNA-0005): no permissions.allow change; the existing practice is the rule. One paragraph in .claude/skills/manager/SKILL.md \u00a7 Spawning, plus the canonical-doc coherence guard green. Haiku, auto.",
+  "note": "[2026-10-08T04:40Z manager] #16942 MERGED 03:46Z (6832e1b20) after the manager fixed its landing slug and why; lane archived, FINAL spend $2.27. || [2026-10-08T02:03Z manager] #16942 guards RED on pr-landing: landing/automerge files named manager-skill-landing-1007 while the slug is manager-skill-landing-2026-10-07, and `why` was empty (R3). Manager renamed both files and wrote the why (b3fd20953); auto-merge armed. || [2026-10-07T18:55Z manager] PR #16942 auto-merging. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-KX6ZKFNA-0005. Manager decision 2026-10-07 18:20Z (closes PI-20261006-KX6ZKFNA-0005): no permissions.allow change; the existing practice is the rule. One paragraph in .claude/skills/manager/SKILL.md \u00a7 Spawning, plus the canonical-doc coherence guard green. Haiku, auto.",
   "_seq": 310
 }

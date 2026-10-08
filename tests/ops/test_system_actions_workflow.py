@@ -300,6 +300,8 @@ EXPECTED_ACTIONS = {
     "velotrade-api-probe": "velotrade_api_probe_action.sh",
     # 2026-10-05 — ONE REST round trip on velotrade_1, dry unless apply=live (VELOTRADE-API-EXEC).
     "velotrade-api-roundtrip": "velotrade_api_roundtrip_action.sh",
+    # 2026-10-07 — READ-ONLY REST trade-history read (VELOTRADE-RECON).
+    "velotrade-trade-history-read": "velotrade_trade_history_read_action.sh",
     # 2026-06-30 — clear the daily_risk_state row for one account so
     # INTRADAY_DRAWDOWN counters reset without a full service restart.
     "reset-daily-risk-state": "reset_daily_risk_state.sh",
@@ -433,6 +435,7 @@ TIER_2_ACTIONS = {
     "egress-landing-probe",
     "velotrade-api-probe",
     "velotrade-api-roundtrip",
+    "velotrade-trade-history-read",
     "reset-daily-risk-state",
     "repair-malformed-notes",
     "repair-netted-rows",

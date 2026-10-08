@@ -91,8 +91,14 @@ def emit_prop_signal(ticket: Ticket, *, push: bool = True, telegram: bool = True
             # The buttons ARE the primary report-back; the JSON block in the text
             # stays as a fallback. Only when we have a ticket_id to key the
             # callback on.
+            #
+            # A machine-executed account (REST / phone) gets NO keyboard: its
+            # tickets are placed and reported by its executor, and a tap would
+            # pull the ticket out of that executor's intake (operator directive
+            # 2026-10-07: "the prop accounts should have their own separate flow
+            # that isn't contaminated by the telegram channels activity").
             reply_markup = None
-            if ticket_id:
+            if ticket_id and not _machine_executed(account_id):
                 from src.prop.prop_expiry_prompt import build_place_decision_keyboard
 
                 reply_markup = build_place_decision_keyboard(ticket_id)
@@ -111,6 +117,20 @@ def emit_prop_signal(ticket: Ticket, *, push: bool = True, telegram: bool = True
             logger.warning("emit_prop_signal: telegram send failed: %s", exc)
 
     return out
+
+
+def _machine_executed(account_id: Optional[str]) -> bool:
+    """True for a machine-executed (REST, phone or browser) prop account (Telegram is notify-only
+    for it). An unreadable platform file reads as manual (keyboard kept)."""
+    if not account_id:
+        return False
+    try:
+        from src.prop.platform import MACHINE_FLOWS, ticket_flow
+
+        return ticket_flow(account_id) in MACHINE_FLOWS
+    except Exception as exc:  # noqa: BLE001 — fall back to the manual bridge
+        logger.warning("breakout_notify: platform read failed for %s: %s", account_id, exc)
+        return False
 
 
 def _prop_bot_token() -> Optional[str]:
@@ -368,6 +388,55 @@ def emit_prop_expiry_prompt(ticket: Dict[str, Any], *,
         ))
     except Exception as exc:  # noqa: BLE001 — notification never fatal
         logger.warning("emit_prop_expiry_prompt: send failed for %s: %s",
+                       ticket_id, exc)
+        return False
+
+
+def render_expiry_notice_message(ticket: Dict[str, Any]) -> str:
+    """Body for the manual-account expiry NOTICE: the ticket is already recorded
+    as not placed (operator directive 2026-10-07), so this informs; the one
+    button is only for a late "I did place it"."""
+    sym = ticket.get("symbol") or "?"
+    direction = str(ticket.get("direction") or "").upper()
+    account = ticket.get("account_id") or "prop"
+    valid_until = ticket.get("valid_until") or "?"
+    return (
+        f"⏰ PROP TICKET EXPIRED — {sym} {direction} [{account}]\n"
+        f"entry {_fmt(ticket.get('entry'))} · SL {_fmt(ticket.get('sl'))} · "
+        f"TP {_fmt(ticket.get('tp'))} · qty {_fmt(ticket.get('qty'))}\n"
+        f"valid until {valid_until} (now past).\n"
+        "No trade was logged, so it is recorded as NOT placed and the next "
+        "signal for this symbol will ticket normally.\n"
+        "If you did place it, tap below or paste the fill with its ticket id."
+    )
+
+
+def emit_prop_expiry_notice(ticket: Dict[str, Any], *,
+                            telegram: bool = True) -> bool:
+    """Tell the operator a MANUAL-account ticket expired and is recorded as not
+    placed, with one "✅ I did place it" button (``propexp:y`` →
+    ``awaiting_report`` + the report prompt). Returns ``True`` only on a
+    confirmed send; the caller gates the ``expired`` write on it so a failed
+    send retries next tick (the still-``emitted`` ticket already blocks nothing
+    once its validity passed). Best-effort + isolated."""
+    if not telegram:
+        return False
+    ticket_id = str(ticket.get("ticket_id") or "")
+    if not ticket_id:
+        return False
+    try:
+        from src.prop.prop_expiry_prompt import build_late_fill_keyboard
+        from src.runtime.notify import send_telegram_direct
+
+        return bool(send_telegram_direct(
+            render_expiry_notice_message(ticket),
+            parse_mode=None,
+            mirror_to_fcm=False,
+            bot_token=_prop_bot_token(),
+            reply_markup=build_late_fill_keyboard(ticket_id),
+        ))
+    except Exception as exc:  # noqa: BLE001 — notification never fatal
+        logger.warning("emit_prop_expiry_notice: send failed for %s: %s",
                        ticket_id, exc)
         return False
 

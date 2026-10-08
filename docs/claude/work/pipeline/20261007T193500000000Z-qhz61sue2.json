@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261007-QHZ61SUE-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-FLOW-SEPARATION session_01QhZ61suEMNrBnDGq8XWqDR, 2026-10-07 (seen while running the prop test selection)",
+    "rerun": "python3 -m pytest -q tests/test_prop_instrument_info_probe.py::test_tick_docstring_names_the_latch_exception"
+  },
+  "state": "queued",
+  "what": "tests/test_prop_instrument_info_probe.py::test_tick_docstring_names_the_latch_exception FAILS on origin/main 24bd1bf2 (MEASURED 2026-10-07 by stashing all lane changes): it asserts scripts/prop/prop_executor_tick.py::resolve_mode.__doc__ contains \"writes the executor's\\n    AUTO-REVERT ``halted`` latch\", and the current docstring no longer has that text. Either the docstring lost a load-bearing sentence or the test is stale; read `git log -p scripts/prop/prop_executor_tick.py` (deepen first) and restore whichever is wrong. Not fixed in the lane: out of scope, and neighbouring lanes touch the executor tick."
+}

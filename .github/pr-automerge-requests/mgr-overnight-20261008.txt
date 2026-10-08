@@ -1,0 +1,1 @@
+auto-merge: manager register batch 2026-10-08 overnight (Tier 1, docs only)
