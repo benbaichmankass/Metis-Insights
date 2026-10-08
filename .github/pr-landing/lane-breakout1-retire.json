@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-3 roster change, operator-approved 2026-10-07 (popup in manager session_01MM8o5js6TcDFeNAPBY4Ntv), verbatim: \"Dead: clear its roster, retire the row (Recommended)\". MEASURED: breakout_1 balance = equity $4,698.00 vs the $4,700 static-drawdown floor since 2026-10-04; mode dry_run since 2026-10-05 (#16568); executor latched since 2026-10-04 03:49Z; breakout_2 is the live Breakout account. This PR sets config/accounts.yaml breakout_1 strategies to [] only (no order flow changes: dry_run already emitted no ticket); breakout_2 and every other account are untouched. Revert: git revert of the merge commit.",
+  "why": "BREAKOUT1-RETIRE: breakout_1 is breached and dead; clearing its roster retires the row without touching breakout_2."
+}
