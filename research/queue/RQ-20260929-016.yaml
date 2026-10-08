@@ -63,7 +63,7 @@ generated:
     leg: gdx_pullback_1d
     symbol: GDX
     timeframe: 1d
-last_dispatched_at: '2026-10-01T01:25:42+00:00'
+last_dispatched_at: '2026-10-08T03:51:53+00:00'
 grading:
   auto: true
   decision_rule_id: RULE-TPL-ROSTER-WALKFORWARD-NET-OF-COST
