@@ -1,6 +1,6 @@
 {
  "_doc": "M20 exit-refinement coverage matrix — one row per strategy leg. THE milestone's done-condition: every live leg carries a verdict per lever column (shipped / honest_negative / pending / blocked:<reason>). Update in the SAME PR as any verdict-producing work (binding per .claude/skills/exit-refinement). Statuses only from verified evidence (memo/sprint-log/PR refs) — never inferred. ROWS ARE ONE LEG EACH as of 2026-08-09 (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS): bundled rows carried ONE status for a whole family, so the status described only the leg that passed and the roll-up over-counted `shipped`. Exploded rows carry `exploded_from`. The `shadow fleet` row is deliberately NOT exploded — its label does not enumerate its legs and it is execution:shadow, outside the live-leg done-condition. DO NOT ADD A NEW BUNDLED ROW. ⚠️ EVERY `exit_head_ml` VERDICT IN THIS MATRIX WAS MEASURED UNDER AN ORDER-DEPENDENT TIE-BREAK (BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER, 2026-08-15). The E1 fold sort is stable and keyed on entry time alone, so trades sharing a bar inherit the order their legs were passed on the command line; on a pooled family every leg entering on the same bar ties. Measured: the same 7 legs in two orders gave identical trade counts, rows and fold shape, yet 8 of 43 folds differed, mean_auc moved up to 0.0331, and two legs lost a usable fold. 27 of the 33 committed rounds are multi-leg `family_pooled` and so exposed; `per_leg` rounds are immune. NO STATUS HERE HAS BEEN RE-GRADED ON THIS — both orders are equally valid and the AUC term is one of four in the gate, so this is a caveat on provenance, NOT a claim that any cell is wrong. `train_exit_head.py --total-sort` fixes it and is DEFAULT-OFF pending an operator-approved re-measure; rounds now stamp `total_sort` so re-measured and legacy rows stay distinguishable.",
- "updated_at": "2026-10-02",
+ "updated_at": "2026-10-07",
  "lever_columns": [
   "trail_geometry",
   "stale_stop",
@@ -10,7 +10,9 @@
   "trail_decay",
   "regime_flip_exit",
   "vol_trail",
-  "bracket_geometry"
+  "bracket_geometry",
+  "tp_extend",
+  "tp_retarget"
  ],
  "legend": {
   "shipped": "validated + live (ref = PR/date)",
@@ -84,6 +86,14 @@
     "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `sm2` — path_b_wf_pass, wf_wins_effective 5/6, d_net_r +21.7770, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -145,6 +155,14 @@
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-20, three generations back. 1 cell(s) DID clear the gate on this run but every one carries a timeout axis and is unshippable by construction (BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES), so the verdict stands for the shippable surface. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -206,6 +224,14 @@
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-20, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -267,7 +293,15 @@
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    },
-   "execution_note": "DEMOTED live -> shadow 2026-08-23 (Tier-3, operator-approved) on a four-axis tune-before-demote discharge: tp_r, atr_stop_mult, adx_min and trail_mult each swept over 13,212 BTCUSDT 2h bars and NO value on ANY axis both beat the baseline and stayed train/OOS-consistent; baseline OOS net_R -13.933. This row leaves the M20 LIVE denominator -- the milestone's done-condition is 'every live leg is processed', so a demoted leg is out of scope, NOT an unprocessed cell."
+   "execution_note": "DEMOTED live -> shadow 2026-08-23 (Tier-3, operator-approved) on a four-axis tune-before-demote discharge: tp_r, atr_stop_mult, adx_min and trail_mult each swept over 13,212 BTCUSDT 2h bars and NO value on ANY axis both beat the baseline and stayed train/OOS-consistent; baseline OOS net_R -13.933. This row leaves the M20 LIVE denominator -- the milestone's done-condition is 'every live leg is processed', so a demoted leg is out of scope, NOT an unprocessed cell.",
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
+   }
   },
   {
    "strategy": "eth_pullback_2h",
@@ -332,6 +366,14 @@
     "tp_geometry": "live_parity",
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): ⚠️ this leg's BEST validated cell is `tp2_sm3.5_to48 (wf 6/6)`, which prescribes a bar-count timeout live cannot express — it is NOT what a shipment here would declare. The shippable winner is `sm3.5 (wf 5/6)`. Status stays `passed_unshipped` because a deliverable cell does stand; do not ship the headline number."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -397,6 +439,14 @@
     "status": "blocked:no_dispersion_band",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `blocked:no_dispersion_band` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-20, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "tp_geometry": "live_parity"
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -462,6 +512,14 @@
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-20, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT -- queued as RQ-20261007-001."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -527,6 +585,14 @@
     "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `tp4` — wf_pass, wf_wins_effective 4/6, d_net_r +12.8231, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT -- queued as RQ-20261007-001."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -584,6 +650,14 @@
     "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `sm2` — path_b_wf_pass, wf_wins_effective 4/6, d_net_r +1.0084, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -650,6 +724,14 @@
     "tp_geometry": "live_parity",
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): ⚠️ this leg's BEST validated cell is `tp4_sm3_to48 (wf 6/6)`, which prescribes a bar-count timeout live cannot express — it is NOT what a shipment here would declare. The shippable winner is `sm3.5 (wf 4/6)`. Status stays `passed_unshipped` because a deliverable cell does stand; do not ship the headline number."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT -- queued as RQ-20261007-002."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -711,6 +793,14 @@
     "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `sm2` — path_b_wf_pass, wf_wins_effective 6/6, d_net_r +28.7348, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT -- queued as RQ-20261007-001."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -772,6 +862,14 @@
     "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `sm1.5` — path_b_wf_pass, wf_wins_effective 5/6, d_net_r +27.7150, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -834,6 +932,14 @@
     "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `tp3_sm2` — path_b_wf_pass, wf_wins_effective 5/6, d_net_r +5.2067, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT -- queued as RQ-20261007-001."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -894,6 +1000,14 @@
     "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `sm2` — path_b_wf_pass, wf_wins_effective 5/6, d_net_r +11.2514, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -955,6 +1069,14 @@
     "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `sm1.5` — path_b_wf_pass, wf_wins_effective 5/6, d_net_r +12.4095, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -1005,6 +1127,14 @@
    "bracket_geometry": {
     "status": "blocked:dispersion_refused",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `blocked:dispersion_refused` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-20, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history."
+   },
+   "tp_extend": {
+    "status": "blocked:no_harness_levers",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the --tp-* levers exist on backtest_trend / backtest_pullback / backtest_ict_scalp only; family 'squeeze' (squeeze_breakout_4h) has no harness lever for a moving target."
+   },
+   "tp_retarget": {
+    "status": "blocked:no_harness_levers",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the --tp-* levers exist on backtest_trend / backtest_pullback / backtest_ict_scalp only; family 'squeeze' (squeeze_breakout_4h) has no harness lever for a moving target."
    }
   },
   {
@@ -1052,6 +1182,14 @@
    "bracket_geometry": {
     "status": "pending",
     "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
+   },
+   "tp_extend": {
+    "status": "blocked:no_harness_levers",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the --tp-* levers exist on backtest_trend / backtest_pullback / backtest_ict_scalp only; family 'fvg' (fvg_range_15m) has no harness lever for a moving target."
+   },
+   "tp_retarget": {
+    "status": "blocked:no_harness_levers",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the --tp-* levers exist on backtest_trend / backtest_pullback / backtest_ict_scalp only; family 'fvg' (fvg_range_15m) has no harness lever for a moving target."
    }
   },
   {
@@ -1107,6 +1245,14 @@
     "ref": "BLOCKED 2026-08-29: EVERY cell that passed this leg's gate prescribes a bar-count timeout (best `tp1_sm2_to24`), and NO live unit implements one — `timeout_bars` is read only by `fvg_range_15m.py` and `fade_breakout_4h.py`, each from its own `_DEFAULTS`, with no generic reader. So no `config/strategies.yaml` change can deliver this verdict; it is not awaiting approval. Giving live a bar-count exit is a Tier-3 order-path change (`BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES`). || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp1_sm2_to24** (path B) passed: d_net_R 1.0387, walk-forward 4/6 effective wins (0 inert). 1 of 1 gate-passing cell(s) on this leg survive the inert-fold check.",
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN, so the verdict itself is sound — it is the CELL that is undeliverable, not the measurement that is wrong."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -1171,6 +1317,14 @@
     "ref": "SHIPPED 2026-08-29 as cell `tp6_sm1.5` — M20 B4, PR #10419 (merged `91de68b9`), Tier-3 operator-approved; the declared `tp_r`/`atr_stop_mult` carry the cell id inline in `config/strategies.yaml`. || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp6_sm1.5** (path B) passed: d_net_R 3.8246, walk-forward 4/6 effective wins (0 inert). 1 of 1 gate-passing cell(s) on this leg survive the inert-fold check.",
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -1234,6 +1388,14 @@
     "status": "honest_negative",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -1288,6 +1450,14 @@
     "ref": "SHIPPED 2026-08-29 as cell `tp2_sm1.5` — M20 B4, PR #10419 (merged `91de68b9`), Tier-3 operator-approved; the declared `tp_r`/`atr_stop_mult` carry the cell id inline in `config/strategies.yaml`. || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp2_sm1.5** (path B) passed: d_net_R 8.1565, walk-forward 5/6 effective wins (0 inert). 1 of 2 gate-passing cell(s) on this leg survive the inert-fold check.",
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -1344,6 +1514,14 @@
     "ref": "SHIPPED 2026-08-29 as cell `tp3_sm2` — M20 B4, PR #10419 (merged `91de68b9`), Tier-3 operator-approved; the declared `tp_r`/`atr_stop_mult` carry the cell id inline in `config/strategies.yaml`. || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp3_sm2** (path B) passed: d_net_R 6.1948, walk-forward 5/6 effective wins (0 inert). 2 of 2 gate-passing cell(s) on this leg survive the inert-fold check.",
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -1402,6 +1580,14 @@
    "bracket_geometry": {
     "status": "blocked:no_free_lane_candle_feed",
     "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -1453,6 +1639,14 @@
    "bracket_geometry": {
     "status": "blocked:no_free_lane_candle_feed",
     "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -1508,6 +1702,14 @@
     "ref": "SHIPPED 2026-08-29 as cell `tp3_sm2` — M20 B4, PR #10419 (merged `91de68b9`), Tier-3 operator-approved; the declared `tp_r`/`atr_stop_mult` carry the cell id inline in `config/strategies.yaml`. || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp3_sm2** (path B) passed: d_net_R 4.0387, walk-forward 5/6 effective wins (0 inert). 2 of 2 gate-passing cell(s) on this leg survive the inert-fold check.",
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -1560,6 +1762,14 @@
     "status": "honest_negative",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -1616,6 +1826,14 @@
     "ref": "SHIPPED 2026-08-29 as cell `tp1.5_sm3` — M20 B4, PR #10419 (merged `91de68b9`), Tier-3 operator-approved; the declared `tp_r`/`atr_stop_mult` carry the cell id inline in `config/strategies.yaml`. || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp1.5_sm3** (path A) passed: d_net_R 3.9995, walk-forward 4/6 effective wins (0 inert). 1 of 1 gate-passing cell(s) on this leg survive the inert-fold check.",
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -1675,6 +1893,14 @@
     "status": "honest_negative",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -1741,6 +1967,14 @@
     "ref": "BLOCKED 2026-08-29: EVERY cell that passed this leg's gate prescribes a bar-count timeout (best `tp2_sm1.5_to24`), and NO live unit implements one — `timeout_bars` is read only by `fvg_range_15m.py` and `fade_breakout_4h.py`, each from its own `_DEFAULTS`, with no generic reader. So no `config/strategies.yaml` change can deliver this verdict; it is not awaiting approval. Giving live a bar-count exit is a Tier-3 order-path change (`BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES`). || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp2_sm1.5_to24** (path B) passed: d_net_R 8.2232, walk-forward 5/6 effective wins (0 inert). 1 of 2 gate-passing cell(s) on this leg survive the inert-fold check.",
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN, so the verdict itself is sound — it is the CELL that is undeliverable, not the measurement that is wrong."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -1802,6 +2036,14 @@
     "status": "honest_negative",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -1867,6 +2109,14 @@
     "status": "honest_negative",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -1926,6 +2176,14 @@
     "status": "honest_negative",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -1984,6 +2242,14 @@
     "status": "honest_negative",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -2046,6 +2312,14 @@
     "ref": "SHIPPED 2026-09-28 as cell `tp6_sm1.5_to24` (tp_r 6.0, atr_stop_mult 1.5, to24 delivered as stale_exit_bars 24 / stale_exit_below_r 1e9) -- history follows. || RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. Status UNCHANGED at `passed_unshipped`, but THE WINNER NAMED HAS CHANGED. The prior ref's winner **tp6_sm1.5_to24** carries a TIMEOUT component and is unshippable by construction (BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES); quoting it as the passing cell made an unreachable geometry read as a pending ship. The SHIPPABLE winner on the 08-29 run is cell `sm1.5` — path_b_wf_pass, wf_wins_effective 5, d_net_r +46.4640. ⚠️ `passed_unshipped` RECORDS A MEASUREMENT AND IS NOT A RECOMMENDATION TO SHIP — declaring this geometry in config/strategies.yaml is Tier-3 and operator-gated. || SHIPPED 2026-09-28: cell `tp6_sm1.5_to24` (tp_r 6.0, atr_stop_mult 1.5, 24-bar time exit). The 'unshippable by construction' objection above is discharged: the timeout ships as a declared stale_stop with an unreachable threshold, proven identical to --timeout-bars 24 in the harness (see stale_stop ref). `sm1.5` alone FAILED the 2026-09-28 confirming walk-forward (3/6 folds) and is not shipped. Operator popup ~13:20Z \"Ship the 3-part change (Recommended)\"; evidence docs/research/gld-1h-stop-confirm/2026-09-28-confirming-walkforward.md; fresh Stage-0 record comms/strategy_evidence/gld_pullback_1h.json (net_r_oos +32.84, n=90, 4 folds). Revert: atr_stop_mult 2.5, tp_r 4.0, delete stale_exit_*.",
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): ⚠️ this leg's BEST validated cell is `tp6_sm1.5_to24 (wf 6/6)`, which prescribes a bar-count timeout live cannot express — it is NOT what a shipment here would declare. The shippable winner is `sm1.5 (wf 5/6)`. Status stays `passed_unshipped` because a deliverable cell does stand; do not ship the headline number. || 2026-09-28: live CAN now express it -- the timeout is declared as stale_stop (stale_exit_bars 24, stale_exit_below_r 1e9); see bracket_geometry ref."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -2114,6 +2388,14 @@
     "base_oos": 58,
     "timeout_binding": "CORRECTED 2026-09-30 (PATHB-MANDATE, PI-20260930-39SDYWCO-0004): leg CLEAN -- re-derived from the raw rows of `docs/research/e35-bracket-corpus.jsonl` (base arm vs the 400-bar arm per geometry) and `scripts/research/timeout_binding_audit.py`: the harness's 200-bar force-close bound on 0 of 39 graded geometry pairs in the 2026-08-31 sweep and 0 of 35 in 2026-08-29, with no null arms. The 2026-08-29 note this replaces (\"CONTAMINATED ... bound on 17 of 39 pairs\") is not reproducible from any committed sweep; the only leg with 17 binding pairs is trend_donchian_ada_4h (17 of 38), a likely transcription slip (hypothesis, not proven). `sm1.5` and `sm1.5_to400` are identical on every field. NOT A VERDICT ON THE CELL'S MERIT: docs/research/e35-passed-unshipped-proposal-2026-08-31.md section 4.2 recommends DECLINE for reasons unrelated to the timeout (OOS +4.46R of +28.16R headline; 2023 alone carries +22.36R) -- see PI-20260930-39SDYWCO-0006.",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -2179,6 +2461,14 @@
     "status": "honest_negative",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -2244,6 +2534,14 @@
     "ref": "SHIPPED 2026-08-29 as cell `sm2` — M20 B4, PR #10419 (merged `91de68b9`), Tier-3 operator-approved; the declared `tp_r`/`atr_stop_mult` carry the cell id inline in `config/strategies.yaml`. || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **sm2** (path B) passed: d_net_R 11.5134, walk-forward 5/6 effective wins (0 inert). 1 of 1 gate-passing cell(s) on this leg survive the inert-fold check.",
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -2306,7 +2604,15 @@
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
    },
-   "execution_note": "live -> shadow 2026-08-24 (Tier-3, operator-approved in the /system-review session). PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE: 0 wins in 13 closed trades, -$5,375 at pnlCoverage 0.77; the kill gate had been MET across two consecutive reviews with no decision. The leg still evaluates and logs order packages (shadow, not disabled) so the exit-refinement denominator keeps accruing data on it, but it places no live order. Recorded here because the coverage matrix's execution column IS the denominator and must not disagree with config/strategies.yaml."
+   "execution_note": "live -> shadow 2026-08-24 (Tier-3, operator-approved in the /system-review session). PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE: 0 wins in 13 closed trades, -$5,375 at pnlCoverage 0.77; the kill gate had been MET across two consecutive reviews with no decision. The leg still evaluates and logs order packages (shadow, not disabled) so the exit-refinement denominator keeps accruing data on it, but it places no live order. Recorded here because the coverage matrix's execution column IS the denominator and must not disagree with config/strategies.yaml.",
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
+   }
   },
   {
    "strategy": "uso_trend_1h",
@@ -2367,6 +2673,14 @@
     "ref": "SHIPPED 2026-08-29 as cell `tp4_sm2` — M20 B4, PR #10419 (merged `91de68b9`), Tier-3 operator-approved; the declared `tp_r`/`atr_stop_mult` carry the cell id inline in `config/strategies.yaml`. || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp4_sm2** (path A) passed: d_net_R 23.6075, walk-forward 5/6 effective wins (0 inert). 2 of 3 gate-passing cell(s) on this leg survive the inert-fold check.",
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -2411,6 +2725,14 @@
    "bracket_geometry": {
     "status": "pending",
     "ref": "PARTIALLY MEASURED — this row is an AGGREGATE over several legs, not one leg. `trend_donchian_1h` inside it WAS swept 2026-08-20 (docs/research/e35-bracket-geometry-sweep-2026-08-20.md); the rest were not, so the row stays `pending` for the majority. ⚠️ A count of measured ROWS therefore UNDER-reports measured LEGS by one — 18 rows vs 19 legs. Do not derive a leg-count from this column's row statuses without reading this ref (BL-20260820-COVERAGE-MATRIX-CONFLATES-ROWS-AND-LEGS)."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -2463,6 +2785,14 @@
     "status": "honest_negative",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -2514,6 +2844,14 @@
     "status": "honest_negative",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -2562,6 +2900,14 @@
    "bracket_geometry": {
     "status": "blocked:out_of_scope_family",
     "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked. || CORRECTED 2026-09-29 (exit-refinement lane, checklist row EXIT-OPS): the \"genuinely pending, not blocked\" claim above checked only data availability, never whether the sweep TOOL runs for this family -- it does not. Verified via `python3 scripts/research/e35_shard_plan.py --only <these 7 legs> --ignore-missing-data`: 0 jobs planned, all 7 `out_of_scope_family:scalp`. `e35_bracket_geometry_sweep.py::plan_legs` restricts its grid to (\"donchian\", \"pullback\", \"squeeze\") by design -- scalp/fvg legs carry a REAL `tp_at_r` bracket rather than the tool's 50.0 sentinel, so the tp_r x atr_stop_mult x timeout grid would mean something different on them (own comment, same file). No other sweep tool covers bracket_geometry for this family (`mi312_scalp_target_arms.py` answers a different question -- MFE/target-setting, not geometry). Status corrected to reflect that no run can move this cell today; closing it needs either a new sweep methodology for a real-fixed-TP bracket or an explicit permanent-scope decision, not a re-run. Filed as PI-20260929-EXITOPS-0006."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT -- queued as RQ-20261007-004."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-004."
    }
   },
   {
@@ -2610,6 +2956,14 @@
    "bracket_geometry": {
     "status": "blocked:out_of_scope_family",
     "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked. || CORRECTED 2026-09-29 (exit-refinement lane, checklist row EXIT-OPS): the \"genuinely pending, not blocked\" claim above checked only data availability, never whether the sweep TOOL runs for this family -- it does not. Verified via `python3 scripts/research/e35_shard_plan.py --only <these 7 legs> --ignore-missing-data`: 0 jobs planned, all 7 `out_of_scope_family:scalp`. `e35_bracket_geometry_sweep.py::plan_legs` restricts its grid to (\"donchian\", \"pullback\", \"squeeze\") by design -- scalp/fvg legs carry a REAL `tp_at_r` bracket rather than the tool's 50.0 sentinel, so the tp_r x atr_stop_mult x timeout grid would mean something different on them (own comment, same file). No other sweep tool covers bracket_geometry for this family (`mi312_scalp_target_arms.py` answers a different question -- MFE/target-setting, not geometry). Status corrected to reflect that no run can move this cell today; closing it needs either a new sweep methodology for a real-fixed-TP bracket or an explicit permanent-scope decision, not a re-run. Filed as PI-20260929-EXITOPS-0006."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT -- queued as RQ-20261007-004."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-004."
    }
   },
   {
@@ -2658,6 +3012,14 @@
    "bracket_geometry": {
     "status": "blocked:out_of_scope_family",
     "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked. || CORRECTED 2026-09-29 (exit-refinement lane, checklist row EXIT-OPS): the \"genuinely pending, not blocked\" claim above checked only data availability, never whether the sweep TOOL runs for this family -- it does not. Verified via `python3 scripts/research/e35_shard_plan.py --only <these 7 legs> --ignore-missing-data`: 0 jobs planned, all 7 `out_of_scope_family:scalp`. `e35_bracket_geometry_sweep.py::plan_legs` restricts its grid to (\"donchian\", \"pullback\", \"squeeze\") by design -- scalp/fvg legs carry a REAL `tp_at_r` bracket rather than the tool's 50.0 sentinel, so the tp_r x atr_stop_mult x timeout grid would mean something different on them (own comment, same file). No other sweep tool covers bracket_geometry for this family (`mi312_scalp_target_arms.py` answers a different question -- MFE/target-setting, not geometry). Status corrected to reflect that no run can move this cell today; closing it needs either a new sweep methodology for a real-fixed-TP bracket or an explicit permanent-scope decision, not a re-run. Filed as PI-20260929-EXITOPS-0006."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT -- queued as RQ-20261007-004."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-004."
    }
   },
   {
@@ -2703,6 +3065,14 @@
    "bracket_geometry": {
     "status": "blocked:no_free_lane_candle_feed",
     "ref": "MGC is an IBKR COMEX future — data.binance.vision serves no such series, so the free lane cannot supply candles. Corrected 2026-08-20 from `pending`, which was wrong in the ANTI-CONSERVATIVE direction: it advertised a leg as runnable-by-a-session when the feed blocks it, while every other MGC/MES/MHG row in this column already said `blocked:no_free_lane_candle_feed`."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT -- queued as RQ-20261007-004."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-004."
    }
   },
   {
@@ -2750,6 +3120,14 @@
    "bracket_geometry": {
     "status": "blocked:out_of_scope_family",
     "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked. || CORRECTED 2026-09-29 (exit-refinement lane, checklist row EXIT-OPS): the \"genuinely pending, not blocked\" claim above checked only data availability, never whether the sweep TOOL runs for this family -- it does not. Verified via `python3 scripts/research/e35_shard_plan.py --only <these 7 legs> --ignore-missing-data`: 0 jobs planned, all 7 `out_of_scope_family:scalp`. `e35_bracket_geometry_sweep.py::plan_legs` restricts its grid to (\"donchian\", \"pullback\", \"squeeze\") by design -- scalp/fvg legs carry a REAL `tp_at_r` bracket rather than the tool's 50.0 sentinel, so the tp_r x atr_stop_mult x timeout grid would mean something different on them (own comment, same file). No other sweep tool covers bracket_geometry for this family (`mi312_scalp_target_arms.py` answers a different question -- MFE/target-setting, not geometry). Status corrected to reflect that no run can move this cell today; closing it needs either a new sweep methodology for a real-fixed-TP bracket or an explicit permanent-scope decision, not a re-run. Filed as PI-20260929-EXITOPS-0006."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT -- queued as RQ-20261007-004."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-004."
    }
   },
   {
@@ -2798,6 +3176,14 @@
    "bracket_geometry": {
     "status": "blocked:out_of_scope_family",
     "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked. || CORRECTED 2026-09-29 (exit-refinement lane, checklist row EXIT-OPS): the \"genuinely pending, not blocked\" claim above checked only data availability, never whether the sweep TOOL runs for this family -- it does not. Verified via `python3 scripts/research/e35_shard_plan.py --only <these 7 legs> --ignore-missing-data`: 0 jobs planned, all 7 `out_of_scope_family:scalp`. `e35_bracket_geometry_sweep.py::plan_legs` restricts its grid to (\"donchian\", \"pullback\", \"squeeze\") by design -- scalp/fvg legs carry a REAL `tp_at_r` bracket rather than the tool's 50.0 sentinel, so the tp_r x atr_stop_mult x timeout grid would mean something different on them (own comment, same file). No other sweep tool covers bracket_geometry for this family (`mi312_scalp_target_arms.py` answers a different question -- MFE/target-setting, not geometry). Status corrected to reflect that no run can move this cell today; closing it needs either a new sweep methodology for a real-fixed-TP bracket or an explicit permanent-scope decision, not a re-run. Filed as PI-20260929-EXITOPS-0006."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT -- queued as RQ-20261007-004."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-004."
    }
   },
   {
@@ -2846,6 +3232,14 @@
    "bracket_geometry": {
     "status": "blocked:out_of_scope_family",
     "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked. || CORRECTED 2026-09-29 (exit-refinement lane, checklist row EXIT-OPS): the \"genuinely pending, not blocked\" claim above checked only data availability, never whether the sweep TOOL runs for this family -- it does not. Verified via `python3 scripts/research/e35_shard_plan.py --only <these 7 legs> --ignore-missing-data`: 0 jobs planned, all 7 `out_of_scope_family:scalp`. `e35_bracket_geometry_sweep.py::plan_legs` restricts its grid to (\"donchian\", \"pullback\", \"squeeze\") by design -- scalp/fvg legs carry a REAL `tp_at_r` bracket rather than the tool's 50.0 sentinel, so the tp_r x atr_stop_mult x timeout grid would mean something different on them (own comment, same file). No other sweep tool covers bracket_geometry for this family (`mi312_scalp_target_arms.py` answers a different question -- MFE/target-setting, not geometry). Status corrected to reflect that no run can move this cell today; closing it needs either a new sweep methodology for a real-fixed-TP bracket or an explicit permanent-scope decision, not a re-run. Filed as PI-20260929-EXITOPS-0006."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT -- queued as RQ-20261007-004."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-004."
    }
   },
   {
@@ -2894,6 +3288,14 @@
    "bracket_geometry": {
     "status": "blocked:out_of_scope_family",
     "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked. || CORRECTED 2026-09-29 (exit-refinement lane, checklist row EXIT-OPS): the \"genuinely pending, not blocked\" claim above checked only data availability, never whether the sweep TOOL runs for this family -- it does not. Verified via `python3 scripts/research/e35_shard_plan.py --only <these 7 legs> --ignore-missing-data`: 0 jobs planned, all 7 `out_of_scope_family:scalp`. `e35_bracket_geometry_sweep.py::plan_legs` restricts its grid to (\"donchian\", \"pullback\", \"squeeze\") by design -- scalp/fvg legs carry a REAL `tp_at_r` bracket rather than the tool's 50.0 sentinel, so the tp_r x atr_stop_mult x timeout grid would mean something different on them (own comment, same file). No other sweep tool covers bracket_geometry for this family (`mi312_scalp_target_arms.py` answers a different question -- MFE/target-setting, not geometry). Status corrected to reflect that no run can move this cell today; closing it needs either a new sweep methodology for a real-fixed-TP bracket or an explicit permanent-scope decision, not a re-run. Filed as PI-20260929-EXITOPS-0006."
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT -- queued as RQ-20261007-004."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-004."
    }
   },
   {
@@ -2948,6 +3350,14 @@
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-20, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT -- queued as RQ-20261007-002."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   },
   {
@@ -3002,6 +3412,14 @@
     "ref": "RE-CHECKED run 2026-08-29 and a shippable winner EXISTS — cell `sm1.5` (path_b_wf_pass, wf 5/6, d_net_r +13.4198) — but it is **DELIBERATELY NOT SHIPPED**, and this is a REFUSAL on evidence, not a gap. Write-up `docs/research/e35-matrix-recheck-2026-08-29.md`; the block was found on 2026-08-30 while shipping the approved set, by a test that was RIGHT (`test_unit_c_prop_exit_variants`). THREE reasons, any one sufficient: (1) this leg is a CONFIG-ONLY EXIT VARIANT whose design premise (Unit C Phase 0, `docs/research/prop-dynamic-exits-faster-banking-DESIGN.md` § 5) is that its ENTRIES are identical to `trend_donchian_eth` and only `trail_mult`/`tp_r` differ — `atr_stop_mult` is classified an ENTRY param there, deliberately. (2) It was graduated to `execution: live` on a PROP EV/SURVIVAL gate measured on that entry-identical construction (trainer relay #8975, `run_ev_montecarlo` under `config/prop_rulesets/breakout.yaml`: ETH ev_net_usd +$883 @ P(net>0)=0.8477 over 1,110 trades). Changing the stop changes the R denominator, the position size and the BREACH probability, so that gate would no longer describe what runs. (3) `breakout_1` is the one account that can be PERMANENTLY DISABLED by a drawdown breach, and the mandatory per-account compatibility rule requires a prop-ruleset EV/survival evaluation — which the e35 sweep does not provide (it prices `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`, not the prop ruleset). ⚠️ The base leg `trend_donchian_eth` has ZERO shippable cells of its own, so shipping the variant alone would have de-coupled the pair rather than moving both. UNBLOCKS WHEN: `run_ev_montecarlo` is re-run under `breakout.yaml` on the sm1.5 geometry and clears, with operator approval on that evidence.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
+   },
+   "tp_extend": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_extend. NOT YET SWEPT -- queued as RQ-20261007-002."
+   },
+   "tp_retarget": {
+    "status": "pending",
+    "ref": "GEOM-B1-HARNESS 2026-10-07: the harness lever exists (scripts/research/tp_geometry.py; --tp-* flags) and m20_fleet_exit_sweep emits the cells opt-in via --levers tp_retarget. NOT YET SWEPT -- queued as RQ-20261007-003."
    }
   }
  ],
@@ -3013,8 +3431,9 @@
   "ABSENT_means_unrecorded": "⚠️ A MISSING tp_geometry MEANS 'WE DID NOT LOOK', NOT 'presumably fine'. Absence collapses three different conditions — (a) measured at live parity and nobody stamped it, (b) measured on the pre-cutover no-TP default, which is the DEFAULT EXPECTATION for anything dated before the cutover, and (c) nobody looked. The reassuring reading is the one that is wrong for most of the population. The roll-up counts these as `unrecorded` and reports the fraction rather than listing marked cells, so completeness is never inferred from the cells that happen to carry a value.",
   "_coverage_2026_08_16": "170 of 416 cells (40.9%) carry a value: live_parity 167, no_take_profit 3, absent 246. Measured directly off this file. The roll-up's own figure is over the LIVE-leg population (a different, smaller denominator) — both are correct and neither is the other.",
   "_remaining_work": "Stamping the 246 absent cells is NOT done here and must not be guessed from dates: BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING criterion (2) requires each cell's own `ref` to establish live_parity or no_take_profit, with `unrecorded` stamped only where the ref establishes neither. A date is a proxy, and that row exists because a proxy was trusted.",
-  "_unstamped_ceiling": 191,
-  "_unstamped_ceiling_note": "193 -> 191 on 2026-10-02 (lane M20-EXITS-4): two cells (trend_donchian_xrp_4h/giveback_stop, ief_pullback_1d/trail_geometry) were re-swept at live parity and stamped tp_geometry=live_parity with base counts as fields; no leg left the denominator. PRIOR NOTES, PRESERVED: 229 -> 193 on 2026-09-28 (lane EXIT-OPS), and the REASON matters more than the number, same discipline as every prior move on this field. Six legs were demoted live -> shadow in this diff (PI-20260924-TJTOJHYE-0001: trend_donchian_ada_4h/avax_4h/sol_4h; PI-20260922-UTN353OZ-0001: ict_scalp_5m/sol_5m/avax_5m), taking their cells out of the live_only denominator. Leaving the ceiling at 229 would have left slack in which a live cell could silently lose its tp_geometry stamp with the guard still green -- exactly the loosening this field exists to make visible rather than absorb silently. Measured via `python3 scripts/research/m20_coverage_rollup.py --check` on this diff: unstamped-live count is 193 with the six rows `shadow`. PRIOR NOTES, PRESERVED: STAYED 229 on 2026-09-22 (avax_pullback_2h promotion declined same day); 234 -> 229 on 2026-08-24 (slv_trend_1h demoted, 5 unstamped cells left the denominator)."
+  "_unstamped_ceiling": 267,
+  "_unstamped_ceiling_note": "193 -> 191 on 2026-10-02 (lane M20-EXITS-4): two cells (trend_donchian_xrp_4h/giveback_stop, ief_pullback_1d/trail_geometry) were re-swept at live parity and stamped tp_geometry=live_parity with base counts as fields; no leg left the denominator. PRIOR NOTES, PRESERVED: 229 -> 193 on 2026-09-28 (lane EXIT-OPS), and the REASON matters more than the number, same discipline as every prior move on this field. Six legs were demoted live -> shadow in this diff (PI-20260924-TJTOJHYE-0001: trend_donchian_ada_4h/avax_4h/sol_4h; PI-20260922-UTN353OZ-0001: ict_scalp_5m/sol_5m/avax_5m), taking their cells out of the live_only denominator. Leaving the ceiling at 229 would have left slack in which a live cell could silently lose its tp_geometry stamp with the guard still green -- exactly the loosening this field exists to make visible rather than absorb silently. Measured via `python3 scripts/research/m20_coverage_rollup.py --check` on this diff: unstamped-live count is 193 with the six rows `shadow`. PRIOR NOTES, PRESERVED: STAYED 229 on 2026-09-22 (avax_pullback_2h promotion declined same day); 234 -> 229 on 2026-08-24 (slv_trend_1h demoted, 5 unstamped cells left the denominator).",
+  "_ceiling_raised_2026_10_07": "191 -> 267 (+76) in the diff that adds the tp_extend / tp_retarget columns (GEOM-B1-HARNESS): 38 live legs x 2 new columns, every one `pending` or `blocked:no_harness_levers`, i.e. NOTHING has been measured for them yet, so there is no geometry to stamp and stamping one would be a guess. The ratchet is meant to make a growing unmeasured population visible to the reviewer, and this is that. Each cell is stamped `live_parity` by the sweep that first measures it (m20_fleet_exit_sweep passes --tp-cap-pct 0.099 by default), which lowers this number again."
  },
  "legend_bracket_geometry": "bracket_geometry is the ENTRY BRACKET TRIPLE (tp_at_r x atr_stop_mult x timeout_bars) — a new DIMENSION, not a ninth lever. The eight lever columns beside it are all POST-ENTRY OVERRIDES on a bracket fixed at entry; this column grades that bracket itself. Added 2026-08-20 closing BL-20260820-TP-LEVEL-IS-THE-ONE-EXIT-PARAMETER-NEVER-SWEPT. Graded NET OF FEES, unlike the fee-free R basis the lever columns use, because a lower target raises turnover and a fee-free comparison would flatter it exactly where it is most likely to pass.",
  "known_caveats": {
@@ -3290,5 +3709,6 @@
   "no_runtime_consumer": "no runtime consumer AND no corpus row: nothing was measured. Pairs with status blocked:no_lever_consumer_in_unit.",
   "ABSENT_means_unstamped": "a cell with no `basis` has NOT been assessed on this axis. It is 'we did not look', never an implicit `live_lever` — only the cells MI-145 verified carry one.",
   "not_measured": "MI-150 2026-09-06. NO measurement exists for this cell — the round skipped it (missing data), so there is nothing the verdict rests ON. ⚠️ It is not a weaker `harness_only`; `harness_only` is a REAL measurement on the harness engine, this is the absence of one. Collapsing the two would erase the difference between *we did not look* and *we looked off-live*."
- }
+ },
+ "legend_tp_geometry": "tp_extend and tp_retarget are TP-DOCTRINE columns (docs/ARCHITECTURE-CANONICAL.md § 'TP doctrine', clauses 2-3), added 2026-10-07 by GEOM-B1-HARNESS. They grade a take-profit that MOVES: tp_extend pushes a finite target out while the strategy's own thesis holds (src.runtime.target_expectation.evaluate_extension, imported); tp_retarget re-estimates it (atr_rescale / stall_pull_in). Like every column they are graded by the Path A/B gate + walk-forward against the config-exact base, but the doctrine reads CALIBRATION (exit within +/-20% of the FINAL target) BEFORE P&L: see each cell's `tp_geometry` block in the corpus. BACKTEST-ONLY until a live monitor() returns a `tp` verdict (BUILD B1, lane TP-DOCTRINE), so a passing cell is evidence, not yet a declarable lever. The cells are OPT-IN in m20_fleet_exit_sweep (`--levers tp_extend,tp_retarget`)."
 }

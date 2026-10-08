@@ -1,0 +1,16 @@
+{
+  "based_on": "20261005T041456802299Z-490d3eff.json",
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261005-WFBREDQP-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-BURNDOWN-3 session_016hpYjaAbdSHe5SwfBreDQp (2026-10-05), triage of OI-20260902-BYBIT-COVERAGE-BASIS",
+    "rerun": "bash scripts/ops/diag_fetch.sh 'log_file?name=bybit_coverage_soak'  # read mode/apply_scope/binding per account; then grep the config/code that sets them"
+  },
+  "state": "queued",
+  "what": "bybit_coverage_soak rows read mode: apply, apply_scope: allowlisted, binding: true for bybit_1 (read live by a BACKLOG-BURNDOWN-3 triage agent from the log tail, 2026-10-05), which contradicts the premise of OI-20260902-BYBIT-COVERAGE-BASIS ('arming deliberately held for a soak'). Either the arming happened and the item's soak clause is stale, or the log field does not mean what it reads as. Unverified beyond a 100-row tail of an 83 MB log; not settled by this lane. || MEASURED 2026-10-07 08:37Z-18:40Z over the latest 1000 rows of bybit_coverage_soak via /api/diag/log_file (bybit_1 488 rows, bybit_2 256, bybit_portfolio 256): every row mode=annotate, global_mode=annotate, apply_scope=not_apply, binding=false, basis=side_blind; verdicts_differ true = 0. The 10-05 'apply/allowlisted/binding true' reading is NOT reproduced in that window. MEANING (src/runtime/bybit_coverage_basis.py::effective_mode): mode=apply + apply_scope=allowlisted + binding=true require BYBIT_GRADED_COVERAGE_MODE=apply AND the account in BYBIT_GRADED_COVERAGE_ACCOUNTS; the fields mean what they say. Whether it was EVER armed between 2026-09-08 and now cannot be read from a 1000-row tail; needs /api/diag/log_aggregate (PR #16974) once deployed: log_aggregate?name=bybit_coverage_soak&fields=mode,binding&count_true=verdicts_differ. Close this item with that result."
+}
