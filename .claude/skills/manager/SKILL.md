@@ -505,8 +505,8 @@ reason**. A successor reads the reasoning, not just the value.
 
 ### How to edit it — the recipe (PI-20261004-APBY4NTV-0003)
 
-**Before the cutover** the register is the one file `docs/claude/work/MANAGER-CHECKLIST.json`.
-**From the cutover** (the day `docs/claude/work/checklist/_header.json` exists) it is
+**Before the cutover** (it happened 2026-10-08; the monolith `docs/claude/work/MANAGER-CHECKLIST.json` is deleted) the register was one file.
+**From the cutover** (the day `docs/claude/work/checklist/_header.json` exists -- it does) it is
 **one file per row** under `docs/claude/work/checklist/<ROW-ID>.json`, and **no
 session edits it with ad-hoc python again** — a single shared array is why every
 concurrent row edit conflicted on GitHub (measured: 20 of 41 commits appended a row,

@@ -183,7 +183,8 @@ def test_brief_is_self_contained_state_not_a_link_to_go_read():
     """
     text = wake.brief(NOW)
     # Real register content, not just section headers.
-    checklist = json.loads(wake.CHECKLIST_PATH.read_text(encoding="utf-8"))
+    from src.runtime import checklist_store  # the monolith file is gone: rows are per-file
+    checklist = checklist_store.load_path(wake.CHECKLIST_PATH)
     cycle = str(checklist.get("cycle") or "").strip()
     assert cycle, (
         "MANAGER-CHECKLIST.json declares no `cycle`, so the assertion below "
