@@ -1,5 +1,6 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "Research-harness tooling only: two default-off exit levers (momentum_trail, momentum_stale) on backtest_trend/pullback, their sweep cells and workflow input, with a pre-change byte-identical golden over 14 existing arms. src/research/trail_levers.py is backtest-only (imported by scripts/backtest_*.py), not on the live order path; no strategy logic, no config/strategies.yaml or accounts.yaml edit."
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "why": "Research-harness tooling: two default-off exit levers (momentum_trail, momentum_stale) on backtest_trend/pullback with a pre-change byte-identical golden over 14 existing arms. HELD, not self-landed: the diff edits src/research/trail_levers.py (Tier-2 by name in check_pr_landing, though backtest-only) and research/templates/m20-exit-lever.yaml (landing machinery, R12). Manager reads once and merges."
 }
