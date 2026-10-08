@@ -1,0 +1,12 @@
+{
+  "due_when": {"due_date": "2026-10-15", "kind": "date"},
+  "id": "PI-20261008-QAW8FBY5-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane OPS-SMALL-FIXES item 3 (session_01AfVqqFo3hkk3SBqaw8FbY5); flake seen by lane BREAKOUT1-RETIRE 2026-10-07/08",
+    "rerun": "gh run list --workflow pytest -s failure; grep the failed log for tests/test_phone_executor.py; or loop `pytest tests/test_phone_executor.py -p no:randomly` x20 in CI image"
+  },
+  "state": "queued",
+  "what": "tests/test_phone_executor.py had a pair fail once in CI (2026-10-07/08) and pass on re-run. NOT root-caused: this lane could not import the suite locally (missing deps) and did not pull CI logs (budget). Read-only review of the file found only wall-clock use via datetime.now in _ticket (valid_until +10min / -1min) and test_watchdog_skips_unreported_claims (now + CLAIM_TIMEOUT_S + 5) — no sleeps, no shared state beyond the autouse tmp_path/monkeypatch fixture. Candidate: a state leak through prop_journal/phone_executor module globals across tests in the same xdist worker. Next: fetch the failing run's log, name the pair, then fix or dispose. Do not skip/quarantine."
+}

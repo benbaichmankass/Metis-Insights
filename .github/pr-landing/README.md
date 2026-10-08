@@ -1,5 +1,11 @@
 # `pr-landing` — every PR says its TIER and how it means to LAND
 
+> **FILENAME = the full branch name with `/` → `-`** (only a leading `claude/` is
+> dropped). `lane/foo` → `.github/pr-landing/lane-foo.json`;
+> `chore/x` → `.github/pr-landing/chore-x.json`. The same slug names the
+> `pr-automerge-requests/<slug>.txt` and `merge-slots/<slug>.json` files. Dropping the
+> `lane-`/`chore-` prefix is the commonest R11 failure.
+
 One file per branch: **`.github/pr-landing/<branch-slug>.json`**, where the slug
 is the branch name with a leading `claude/` stripped and `/` → `-` — the same
 derivation `claude-pr-automerge.yml` uses, so the two can never disagree about
