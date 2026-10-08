@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "clears_when": "first breakout_2 live placement observed with TP and SL listed from a second client",
+    "kind": "event"
+  },
+  "id": "PI-20261005-YUVCGTMJ-0005",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-21T00:00Z",
+    "how_to_check": "GET /api/bot/prop/tickets?account_id=breakout_2 -> first ticket with status placed/filled and meta.phone.live true; operator confirms TP+SL visible in Breakout's app (recorded on row PHONE-EXEC-1B)",
+    "what": "on the first LIVE breakout_2 fill placed by the phone, the TP and SL legs are listed server-side in Breakout's own app/web from a second device"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "lane PHONE-EXEC-1B session_01Ce3EyP4Z9A4P4MyUvcgtmJ; branch claude/phone-exec-1b",
+    "rerun": "GET /api/bot/prop/tickets?account_id=breakout_2 ; ask the operator to open Breakout's own app on the first live order"
+  },
+  "routed_to": "PI-20261006-APBY4NTV-0008 (first live breakout_2 ticket: SL/TP-at-venue survival is read off the same ticket)",
+  "state": "routed",
+  "what": "PHONE: SL/TP-at-venue survival (design 5.4) is still unmeasured on the new terminal: whether a bracket placed by the phone keeps working when the app/phone is gone. Measure on the FIRST live fill: after the read-back confirms the order, check the order/position in Breakout's own mobile app or web from another device and confirm the TP and SL legs are listed server-side."
+}

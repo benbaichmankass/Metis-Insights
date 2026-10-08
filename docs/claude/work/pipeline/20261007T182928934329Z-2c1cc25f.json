@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "due_date": "2026-10-08",
+    "kind": "date"
+  },
+  "filed": "2026-10-06",
+  "id": "PI-20261006-ZRM27CBW-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "by": "session_01CbWE56MbSskgGNZrm27cBW",
+    "kind": "session",
+    "ref": "VELOTRADE-GOLIVE (branch claude/velotrade-golive)",
+    "rerun": "grep -n 'def read_trade_history' src/prop/platform/dxtrade_api.py  # empty = still missing"
+  },
+  "severity": "medium",
+  "state": "routed",
+  "tier": 2,
+  "what": "dxtrade_api adapter has no read_trade_history. prop_executor.run_cycle reads it via getattr and skips it when absent, so velotrade_1 close reconciliation falls back to flat_on_terminal WITHOUT the exit fill price from history. Before velotrade_1's first live ticket: implement read_trade_history over GET /accounts/{a}/orders/history (executions lastPrice/lastQuantity; read_history_today already parses them) in the shape _reconcile_journal expects, and test that a TP/SL/Bulk-Close exit journals the right close reason and price.",
+  "routed_to": "checklist row VELOTRADE-RECON"
+}

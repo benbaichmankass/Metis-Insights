@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "After the PROP-FLOW-SEPARATION PR is merged AND the live trader + prop bot restarted: the next ticket on velotrade_1 or breakout_2 that expires unplaced reaches a terminal status (skipped 'expired unplaced; \u2026' or expired), receives no Yes/No Telegram prompt, and the next signal for the same (account, symbol, direction) is ticketed (status emitted, not suppressed).",
+    "kind": "observation"
+  },
+  "id": "PI-20261007-QHZ61SUE-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-14",
+    "how_to_check": "GET /api/bot/prop/tickets?account_id=velotrade_1 and ?account_id=breakout_2 \u2014 for each ticket past valid_until with no fill: status in (expired, skipped); and no later same-key row with status 'suppressed' whose message names it ('reticket suppressed \u2014 outstanding_ticket:\u2026: <that ticket id>')",
+    "what": "the next unplaced expiry on velotrade_1 or breakout_2 after deploy does not suppress the following same-key signal"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-FLOW-SEPARATION session_01QhZ61suEMNrBnDGq8XWqDR, manager session_01MM8o5js6TcDFeNAPBY4Ntv, item PI-20261007-APBY4NTV-0003, 2026-10-07",
+    "rerun": "GET /api/bot/prop/tickets?account_id=velotrade_1 and ?account_id=breakout_2 \u2014 for each ticket past valid_until with no fill: status in (expired, skipped); and no later same-key row with status 'suppressed' whose message names it ('reticket suppressed \u2014 outstanding_ticket:\u2026: <that ticket id>')"
+  },
+  "state": "queued",
+  "what": "landed_unproven: PROP-FLOW-SEPARATION (operator directive 2026-10-07, ARCHITECTURE-CANONICAL \u00a7 'Prop ticket flow'). Merged \u2260 deployed \u2260 observed: the closing observation is the next unplaced expiry on a machine-executed prop account NOT suppressing the following signal."
+}

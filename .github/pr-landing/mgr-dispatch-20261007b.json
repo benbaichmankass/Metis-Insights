@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register batch: docs/claude/work/MANAGER-CHECKLIST.json rows and docs/claude/work/pipeline/ records for the 2026-10-07 wave (row-wise merge of the superseded #16941 plus the overnight notes). Docs only; no code, config, test or order-path change."
+}

@@ -753,6 +753,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/cross-asset-diversification-2026-06-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/cross-asset-feature-probe-2026-06-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/cross-asset-strategy-scope-2026-06-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/cross-signal-exits-2026-10-07.md` | evidence | unknown | — | 2026-10-07 | `dir:research-is-measurement / not-assessed` | Operator idea 2026-10-07 (entry from one signal family, stop/exit from another): entry x exit-dimension feasibility matrix over the harness lever surface (12 harness-ready / 9 needs-a-lever / 7 infeasible), units RQ-20261007-040/041 (queued, m20 vol_trail confirm + sibling control) and blocked/RQ-20261007-042..044 (ADX-conditioned trail, momentum-keyed time stop, pullback trend-flip exit), lever specs § 4, falsifiers § 6. Research only, no config touched. |
 | `docs/research/crypto-edge-audit-2026-07-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/crypto-finetune-proposals-2026-07-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/d1-cost-stack-verification-2026-09-25.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -924,6 +925,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/relative-value-families-2026-10-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/velotrade-fit-2026-10-06.md` | evidence | unknown | — | 2026-10-06 | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/velotrade-api-probe-2026-10-05.md` | evidence | unknown | — | 2026-10-05 | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/tradeify-feed-trip-2026-10-07.md` | evidence | unknown | — | 2026-10-07 | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/velotrade-api-executor-design-2026-10-05.md` | evidence | unknown | — | 2026-10-05 | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/tradeify-portfolio-feasibility-2026-09-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/prop-dynamic-exits-faster-banking-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |

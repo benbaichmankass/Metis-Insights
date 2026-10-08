@@ -46,7 +46,6 @@ object Store {
     const val LOGIN_EMAIL = "breakout_email"
     const val INBOX_USER = "inbox_user"
     const val INBOX_PASS = "inbox_app_password"
-    const val ARMED = "armed"
     const val RELOGIN_LATCHED = "relogin_latched"
     const val TERMINAL_URL = "terminal_url"   // last account terminal URL seen while logged in; private, never reported
     const val DEFAULT_API = "https://ict-bot.duckdns.org"

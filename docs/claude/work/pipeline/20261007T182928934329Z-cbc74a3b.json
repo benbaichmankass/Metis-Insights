@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-19",
+    "kind": "date"
+  },
+  "id": "PI-20261005-WFBREDQP-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-BURNDOWN-3 session_016hpYjaAbdSHe5SwfBreDQp (2026-10-05)",
+    "rerun": "python3 scripts/ci/check_soak_contracts.py --base origin/main  # after committing a pipeline update of an open check_observation item with no observation block; and grep -n 'due_by' scripts/ops/pipeline.py (is_due)"
+  },
+  "state": "routed",
+  "what": "TRAP for any session updating pipeline records: (1) scripts/ci/check_soak_contracts.py fails guards on ANY newly added record for an open next_action=check_observation item that has neither due_when.soak, a SOAKS.json contract, nor an `observation: {what, how_to_check, due_by}` block -- an UPDATE record counts as 'new', so a plain re-date of 249 such items fails CI; (2) pipeline.is_due() treats observation.due_by as due REGARDLESS of check_every_days/last_checked, so changing cadence alone does not move an item that carries a due_by (190 open items did). BACKLOG-BURNDOWN-3 hit both: guards red on #16539/#16540, and its first schedule ignored due_by. Fix landed in-lane by setting cadence, due_date and observation.due_by together; the tooling gap is that pipeline.py has no 'redate' helper that does so.",
+  "routed_to": "checklist row REGISTER-TOOLING"
+}

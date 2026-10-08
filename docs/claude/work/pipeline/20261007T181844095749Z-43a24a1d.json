@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-08",
+    "kind": "date"
+  },
+  "id": "PI-20261006-APBY4NTV-0006",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv, operator 2026-10-06 ~10:30Z",
+    "rerun": "grep -n FLAG_SECURE tools/phone-executor/app/src/main/java/com/metis/phoneexec/MainActivity.kt"
+  },
+  "state": "routed",
+  "what": "PHONE EXECUTOR APP: OPERATOR CAN'T SCREENSHOT IT + RUNS ALONGSIDE NORMAL PHONE USE (post-reset, not urgent). (1) SCREENSHOTS: operator 2026-10-06, verbatim: \"would be useful, would be if I was able to take a screenshot of the app, which I can't. Every time I do, it just blacks out.\" Cause (read in code): MainActivity.kt applies WindowManager FLAG_SECURE to the whole activity window (line ~87) and to the credential dialog (~191), which blanks every screenshot. Proposed: keep FLAG_SECURE only while a credential field / the login page / the credential dialog is on screen, drop it on the trading terminal; OR add an in-app 'send a screenshot to Metis' button that captures the WebView, masks any input field, and posts it to the API beside phone_diag so a session reads it directly. Decide which on security grounds (the terminal shows balances, never credentials). (2) PHONE-USE ROBUSTNESS (operator 2026-10-06 ~09:5xZ: \"it's going to need more robustness around running alongside my regular phone usage\"): the 10:26Z dry test (phone-test-fab3ca3977cc, dry_filled) only ran once the operator re-opened the app -- the heartbeat stopped at 10:03Z while the app was backgrounded, and the claim right after the fill returned a 502. Make claiming survive backgrounding (foreground service / wake), and root-cause the 502 on /api/bot/prop/phone/claim. DONE = screenshots of the terminal work (or the in-app capture lands) with credentials still unscreenshottable, and a ticket is claimed within 60s with the app in the background, measured on breakout_2's heartbeat. || UPDATE 2026-10-06 13:12Z (manager): the BACKGROUND half is LANDED (#16764) and OBSERVED (bg-2 test 13:09Z: app popped up by itself, dry_filled, minimised; operator-confirmed). Remaining scope: SCREENSHOTS only (FLAG_SECURE scoping or in-app capture) and the one-off claim 502 root cause. Still post-reset.",
+  "routed_to": "checklist row PHONE-SCREENSHOTS"
+}

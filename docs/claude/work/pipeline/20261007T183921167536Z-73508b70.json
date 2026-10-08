@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "kind": "date",
+    "due_date": "2026-10-09"
+  },
+  "id": "PI-20261007-APBY4NTV-0002",
+  "next_action": "dispatch_lane",
+  "state": "routed",
+  "routed_to": "checklist row BREAKOUT1-RETIRE",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv; observed 2026-10-05 (set-account-mode #16568) and re-read 2026-10-07 18:12Z",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_1' | python3 -c \"import json,sys;d=json.load(sys.stdin);print(d['status']['balance'], d['rule_distance'])\""
+  },
+  "what": "breakout_1 (Breakout 1-Step Turbo, $5k) is BREACHED: balance/equity $4,698.00 against the $4,700 static-drawdown floor since 2026-10-04 (status posted 2026-10-07 18:12Z, unchanged); mode dry_run since 2026-10-05 (#16568); its browser executor was latched since 2026-10-04 03:49Z. OPERATOR DECISION 2026-10-07 (popup, verbatim label): 'Dead: clear its roster, retire the row (Recommended)'. DONE = accounts.yaml breakout_1 strategies [] (account entry kept for history, mode dry_run), its executor/feed timers disabled on the VM, it no longer appears as a live prop surface (status line, alerts, rosters), and the retirement recorded on PROP-GOLIVE-PREAPPROVAL."
+}

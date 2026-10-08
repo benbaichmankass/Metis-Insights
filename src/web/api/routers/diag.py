@@ -2386,6 +2386,137 @@ def get_log_file(
     }
 
 
+# ---------------------------------------------------------------------------
+# /log_aggregate (PI-20261004-4GA8WQPA-0003) -- the multi-day reader a 1000-line
+# /log_file TAIL cannot be. bybit_coverage_soak.jsonl (83 MB) and
+# position_read_state_soak.jsonl (136 MB) grow far faster than 1000 lines per
+# day, so their tail spans ONE UTC day while their closing criteria are
+# multi-day ("rows across >= 3 distinct UTC days", "at least one
+# verdicts_differ=true row"). Until this existed those soaks could only be
+# graded could-not-look. It streams the WHOLE file once and returns counts only
+# -- never row content -- so it is no wider a read than /log_file.
+# ---------------------------------------------------------------------------
+_AGG_FIELD_RE = re.compile(r"^[A-Za-z0-9_]{1,64}$")
+_AGG_MAX_FIELDS = 6
+_AGG_MAX_VALUES = 20          # distinct values kept per field before "(other)"
+_AGG_TIME_BUDGET_S = 25.0     # whole-file scan must not hold a worker forever
+_AGG_DAY_KEYS = ("logged_at_utc", "ts", "logged_at", "timestamp")
+
+
+def _agg_day(row: dict) -> str | None:
+    for k in _AGG_DAY_KEYS:
+        v = row.get(k)
+        if isinstance(v, str) and len(v) >= 10 and v[4] == "-" and v[7] == "-":
+            return v[:10]
+    return None
+
+
+def aggregate_jsonl(path: Path, fields: list[str], count_true: list[str],
+                    account_key: str = "account_id",
+                    time_budget_s: float = _AGG_TIME_BUDGET_S) -> dict[str, Any]:
+    """Stream ``path`` once; per UTC day count rows, per account, the value
+    distribution of each of ``fields`` and the rows where each of ``count_true``
+    is truthy-and-nonzero.
+
+    ``read_state`` is ``complete`` or ``time_budget_hit``; the latter means the
+    counts are a LOWER BOUND over the lines scanned, never the whole file, and a
+    caller must not read an absent day as "no rows that day". Lines that are not
+    a JSON object are counted in ``unparseable_lines`` and rows with no
+    parseable timestamp in ``rows_without_day`` -- neither is silently dropped.
+    """
+    t0 = time.monotonic()
+    days: dict[str, dict[str, Any]] = {}
+    scanned = unparseable = no_day = 0
+    state = "complete"
+    with path.open("rb") as fh:
+        for raw in fh:
+            scanned += 1
+            if scanned % 2000 == 0 and time.monotonic() - t0 > time_budget_s:
+                state = "time_budget_hit"
+                break
+            try:
+                row = json.loads(raw)
+            except ValueError:
+                unparseable += 1
+                continue
+            if not isinstance(row, dict):
+                unparseable += 1
+                continue
+            day = _agg_day(row)
+            if day is None:
+                no_day += 1
+                continue
+            d = days.setdefault(day, {"rows": 0, "by_account": {}, "values": {}, "true_counts": {}})
+            d["rows"] += 1
+            acct = row.get(account_key)
+            if acct is not None:
+                d["by_account"][str(acct)] = d["by_account"].get(str(acct), 0) + 1
+            for f in fields:
+                if f in row:
+                    bucket = d["values"].setdefault(f, {})
+                    key = json.dumps(row[f], sort_keys=True) if not isinstance(row[f], str) else row[f]
+                    if key not in bucket and len(bucket) >= _AGG_MAX_VALUES:
+                        key = "(other)"
+                    bucket[key] = bucket.get(key, 0) + 1
+            for f in count_true:
+                v = row.get(f)
+                if v is True or (isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0):
+                    d["true_counts"][f] = d["true_counts"].get(f, 0) + 1
+    return {
+        "read_state": state,
+        "scanned_lines": scanned,
+        "unparseable_lines": unparseable,
+        "rows_without_day": no_day,
+        "distinct_utc_days": len(days),
+        "first_day": min(days) if days else None,
+        "last_day": max(days) if days else None,
+        "days": {k: days[k] for k in sorted(days)},
+        "elapsed_s": round(time.monotonic() - t0, 3),
+    }
+
+
+@router.get("/log_aggregate")
+def get_log_aggregate(
+    request: Request,
+    name: str,
+    fields: str = "",
+    count_true: str = "",
+    account_key: str = "account_id",
+) -> dict[str, Any]:
+    """Whole-file, counts-only aggregate of an allowlisted ``.jsonl`` log,
+    grouped by UTC day (see the block comment above). ``fields`` and
+    ``count_true`` are CSV lists of top-level keys (``[A-Za-z0-9_]``, at most 6
+    each); e.g. ``name=bybit_coverage_soak&fields=mode,binding&count_true=
+    verdicts_differ``. Row content is never returned."""
+    _require_diag_token(request)
+    if name not in _LOG_FILES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "unknown_log_file", "allowed": sorted(_LOG_FILES.keys())},
+        )
+    f_list = [x.strip() for x in fields.split(",") if x.strip()]
+    t_list = [x.strip() for x in count_true.split(",") if x.strip()]
+    for k in (*f_list, *t_list, account_key):
+        if not _AGG_FIELD_RE.match(k):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail={"error": "bad_field_name", "field": k})
+    if len(f_list) > _AGG_MAX_FIELDS or len(t_list) > _AGG_MAX_FIELDS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail={"error": "too_many_fields", "max": _AGG_MAX_FIELDS})
+    path = _LOG_FILES[name]
+    if not path.exists():
+        return {"name": name, "path": str(path), "present": False}
+    if path.suffix != ".jsonl":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail={"error": "not_jsonl", "name": name})
+    try:
+        agg = aggregate_jsonl(path, f_list, t_list, account_key)
+    except OSError as exc:
+        return {"name": name, "path": str(path), "present": True, "error": str(exc)}
+    return {"name": name, "path": str(path), "present": True,
+            "size_bytes": path.stat().st_size, **agg}
+
+
 @router.get("/shadow_stats")
 def get_shadow_stats(
     request: Request,

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Follow-up to #16950 (PROP-SILENCE-ALERTS), found verifying it against the live API 2026-10-07: tradeify_1's fills include status skipped/placed rows (no trade) which the idle clock counted as activity, masking inactivity. Now only open/closed/filled count. Tier-2 by path only (runs inside the hourly digest carrier); read-only. Also files two pipeline rows (observation to close, anchor gap for accounts with no fill). Revert: git revert.",
+  "why": "An alert that a skipped ticket can silence is the failure the alert exists to prevent."
+}

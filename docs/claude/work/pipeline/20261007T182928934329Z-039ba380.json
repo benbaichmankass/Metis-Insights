@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "filed": "2026-10-05",
+  "id": "PI-20261005-MWOP8C4X-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X), measured at main fee0ae7e",
+    "rerun": "grep -n 'datetime(?)' -B2 -A2 src/web/api/routers/order_packages.py  # still raw bind = still open"
+  },
+  "severity": "low",
+  "state": "routed",
+  "what": "GET /api/bot/order-packages?since=<ISO with a raw +00:00 offset> returns ZERO rows with no error: src/web/api/routers/order_packages.py:214-216 binds `since` into `datetime(op.created_at) >= datetime(?)`; a URL-decoded '+' becomes a space, SQLite datetime() of that is NULL, the comparison is NULL and every row drops. A malformed filter renders as a clean negative. Fix: parse `since` (normalise ' ' to '+', fromisoformat) and 422 or expose a filter_state when unparseable.",
+  "routed_to": "checklist row API-COLLAPSED-STATES"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "PI-20261008-APBY4NTV-0001",
+  "state": "queued",
+  "next_action": "dispatch_lane",
+  "due_when": {
+    "kind": "date",
+    "due_date": "2026-10-10"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv 2026-10-08 00:26Z, from #16994's pytest-run on a03658f2",
+    "rerun": "git grep -l -E '\"run_date\": \"20[0-9]{2}-[0-9]{2}-[0-9]{2}\"' -- tests/fixtures | xargs -I{} sh -c 'grep -l $(date -u +%F) {} || true'  # any golden carrying a wall-clock date is a midnight bomb; also python3 -m pytest tests/test_tp_geometry_harness.py -q"
+  },
+  "what": "GOLDEN FIXTURES MUST NOT EMBED WALL-CLOCK DATES. #17000 (GEOM-B1 harness levers, merged 21:25Z 2026-10-07) added tests/fixtures/tp_geometry_default_golden.json with run_date 2026-10-07 and a byte-identity test over the whole record; at 00:00Z 2026-10-08 every pytest-run on main went red (5 failures). Fix in flight by lane GEOM-B1-HARNESS. Follow-up: a CI guard that fails when a committed fixture under tests/fixtures carries a run_date/created_at equal to any calendar date (or when a golden test compares wall-clock fields), plus a one-line rule in the backtesting skill's golden recipe."
+}

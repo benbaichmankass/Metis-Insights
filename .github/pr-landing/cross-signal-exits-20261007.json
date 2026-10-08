@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "manager lands: new hand-written queue units. Dispatch instruction for lane CROSS-SIGNAL-RESEARCH (checklist row CROSS-SIGNAL-RESEARCH, manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-07): 'Land as Tier-1 docs/queue: landing hold is expected for new hand-written queue files (pr-landing R5 refuses to vouch them) -- open the PR non-draft with .github/pr-landing/<slug>.json (tier 1, landing hold, hold_text manager lands: new hand-written queue units).' E57 holds every new hand-written research/queue unit for a human read; the manager merges.",
+  "why": "Research only (docs + research/queue + one pipeline record): docs/research/cross-signal-exits-2026-10-07.md (feasibility matrix, lever specs, falsifiers), two queued units RQ-20261007-040/041 routed to m20-exit-lever-sweep.yml, three blocked units RQ-20261007-042..044 pre-registering the momentum-conditioned-stop and trend-flip questions, docs/DOCUMENT-INDEX.md row, docs/claude/work/pipeline/ readout record. No src/, no config/, no order path, no workflow, no live-VM runtime file -- Tier-1 by path; held because new hand-written queue units are not self-landable (E57) and the dispatch says the manager lands them."
+}

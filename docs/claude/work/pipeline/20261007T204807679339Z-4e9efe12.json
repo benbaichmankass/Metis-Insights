@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-08",
+    "kind": "date"
+  },
+  "findings": "2026-10-07 lane TRADEIFY-FEED-TRIP: trip sub-reason = unknown_page (terminal stuck on 'Loading...' ~59s after a credential login at 18:26:46Z; executor Page.goto timeout at 18:23Z), NOT captcha/2fa/rejected/no-creds. Cleared only by system-action breakout-login-check account: tradeify_1 apply: reset-feed (Tier-2, HELD for manager; re-arms only if the fresh login check exits 0). No operator step expected. Alarm gap closed in code by attention_watch.probe_prop_feed (lands with docs/research/tradeify-feed-trip-2026-10-07.md); observed-closed only when an hourly digest shows it. Remains open until the re-arm is dispatched and a feed tick posts a fresh account_status.",
+  "id": "PI-20261007-APBY4NTV-0006",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-FLOW-SEPARATION session_01QhZ61suEMNrBnDGq8XWqDR report 2026-10-07 20:41Z, filed by manager session_01MM8o5js6TcDFeNAPBY4Ntv",
+    "rerun": "diag relay: journalctl -u ict-prop-executor@tradeify_1 --since -2h | grep -c -E 'rc=4|feasibility'  (nonzero = still tripped); curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=tradeify_1' | python3 -c \"import json,sys;print(json.load(sys.stdin)['status']['reported_at'])\"  (older than 2h = stale)"
+  },
+  "routed_to": "checklist row TRADEIFY-FEED-TRIP",
+  "state": "routed",
+  "what": "LIVE PROP ACCOUNT SILENTLY NOT TRADING. tradeify_1's executor feed tripped rc=4 (feasibility stop) at 2026-10-06 18:27:45Z and is never retried; every tick since exits before the executor runs (still at 20:18Z 2026-10-07); the account_status snapshot is stale since 18:21Z; tickets since then are suppressed/expired unplaced with no prompt. No alert fired: the silence probe keys on fills (idle 2.6 d reads ok), the hourly snapshot shows 'API ERROR' by design for browser accounts (PI-20261004-APBY4NTV-0002). Routed to TRADEIFY-FEED-TRIP: cause, clearing action, and the missing 'tripped live account pages after N hours' alarm."
+}

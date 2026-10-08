@@ -23,8 +23,11 @@ What this module owns, and why each piece is here and not on the phone:
   ``config/accounts.yaml`` mode is ``live`` AND the kill switch
   ``PROP_PHONE_MODE_<ACCOUNT>`` is not ``off``/``dry`` AND the ticket is not a
   test ticket. Everything else is ``dry``: the phone fills the form, reads it
-  back, and does NOT submit. The phone has its own "armed" switch on top
-  (default off), so a live submit needs both sides.
+  back, and does NOT submit. This is the ONLY live/dry decision: the phone has
+  no device-local "armed" switch (removed by operator decision 2026-10-06,
+  ARMED-GATE: an extra manual gate on the device made the system harder to
+  manage and was less safe than it looked). ``execution: shadow`` legs never
+  reach a ticket at all (``execute_pkg`` emits none for a dry/shadow leg).
 * **Report** wraps :func:`src.prop.prop_report.ingest_report`, overwriting
   ``account_id`` from the token so a device can never write another account.
 * **Events** (login ok / failed, logout seen, refusal, mismatch) ping the
@@ -520,7 +523,7 @@ def _write_diag(account_id: str, reason: str, controls: Any) -> None:
 # tick path at most every 2 min; only the latest is kept. Keys are a fixed allowlist; values are bools, small
 # ints or scrubbed short strings.
 _HB_KEYS = {"st", "paused", "hold", "host", "onAccount", "path_depth", "ready", "probe", "panels", "orderControl",
-            "ticketOpen", "buySell", "tabs", "inputs", "armed", "build", "fg", "jsTimeouts", "pending", "acct"}
+            "ticketOpen", "buySell", "tabs", "inputs", "build", "fg", "jsTimeouts", "pending", "acct"}
 
 
 def _write_heartbeat(account_id: str, reason: str, state: Any) -> None:
