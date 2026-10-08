@@ -1,6 +1,5 @@
 """scripts/ops/checklist.py -- the per-row checklist store (PI-20261004-APBY4NTV-0003)."""
 import json
-import shutil
 import sys
 from pathlib import Path
 
