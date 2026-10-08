@@ -2,5 +2,6 @@
   "tier": 1,
   "landing": "hold",
   "hold_reason": "changes_landing_machinery",
-  "why": "Research-harness tooling: two default-off exit levers (momentum_trail, momentum_stale) on backtest_trend/pullback with a pre-change byte-identical golden over 14 existing arms. HELD, not self-landed: the diff edits src/research/trail_levers.py (Tier-2 by name in check_pr_landing, though backtest-only) and research/templates/m20-exit-lever.yaml (landing machinery, R12). Manager reads once and merges."
+  "why": "Research-harness tooling: two default-off exit levers (momentum_trail, momentum_stale) on backtest_trend/pullback with a pre-change byte-identical golden over 14 existing arms. HELD, not self-landed: the diff edits src/research/trail_levers.py (Tier-2 by name in check_pr_landing, though backtest-only) and research/templates/m20-exit-lever.yaml (landing machinery, R12). Manager reads once and merges.",
+  "hold_text": "Edits src/research/trail_levers.py (backtest-only but Tier-2 by name) and the m20 exit-lever template (landing machinery). Manager reads once, then lands and moves RQ-20261007-042/043 per the PR body."
 }
