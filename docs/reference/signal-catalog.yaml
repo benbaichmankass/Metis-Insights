@@ -8368,9 +8368,9 @@ inputs:
   read_at:
   - scripts/macro/pm_snapshot_collect.py
   - config/pm_markets.yaml
-  - comms/macro/pm_snapshots/YYYY-MM.jsonl
-  timeframe: every 6h (pm-snapshot-collect workflow)
-  freshness: collected_at_utc per line; workflow cron 17 */6 * * *
+  - <data_dir>/pm_snapshots/YYYY-MM.jsonl (trainer VM; not in git)
+  timeframe: every 6h (deploy/trainer/ict-pm-snapshot.timer on the trainer VM)
+  freshness: collected_at_utc per line; timer OnCalendar 00,06,12,18:17 UTC
   used_by:
   - none yet (data accrual only; PM-SURPRISE-EVAL consumes it later)
   health:

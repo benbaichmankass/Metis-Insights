@@ -3,12 +3,14 @@
 
 Reads Kalshi's public market-data REST and Polymarket's public gamma API (both
 unauthenticated, read-only) for the curated list in config/pm_markets.yaml and
-APPENDS one JSON line per market per run to comms/macro/pm_snapshots/YYYY-MM.jsonl.
+APPENDS one JSON line per market per run to <data_dir>/pm_snapshots/YYYY-MM.jsonl on the
+TRAINER VM (deploy/trainer/ict-pm-snapshot.timer). The data is third-party (Kalshi / Polymarket
+terms unread), so it is deliberately NOT committed to this public repo (operator, 2026-10-08).
 
 Point-in-time: every line carries ``collected_at_utc`` (the run instant), source,
 market id, bid/ask/last/implied probability, and ``content_hash`` (sha256 of the
 canonical line without the hash). Append-only: existing lines are never rewritten;
-a re-run adds new lines. Off-VM only (ICT_OFFVM_BUILD_HOST) — no order path, no DB.
+a re-run adds new lines. Trainer/off-VM only (ICT_OFFVM_BUILD_HOST) — no order path, no DB.
 Evaluation (PM-SURPRISE-EVAL) is NOT here.
 """
 from __future__ import annotations
@@ -28,8 +30,10 @@ from typing import Any, Callable, Dict, List, Optional
 import yaml
 
 REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO))
+from src.utils.paths import data_dir  # noqa: E402
+
 CONFIG = REPO / "config" / "pm_markets.yaml"
-OUT_DIR = REPO / "comms" / "macro" / "pm_snapshots"
 _UA = "metis-insights-pm-collector/1 (research; low-frequency read-only)"
 Fetch = Callable[[str], Any]
 
@@ -139,10 +143,11 @@ def append_snapshots(recs: List[Dict[str, Any]], out_dir: Path, now: str) -> Pat
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--config", type=Path, default=CONFIG)
-    ap.add_argument("--out-dir", type=Path, default=OUT_DIR)
+    ap.add_argument("--out-dir", type=Path, default=None, help="default: <data_dir>/pm_snapshots")
     ap.add_argument("--dry-run", action="store_true", help="fetch and print; write nothing")
     a = ap.parse_args(argv)
     cfg = yaml.safe_load(a.config.read_text())
+    out_dir = a.out_dir or (data_dir() / "pm_snapshots")
     now = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     failed: List[str] = []
     recs = collect(cfg, http_get_json, now, failed)
@@ -157,9 +162,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not recs:
         print("no rows collected; nothing written", file=sys.stderr)
         return 1  # a run that collected nothing must be red, not a quiet no-op
-    path = append_snapshots(recs, a.out_dir, now)
+    path = append_snapshots(recs, out_dir, now)
     # Fixed-path liveness receipt (overwritten each run; NOT part of the PIT log, which stays append-only).
-    (a.out_dir / "LATEST.json").write_text(json.dumps(
+    (out_dir / "LATEST.json").write_text(json.dumps(
         {"collected_at_utc": now, "rows": len(recs), "by_source": by, "failed_sources": failed, "file": path.name},
         sort_keys=True) + "\n")
     print(f"appended to {path}")

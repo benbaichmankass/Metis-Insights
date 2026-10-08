@@ -237,12 +237,6 @@ CADENCE_REGISTRY: dict[str, dict] = {
         "why": "full-regenerated from ALL committed captures every run and "
                "committed via commit-to-main -- a fixed, overwritten path",
     },
-    "pm-snapshot-collect.yml": {
-        "receipt": "comms/macro/pm_snapshots/LATEST.json",
-        "why": "pm_snapshot_collect.py overwrites this fixed-path receipt every run "
-               "and it lands via commit-to-main; the PIT log itself is month-sharded "
-               "append-only files, so it cannot be the receipt",
-    },
     "econ-event-study.yml": {
         "receipt": "comms/macro/econ_event_study_scorecard.json",
         "why": "the eia_natgas_storage scorecard is rewritten every run and "

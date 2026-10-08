@@ -182,3 +182,6 @@ artifacts/research/
 # 18 of them into a commit — which is how they reached a PR on 2026-09-12 and
 # was caught only by pr-landing-guard R5 refusing to vouch for the paths.
 .merge_file_*
+
+# PM-COLLECTOR third-party snapshots live on the trainer only; never commit (public repo, source terms unread)
+data/pm_snapshots/

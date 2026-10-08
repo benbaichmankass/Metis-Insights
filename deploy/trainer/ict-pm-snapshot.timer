@@ -1,0 +1,13 @@
+# Every 6h (00/06/12/18 UTC). Persistent catches up one run after downtime; it never
+# backfills (the source is a live quote, so a missed slot is a gap, not recoverable).
+# Install: sudo bash scripts/ops/install_trainer_pm_snapshot.sh
+[Unit]
+Description=6-hourly trainer prediction-market snapshot
+
+[Timer]
+OnCalendar=*-*-* 00,06,12,18:17:00 UTC
+RandomizedDelaySec=2min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

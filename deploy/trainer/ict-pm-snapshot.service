@@ -1,0 +1,25 @@
+# ============================================
+# PM-COLLECTOR: Kalshi/Polymarket macro prediction-market snapshots, APPEND-ONLY JSONL
+# under <data_dir>/pm_snapshots/YYYY-MM.jsonl (src.utils.paths.data_dir()). Stored on the
+# trainer, NOT in git: the third-party terms could not be read, and committing the data to
+# this public repo would republish it (operator, 2026-10-08: "Store off-repo").
+#
+# **TRAINER VM ONLY** - lives in deploy/trainer/ so the live-VM unit installer never picks
+# it up. Non-money path: public unauthenticated GETs, no key, no order path, no DB.
+# Install: sudo bash scripts/ops/install_trainer_pm_snapshot.sh
+# ============================================
+
+[Unit]
+Description=ICT trainer prediction-market snapshot collector (append-only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+Environment=ICT_OFFVM_BUILD_HOST=1
+TimeoutStartSec=600
+ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/macro/pm_snapshot_collect.py
+StandardOutput=journal
+StandardError=journal

@@ -216,7 +216,6 @@ on:
       - diag-relay-sweep
       - doc-audit-weekly
       - econ-calendar-produce
-      - pm-snapshot-collect
       - econ-event-study
       - macro-producer-liveness
       - macro-valuation-snapshot
