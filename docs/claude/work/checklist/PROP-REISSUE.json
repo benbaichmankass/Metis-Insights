@@ -1,0 +1,18 @@
+{
+  "id": "PROP-REISSUE",
+  "title": "Build prop-ticket-reissue system action; re-issue tradeify_1 suppressed ETH-short prop-manual-2116662b7d8d once its blocker is terminal",
+  "phase": null,
+  "state": "in_flight",
+  "owner": "lane",
+  "lane": "PROP-REISSUE",
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Operator 2026-10-08 ~16:12Z 'Build a re-issue path'. Ceiling $15. Root cause filed in the pipeline (supersede/cancel-replace, Tier-3 proposal).",
+  "updated_at": "2026-10-08T16:16:29Z",
+  "updated_by": "session_01PypkHTEV3byEps3qruJSYR",
+  "_seq": 360
+}

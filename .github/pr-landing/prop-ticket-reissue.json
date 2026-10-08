@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2: adds an allowlisted system-action (prop-ticket-reissue) that WRITES the live trade_journal.db prop_tickets table on the live VM. Operator chose 'Build a re-issue path' (~16:12Z 2026-10-08) via Manager Session 2026-10-08 (session_01Uq7MrjPQDRWqbhCjwuMava); lane PROP-REISSUE (session_01PypkHTEV3byEps3qruJSYR). The manager merges. Scope of the write: ONE ticket, ONE UPDATE guarded on (ticket_id, account_id, status='suppressed') to `emitted`, with side/qty/risk/valid_until/message rebuilt by emission's own functions (parity with emit_prop_ticket asserted in tests). Refused unless the blocking ticket is terminal, the account is mode live, the strategy is rostered and execution live, the ticket is <=120 min old, no prop_fills row references it, and the reticket guard re-run now no longer suppresses. Dry-run by default, SQLite backup before apply. The executor's own intake (entry band, expiry, rule guards) still decides placement. Merging changes no runtime behaviour; nothing runs until someone opens a labelled issue for it. Revert: git revert of the merge commit.",
+  "why": "PROP-REISSUE: tradeify_1 ETH-short prop-manual-2116662b7d8d was suppressed by an unfilled resting LIMIT (prop-manual-e6badec7ae10) while price ran; no in-git path could bring a suppressed signal back."
+}
