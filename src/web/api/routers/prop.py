@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bot/prop", tags=["prop"])
 
-_DEFAULT_ACCOUNT = "breakout_1"
+_DEFAULT_ACCOUNT = "breakout_2"  # breakout_1 retired 2026-10-07 (BREAKOUT1-RETIRE); breakout_2 is the live Breakout account
 
 
 def _require_write_token(authorization: str | None) -> None:
