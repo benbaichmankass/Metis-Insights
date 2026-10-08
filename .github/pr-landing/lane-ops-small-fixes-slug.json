@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "OPS-SMALL-FIXES item 2: README states the slug rule; R11 message prints the exact expected filename."
+}

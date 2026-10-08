@@ -1392,7 +1392,9 @@ def check(root: Path, base: str, branch: Optional[str]) -> tuple[str, list[str],
                 f"established as either. Passing on the unreadable case rather "
                 f"than failing a branch we did not establish anything about."])
         return ("undeclared", [
-            f"R11 no landing declaration at {decl_rel}. This branch was cut from "
+            f"R11 no landing declaration at {decl_rel}. The filename must be EXACTLY "
+            f"that (slug = branch name with '/' -> '-', no part dropped: "
+            f"`lane/foo` -> `lane-foo.json`). This branch was cut from "
             f"a `main` that already carried {GUARD_REL}, so the rule was "
             f"available to it. Every PR states its tier and how it means to "
             f"land; see {LANDING_DIR}/README.md for the four-line file."], notes)
