@@ -680,6 +680,38 @@ fill with its ticket id.
 
    This is what keeps one account from ever having two live tickets for one
    symbol and direction.
+
+   **One exception: SUPERSEDE of a resting entry** (operator, 2026-10-08
+   ~20:03Z, verbatim "Approve as proposed (Recommended)"; pipeline item
+   PI-20261008-3QRUJSYR-0001, checklist row PROP-SUPERSEDE). A new signal
+   for the same (account, **strategy**, symbol, direction) whose outstanding
+   ticket is `placed` is still journaled `suppressed`, but emission marks it
+   `meta.supersede` (`breakout_executor._supersede_candidate`). The
+   executor that placed the old entry (`prop_executor._supersede_resting`)
+   acts only on its own terminal read, and only when that read shows
+   nothing on the venue symbol except the old ticket's one resting order
+   with its bracket. It also requires the new ticket's entry band to read
+   `ok` on the live quote. Then it does four things, in order:
+   1. cancels the entry (the #17158/#17167 `cancel_order` path);
+   2. re-reads and confirms the order is gone with no position;
+   3. reports the old ticket `skipped: superseded by <new id>`;
+   4. posts `kind: supersede`, after which `prop_supersede.release`
+      rebuilds the new ticket through the `prop-ticket-reissue` checks and
+      `rebuild_fields` and flips it to `emitted`.
+
+   Normal intake then takes the new ticket on the next cycle's fresh read.
+   Every other case keeps the block and clicks nothing:
+   - a position, either side, or a possible partial fill;
+   - an open journal position;
+   - an unreadable read or quote;
+   - an expiry cancel already in flight;
+   - another order on the symbol;
+   - another strategy or direction;
+   - a stale new ticket;
+   - a band that is not `ok`.
+
+   A cancel that does not remove the row releases nothing. The 2026-09-29
+   rule stands: a doubled position costs more than one lost signal.
 4. **Machine accounts are not driven from Telegram.** `rest`, `phone` and
    `browser` tickets never enter `expiry_prompted`, `invalidated_prompted` or
    `awaiting_report`. They get no Yes/No keyboard: not on the ticket, not at

@@ -1032,6 +1032,15 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         res.log("halt_no_entries", why=journal_error)
         return res
 
+    # 4b. PROP-SUPERSEDE (operator 2026-10-08): a newer same-strategy signal
+    # replaces a resting, unfilled entry. Never while halted, after another
+    # cancel this cycle, or while a submit/close is unresolved: the block
+    # stands in every doubtful state.
+    if not halted and not cancelled_this_cycle and not ledger.unresolved() and not ledger.close_unresolved():
+        if _supersede_resting(res, adapter, page, api, cfg, live, post, ledger, state, st,
+                              positions, orders, journal_open or [], now, sleep):
+            cancelled_this_cycle = True
+
     # 5. intake
     # A validity that ran out with no attempt is never silent (BREAKOUT-NOATTEMPT):
     # swept from the executor's own state, BEFORE intake, so it fires even on a
@@ -2222,6 +2231,192 @@ def _expire_resting(res: CycleResult, adapter: Any, page: Any, live: bool, ledge
     return False
 
 
+#: PROP-SUPERSEDE cancel attempts on one resting entry before the executor
+#: stops trying to supersede it (the block then stands, as before the rule).
+SUPERSEDE_MAX_ATTEMPTS = 3
+#: Release write-backs retried for one superseded ticket.
+SUPERSEDE_RELEASE_MAX_ATTEMPTS = 3
+
+
+def _supersede_block(res: CycleResult, adapter: Any, page: Any, cfg: ExecutorConfig,
+                     row: Mapping[str, Any], old: Optional[Mapping[str, Any]], new: Mapping[str, Any],
+                     positions: Sequence[Position], orders: Sequence[WorkingOrder],
+                     journal_open: Sequence[Mapping[str, Any]],
+                     now: datetime) -> Tuple[Optional[str], Optional[WorkingOrder]]:
+    """Why the resting entry of ``row`` may NOT be superseded by ``new`` this
+    cycle, or ``(None, the one order to cancel)``. Every doubt is a block:
+    today's one-ticket-per-trade block then stands unchanged."""
+    cand = new.get("supersede") or {}
+    if row.get("cancel_requested") or row.get("cancel_attempts") or row.get("cancel_exhausted"):
+        return "the expiry cancel already owns this resting entry", None
+    if int(row.get("supersede_attempts") or 0) >= SUPERSEDE_MAX_ATTEMPTS:
+        return f"{SUPERSEDE_MAX_ATTEMPTS} supersede cancel attempts spent", None
+    if old is None:
+        return "old ticket not in the journal read (could not look)", None
+    if str(old.get("status") or "") != "placed":
+        return f"old ticket is {old.get('status')!r}, not 'placed'", None
+    for k in ("strategy", "symbol", "direction"):
+        if str(old.get(k) or "").lower() != str(new.get(k) or "").lower():
+            return f"{k} differs ({old.get(k)!r} vs {new.get(k)!r})", None
+    vu = _parse_ts(cand.get("valid_until"))
+    if vu is None or vu <= now:
+        return "the new ticket's validity passed or is unreadable", None
+    spec = row.get("spec") or {}
+    venue = str(spec.get("venue_symbol") or "").upper()
+    if not venue or spec.get("side") not in ("long", "short"):
+        return "the resting entry's venue/side is not in the ledger (could not look)", None
+    # NO position on the symbol, either side: the rule's precondition is
+    # symbol+side; the other side is refused too because intake's
+    # one-bracket-per-symbol guard would then refuse the new ticket, leaving
+    # nothing where the cancelled order was.
+    held = [p for p in positions if p.symbol.upper() == venue]
+    if held:
+        return f"{len(held)} position(s) on {venue} (possible partial fill or open trade)", None
+    bot_sym = str(new.get("symbol") or "").upper()
+    if any(str(j.get("symbol") or "").upper() == bot_sym for j in journal_open):
+        return f"the journal holds an open position on {bot_sym}", None
+    found = match_terminal(spec, positions, orders, cfg.confirm_rel_tol)
+    if classify_confirmation(spec, found, cfg.confirm_rel_tol) != "placed" or len(found["orders"]) != 1:
+        return "the resting entry does not match exactly one working order with its bracket", None
+    others = [o for o in orders if o.symbol.upper() == venue and o is not found["orders"][0]]
+    if others:
+        return f"{len(others)} other working order(s) on {venue}", None
+    verdict, why = _entry_band_check(adapter, page, {"message": cand.get("message"),
+                                                     "direction": new.get("direction")}, venue)
+    if verdict != "ok":
+        # Fail closed (PROP-SUPERSEDE): never cancel a resting entry for a
+        # ticket intake would not place right now.
+        return f"new ticket's entry band check is {verdict}: {why}", None
+    return None, found["orders"][0]
+
+
+def _supersede_release(res: CycleResult, state: "ExecutorState", st: Dict[str, Any], ledger: IntentLedger,
+                       post: Any, cfg: ExecutorConfig, old_id: str, new_id: str) -> None:
+    """Step 4 of the rule: ask the API to release the new ticket (rebuilt,
+    ``suppressed`` -> ``emitted``). A refusal alerts once; the cancelled entry
+    stays cancelled and the new ticket stays suppressed."""
+    from src.prop.prop_supersede import KIND
+    n = int((ledger.latest().get(old_id) or {}).get("release_attempts") or 0) + 1
+    ledger.record(old_id, "skipped", release_attempts=n)
+    _report(res, post, {"kind": KIND, "account_id": cfg.account_id, "ticket_id": new_id,
+                        "supersedes": old_id, "source": "prop_executor"})
+    resp = res.reports[-1].get("response") or {}
+    if resp.get("released"):
+        ledger.record(old_id, "skipped", released=new_id)
+        res.log("superseded", ticket_id=old_id, superseded_by=new_id, valid_until=resp.get("valid_until"))
+        return
+    res.log("supersede_release_refused", ticket_id=new_id, supersedes=old_id, why=resp.get("why"), attempt=n)
+    if _first_time(state, st, "supersede_release_alert", new_id):
+        res.alerts.append(f"{old_id}: resting entry CANCELLED ({_superseded(new_id)}) but {new_id} was NOT "
+                          f"released ({resp.get('why') or res.reports[-1].get('error') or 'no response'}); "
+                          f"nothing is resting for this signal now")
+
+
+def _superseded(new_id: str) -> str:
+    from src.prop.prop_supersede import superseded_reason
+    return superseded_reason(new_id)
+
+
+def _supersede_resting(res: CycleResult, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig,
+                       live: bool, post: Any, ledger: IntentLedger, state: "ExecutorState",
+                       st: Dict[str, Any], positions: Sequence[Position], orders: Sequence[WorkingOrder],
+                       journal_open: Sequence[Mapping[str, Any]], now: datetime,
+                       sleep: Callable[[float], None]) -> bool:
+    """PROP-SUPERSEDE (operator 2026-10-08 ~20:03Z, "Approve as proposed";
+    PI-20261008-3QRUJSYR-0001). A ``suppressed`` ticket carrying a supersede
+    candidate (same account, strategy, symbol, direction; emission marks it)
+    replaces this executor's ``placed`` resting entry when, on THIS cycle's
+    read, nothing but that one resting order sits on the symbol:
+
+    1. cancel the resting entry (``adapter.cancel_order``, the #17158/#17167
+       path); 2. re-read and confirm the order is gone with no position;
+    3. report the old ticket ``skipped: superseded by <new id>``; 4. only
+    then release the new ticket, which intake takes on the next cycle's
+    fresh read through every normal guard.
+
+    Blocks (today's block stands, nothing clicked): a position or a
+    possible partial fill on the symbol, a journal open position, the read
+    unreadable (``run_cycle`` returned before this), an expiry cancel in
+    flight, the order not matching exactly, other orders on the symbol, the
+    new ticket stale, or its entry band not ``ok`` on the live quote. At most
+    one supersede per cycle. Returns True when a cancel was clicked, so
+    intake holds this cycle (its read predates the cancel)."""
+    latest = ledger.latest()
+    placed = {k for k, v in latest.items() if v.get("state") == "placed" and not IntentLedger.is_close_row(v)}
+    pending = {k for k, v in latest.items() if v.get("state") == "skipped" and v.get("superseded_by")
+               and not v.get("released")
+               and int(v.get("release_attempts") or 0) < SUPERSEDE_RELEASE_MAX_ATTEMPTS}
+    if not placed and not pending:
+        return False
+    try:
+        tickets = api.all_tickets(cfg.account_id)
+    except Exception as exc:
+        res.log("supersede_skipped", why=f"ticket read failed ({type(exc).__name__}); block stands")
+        return False
+    by_id = {str(t.get("ticket_id") or ""): t for t in tickets}
+    picks: Dict[str, Mapping[str, Any]] = {}
+    for t in sorted(tickets, key=lambda t: str(t.get("created_at") or ""), reverse=True):
+        cand = t.get("supersede")
+        if str(t.get("status") or "") == "suppressed" and isinstance(cand, dict) and cand.get("blocked_by"):
+            picks.setdefault(str(cand["blocked_by"]), t)  # newest candidate per resting entry
+    for old_id, new in picks.items():
+        new_id = str(new.get("ticket_id") or "")
+        row = latest.get(old_id)
+        if old_id in pending and (row or {}).get("superseded_by") == new_id:
+            # Cancelled and confirmed earlier, write-backs not landed: retry
+            # them only (no venue action).
+            if live:
+                if str((by_id.get(old_id) or {}).get("status") or "") == "placed":
+                    _report(res, post, {**_fill_body(cfg, row, row.get("spec") or {}, "skipped"),
+                                        "reason": _superseded(new_id)})
+                _supersede_release(res, state, st, ledger, post, cfg, old_id, new_id)
+            continue
+        if old_id not in placed:
+            continue
+        why, order = _supersede_block(res, adapter, page, cfg, row, by_id.get(old_id), new,
+                                      positions, orders, journal_open, now)
+        if why:
+            res.log("supersede_blocked", ticket_id=old_id, candidate=new_id, why=why)
+            continue
+        if not live:
+            res.log("would_supersede", ticket_id=old_id, candidate=new_id, order_id=order.order_id)
+            continue
+        attempts = int(row.get("supersede_attempts") or 0)
+        ledger.record(old_id, "placed", supersede_requested=new_id)
+        r = adapter.cancel_order(page, order, arm=True)
+        res.log("cancel_superseded_resting", ticket_id=old_id, candidate=new_id, order_id=order.order_id, result=r)
+        if not (r.get("ok") and r.get("clicked")):
+            ledger.record(old_id, "placed", supersede_requested=None, supersede_attempts=attempts + 1)
+            res.alerts.append(f"{old_id}: supersede by {new_id} NOT done — cancel did not click "
+                              f"({r.get('why') or 'not clicked'}); the entry still rests, {new_id} stays suppressed "
+                              f"(attempt {attempts + 1}/{SUPERSEDE_MAX_ATTEMPTS})")
+            return True
+        sleep(3.0)
+        try:
+            positions2 = adapter.read_positions(page)
+            orders2 = adapter.read_orders(page)
+        except Exception as exc:
+            res.alerts.append(f"{old_id}: supersede cancel clicked but the re-read failed ({type(exc).__name__}); "
+                              f"{new_id} stays suppressed until a read confirms the order is gone")
+            return True
+        venue = str((row.get("spec") or {}).get("venue_symbol") or "").upper()
+        if [p for p in positions2 if p.symbol.upper() == venue]:
+            ledger.record(old_id, "placed", supersede_requested=None, supersede_attempts=attempts + 1)
+            res.alerts.append(f"{old_id}: a position is on {venue} after the supersede cancel (filled in the race?); "
+                              f"{new_id} NOT released; the reconcile owns the position")
+            return True
+        if [o for o in orders2 if o.symbol.upper() == venue]:
+            ledger.record(old_id, "placed", supersede_requested=None, supersede_attempts=attempts + 1)
+            res.alerts.append(f"{old_id}: supersede cancel clicked but the order is STILL on the terminal; "
+                              f"{new_id} stays suppressed (attempt {attempts + 1}/{SUPERSEDE_MAX_ATTEMPTS})")
+            return True
+        ledger.record(old_id, "skipped", reason=_superseded(new_id), superseded_by=new_id)
+        _report(res, post, {**_fill_body(cfg, row, row.get("spec") or {}, "skipped"), "reason": _superseded(new_id)})
+        _supersede_release(res, state, st, ledger, post, cfg, old_id, new_id)
+        return True
+    return False
+
+
 def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, ledger: IntentLedger,
              cfg: ExecutorConfig, tid: str, row: Mapping[str, Any], spec: Mapping[str, Any],
              found: Mapping[str, Any], verdict: str) -> Optional[str]:
@@ -2240,11 +2435,15 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
         # A resting order that vanished without a position: cancelled or
         # expired on the terminal. Two reads, then report it skipped.
         n = int(row.get("misses") or 0) + 1
-        why = ("expired: resting entry cancelled at the ticket's valid_until"
+        sup = row.get("supersede_requested")
+        why = (_superseded(str(sup)) if sup
+               else "expired: resting entry cancelled at the ticket's valid_until"
                if row.get("cancel_requested") else "working order gone from the terminal without a fill")
         if live:
             if n >= 2:
-                ledger.record(tid, "skipped", reason=why)
+                # A supersede cancel whose same-cycle re-read failed lands here:
+                # superseded_by lets _supersede_resting release the new ticket.
+                ledger.record(tid, "skipped", reason=why, **({"superseded_by": str(sup)} if sup else {}))
                 _report(res, post, {**_fill_body(cfg, row, spec, "skipped"), "reason": why})
             else:
                 ledger.record(tid, "placed", misses=n)

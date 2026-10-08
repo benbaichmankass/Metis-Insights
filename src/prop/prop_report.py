@@ -91,6 +91,19 @@ def ingest_report(report: Dict[str, Any]) -> Dict[str, Any]:
     if kind == "amend":
         return _ingest_amend(account_id, report)
 
+    if kind == "supersede":
+        # PROP-SUPERSEDE (operator 2026-10-08): release the suppressed ticket
+        # that superseded a cancelled resting entry. Every check is in
+        # prop_supersede.release; a refusal leaves the ticket suppressed.
+        from src.prop import prop_supersede
+
+        new_id = str(report.get("ticket_id") or "").strip()
+        old_id = str(report.get("supersedes") or "").strip()
+        if not new_id or not old_id:
+            raise ValueError("supersede report needs ticket_id and supersedes")
+        return {"ok": True, "kind": "supersede",
+                **prop_supersede.release(account_id, new_id, old_id)}
+
     # --- fill / close ---
     status = str(report.get("status") or "closed").strip().lower()
     if status not in _FILL_STATUSES:
