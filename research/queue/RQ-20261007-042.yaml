@@ -3,9 +3,8 @@ title: >-
   Momentum-conditioned stop (the operator's idea, literal form): on the four real-money
   bybit_2 legs and the two prop legs, does a Chandelier trail that TIGHTENS when Wilder ADX
   fades (and stays at the leg's wide base while momentum confirms) beat the config-exact
-  price-path trail through the exit-refinement P2 gate? BLOCKED on harness lever
-  --trail-adx-* (spec in docs/research/cross-signal-exits-2026-10-07.md § 4.1)
-status: blocked
+  price-path trail through the exit-refinement P2 gate?
+status: queued
 cadence: once
 kind: experiment
 theme: live_strategy
@@ -103,37 +102,17 @@ routing:
     Runner, once the lever exists: m20-exit-lever-sweep.yml shards one leg per job and
     scp's frames from the trainer; 4 cells x 6 legs at the measured ~2.5 min per cell
     incl. folds. Estimate, not a measurement.
-blocked_on:
-  - what: >-
-      No harness conditions the trail on a momentum series. src/research/trail_levers.py
-      (the ONE trail-lever rule, effective_trail_mult) composes trail_decay (R / price
-      stall) and vol_trail (ATR percentile) by minimum and reads no ADX; backtest_trend.py,
-      backtest_pullback.py and backtest_squeeze.py expose no --trail-adx-* flag (argparse
-      read 2026-10-07); m20_fleet_exit_sweep.cells_for has no momentum cell and
-      docs/research/exit-refinement-coverage.json no momentum_trail column.
-    ref: >-
-      docs/research/cross-signal-exits-2026-10-07.md § 4.1 (lever spec A: flag names,
-      semantics, default = today's behaviour, golden tests) -- proposed build row for the
-      manager, lane CROSS-SIGNAL-RESEARCH 2026-10-07
-    clears_when: >-
-      `python3 scripts/backtest_trend.py --help` and `python3 scripts/backtest_pullback.py --help`
-      list --trail-adx-below / --trail-adx-falling-bars / --trail-adx-tight-mult, the rule is
-      implemented ONCE in src/research/trail_levers.effective_trail_mult (an `adx_j`,
-      `adx_ref` argument pair, composing by minimum like vol_trail), the golden tests in
-      the spec pass (threshold 0 byte-identical; threshold 100 + tight == base
-      byte-identical; threshold 100 + tight < base equals a constant --trail-mult tight
-      run), m20_fleet_exit_sweep.cells_for emits adx20_k0 / adx20_k3 / adx25_k0 / adx25_k3
-      under matrix lever `momentum_trail`, and .github/workflows/m20-exit-lever-sweep.yml
-      accepts `momentum_trail` in `levers`. Then: git mv this file to research/queue/,
-      status queued, run.workflow m20-exit-lever-sweep.yml with inputs {legs:
-      "trend_donchian_eth_4h,trend_donchian_xrp_4h,xrp_pullback_2h,ada_pullback_2h,trend_donchian_eth_prop,trend_donchian_sol_prop",
-      levers: momentum_trail, tp_cap_pct: '0.099', split_mode: oos-trades,
-      research_unit: RQ-20261007-042}.
 run:
-  workflow: null
+  workflow: m20-exit-lever-sweep.yml
+  inputs:
+    legs: "trend_donchian_eth_4h,trend_donchian_xrp_4h,xrp_pullback_2h,ada_pullback_2h,trend_donchian_eth_prop,trend_donchian_sol_prop"
+    levers: momentum_trail
+    tp_cap_pct: '0.099'
+    split_mode: oos-trades
+    research_unit: RQ-20261007-042
   note: >-
-    Null until the lever lands (blocked_on). The intended dispatch is written in
-    clears_when so the unblocking PR needs no re-derivation.
+    Lever landed in #17042 (f111ec755); flags, cells_for cells and workflow input verified on
+    main 2026-10-08 by lane ML-RESEARCH-W41. Moved from blocked/ on that basis.
 lands:
   store: research/results/
   assert_field: read_state
