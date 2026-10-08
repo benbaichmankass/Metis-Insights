@@ -1,0 +1,6 @@
+{
+  "held_by": "github-actions[bot] · research-queue-dispatch run 37720382120",
+  "branch": "automation/research-results-batch-37720382120-1",
+  "claimed_at": "2026-10-08T03:00:04Z",
+  "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
+}
