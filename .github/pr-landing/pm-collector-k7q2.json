@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "why": "New trainer-VM systemd timer (deploy/trainer/ict-pm-snapshot.timer, every 6h) running a data-pull-only Kalshi/Polymarket macro snapshot collector. Snapshots are stored OFF-REPO under the trainer data dir (operator 2026-10-08, 'Store off-repo'). No order path, no live-VM mutation, no key. Tier 2 because it adds a timer/service; manager merges and installs.",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Manager review: new trainer-only timer (deploy/trainer/, not picked up by the live-VM installer). Install after merge via scripts/ops/install_trainer_pm_snapshot.sh through trainer-vm-diag. Source terms for Kalshi/Polymarket could not be read, hence no data in git."
+}
