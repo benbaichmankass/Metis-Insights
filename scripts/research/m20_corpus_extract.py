@@ -641,6 +641,20 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
                     row[f"allowed_d_max_dd_{tag}"] = _num(x, "allowed_d_max_dd")
                     row[f"rate_ok_{tag}"] = x.get("passes")
                     row[f"rate_reason_{tag}"] = x.get("reason")
+                # GEOM-B1 (tp_extend / tp_retarget cells only): the doctrine reads
+                # CALIBRATION before P&L, so the share rides the corpus row beside
+                # the gate fields. Additive and absent on every other row -- None,
+                # not 0, when a side could not be read.
+                _tg = e.get("tp_geometry")
+                if isinstance(_tg, dict):
+                    for tag in ("IS", "OOS"):
+                        _b = _tg.get(tag) or {}
+                        _c = _b.get("cell") or {}
+                        row[f"tp_cal_cell_{tag}"] = _b.get("calibration_share_cell")
+                        row[f"tp_cal_base_{tag}"] = _b.get("calibration_share_base")
+                        row[f"tp_cal_ge_base_{tag}"] = _b.get("calibration_ge_base")
+                        row[f"tp_extends_{tag}"] = _c.get("total_extends")
+                        row[f"tp_retargets_{tag}"] = _c.get("total_retargets")
                 out.append(row)
     return out
 
