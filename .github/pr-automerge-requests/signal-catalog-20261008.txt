@@ -1,0 +1,1 @@
+auto-merge: signal catalog + guard (docs/tooling/CI, Tier-1)
