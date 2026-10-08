@@ -2,7 +2,7 @@
   "id": "PM-COLLECTOR",
   "title": "Eng: free prediction-market snapshot collector (macro/Fed/CPI questions) with point-in-time storage, on the existing econ-calendar producer pattern",
   "phase": null,
-  "state": "blocked",
+  "state": "queued",
   "owner": "manager",
   "lane": "session_019PGbD11wb3hfgoGyHyDmSs",
   "model": "claude-sonnet-5-5",
@@ -11,8 +11,8 @@
   "tier": 1,
   "prs": [],
   "blocked_on": [],
-  "note": "[2026-10-08T10:40Z manager] Operator 2026-10-08 (verbatim): \"Ok, lets do that - I want us to add the bigger build out to the roadmap, gated on the system successfully passing milestones (POCs that prove trust worthy and add value)\". Eng backlog by capacity (not before the weekly budget resets unless capacity allows). Free APIs only; source terms respected; snapshots versioned with collection time + hash (design doc section 7/9). Unblocks PM-SURPRISE-EVAL. [2026-10-08T12:47Z manager] Dispatched as serial-queue item 3 (PACE-W40) after REPO-PRIVATE-SCOPE finished: lane session_019PGbD11wb3hfgoGyHyDmSs, Sonnet, ceiling $15. Sources to verify: Kalshi / Polymarket public endpoints, terms checked. Lands as hold (new scheduled workflow); manager merges by hand. [2026-10-08T13:52Z manager] Lane delivered PR #17131 (head 174c1fce, landing hold, Tier 2: new 6h workflow pm-snapshot-collect, Kalshi + Polymarket public APIs, ~120 Actions min/mo, append-only JSONL with content hash). Lane ARCHIVED, final $2.68. HELD by manager: neither source's ToS could be read (Kalshi PDF 429, Polymarket /tos returns a stub; re-tried by the manager 13:50Z, same result). Committing snapshots to a PUBLIC repo republishes third-party data, so 'nothing found forbids it' is not enough. Next: manager re-reads both ToS at the next check-in; merge if they permit automated collection + storage, else drop the forbidding source from config/pm_markets.yaml. Also: Polymarket recession slug returned 0 rows in the dry run.",
-  "updated_at": "2026-10-08T13:51:25Z",
+  "note": "[2026-10-08T10:40Z manager] Operator 2026-10-08 (verbatim): \"Ok, lets do that - I want us to add the bigger build out to the roadmap, gated on the system successfully passing milestones (POCs that prove trust worthy and add value)\". Eng backlog by capacity (not before the weekly budget resets unless capacity allows). Free APIs only; source terms respected; snapshots versioned with collection time + hash (design doc section 7/9). Unblocks PM-SURPRISE-EVAL. [2026-10-08T12:47Z manager] Dispatched as serial-queue item 3 (PACE-W40) after REPO-PRIVATE-SCOPE finished: lane session_019PGbD11wb3hfgoGyHyDmSs, Sonnet, ceiling $15. Sources to verify: Kalshi / Polymarket public endpoints, terms checked. Lands as hold (new scheduled workflow); manager merges by hand. [2026-10-08T13:52Z manager] Lane delivered PR #17131 (head 174c1fce, landing hold, Tier 2: new 6h workflow pm-snapshot-collect, Kalshi + Polymarket public APIs, ~120 Actions min/mo, append-only JSONL with content hash). Lane ARCHIVED, final $2.68. HELD by manager: neither source's ToS could be read (Kalshi PDF 429, Polymarket /tos returns a stub; re-tried by the manager 13:50Z, same result). Committing snapshots to a PUBLIC repo republishes third-party data, so 'nothing found forbids it' is not enough. Next: manager re-reads both ToS at the next check-in; merge if they permit automated collection + storage, else drop the forbidding source from config/pm_markets.yaml. Also: Polymarket recession slug returned 0 rows in the dry run. [2026-10-08T14:55Z manager] OPERATOR popup answer (verbatim): \"Store off-repo\". Re-scope #17131: keep the collector, write snapshots to the trainer VM (not the public repo); also fix the timeout-minutes 15 < 50m merge wait test failure (moot if no commit-to-main step). Small lane ~$5, inserted as queue item 5b after RESEARCH-RESULTS-LAND.",
+  "updated_at": "2026-10-08T14:51:52Z",
   "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
   "_seq": 358
 }
