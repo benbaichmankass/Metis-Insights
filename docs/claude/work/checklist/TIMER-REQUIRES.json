@@ -14,7 +14,12 @@
   ],
   "blocked_on": [],
   "note": "PR #17160 ready, Tier-2 hold; manager merges. Closes when, after deploy, the next timer restart does not start the services and a deploy leaves the 19 timers active (observation by manager). Pipeline PI-20261008-APBY4NTV-0004 closed on the PR.",
-  "updated_at": "2026-10-08T18:05:14Z",
+  "updated_at": "2026-10-08T18:11:14Z",
   "updated_by": "session_014XiPXfgCqmNmwdpXLsMgUM",
+  "observation": {
+    "what": "after #17160 is deployed, the 19 edited timers are still active and a deploy/timer reload no longer starts their services off schedule",
+    "how_to_check": "scripts/ops/diag_fetch.sh version shows the merge SHA; journal for ict-git-sync/ict-heartbeat shows no service start at the deploy second, only on the OnCalendar/OnUnitActiveSec schedule; systemctl list-timers shows the timers scheduled",
+    "due_by": "2026-10-10T00:00Z"
+  },
   "_seq": 360
 }
