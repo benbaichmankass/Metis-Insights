@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "due_date": "2026-10-21",
+    "kind": "date"
+  },
+  "id": "PI-20261007-9ARZOHV6-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-21",
+    "how_to_check": "ls research/results/RQ-20261007-040 research/results/RQ-20261007-041; grep -n 'section 6\\|readout' docs/research/cross-signal-exits-2026-10-07.md; grep -n 'RQ-20261007-04[01]' docs/research/exit-refinement-coverage.json",
+    "what": "research/results/RQ-20261007-040/ and RQ-20261007-041/ carry a landed result each, and docs/research/cross-signal-exits-2026-10-07.md section 6 records the section-5 readout applied verbatim (040: declare proposal | needs_review | honest_negative; 041: per-leg verdicts) plus whether build rows for lever spec 4.1 and the flip_exit cell exist"
+  },
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/cross-signal-exits-2026-10-07.md (lane CROSS-SIGNAL-RESEARCH session_01FRPsG9ZsFVMoYE9ARzoHV6, manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-07)",
+    "rerun": "ls research/results/RQ-20261007-040 research/results/RQ-20261007-041 2>/dev/null; for u in 040 041; do cat research/results/RQ-20261007-$u/*.jsonl 2>/dev/null | python3 -c \"import json,sys; [print(u:=json.loads(l)['research_unit'], json.loads(l)['verdict'], json.loads(l)['read_state'], (json.loads(l).get('measurement') or {}).get('leg'), (json.loads(l).get('measurement') or {}).get('passing_cells'), (json.loads(l).get('measurement') or {}).get('base_trades_OOS')) for l in sys.stdin]\"; done; grep -n 'status:\\|needs_review\\|last_dispatched_at' research/queue/RQ-20261007-040.yaml research/queue/RQ-20261007-041.yaml; ls research/queue/blocked/RQ-20261007-04[234].yaml"
+  },
+  "state": "queued",
+  "what": "CROSS-SIGNAL-RESEARCH readout: when research/results/RQ-20261007-040/ (ada_pullback_2h x vol_trail confirmation) and RQ-20261007-041/ (three real-money siblings, per-leg control) land, apply the rules in docs/research/cross-signal-exits-2026-10-07.md section 5 VERBATIM (040: PASS on vt_hot90_t2.5 -> Tier-3 declare proposal for the bybit trio; pass on another cell -> needs_review; no_action_warranted -> coverage row passed_unshipped -> honest_negative; 041: per leg, then principle-supported / leg-specific / no-surviving-cell), update docs/research/exit-refinement-coverage.json rows, and record in the memo whether a build row for lever spec 4.1 (--trail-adx-*, unblocks blocked/RQ-20261007-042) and the flip_exit cell (4.3, unblocks -044) has been opened by the manager. 041 is EXPECTED to land grading.needs_review (three per-leg records are rarely unanimous) -- that is the readout's job, not a defect."
+}

@@ -1,0 +1,122 @@
+id: RQ-20261007-041
+title: >-
+  Cross-signal exit, GENERALISATION CONTROL: does the volatility-conditioned trail clear the
+  m20 gate on ada_pullback_2h's three real-money siblings (xrp_pullback_2h,
+  trend_donchian_eth_4h, trend_donchian_xrp_4h) on the same fresh window -- or is the ADA
+  pass leg-specific? (CROSS-SIGNAL-RESEARCH, operator idea 2026-10-07)
+status: queued
+cadence: once
+theme: live_strategy
+priority: 2
+kind: experiment
+question: >-
+  The operator's hypothesis (2026-10-07) is a PRINCIPLE -- "different ways of crossing how
+  we look at the signals provide a sustainable edge" -- not a cell. RQ-20261007-040 asks
+  whether the one passing cross cell (ada_pullback_2h x vol_trail) confirms. This unit asks
+  the complementary question on the same dispatch window: on the three OTHER real-money
+  bybit_2 legs, each a market-structure entry (pullback-in-trend on XRP 2h; Donchian
+  breakout on ETH 4h and XRP 4h, the last short-only) with a price-path Chandelier trail
+  exit, does tightening the trail on a VOLATILITY-REGIME signal the entry never reads
+  (ATR trailing-200 percentile > 0.9 / > 0.8 / < 0.1; `--trail-vol-*`,
+  scripts/backtest_pullback.py:1207-1217 and scripts/backtest_trend.py:1374-1383) clear
+  the IS/OOS Path A/B gate and the yearly walk-forward against each leg's config-exact
+  base (every declared lever present: xrp_pullback_2h trail_decay p80 arm 4.49 / 2.5 and
+  tp_r 3; trend_donchian_xrp_4h stale8 + decay arm2R/2.5 + tp_r 3; trend_donchian_eth_4h
+  sm2 / trail 5.0)? PRIOR, stated before the run: docs/research/exit-refinement-coverage.json
+  reads vol_trail honest_negative on all three (M20-X sweeps #6507/#6510 2026-07-15,
+  lever-OFF arm 2026-08-13 at live parity).
+why_this_matters: >-
+  If ADA confirms (RQ-040) AND at least one sibling now passes, the cross-signal idea has
+  support as a principle and the next lever to build is the momentum-conditioned one
+  (blocked/RQ-20261007-042). If ADA confirms and all three siblings fail again, the ADA
+  edge is a property of that instrument's volatility clustering, not of crossing signal
+  families, and the memo says so -- the operator then decides whether a one-leg declare is
+  worth carrying. If ADA fails too, the hypothesis has no surviving harness-ready cell and
+  the only remaining path is the lever build. Registering the control beside the
+  confirmation is what stops a single pass being read as a principle
+  (CLAUDE.md RULE ONE: always state the population). Memo:
+  docs/research/cross-signal-exits-2026-10-07.md.
+power:
+  expected_n: 32
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    d=0.45 -> 39 at alpha 0.05 / power 0.8; the gate's own floor is MIN_OOS_TRADES=25.
+    expected_n is the MIN over the three legs of the most recent measured base OOS counts:
+    trend_donchian_xrp_4h base_OOS 40 (2026-08-14, strategies.yaml trail_decay note; 32 on
+    the earlier split), xrp_pullback_2h OOS 34 (coverage row, 2026-08-15 re-sweep),
+    trend_donchian_eth_4h OOS ~46 (e35 re-check 2026-08-29 wf 6/6). Declared as 32, the
+    smallest value any of the three has landed; a leg below 39 grades its OWN verdict as
+    insufficient power for d=0.45 and is REPORTED with the gate's insufficient_base /
+    pass / fail read, never pooled with the others.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Grounded on committed per-leg measurements (coverage rows and the strategies.yaml
+      evidence notes cited in basis), not on a corpus key, because the m20 corpus holds cell
+      aggregates whose base OOS counts move with each run's derived split. Nothing accrues
+      forward; the sweep runs on the full history the trainer holds per symbol.
+decision_rule:
+  id: RULE-RQ1007-041-SIBLINGS-VOLTRAIL-CONTROL
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: >-
+    Per leg, per vol_trail cell: IS and OOS delta net_R and delta maxDD vs the config-exact
+    base (m20_fleet_exit_sweep base_args), Path A or Path B (grant cap dN/N_b <= 1.0),
+    yearly walk-forward, base OOS trade count; net of the full cost stack (fee + venue
+    slippage + funding, resolve_cost_policy in each harness main). The workflow lands ONE e5
+    record per leg (verdict pass / no_action_warranted / indeterminate from
+    m20_sweep_result.py), so three rows land and queue_grade reads unanimity.
+  rule: >-
+    Graded PER LEG, never pooled. A leg PASSES IF its record reads pass with base_trades_OOS
+    >= 25 (any vol_trail cell) -> that leg joins the Tier-3 proposal list beside ADA, cell
+    named. A leg is an honest_negative IF its record reads no_action_warranted with
+    base_trades_OOS >= 25 (coverage row unchanged, re-dated). insufficient_base IF
+    base_trades_OOS < 25 (reported, never failed). UNIT-LEVEL READ, written now: with
+    RQ-040 PASS, 'principle supported' IF >= 1 sibling passes, 'leg-specific' IF 0 of the
+    gradeable siblings pass; with RQ-040 FAIL the unit is read as 'no surviving
+    harness-ready cross cell' whatever the siblings do, because a principle cannot rest on
+    legs its originating cell just failed on. Three records will rarely be unanimous, so
+    queue_grade is EXPECTED to set grading.needs_review; the readout session applies this
+    rule verbatim and records the per-leg verdicts in the memo and the coverage matrix.
+  what_it_does_not_do: >-
+    Touches no config and ships nothing. Does not re-open the trail_decay, stale_stop or
+    regime_flip verdicts on these legs (the monthly m20 template re-sweeps the first two;
+    regime_flip is a fleet-wide honest negative, P4.5). Does not test a momentum-conditioned
+    stop (no lever; see blocked/RQ-20261007-042/-043). A sibling pass does not by itself
+    license a declare on that leg: the one-lever-per-leg rule applies and xrp_pullback_2h
+    and trend_donchian_xrp_4h already carry a shipped trail_decay lever, so a vol_trail
+    pass there is a COMBO question that needs its own A/B before any proposal.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 4.0
+  est_minutes: 75
+  basis: >-
+    Three legs, three cells each plus base and walk-forward folds; the workflow shards one
+    leg per job and scp's frames from the trainer (research/templates/m20-exit-lever.yaml
+    measured ~40 min per 17-cell leg, so ~3 x 10-15 min here). Estimate, not a measurement.
+run:
+  workflow: m20-exit-lever-sweep.yml
+  inputs:
+    legs: xrp_pullback_2h,trend_donchian_eth_4h,trend_donchian_xrp_4h
+    levers: vol_trail
+    tp_cap_pct: '0.099'
+    split_mode: oos-trades
+    research_unit: RQ-20261007-041
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 3
+grading:
+  auto: true
+related:
+- RQ-20261007-040
+- docs/research/exit-refinement-coverage.json
+- docs/research/M20X-vol-conditional-trail-DESIGN.md
+- docs/research/cross-signal-exits-2026-10-07.md
+- config/accounts.yaml
+last_dispatched_at: null
