@@ -241,3 +241,15 @@ def test_rebuild_matches_emit_prop_ticket(monkeypatch, tmp_path):
     for k in ("side", "qty", "risk_usd", "valid_until", "message"):
         assert fields[k] == recorded[k], k
     assert fields["valid_until"] == "2026-10-08T17:40:00+00:00"
+
+
+def test_main_restores_trade_journal_db(db, cfgs, capsys, monkeypatch):
+    """main() pins TRADE_JOURNAL_DB to --db for its own reads and must put
+    the caller's value back (it leaked into later tests in one CI run)."""
+    monkeypatch.delenv("TRADE_JOURNAL_DB", raising=False)
+    _run(db, cfgs, capsys)
+    import os
+    assert "TRADE_JOURNAL_DB" not in os.environ
+    monkeypatch.setenv("TRADE_JOURNAL_DB", "/somewhere/else.db")
+    _run(db, cfgs, capsys)
+    assert os.environ["TRADE_JOURNAL_DB"] == "/somewhere/else.db"
