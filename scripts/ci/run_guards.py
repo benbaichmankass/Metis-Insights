@@ -91,6 +91,24 @@ HARNESS_PATHS = (
 
 GUARDS: List[Dict[str, Any]] = [
     {
+        # SIGNAL-CATALOG — every input a strategy / ML head / regime router /
+        # macro producer reads needs an entry in docs/reference/signal-catalog.yaml.
+        # Keying rule per family is in the guard's header.
+        "name": "signal-catalog-guard",
+        "when": {"globs": [
+            "docs/reference/signal-catalog.yaml",
+            "scripts/ci/check_signal_catalog.py",
+            "src/units/strategies/*.py",
+            "ml/configs/*.yaml",
+            "ml/datasets/*_features.py",
+            "config/macro_econ_series.yaml", "config/macro_events.yaml",
+            "config/macro_valuation.yaml", "config/cross_asset.yaml",
+            "config/regime_policy.yaml", "config/news_symbols.yaml",
+        ]},
+        "steps": [["python3", "scripts/ci/check_signal_catalog.py", "--self-test"],
+                  ["python3", "scripts/ci/check_signal_catalog.py"]],
+    },
+    {
         "name": "account-class-guard",
         "when": {"globs": ["config/accounts.yaml", "scripts/check_account_class.py"]},
         "steps": [["python3", "scripts/check_account_class.py", "--list"]],
