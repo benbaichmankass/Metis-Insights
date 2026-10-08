@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One pipeline record (PI-20261008-ULTSLAND-0001) filing the research-result double-landing / verdicts.json root cause that blocks #17085. No code, config or order-path change."
+}
