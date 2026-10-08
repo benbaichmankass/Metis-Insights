@@ -127,6 +127,7 @@ WORK_REGISTERS = (
     "docs/claude/work/steps",
     "docs/claude/OPEN-ITEMS.json",
     "docs/claude/work/MANAGER-CHECKLIST.json",
+    "docs/claude/work/checklist",
     "docs/claude/DUE.json",
     "docs/claude/work/WORK-DIGEST.json",
 )
@@ -203,6 +204,7 @@ QUEUED_LIFECYCLES = ("ready",)
 ALWAYS_ACTIVE_REGISTERS = (
     "docs/claude/OPEN-ITEMS.json",
     "docs/claude/work/MANAGER-CHECKLIST.json",
+    "docs/claude/work/checklist",
     "docs/claude/DUE.json",
     "docs/claude/work/WORK-DIGEST.json",
 )
@@ -231,7 +233,7 @@ def carriers(repo: pathlib.Path, path: pathlib.Path, corpus: dict[str, str]) -> 
         if not is_work:
             mentioned.append(rel)
             continue
-        if rel in ALWAYS_ACTIVE_REGISTERS:
+        if rel in ALWAYS_ACTIVE_REGISTERS or rel.startswith("docs/claude/work/checklist/"):
             active.append(rel)
             continue
         lc = object_lifecycle(text)

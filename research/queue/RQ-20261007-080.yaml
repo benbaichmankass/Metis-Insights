@@ -1,0 +1,142 @@
+id: RQ-20261007-080
+title: "TP doctrine B1, rule 1: does the Donchian measured-move TP revision beat each money leg's bracket as it trades today?"
+status: queued
+cadence: once
+kind: experiment
+theme: live_strategy
+priority: 1
+
+question: >-
+  `src/runtime/tp_revision.py::donchian_measured_move` re-estimates a
+  trend_donchian leg's take-profit after every closed bar as the Donchian
+  measured move -- the CURRENT channel height carried past the channel edge the
+  trade broke, extend-only over the trade's bars -- clamped to the venue cap
+  from the current price. It is the first producer of the TP doctrine's
+  clause-2 revision (operator directive 2026-10-06, docs/ARCHITECTURE-CANONICAL.md
+  § "TP doctrine"). On the four trend_donchian legs that trade real money or
+  prop capital, does any width_mult arm beat the leg's bracket as it rests today
+  (declared tp_r at the venue cap, no revision), net of the full cost stack,
+  out of sample?
+
+why_this_matters: >-
+  MEASURED by `python3 scripts/ci/check_tp_doctrine.py` (2026-10-07, every
+  (account, leg) routing in config/accounts.yaml): 52 of 52 routings fail
+  `tp_revision`. These four legs carry 11 of the 15 real-money + prop
+  routings (bybit_2 eth_4h/xrp_4h; tradeify_1, velotrade_1, breakout_1,
+  breakout_2 eth_prop/sol_prop). The mechanism (PR "TP doctrine B1 (1/2)") and
+  this rule (PR 2/2) are built and INERT until a leg declares `tp_revision`,
+  which is Tier-3 and needs this record.
+
+power:
+  expected_n: 49
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    The binding leg is trend_donchian_eth_4h, the smallest sample of the four:
+    its e35 sweeps' achieved base_oos_trades were 49 (RQ-20260922-005) and 59
+    (RQ-20260830-002) over the same 1830-day window, read from
+    docs/research/e35-bracket-corpus.jsonl (the basis RQ-20261006-060 states).
+    The floor at d=0.45 is (1.96+0.8416)^2/0.45^2 = 38.76 -> 39; 49 clears it.
+    The 1h prop legs and the xrp_4h leg trade more often on the same window.
+    The gate itself is the be_floor_sweep pooled gate (net up AND a strict
+    majority of EXERCISED calendar folds won at k=3,4,5), and a leg below
+    MIN_TRADES=30 control trades is excluded as insufficient_n, never pooled.
+  feasibility:
+    source: corpus
+    corpus: e35
+    statistic: min_per_leg
+    legs:
+      - trend_donchian_eth_4h
+    basis: >-
+      e35 min_per_leg over trend_donchian_eth_4h reads 49 (2026-10-06,
+      RQ-20261006-060's reading), against the 38.76 floor. Same instrument,
+      same window, same harness (scripts/backtest_trend.py).
+
+decision_rule:
+  id: RULE-RQ1007-080-MEASURED-MOVE-TP-REVISION
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: >-
+    Per arm width_mult in {0.5, 1.0, 1.5, 2.0} against the control (no
+    revision; tp_cap_pct = TP_VENUE_CAP_PCT and each leg's declared tp_r on
+    EVERY arm, so the control is the live bracket): pooled net R over the
+    graded legs, per-fold d_net_r on the common calendar partition at
+    k=3,4,5, and the share of applied revisions the venue cap bound
+    (tp_revisions_clamped / tp_revisions_applied). Computed by
+    `scripts/research/tp_revision_sweep.py::grade` into verdict.json.
+  rule: >-
+    PASS IF at least one arm clears the pooled gate (pooled net R > control
+    AND a strict majority of exercised folds won under EVERY k in {3,4,5})
+    with <= 50% of its applied revisions cap-bound (an arm above that measures
+    a re-anchored venue cap, not the measured move) -> a Tier-3 proposal to
+    declare `tp_revision: {rule: donchian_measured_move, width_mult: <best
+    passing arm by pooled d_net_r>}` on the graded legs that improved under
+    that arm, carried to their mirrors in the same PR (roster/field equality,
+    tests/test_paper_portfolio_accounts.py). A data-backed Tier-3 decision
+    under the 2026-09-27 standing authorization if one arm passes; a popup
+    only if two arms pass and the choice is a preference. FAIL IF no arm
+    passes: the measured move is not the leg's prediction; the next rule to
+    register is the per-leg MFE-quantile target extended while the Donchian
+    thesis holds (target_expectation.evaluate_extension), recorded on
+    PI-20261006-5FUGHVX8-0001 -- never a demotion. INDETERMINATE IF no leg
+    reaches 30 control trades.
+  what_it_does_not_do: >-
+    Touches no config and declares the rule on no leg. Grades the four money
+    legs only (their mirrors and paper copies follow by roster equality); does
+    not grade the browser-prop path's inability to amend a TP (that is a path
+    fact the guard already reports, not a research question).
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.5
+  est_minutes: 40
+  basis: >-
+    Runner. Fetch: 3 symbols (ETHUSDT, XRPUSDT, SOLUSDT) x ~60 monthly 1h
+    zips from data.binance.vision (the fetch path RQ-20261006-060's e35 run
+    uses, via scripts/ops/fetch_backtest_candles.py). Compute: 4 legs x 5
+    arms of scripts/backtest_trend.py over ~44k 1h bars; a 6000-bar synthetic
+    smoke run of one leg x 5 arms took seconds in-session (2026-10-07). An
+    estimate, not a measurement of this run.
+
+run:
+  workflow: research-script-run.yml
+  commands:
+  - - python3
+    - scripts/research/tp_revision_sweep.py
+    - --data-dir
+    - data/rq-20261007-080
+    - --fetch
+    - '1830'
+    - --leg
+    - trend_donchian_eth_4h
+    - --leg
+    - trend_donchian_xrp_4h
+    - --leg
+    - trend_donchian_eth_prop
+    - --leg
+    - trend_donchian_sol_prop
+    - --out
+    - '{out_dir}'
+  timeout_minutes: 120
+  inputs:
+    research_unit: RQ-20261007-080
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+  note: >-
+    research/results/RQ-20261007-080/<run_id>.jsonl (E5 contract, one row per
+    leg from verdict.json's records); sweep.json + verdict.json under
+    comms/research/RQ-20261007-080/<run_id>/.
+
+related:
+  - 'docs/ARCHITECTURE-CANONICAL.md § "TP doctrine" (operator directive 2026-10-06) and its "B1 — the revision contract"'
+  - 'PI-20261006-5FUGHVX8-0001 (ranked TP-doctrine debt; this unit is build B1''s first rule)'
+  - 'RQ-20261006-060 (the entry-side question for trend_donchian_eth_4h: a finite tp_r vs the sentinel)'
+  - 'scripts/research/be_floor_sweep.py (the fold/gate machinery reused verbatim)'
+  - '.claude/skills/exit-refinement/SKILL.md (harness lever -> E0 -> live parity; tests/test_tp_revision_donchian_rule.py pins harness/live parity)'

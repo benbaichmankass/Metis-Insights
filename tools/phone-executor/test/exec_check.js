@@ -222,6 +222,48 @@ document.getElementById('cb').onclick=function(){window.__cbClicks=(window.__cbC
   eq(await pG.evaluate("__ex.openTpsl(1)"), "switched", "switch layout: the text-less switch beside it is clicked");
   eq(await pG.evaluate("__ex.openTpsl(2)"), "ok", "switch layout: TP/SL inputs now shown");
   eq(await pG.evaluate("__ex.tpslArea()[0].node.text"), "TP/SL", "tpslArea dump names the TP/SL element");
+  // POSITION AMEND (PROP-TRAIL-PHONE): SYNTHETIC Positions table + edit dialog. Proves the helpers' mechanics, NOT
+  // Breakout's real edit UI (never captured): unique row, never a close control, dialog fields by label, one save.
+  const posH = (cols, rowBtns, extraRow) => `<!doctype html><html><body><button>Positions</button><button>Open orders</button>
+<table><thead><tr>${cols.map((c) => "<th>" + c + "</th>").join("")}</tr></thead><tbody>
+<tr id=r1><td>ETHUSD</td><td>Buy</td><td>0.50</td><td>2,500.00</td>${cols.includes("SL") ? "<td id=csl>2,450.00</td><td id=ctp>2,800.00</td>" : ""}<td>${rowBtns}</td></tr>${extraRow || ""}
+</tbody></table><div id=dl></div>
+<script>window.__closed=0;window.__saved=0;
+document.querySelectorAll('[data-close]').forEach(function(x){x.onclick=function(){window.__closed++}});
+document.querySelectorAll('[data-edit]').forEach(function(x){x.onclick=function(){
+ var sl=(document.getElementById('csl')||{}).textContent||window.__sl||'2450.00', tp=(document.getElementById('ctp')||{}).textContent||window.__tp||'2800.00';
+ document.getElementById('dl').innerHTML='<div role=dialog><h3>Edit position</h3><label for=dsl>Stop loss price</label><input id=dsl type=text value="'+sl.replace(/,/g,'')+'"><label for=dslp>Stop loss %</label><input id=dslp type=text><label for=dtp>Take profit price</label><input id=dtp type=text value="'+tp.replace(/,/g,'')+'"><button id=sv>Save</button><button id=cx>Cancel</button><button>Close position</button></div>';
+ document.getElementById('sv').onclick=function(){window.__saved++;var a=document.getElementById('dsl').value,b2=document.getElementById('dtp').value;if(document.getElementById('csl')){document.getElementById('csl').textContent=a;document.getElementById('ctp').textContent=b2}else{window.__sl=a;window.__tp=b2}document.getElementById('dl').innerHTML=''};
+ document.getElementById('cx').onclick=function(){document.getElementById('dl').innerHTML=''};}});
+</script></body></html>`;
+  const COLS = ["Symbol", "Side", "Qty", "Entry", "SL", "TP", ""];
+  const pP = await onHost(posH(COLS, "<button data-edit aria-label='Edit'>✎</button><button data-close>Close</button>"));
+  const rP = (c) => pP.evaluate(c);
+  let pi = await rP("__ex.posInfo('ETHUSD','long|buy')");
+  eq([pi.n, pi.sl, pi.tp], [1, "2,450.00", "2,800.00"], "amend: one ETH long row, SL/TP columns read");
+  eq((await rP("__ex.posInfo('ETHUSD','short|sell')")).n, 0, "amend: no short row");
+  eq(await rP("__ex.posEdit('ETHUSD','long|buy')"), "clicked", "amend: the row's ONE edit control clicked");
+  eq(await rP("window.__closed"), 0, "amend: close control never clicked");
+  eq((await rP("__ex.editDialog()")).n, 1, "amend: one dialog");
+  eq((await rP("__ex.dlgRead('stop ?loss|\\bsl\\b','')")).n, 2, "amend: SL label ambiguous (price + %) without prefer");
+  eq((await rP("__ex.dlgRead('stop ?loss|\\bsl\\b','price')")).value, "2450.00", "amend: dialog SL read by label");
+  eq((await rP("__ex.dlgSet('stop ?loss|\\bsl\\b','price','2530.00')")).value, "2530.00", "amend: dialog SL typed + read back");
+  eq((await rP("__ex.dlgRead('take ?profit|\\btp\\b','price')")).value, "2800.00", "amend: kept TP unchanged");
+  eq(await rP("__ex.dlgCancel()"), "clicked", "amend (dry): cancelled, not saved");
+  eq([await rP("window.__saved"), (await rP("__ex.editDialog()")).n, (await rP("__ex.posInfo('ETHUSD','long|buy')")).sl], [0, 0, "2,450.00"], "amend (dry): nothing saved, row unchanged");
+  await rP("__ex.posEdit('ETHUSD','long|buy')");
+  await rP("__ex.dlgSet('stop ?loss|\\bsl\\b','price','2530.00')");
+  eq(await rP("__ex.dlgSave()"), "clicked", "amend (live): the ONE save button (never 'Close position')");
+  eq([await rP("window.__saved"), await rP("window.__closed"), (await rP("__ex.posInfo('ETHUSD','long|buy')")).sl], [1, 0, "2530.00"], "amend (live): saved, row read back with the new SL");
+  // no SL/TP columns: the read-back re-opens the dialog; a row with only a close control has no edit route
+  const pQ = await onHost(posH(["Symbol", "Side", "Qty", "Entry", ""], "<button data-edit title='Modify TP/SL'></button><button data-close>Close</button>"));
+  eq([(await pQ.evaluate("__ex.posInfo('ETHUSD','long|buy')")).sl, await pQ.evaluate("__ex.posEdit('ETHUSD','long|buy')")], [null, "clicked"], "amend: no SL column -> null; edit found by title");
+  const pR = await onHost(posH(["Symbol", "Side", "Qty", "Entry", ""], "<button data-close>Close</button><button data-close aria-label='Close position'>x</button>"));
+  eq([await pR.evaluate("__ex.posEdit('ETHUSD','long|buy')"), await pR.evaluate("window.__closed")], ["no_edit", 0], "amend: only close controls -> no_edit, nothing clicked");
+  const pS = await onHost(posH(COLS, "<button data-edit>Edit</button>", "<tr><td>ETHUSD</td><td>Buy</td><td>0.10</td><td>2,400</td><td>2,300</td><td>2,900</td><td><button data-edit>Edit</button></td></tr>"));
+  eq(await pS.evaluate("__ex.posEdit('ETHUSD','long|buy')"), "rows_2", "amend: two ETH long rows -> refused, nothing clicked");
+  eq(await pS.evaluate("__ex.dlgSave()"), "none", "amend: no dialog -> no save");
+
   // ACCOUNT PANEL READ (PHONE-BALANCE-READ): label-anchored, one distinct number or null.
   const acctA = `<!doctype html><html><body><button>Positions</button><button>Open orders</button>
 <button id=pf>Portfolio 98,123.45 USD</button><button>Turbo Eval 1</button><div><span>Balance</span><span>97,000.10</span></div><div>Equity: 98,123.45</div></body></html>`;
@@ -271,5 +313,33 @@ document.getElementById('f').onsubmit=function(e){e.preventDefault();window.__su
     eq(await rM("window.__submitted || 0"), 0, `market ${mode}: nothing submitted`);
     eq(await rM("[__ex.symbolStep('ETHUSD'), __ex.symbolStep('ETHUSD')]"), ["opened_market", mode === "J" ? "market_no_row" : "picked_market"], `market ${mode}: and back to ETH from SOL`);
   }
+  // SERVER READ-BACK (PHONE-GO-TOKEN, design 3.4): the app builds the read-back from these page reads (MainActivity.kt
+  // readBack: SELECTED tabs, the submit label + disabled state, the TP/SL box, the by-label values) and hashes
+  // "key=value" lines in READBACK_FIELDS order (== src/prop/phone_executor.py). Mirrors the app; proves the page reads
+  // it depends on, and that any change to the form between verify and click changes the hash (no click).
+  const crypto = require("crypto");
+  const FIELDS = ["ticket_id", "symbol", "side", "order_type", "price", "qty", "qty_unit", "tp", "sl", "submit_label", "submit_disabled", "tpsl"];
+  await r("__ex.setByLabel('take ?profit', 'price', '2600.00')"); await r("__ex.setByLabel('stop ?loss', 'price', '2450.00')");
+  const readBack = async () => {
+    const tk = await r("__ex.ticket()");
+    const sel = (re) => { const h = tk.tabs.filter((x) => x.selected && re.test(x.text.trim())); return h.length === 1 ? h[0].text.trim() : ""; };
+    const val = async (re, pref) => ((await r(`__ex.readByLabel(${JSON.stringify(re)}, ${JSON.stringify(pref)})`)).value || "").trim();
+    return {ticket_id: "t1", symbol: tk.symbol.trim(), side: sel(/^(buy|sell)$/i), order_type: sel(/^(market|limit|trigger|stop)$/i),
+      price: await val("limit price", "limit price"), qty: await val("quantity", "quantity"), qty_unit: "ETH",
+      tp: await val("take ?profit|\\btp\\b", "price"), sl: await val("stop ?loss|\\bsl\\b", "price"),
+      submit_label: tk.submit.text.trim(), submit_disabled: String(tk.submit.disabled), tpsl: tk.tpsl === null ? "" : String(tk.tpsl)};
+  };
+  const hash = (rb) => crypto.createHash("sha256").update(FIELDS.map((k) => k + "=" + String(rb[k]).trim()).join("\n")).digest("hex");
+  const rb1 = await readBack();
+  eq([rb1.symbol, rb1.side, rb1.order_type, rb1.price, rb1.qty, rb1.tp, rb1.sl, rb1.submit_label, rb1.submit_disabled, rb1.tpsl],
+    ["ETHUSD", "Buy", "Limit", "2500.10", "0.01", "2600.00", "2450.00", "Long (buy) ETHUSD", "false", "true"], "read-back: what the page shows");
+  eq(hash(await readBack()), hash(rb1), "re-read of an unchanged form hashes the same (go allowed)");
+  await r("__ex.setByLabel('quantity', '', '0.02')");
+  eq(hash(await readBack()) === hash(rb1), false, "a changed quantity changes the hash (no click)");
+  await r("__ex.setByLabel('quantity', '', '0.01')"); await r("__ex.tab('Sell')");
+  const rbS = await readBack();
+  eq([rbS.side, /short/i.test(rbS.submit_label), hash(rbS) === hash(rb1)], ["Sell", true, false], "a flipped side changes side, label and hash");
+  await r("__ex.tab('Buy')");
+  eq(await r("window.__submitted || 0"), 0, "nothing submitted by the read-back path");
   await b.close(); console.log("exec_check: all passed");
 })().catch((e) => { console.error(e); process.exit(1); });
