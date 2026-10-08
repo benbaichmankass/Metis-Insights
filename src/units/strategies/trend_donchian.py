@@ -57,6 +57,7 @@ from typing import Any, Dict, Optional
 
 import pandas as pd
 
+from src.runtime.tp_revision import merge_verdict, plan_tp_revision
 from src.runtime.tp_venue_cap import (  # the ONE owner of the clamp
     TP_VENUE_CAP_PCT as _TP_SENTINEL_CAP_PCT)
 from src.units.strategies._base import require_candles
@@ -469,7 +470,10 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
                  "trail_decay_tight_mult",
                  # M20-X vol-conditional trail (paper test, 2026-07-15):
                  "trail_vol_below_pctl", "trail_vol_above_pctl",
-                 "trail_vol_tight_mult", "vol_pctl_window"):
+                 "trail_vol_tight_mult", "vol_pctl_window",
+                 # TP doctrine B1: the declared TP-revision rule
+                 # (src/runtime/tp_revision.py). Absent = no revision.
+                 "tp_revision"):
         if cfg.get(_key) is not None:
             package["meta"][_key] = cfg[_key]
     if confirm_bars > 0:
@@ -647,7 +651,12 @@ def monitor(cfg, candles_df, open_pkg):
        the frozen entry-time ATR. Returned as ``{"sl": new_sl}`` ONLY
        when it tightens the stop (ratchet) AND sits on the correct side
        of the current price (never an instant stop-out).
-    4. Otherwise ``None`` — no change.
+    4. **TP revision (TP doctrine B1)** — when the package meta declares
+       ``tp_revision`` (threaded from config/strategies.yaml), the rule's
+       current prediction (``tp_revision.plan_tp_revision``, rule
+       ``donchian_measured_move``) is merged into the verdict as
+       ``{"tp", "tp_reason"}``. Undeclared = the TP is never moved.
+    5. Otherwise ``None`` — no change.
 
     See ``_base.monitor_breakeven_sl`` for the verdict return contract.
     Reads all trail parameters from ``open_pkg["meta"]`` because
@@ -766,7 +775,32 @@ def monitor(cfg, candles_df, open_pkg):
     if eh_verdict is not None:
         return eh_verdict
 
-    # 3. Chandelier trail ratchet.
+    # 3. Chandelier trail ratchet, then (TP doctrine B1) the declared TP
+    # revision merged into the same verdict. A close verdict above has already
+    # returned; a revision never rides on a close.
+    return merge_verdict(
+        _trail_verdict(meta, cfg_dict, open_pkg, candles_df, current_price, direction, sl),
+        _revise_tp(meta, candles_df, open_pkg, current_price, direction))
+
+
+def _revise_tp(meta, candles_df, open_pkg, current_price, direction):
+    """The leg's declared TP-revision rule on the CLOSED bars (the forming
+    last row excluded, as `_donchian_thesis_intact` does). None when the leg
+    declares no rule -- the resting TP is then untouched."""
+    try:
+        entry = _coerce_float(open_pkg.get("entry"))
+        risk = _coerce_float(meta.get("risk_per_unit"))
+        if entry is None or risk is None or candles_df is None or len(candles_df) < 2:
+            return None
+        return plan_tp_revision(leg=meta, direction=direction, entry=entry, risk=risk,
+                                bars=candles_df.iloc[:-1], entry_time=meta.get("entry_time"),
+                                ref_price=current_price)
+    except Exception:  # noqa: BLE001 — a revision must never break the trail
+        return None
+
+
+def _trail_verdict(meta, cfg_dict, open_pkg, candles_df, current_price, direction, sl):
+    """The Chandelier ratchet (unchanged; extracted so the TP revision can merge)."""
     atr = _coerce_float(meta.get("atr"))
     if atr is None or atr <= 0:
         # Legacy / missing meta — recompute a rolling ATR from candles.

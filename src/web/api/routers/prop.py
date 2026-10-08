@@ -264,6 +264,29 @@ async def phone_report(request: Request,
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.post("/phone/verify")
+async def phone_verify(request: Request,
+                       authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """Server-side read-back (design 3.4): re-verify the filled form against the ticket and the venue steps;
+    answer with ONE go-token per ticket (``mode`` live only when the account is live now and the ticket is not
+    a test), or ``ok: false`` + reasons (pinged)."""
+    from src.prop import phone_executor as pe
+    dev = _phone_device(authorization)
+    body = await _json_body(request)
+    return await asyncio.to_thread(pe.verify_readback, dev, body)
+
+
+@router.post("/phone/go")
+async def phone_go(request: Request,
+                   authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """Redeem the ticket's go-token right before the click: ``go: true`` only for an unused, unexpired LIVE
+    token bound to the same read-back hash. One redeem per token; a replay is refused."""
+    from src.prop import phone_executor as pe
+    dev = _phone_device(authorization)
+    body = await _json_body(request)
+    return await asyncio.to_thread(pe.redeem_go_token, dev, body)
+
+
 @router.post("/phone/event")
 async def phone_event(request: Request,
                       authorization: str | None = Header(default=None)) -> dict[str, Any]:
