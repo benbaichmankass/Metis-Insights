@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-14",
+    "kind": "date"
+  },
+  "id": "PI-20261007-HY7G7NYF-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane GEOM-B1-HARNESS session_015kekiWATbgN7A6Hy7g7NyF (manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-07; child of PI-20261006-5FUGHVX8-0001",
+    "rerun": "grep -n 'prop_ev' research/queue/RQ-20261007-002.yaml; ls runtime_logs/m20_fleet 2>/dev/null | head -3; grep -n 'emit' scripts/research/m20_fleet_exit_sweep.py | head -5"
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "RQ-20261007-002 IS ONLY HALF-DISPATCHED. Its decision rule needs (c) scripts/research/prop_ev_sim.py union ETH+SOL book EV on the three prop rulesets (breakout_turbo_1step, Tradeify, Velotrade; seeds 1-5) PER CELL of the tp_extend grid, and the queue dispatch (m20-exit-lever-sweep.yml, levers tp_extend) only produces (a) calibration share and (b) the harness P2 gate. Closing the gap needs per-cell emitted trades (--emit-trades) and a runner that can fetch the legs' candles: research-script-run.yml is token-free and sees only the checkout (no data source), so the unit's own clears_when route (research-script-run + prop_ev_grid.py over emitted records) cannot run as written. Until this lands RQ-20261007-002 can report (a)+(b) but cannot grade `pass` or `costed_null`."
+}

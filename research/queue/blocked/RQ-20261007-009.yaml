@@ -1,0 +1,186 @@
+id: RQ-20261007-009
+title: 'Prop fit of a Stage-0-passing pair: does any configured M22 pair clear breakout_turbo_1step / tradeify_247_1step / velotrade_classic_1step at the account flat risk, and is the 2-leg route placeable there? -- PAIRS-STOCKTAKE'
+status: blocked
+cadence: once
+theme: new_strategy_prop
+priority: 1
+kind: experiment
+
+question: >-
+  OPERATOR 2026-10-06 ~08:15Z (verbatim): "is anything there feasible for a
+  prop account?" The stocktake (docs/research/pairs-stocktake-2026-10-07.md)
+  found three independent gaps, and this unit is the DATA half of the answer:
+  for each pair whose RQ-20261007-005..008 record reads `pass`, priced from
+  that run's COMMITTED per-pair-trade ledger
+  (comms/research/RQ-20261007-00N/<run_id>/trades.jsonl: entry_time /
+  exit_time / net_r per pair trade, costed fee+slippage+funding), under each
+  prop ruleset at that account's flat risk (breakout_2: $25 = 0.5% x $5k on
+  breakout_turbo_1step; tradeify_1: $50 = 0.5% x $10k on tradeify_247_1step;
+  velotrade_1: $50 = 1.0% x $5k on velotrade_classic_1step), does the pair
+  clear the RULE-RQ1006-VELOTRADE-FIT clauses (EV per life >= 0 on every
+  seed, P(daily-loss breach) <= 0.05, no 00:30-UTC day worse than -80% of the
+  daily limit, book_max_gap <= 14d) -- and, separately, do both legs' sized
+  notionals clear the venue's lot table at that risk?
+
+why_this_matters: >-
+  A pair that passes Stage 0 on bybit costs is not thereby prop-feasible:
+  the prop venues charge different costs (Tradeify 0.04% per trade + 0.033%
+  per day swap per leg; Velotrade 0.03% per side + 0.05% per night swap;
+  Breakout per its ruleset), hold a static drawdown floor, and size the legs
+  at $25-$50 of risk, where the stocktake's arithmetic on the 2026-10-07
+  live soak rows (budget_usd 2056 -> BNB leg $486 / BTC leg $91 at bybit_1's
+  basis) scales to a BTC leg of ~$1 notional at $25 risk -- far below
+  velotrade's BTCUSD 0.001 lot (~$83) and on a symbol breakout_2 / tradeify_1
+  do not list at all. The ruleset question and the lot question are both
+  answerable from a committed ledger; neither needs a live order.
+
+power:
+  expected_n: 400
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    d=0.3 needs ~88 trades at alpha 0.05 / power 0.8 (the floor RQ-20260928-011/-012
+    registered and every prop-fit unit since has used). expected_n is the n
+    the Stage-0 ledger lands (RQ-20261007-005..008 expect ~400 on the
+    180-day 1h corpus); below 88 this unit grades UNDERPOWERED, never FAIL.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      The ledger this unit prices does not exist until a RQ-20261007-005..008
+      run lands `pass`; that is the first blocker below and the reason this
+      unit sits in blocked/. Nothing accrues from live trading.
+
+decision_rule:
+  id: RULE-RQ1007-009-PAIRS-PROP-FIT
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: >-
+    Per (pair, ruleset arm) and per seed 1-5, scripts/research/prop_ev_grid.py
+    over scripts/research/prop_ev_sim.py with the pair's ledger passed as ONE
+    leg (`--leg <pair>=<ledger>`), the arm's ruleset and flat risk
+    (`--sizing balance --risk-pct <account risk_pct>`), `--swap-model prorated
+    --funded-start fresh`: (R) path-mode ev_net_usd_per_life and
+    p_net_positive; (B) P(daily-loss breach) per life; (D) worst single
+    00:30-UTC day of summed realised net-R x r x account_size over the ledger
+    at the arm risk; (G) book_max_gap. PLUS, outside the simulator: (L) the
+    two legs' notionals at the arm risk from pairs_sizing.pair_notionals on
+    the ledger's median risk_spread and beta, floored to the venue lot table
+    in config/prop_platforms.yaml (`executor.lots`) -- a leg that floors below
+    its min lot, or whose venue symbol is absent from that table, is
+    `unplaceable` on that venue.
+  rule: >-
+    Per arm: GO_LIVE_CANDIDATE iff ALL of (R) ev_net_usd_per_life >= 0 on all
+    5 seeds; (B) <= 0.05 on all seeds; (D) no day below -80% of the arm's
+    daily limit; (G) <= 14d; AND (L) both legs placeable. FAIL iff (R) < 0 on
+    any seed. UNPLACEABLE iff (L) fails regardless of (R)-(G) -- the
+    simulator cannot see lots, so (L) is graded by the reader from the
+    ledger and the lot table and overrides a simulator pass. UNDERPOWERED
+    iff n < 88. Otherwise NULL naming the first failing clause in the order
+    B, D, G. DECISION MAPPING, fixed before the run: a GO_LIVE_CANDIDATE on
+    any arm is NOT a routing -- src/units/strategies/pairs_executor.py builds a
+    Bybit client only (`_client_for`: exchange != bybit -> None) and the prop
+    ticket path emits one leg per ticket with no 2-leg atomicity, so the
+    deliverable of a candidate is a Tier-3 BUILD proposal (a 2-leg prop
+    order path) with this record attached, never a config edit. Every other
+    verdict closes the prop question for that pair/venue with the clause
+    named. CAVEAT registered now: prop_ev_sim prices the pair as a single
+    instrument; it does not model the two legs' separate margin, per-leg
+    leverage caps (`leverage_caps`), or a venue rejecting one leg, so a
+    simulator pass is an UPPER bound on feasibility, which is why (L) is a
+    hard clause and a candidate is a build proposal rather than a go-live.
+  what_it_does_not_do: >-
+    Does not edit config/accounts.yaml, config/pairs.yaml, any prop ruleset or
+    any roster. Places no order. Does not establish that any prop venue
+    permits a statistical-arbitrage sleeve: Velotrade Terms 8.2 ban
+    "arbitrage" (config/prop_rulesets/velotrade_classic_1step.yaml header),
+    Tradeify bans same-instrument hedging only, Breakout's hedging article
+    (intercom 11644103, read 2026-10-07) permits same-asset hedge mode and
+    bans cross-account hedging and says nothing about cross-asset pairs --
+    whether a market-neutral crypto pair is "arbitrage" under Velotrade's
+    terms is a venue question for the operator to put to the firm, not a
+    measurement.
+
+blocked_on:
+  - kind: research_result
+    ref: RQ-20261007-005..008
+    what: >-
+      No committed pair-trade ledger exists yet. This unit's `--leg` path is
+      the trades.jsonl a PASS run of RQ-20261007-005..008 lands under
+      comms/research/RQ-20261007-00N/<run_id>/; the run_id is unknown until
+      the run lands, so the command below carries `<ledger>` placeholders.
+    clears_when: >-
+      At least one of RQ-20261007-005..008 has a research/results record with
+      verdict=pass; promote this file to research/queue/ with each `<ledger>`
+      replaced by that run's committed trades.jsonl path (one --leg per
+      passing pair) and set status: queued.
+  - kind: tooling
+    ref: scripts/research/prop_ev_sim.py
+    what: >-
+      The simulator skips legs independently (`trades_skipped_leg_busy`,
+      `hedge_blocked`) and has no notion of a 2-leg atomic trade. Pricing the
+      pair as ONE instrument (one ledger row per pair trade) is admissible as
+      an upper bound and is what the rule above does; the per-leg lot check
+      (L) is therefore graded by the reader, not by the simulator.
+    clears_when: >-
+      Either the reader grades (L) by hand from the ledger + lot table (no
+      tooling change required to run this unit), or a `--pair-legs` mode
+      lands in prop_ev_sim; the first is sufficient to promote this unit.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 60
+  basis: >-
+    Up to 4 pairs x 3 ruleset arms x 5 seeds of prop_ev_sim; RQ-20261006-071
+    (1 book x 2 arms x 5 seeds) is scoped at 40 minutes.
+
+run:
+  workflow: research-script-run.yml
+  timeout_minutes: 120
+  command:
+  - python3
+  - scripts/research/prop_ev_grid.py
+  - --leg
+  - 'pairs_sol_eth=<ledger>'
+  - --arm
+  - 'BRK=--ruleset config/prop_rulesets/breakout_turbo_1step.yaml --sizing balance --risk-pct 0.005'
+  - --arm
+  - 'TRD=--ruleset config/prop_rulesets/tradeify_247_1step.yaml --sizing balance --risk-pct 0.005'
+  - --arm
+  - 'VEL=--ruleset config/prop_rulesets/velotrade_classic_1step.yaml --sizing balance --risk-pct 0.01'
+  - --common
+  - '--swap-model prorated --funded-start fresh'
+  - --seeds
+  - 1,2,3,4,5
+  - --grade
+  - pass_all_seeds
+  - --p-floor
+  - '0.0'
+  - --n-floor
+  - '88'
+  - --out
+  - '{out_dir}'
+  - --jobs
+  - '4'
+  inputs:
+    research_unit: RQ-20261007-009
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+related:
+- RQ-20261007-005
+- RQ-20261007-006
+- RQ-20261007-007
+- RQ-20261007-008
+- RQ-20261006-062
+- RQ-20261006-071
+- 'docs/research/pairs-stocktake-2026-10-07.md'
+- 'config/prop_platforms.yaml -- the per-venue lot tables clause (L) reads'
+last_dispatched_at: null

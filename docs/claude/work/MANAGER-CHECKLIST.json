@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-10-06T06:00:00Z",
+  "updated_at": "2026-10-07T18:50:00Z",
   "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
   "last_review": {
     "report_id": "WR-20261006-0538Z",
@@ -1310,7 +1310,7 @@
       "tier": 2,
       "prs": [],
       "blocked_on": [],
-      "note": "FOUND 2026-09-22 by the manager while answering the operator's 'we can push those straight to live money once they pass'. MEASURED by reading the code: config/pairs.yaml carries ONE top-level `account_id: bybit_1`, and src/units/strategies/pairs_executor.py threads that single id through every call site -- _pair_leg_state(pair, account_id, ...), _pair_is_open(pair, account_id, ...), _alert_half_open_pair(..., account_id). [!] SO THERE IS NO PER-PAIR ACCOUNT ASSIGNMENT. Changing `account_id` to a real-money account would MOVE THE WHOLE SLEEVE off its paper soak -- all four pairs, including the two the 2026-07-16 backtest graded deeply negative -- rather than promote the one that passed. That is the opposite of what the directive intends. [!] DELIVERABLE: per-pair account assignment, so a pair that clears Stage 0 can be routed to a real-money account while the rest stay on bybit_1. \u26a0\ufe0f AND IT MUST CARRY THE MIRROR RULE WITH IT: bybit_2's paper mirror bybit_portfolio is CI-enforced to be identical (tests/test_paper_portfolio_accounts.py), so a pair routed to bybit_2 needs the same treatment or the invariant breaks the moment it lands. [!] SECOND FINDING, SAME FILE, FIELD BEATS COMMENT: config/pairs.yaml's header still asserts 'Validated 3yr IS + 2025-26 OOS (net-positive, no expectancy decay)'. The 2026-07-16 readiness log CONTRADICTS that -- net_R +513..+825 collapses to net-negative in dollars, and '7.5bps taker x 2 legs x ~2800 trades tips all four deeply negative'. The config's own validation claim is stale in the favourable direction, on the file that decides what trades. Fix the comment in the same PR."
+      "note": "FOUND 2026-09-22 by the manager while answering the operator's 'we can push those straight to live money once they pass'. MEASURED by reading the code: config/pairs.yaml carries ONE top-level `account_id: bybit_1`, and src/units/strategies/pairs_executor.py threads that single id through every call site -- _pair_leg_state(pair, account_id, ...), _pair_is_open(pair, account_id, ...), _alert_half_open_pair(..., account_id). [!] SO THERE IS NO PER-PAIR ACCOUNT ASSIGNMENT. Changing `account_id` to a real-money account would MOVE THE WHOLE SLEEVE off its paper soak -- all four pairs, including the two the 2026-07-16 backtest graded deeply negative -- rather than promote the one that passed. That is the opposite of what the directive intends. [!] DELIVERABLE: per-pair account assignment, so a pair that clears Stage 0 can be routed to a real-money account while the rest stay on bybit_1. \u26a0\ufe0f AND IT MUST CARRY THE MIRROR RULE WITH IT: bybit_2's paper mirror bybit_portfolio is CI-enforced to be identical (tests/test_paper_portfolio_accounts.py), so a pair routed to bybit_2 needs the same treatment or the invariant breaks the moment it lands. [!] SECOND FINDING, SAME FILE, FIELD BEATS COMMENT: config/pairs.yaml's header still asserts 'Validated 3yr IS + 2025-26 OOS (net-positive, no expectancy decay)'. The 2026-07-16 readiness log CONTRADICTS that -- net_R +513..+825 collapses to net-negative in dollars, and '7.5bps taker x 2 legs x ~2800 trades tips all four deeply negative'. The config's own validation claim is stale in the favourable direction, on the file that decides what trades. Fix the comment in the same PR. [!] MEASURED 2026-10-07 (lane PAIRS-STOCKTAKE, src/units/strategies/pairs_executor.py run_pairs_tick): the executor ALREADY resolves the account PER PAIR -- `account_id = str(pair.get(\"account_id\") or default_account)` -- and threads that id through _pair_leg_state / _close_pair / _place_pair inside the per-pair loop. So this row's premise ('NO PER-PAIR ACCOUNT ASSIGNMENT') no longer holds in the field; the granularity exists as a per-pair `account_id:` line. What did NOT exist until this lane's PR: the promotion guard (scripts/ci/check_roster_promotion_evidence.py) only read the top-level line, so that per-pair route was unguarded -- fixed in the PAIRS-STOCKTAKE PR. State left for the manager to re-grade (landed_unproven or done once an operator-visible test of a per-pair override is observed)."
     },
     {
       "id": "E37",
@@ -1325,7 +1325,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "FOUND 2026-09-22. MEASURED: `ls comms/strategy_evidence/ | grep -i pairs` returns NOTHING, and `grep -c pairs_ config/strategies.yaml config/accounts.yaml` returns 0 and 0. So no pairs leg has an evidence record, appears in the 12-slot risk-bearing census, or is visible to scripts/ci/check_roster_promotion_evidence.py. [!] AND THERE IS A VERDICT TO RECORD -- IT IS JUST IN THE WRONG PLACE. docs/sprint-logs/S-M22-D2-PAIRS-READINESS-2026-07-16.md carries the G2 evidence (trainer-diag #6612/#6615, real candles at bybit_2 risk_pct 0.015): R-space net_R +513..+825 collapses to net-negative in dollars; fee-free SOL/ETH +$1279, BNB/BTC +$357, SOL/BTC -$295, ETH/BTC -$855; '7.5bps taker x 2 legs x ~2800 trades tips all four deeply negative. The loss is fees.' [!] THE CONSEQUENCE IS NOT BOOKKEEPING: B1's guard keys on roster membership and evidence records, so A PAIRS LEG COULD BE ROUTED TO A REAL-MONEY ROSTER TOMORROW WITHOUT TRIPPING ANYTHING, on a family whose only committed backtest says it loses money net of fees. A negative backtest no guard can read is the same defect class as E25 (fvg_range had no harness route) and E28 (ict_scalp has none) -- except here the measurement EXISTS and is simply unreachable. [!] DELIVERABLE: a Stage-0 evidence record per configured pair, in the standard comms/strategy_evidence/ shape, carrying the 2026-07-16 numbers with their source_run and a decision_rule verdict -- OR, if those numbers cannot be reconstructed to the current schema, a `coverage_state` that says so honestly rather than leaving the family absent. Absent and failing are different states and today they are indistinguishable."
+      "note": "FOUND 2026-09-22. MEASURED: `ls comms/strategy_evidence/ | grep -i pairs` returns NOTHING, and `grep -c pairs_ config/strategies.yaml config/accounts.yaml` returns 0 and 0. So no pairs leg has an evidence record, appears in the 12-slot risk-bearing census, or is visible to scripts/ci/check_roster_promotion_evidence.py. [!] AND THERE IS A VERDICT TO RECORD -- IT IS JUST IN THE WRONG PLACE. docs/sprint-logs/S-M22-D2-PAIRS-READINESS-2026-07-16.md carries the G2 evidence (trainer-diag #6612/#6615, real candles at bybit_2 risk_pct 0.015): R-space net_R +513..+825 collapses to net-negative in dollars; fee-free SOL/ETH +$1279, BNB/BTC +$357, SOL/BTC -$295, ETH/BTC -$855; '7.5bps taker x 2 legs x ~2800 trades tips all four deeply negative. The loss is fees.' [!] THE CONSEQUENCE IS NOT BOOKKEEPING: B1's guard keys on roster membership and evidence records, so A PAIRS LEG COULD BE ROUTED TO A REAL-MONEY ROSTER TOMORROW WITHOUT TRIPPING ANYTHING, on a family whose only committed backtest says it loses money net of fees. A negative backtest no guard can read is the same defect class as E25 (fvg_range had no harness route) and E28 (ict_scalp has none) -- except here the measurement EXISTS and is simply unreachable. [!] DELIVERABLE: a Stage-0 evidence record per configured pair, in the standard comms/strategy_evidence/ shape, carrying the 2026-07-16 numbers with their source_run and a decision_rule verdict -- OR, if those numbers cannot be reconstructed to the current schema, a `coverage_state` that says so honestly rather than leaving the family absent. Absent and failing are different states and today they are indistinguishable. [!] 2026-10-07 (lane PAIRS-STOCKTAKE): still no pairs record (`ls comms/strategy_evidence | grep -i pairs` empty, re-measured). The producer (build_strategy_evidence.py / regime_debt_matrix.py) has no `pairs` family, so the record cannot be generated by it. RQ-20261007-005..008 now produce, per pair, a full-cost Stage-0 verdict at the CONFIGURED params plus a committed trades.jsonl ledger under comms/research/<unit>/<run_id>/ -- the source_run a record here can cite. Stocktake: docs/research/pairs-stocktake-2026-10-07.md."
     },
     {
       "id": "E38",
@@ -5529,6 +5529,28 @@
       }
     },
     {
+      "id": "PAIRS-STOCKTAKE",
+      "title": "Pairs strategies stocktake: ladder stage + evidence per leg, which is live-ready under MD-PROMOTE-S1-S2, which is prop-feasible per venue",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane PAIRS-STOCKTAKE",
+      "lane": "session_011BUSVxr9kPZvkNn6TXSaL6",
+      "model": "claude-fable-5-1",
+      "ceiling_usd": 20,
+      "spend_usd": 70.11,
+      "tier": 1,
+      "prs": [
+        16964
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T02:48Z manager] #16964 MERGED 02:46Z (b0c29a109) by the manager (Tier-1 hold: new research-queue registrations RQ-20261007-005..008 now dispatchable; blocked/009 promotes on a PASS ledger). Lane archived; FINAL spend $70.11 against ceiling $20 -- OVER CEILING, and the session ran on claude-fable-5-1, which IS the model this row names (dispatched on the Fable pool deliberately); the 3.5x overrun is the finding, not the model. (Correction 02:52Z: an earlier version of this note wrongly said the row named Sonnet.) The overrun was not caught mid-flight because the lane's work was already landed_unproven on a held PR by the time its running total was read. Stale safety-net trigger trig_01Q7yszDCdfRKc1Xh73u2Rrr deleted. || [2026-10-07T23:27Z manager] #16964 green but conflicts with main; lane woken 23:29Z. || [2026-10-07T19:42Z manager] Lane confirms renumber 005-009 on head 7547c3930 (all cross-refs, 91 tests, dispatcher dry-run would_dispatch 005-008); RQ-20260922-011 blocked_on HARNESS-AUDIT-FIXES. Manager merges #16964 on green, then archives. || [2026-10-07T18:58Z manager] VERDICT: nothing live-ready, nothing prop-feasible -- both data/build gaps: pairs_sol_eth and pairs_bnb_btc have NO Stage-0 record and no Gate-1 cost cell; no 2-leg prop order path on any venue; BTC/ETH legs floor at venue lot sizes at $25 risk. Units registered (renumbered to 005-009 after the id collision with #16955/#16960). Guard fix: check_roster_promotion_evidence.py now reads per-pair account_id (E36's premise stale). For the sync: Velotrade Terms 8.2 bans 'arbitrage' -- venue question, nothing blocks today. PR #16964 held; manager lands. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0004. Operator 2026-10-06 ~08:15Z verbatim: 'where do we stand on all of the pairs strategies? Is anything there ready to go live, and is anything there feasible for a prop account?'. Report + any queue units it needs. Fable, auto. || [lane row from #16964, merged 02:5xZ] [2026-10-07 lane] Records only. VERDICT: nothing live-ready -- no configured pair has a Stage-0 evidence record (E37), no Gate-1 cost-fidelity cell exists for a pairs leg, and the sleeve is not a rostered leg so MD-PROMOTE-S1-S2 cannot evaluate it; nothing prop-feasible -- no 2-leg prop order path exists on tradeify_1 / breakout_2 / velotrade_1 (pairs_executor builds a Bybit client only; the prop bridge is one ticket per leg), and the BTC-quote pairs' BTC leg sizes to ~$1-2 notional at $25-$50 flat risk (unlisted on two venues, below velotrade's 0.001 lot). Memo + table: docs/research/pairs-stocktake-2026-10-07.md. DATA TASKS REGISTERED: RQ-20261007-005..008 (Stage-0 at the CONFIGURED params, net of full cost stack, via scripts/research/pairs_configured_stage0.py + research-script-run.yml, auto-graded; dispatcher dry run: would_dispatch), blocked/RQ-20261007-009 (prop fit, blocked on a PASS ledger). GUARD FIX in the same PR: check_roster_promotion_evidence.py now resolves the PER-PAIR account_id the executor honours (a per-pair `account_id: bybit_2` line was invisible to it). FILED: PI-20261007-N6TXSAL6-0001 (no Gate-1 pairs cell), -0002 (leg-close asymmetry 145/141, 153/152 + 80 reconciler closes), -0003 (pairs soak alarm). Only operator preference left: Velotrade Terms 8.2 'arbitrage' ban -- for the next sync, not a popup.",
+      "observation": {
+        "what": "first dispatcher cycle after 02:46Z dispatches one of RQ-20261007-005..008 and a research_result lands for it",
+        "how_to_check": "grep -n last_dispatched_at research/queue/RQ-20261007-00[5-8].yaml; ls research/results/RQ-20261007-005 research/results/RQ-20261007-006 2>/dev/null",
+        "due_by": "2026-10-10T00:00Z"
+      }
+    },
+    {
       "id": "PROP-TRAIL-PHONE",
       "title": "Mid-trade trail for the PHONE-executed prop account (breakout_2): compute the trail plan server-side, amend SL/TP through the phone",
       "phase": "W6",
@@ -5719,28 +5741,6 @@
         "what": "B1 mechanism deployed (VM /api/diag/version contains d5649b799) and the first tp_revision declaration lands on a leg",
         "how_to_check": "scripts/ops/diag_fetch.sh version | grep d5649b799; python3 scripts/ci/check_tp_doctrine.py",
         "due_by": "2026-10-15T00:00Z"
-      }
-    },
-    {
-      "id": "PAIRS-STOCKTAKE",
-      "title": "Pairs strategies stocktake: ladder stage + evidence per leg, which is live-ready under MD-PROMOTE-S1-S2, which is prop-feasible per venue",
-      "phase": "W6",
-      "state": "landed_unproven",
-      "owner": "lane PAIRS-STOCKTAKE",
-      "lane": "session_011BUSVxr9kPZvkNn6TXSaL6",
-      "model": "claude-fable-5-1",
-      "ceiling_usd": 20,
-      "spend_usd": 70.11,
-      "tier": 1,
-      "prs": [
-        16964
-      ],
-      "blocked_on": [],
-      "note": "[2026-10-08T02:48Z manager] #16964 MERGED 02:46Z (b0c29a109) by the manager (Tier-1 hold: new research-queue registrations RQ-20261007-005..008 now dispatchable; blocked/009 promotes on a PASS ledger). Lane archived; FINAL spend $70.11 against ceiling $20 -- OVER CEILING, and the session ran on claude-fable-5-1, which IS the model this row names (dispatched on the Fable pool deliberately); the 3.5x overrun is the finding, not the model. (Correction 02:52Z: an earlier version of this note wrongly said the row named Sonnet.) The overrun was not caught mid-flight because the lane's work was already landed_unproven on a held PR by the time its running total was read. Stale safety-net trigger trig_01Q7yszDCdfRKc1Xh73u2Rrr deleted. || [2026-10-07T23:27Z manager] #16964 green but conflicts with main; lane woken 23:29Z. || [2026-10-07T19:42Z manager] Lane confirms renumber 005-009 on head 7547c3930 (all cross-refs, 91 tests, dispatcher dry-run would_dispatch 005-008); RQ-20260922-011 blocked_on HARNESS-AUDIT-FIXES. Manager merges #16964 on green, then archives. || [2026-10-07T18:58Z manager] VERDICT: nothing live-ready, nothing prop-feasible -- both data/build gaps: pairs_sol_eth and pairs_bnb_btc have NO Stage-0 record and no Gate-1 cost cell; no 2-leg prop order path on any venue; BTC/ETH legs floor at venue lot sizes at $25 risk. Units registered (renumbered to 005-009 after the id collision with #16955/#16960). Guard fix: check_roster_promotion_evidence.py now reads per-pair account_id (E36's premise stale). For the sync: Velotrade Terms 8.2 bans 'arbitrage' -- venue question, nothing blocks today. PR #16964 held; manager lands. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0004. Operator 2026-10-06 ~08:15Z verbatim: 'where do we stand on all of the pairs strategies? Is anything there ready to go live, and is anything there feasible for a prop account?'. Report + any queue units it needs. Fable, auto.",
-      "observation": {
-        "what": "first dispatcher cycle after 02:46Z dispatches one of RQ-20261007-005..008 and a research_result lands for it",
-        "how_to_check": "grep -n last_dispatched_at research/queue/RQ-20261007-00[5-8].yaml; ls research/results/RQ-20261007-005 research/results/RQ-20261007-006 2>/dev/null",
-        "due_by": "2026-10-10T00:00Z"
       }
     },
     {
