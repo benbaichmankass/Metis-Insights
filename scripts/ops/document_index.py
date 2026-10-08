@@ -406,6 +406,16 @@ STATUS_EXPLICIT: Dict[str, Tuple[str, str, str]] = {
         "the 2026-09-17 review record, weighted to performance-7d and soak "
         "monitoring; goes historical at the next system review",
     ),
+    # Authored and read in full by lane BREAKOUT-TERMS-READ, 2026-10-08. It states
+    # its own coverage: the FAQ Center was read, the binding agreements were 403
+    # (section 0 lists every URL), so the doc is live as a record of what was and
+    # was not read -- not as a reading of Breakout's contracts.
+    "docs/integrations/breakout-terms-read-2026-10-08.md": (
+        "live",
+        "read:BREAKOUT-TERMS-READ-authored-it-this-session-terms-read-record",
+        "the 2026-10-08 read of Breakout's FAQ Center terms; goes historical "
+        "when the Evaluation Agreement / Program Rules are read at source",
+    ),
 }
 
 # ---------------------------------------------------------------------------
