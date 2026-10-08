@@ -259,6 +259,7 @@ GUARDS: List[Dict[str, Any]] = [
         # LOOK unless given `--lane-states FILE`; the census still runs.
         "name": "stale-in-flight",
         "when": {"globs": ["docs/claude/work/MANAGER-CHECKLIST.json",
+                            "docs/claude/work/checklist/**",
                             "scripts/ci/check_stale_in_flight.py",
                             "scripts/ops/owner_liveness.py"]},
         "steps": [["python3", "scripts/ci/check_stale_in_flight.py", "--self-test"],
@@ -327,6 +328,15 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ci/check_soak_contracts.py", "--base", "origin/main"],
             ["python3", "scripts/ops/soak_state.py", "--self-test"],
         ],
+    },
+    {
+        # PI-20261004-APBY4NTV-0003 step (c'): nothing reads the checklist monolith
+        # path directly; every reader goes through the loader (or is a reasoned
+        # path-list). The monolith is deleted at the per-row cutover.
+        "name": "checklist-readers-guard",
+        "when": {"globs": ["scripts/**/*.py", "src/**/*.py", "scripts/ci/check_checklist_readers.py"]},
+        "steps": [["python3", "scripts/ci/check_checklist_readers.py", "--self-test"],
+                  ["python3", "scripts/ci/check_checklist_readers.py"]],
     },
     {
         # PI-20261005-4GA8WQPA-0002 (the lapse wave): a pipeline item whose
