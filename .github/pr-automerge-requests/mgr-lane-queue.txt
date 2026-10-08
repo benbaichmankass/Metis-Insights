@@ -1,0 +1,1 @@
+auto-merge: register serial lane queue (Tier 1, docs only)
