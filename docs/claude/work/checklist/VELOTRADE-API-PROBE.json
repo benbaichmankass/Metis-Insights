@@ -2,16 +2,24 @@
   "id": "VELOTRADE-API-PROBE",
   "title": "Read-only DXtrade REST API probe on velotrade_1 + measured ETH/SOL/XRP specs (executor lots proposal)",
   "phase": "W6",
-  "state": "in_flight",
+  "state": "queued",
   "owner": "manager-dispatched lane",
-  "lane": "session_01JzDpamQRqFT7p3tS1ChgfQ",
+  "lane": null,
   "model": "claude-sonnet-5-5",
   "ceiling_usd": 8,
   "spend_usd": null,
   "tier": 1,
   "prs": [],
   "blocked_on": [],
-  "note": "2026-10-05 07:51Z dispatched by manager; operator verbatim \"Ok, let's go that\" (web route first, API as follow-up). PI-20261005-APBY4NTV-0004. No order endpoints.",
+  "note": "2026-10-05 07:51Z dispatched by manager; operator verbatim \"Ok, let's go that\" (web route first, API as follow-up). PI-20261005-APBY4NTV-0004. No order endpoints. [2026-10-08T16:05Z manager session_01Uq7MrjPQDRWqbhCjwuMava, stale-state sweep] Lane session_01JzDpamQRqFT7p3tS1ChgfQ archived 10-05 with no recorded result on this row. No live lane. Before any re-dispatch, read that session's output and PI-20261005-APBY4NTV-0004.",
   "observation": null,
+  "lane_history": [
+    {
+      "lane": "session_01JzDpamQRqFT7p3tS1ChgfQ",
+      "archived_at": "2026-10-08T15:56:00Z"
+    }
+  ],
+  "updated_at": "2026-10-08T15:56:00Z",
+  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
   "_seq": 293
 }
