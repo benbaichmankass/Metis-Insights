@@ -6,6 +6,11 @@
   },
   "id": "PI-20261008-3QRUJSYR-0001",
   "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-22",
+    "how_to_check": "diag relay: journalctl?unit=ict-prop-executor@<acct> for a supersede action line, plus GET /api/bot/prop/tickets?account_id=<acct> showing the superseded/new pair",
+    "what": "first live supersede on a prop account: a newer same-key signal arrives while an older entry rests unfilled with no position; the executor cancels the resting entry, the old ticket reads 'skipped: superseded by <new>', and the new ticket is placed (or refused by its own entry band without the old order being cancelled)"
+  },
   "origin": {
     "kind": "session",
     "ref": "lane PROP-REISSUE 2026-10-08 (manager session_01Uq7MrjPQDRWqbhCjwuMava); tradeify_1 prop-manual-2116662b7d8d suppressed by prop-manual-e6badec7ae10",
