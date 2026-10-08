@@ -1,0 +1,23 @@
+{
+  "id": "CROSS-SIGNAL-RESEARCH",
+  "title": "Cross-family strategy research (operator idea 2026-10-07): entry from one signal family (e.g. a market-structure signal) with the stop/exit driven by a DIFFERENT family (e.g. a momentum-conditioned stop instead of a price-distance stop) -- which crossings are testable in the current harnesses, and registered Stage-0 units for the feasible ones",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane CROSS-SIGNAL-RESEARCH",
+  "lane": "session_01FRPsG9ZsFVMoYE9ARzoHV6",
+  "model": "claude-fable-5-1",
+  "ceiling_usd": 25,
+  "spend_usd": 14.91,
+  "tier": 1,
+  "prs": [
+    17018
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-08T02:03Z manager] #17018 guards RED on soak-contract-guard (new since #16973): PI-20261007-9ARZOHV6-0001 lacked a definition of done. Manager added observation {results 040/041 landed + section-6 readout written, due 2026-10-21} (bab14ff0e). Merge on green (Tier-1). || [2026-10-07T20:54Z manager] Lane done: PR #17018 held (new hand-written units). Matrix 28 cells: 12 harness-ready / 9 need-a-lever / 7 infeasible (memo docs/research/cross-signal-exits-2026-10-07.md). Units: 040 confirm the TWICE-passed ada_pullback_2h x vol_trail vt_hot90_t2.5 cell (unshipped; PASS -> Tier-3 declare proposal for the bybit trio); 041 generalisation control on xrp_2h / eth_4h / xrp_4h; 042-044 blocked (ADX-conditioned trail, momentum-keyed time stop, pullback trend-flip exit: lever exists, no dispatch cell). KEY FINDING: every live stop is price-path; the harness-ready crossings are already swept fleet-wide (mostly honest negatives) and re-swept monthly; the operator's literal idea (a stop that reads momentum) has NO harness lever -> lever specs in memo \u00a7 4: momentum_trail (--trail-adx-below / --trail-adx-falling-bars / --trail-adx-tight-mult), momentum_stale, flip_exit. -> build row MOMENTUM-TRAIL-LEVER. Lane archived 20:55Z; spend $14.91 final (Fable). || [2026-10-07T20:24Z manager] OPERATOR (2026-10-07, paraphrased from voice): 'build a research unit around mixed strategies: a strategy based on one type of market structure with, say, a stop loss correlated to momentum instead of price movement; see if different ways of crossing how we look at the signals provide a sustainable edge.' Research lane on the Fable budget. Deliverables: (1) a feasibility matrix entry-family x exit-family over what the harnesses expose today (exit_lever_ablation / e3 joint lever sweep / m20 exit levers / e35 bracket geometry; ADX-gated and Chandelier trails already exist in fade_breakout_4h) marking each cell harness-ready / needs-a-lever / infeasible; (2) for harness-ready cells, registered Stage-0 units with rule BEFORE run, full cost stack, n floor, on live or prop-eligible legs first (new_strategy_prop weight 6); (3) for the one or two most promising needs-a-lever cells, the exact harness lever spec as a build row proposal (not built by this lane); (4) a short design memo. No config change; no strategy edits; ids allocated by the manager: RQ-20261007-040..059 (hand-written band once #16968 lands: use 9xx only if told).",
+  "observation": {
+    "what": "#17018 merged and research/results/RQ-20261007-040/*.jsonl lands with read_state measured (the twice-passed ada_pullback_2h x vol_trail cell confirmed or refuted)",
+    "how_to_check": "ls research/results/RQ-20261007-040/; pipeline PI-20261007-9ARZOHV6-0001",
+    "due_by": "2026-10-21T18:00Z"
+  },
+  "_seq": 344
+}

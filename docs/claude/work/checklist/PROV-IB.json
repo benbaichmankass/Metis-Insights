@@ -1,0 +1,16 @@
+{
+  "id": "PROV-IB",
+  "title": "ib_paper trades attached to a June order package (5830/5852/5853/5856); IB realizedPNL 0.0 on closing fills; SA-PROV follow-ups",
+  "phase": "W6",
+  "state": "queued",
+  "owner": "unassigned",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here.",
+  "_seq": 231
+}

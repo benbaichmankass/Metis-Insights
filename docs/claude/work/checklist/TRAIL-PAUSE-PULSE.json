@@ -1,0 +1,24 @@
+{
+  "id": "TRAIL-PAUSE-PULSE",
+  "title": "Prop trail: announce a pause -- 'trail_paused_since' on the executor's prop_monitor_pulse (second half of PI-20261006-KX6ZKFNA-0003)",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane TRAIL-PAUSE-PULSE",
+  "lane": "session_01K1zKHNpwA8rSKY2uXP71d9",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 6,
+  "spend_usd": 9.6,
+  "tier": 2,
+  "prs": [
+    16997,
+    17047
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-08T03:47Z manager] Lane FINAL spend $9.60. || [2026-10-08T03:22Z manager] Lane's close-out record PR #17047 (Tier-1 hold) MERGED 03:19Z (bc2a52ca7): PI-20261006-KX6ZKFNA-0003 now states merged-not-observed and names the closing observation. Lane archived (spend recorded on the next batch). || [2026-10-08T02:12Z manager] #16997 DEPLOYED (VM git_sha 1763b675b contains 4cbfb1db1; the executor is a timer-driven oneshot, so the next tick runs the new code with no restart). Observation pending the next executor tick. || [2026-10-08T02:03Z manager] #16997 MERGED 01:53Z (4cbfb1db1), Tier-2 per operator OK. Deploy = executor restart, pending (manager locating the restart path: no executor restart action in the allowlist; checking what git-sync restarts). || [2026-10-07T20:46Z manager] #16997 guards RED on ruff-lint only (CI runs the pinned ruff, so a real finding in the PR's files); lane woken 20:49Z; watcher waits for the fix push. || [2026-10-07T20:00Z manager] OPERATOR OK (verbatim, 2026-10-07 ~20:00Z): 'Ok on the tier 2 items' -- covers the six groups put to the operator at 19:4xZ: #16997 trail-pause pulse. Merge on green + executor restart. || [2026-10-07T19:42Z manager] Lane: PR #16997 Tier-2 held (executor tick emits a pulse each tick with trail_paused_since null|ISO|'unknown' + trail_paused_ticks; attention-watch probe prop_trail_paused_<account> urgent at >=2 paused ticks). Needs the operator's Tier-2 OK + executor restart after merge. || [2026-10-07T19:08Z manager] The read surface landed (#16943, TRAIL-OBSERVABILITY done); this is the announce half: the executor's existing prop_monitor_pulse carries trail_paused_since (null when not paused) so the digest/attention block can alarm on a latched trail instead of someone having to read the file.",
+  "observation": {
+    "what": "executor pulse carries trail_paused_since/trail_paused_ticks on the live VM",
+    "how_to_check": "GET /api/bot/prop/status?account_id=breakout_2 -> pulse fields present (null|ISO|'unknown'), attention-watch probe prop_trail_paused_breakout_2 registered",
+    "due_by": "2026-10-10T00:00Z"
+  },
+  "_seq": 337
+}

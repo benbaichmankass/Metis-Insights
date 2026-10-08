@@ -1,0 +1,18 @@
+{
+  "phase": "E",
+  "blocked_on": [],
+  "spend_usd": 3.61,
+  "id": "E69",
+  "title": "Corrected resweep of trend_donchian ada/avax/sol 4h (bybit_1 soak): demote live->shadow or keep, on evidence",
+  "state": "done",
+  "owner": "research lane",
+  "lane": "session_01915exWeKESx3y9tjToJhYE",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 15,
+  "tier": 3,
+  "prs": [
+    12880
+  ],
+  "note": "OPERATOR 2026-09-24 ~17:15Z, popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, verbatim: \"Resweep first (Recommended)\". From E67. Sonnet: a bounded backtest run. #12880, per its title, reports that all three legs FAIL Stage-0 net of the full cost stack; the demote decision goes back to the operator with that evidence.\nOPERATOR 2026-09-24 ~18:15Z, popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, verbatim: \"Keep live on soak\", in reply to the corrected resweep (#12880): ada n=46 -0.19R/trade 1/4 folds, avax n=50 -0.18R 0/4, sol n=35 -0.08R 1/4, all failing RULE-E69-DONCHIAN-4H-RESWEEP-DEMOTE net of the full cost stack. DECIDED: NO demotion. The three legs stay live on bybit_1 (a paper soak book) to keep accruing data. #12880 (the evidence only) lands Tier-1.\n[2026-09-25T07:35Z manager] #12880 main re-merged twice by the manager (union, then the E64 dir recipe); self-land armed, CI re-running.\n[2026-09-25T09:55Z manager] #12880 MERGED e62d89290.",
+  "_seq": 104
+}

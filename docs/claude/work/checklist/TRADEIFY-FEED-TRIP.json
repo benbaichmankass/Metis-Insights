@@ -1,0 +1,16 @@
+{
+  "id": "TRADEIFY-FEED-TRIP",
+  "title": "tradeify_1 (live prop, $10k eval) has placed NOTHING since 2026-10-06 18:27:45Z: its executor feed is TRIPPED rc=4 (feasibility stop: challenge/CAPTCHA/2FA/login rejected/login timeout/no creds) and is never retried -- every tick since exits before the executor runs; status snapshot stale since 18:21Z; 4 tickets suppressed/expired today",
+  "phase": "W6",
+  "state": "in_flight",
+  "owner": "lane TRADEIFY-FEED-TRIP",
+  "lane": "session_01SnkD6HKaDafuixx2yoQe7a",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 15,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-07T20:44Z manager] FOUND by lane PROP-FLOW-SEPARATION reading the diag relay (not by any alert: PROP-SILENCE-ALERTS reads tradeify_1 idle 'ok 2.6d' because the silence probe keys on fills, not on the trip). ONE QUESTION for the lane: what tripped the tradeify_1 feed at 2026-10-06 18:27:45Z (exact journal lines around rc=4), does the credential/terminal still log in (breakout-login-check for tradeify_1, read-only), and what clears it -- an allowlisted feed-enable / executor restart (Tier-2, held for the manager) or a human step at the broker (CAPTCHA/2FA/new password: say exactly what the operator must do, per the before-asking-the-operator skill). Also: why a feasibility stop never retries and never pages after N hours (a tripped live account should alarm) -> file the gap. Nothing is to be re-armed without the manager.",
+  "_seq": 345
+}

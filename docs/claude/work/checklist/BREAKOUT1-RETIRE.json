@@ -1,0 +1,18 @@
+{
+  "id": "BREAKOUT1-RETIRE",
+  "title": "breakout_1 evaluation breached ($4,698 < $4,700 static floor since 2026-10-04): clear its roster, stop its executor timer, retire the account from live surfaces; breakout_2 is the Breakout account",
+  "phase": "W6",
+  "state": "in_flight",
+  "owner": "lane BREAKOUT1-RETIRE",
+  "lane": "session_01Y2J2YaVPogBoJCqx748tfe",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 10,
+  "spend_usd": null,
+  "tier": 3,
+  "prs": [
+    16981
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-07T23:27Z manager] #16981 green but conflicts with main (accounts/prop_platforms moved); lane woken 23:28Z. || [2026-10-07T19:13Z manager] PR #16981 held Tier-3 (operator-approved): roster -> []. After merge: executor-disable-timer for breakout_1 (issue #16251 cancelled by the one-pending limit; timer state UNKNOWN). Follow-ups: feed-disable-timer refuses breakout_1 (script); prop.py _DEFAULT_ACCOUNT breakout_1 -> breakout_2. || [2026-10-07T18:37Z manager] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): 'Dead: clear its roster, retire the row (Recommended)'. Tier-3 roster change on a dry_run account, operator-approved in the popup: PR held; the manager merges. Pipeline: PI-20261007-APBY4NTV-0002.",
+  "_seq": 329
+}

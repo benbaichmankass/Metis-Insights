@@ -1,0 +1,16 @@
+{
+  "id": "JC-CA-03-FIX",
+  "title": "Does main's A7 (as merged by #13609) still exhibit review findings B1 and B2? If yes, fix them in a held PR",
+  "phase": "W6",
+  "state": "done",
+  "owner": "fix lane",
+  "lane": "session_01U6fKZeQdjCfBFr3G2Zr6BD",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 35,
+  "spend_usd": 1.5,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): opened on CA-VERIFY's report (relayed by the previous manager) that #13609 was never re-landed after the review BLOCK. Measured: #13609 IS on main (4df71fb5), merged after the BLOCK with no review on record. Opus because it is the auto-land route of the armed MD-DEMOTE-S2-S1 mandate. Fresh session: the context needed is on disk (JC-GIT note, #13609 diff). || 2026-09-29 ~10:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): ANSWERED, no code change: B1 and B2 both ABSENT on main 11b9e688 -- #13609's final merged commit already fixed them (B1: verdict() grades resolve_head(), check_mandate_autoland.py:216-243,925-948; B2: A7 matches the apply=true r4-demotion-provenance artifact, r4-demotion-gate.yml:145-280, check_mandate_autoland.py:669-744,849-866). Mutation-probed: reverting each fix fails 2/37 and 5/37 self-test controls; pytest 76 passed. Lane archived; spend $1.50 final. CA-VERIFY asked to correct the stale line in #14052.",
+  "_seq": 195
+}

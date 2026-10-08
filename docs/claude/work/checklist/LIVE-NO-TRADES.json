@@ -1,0 +1,18 @@
+{
+  "id": "LIVE-NO-TRADES",
+  "title": "Why have the real-money rosters (bybit_2, alpaca_live and mirrors) not traded since 09-28? Trace signal to dispatch",
+  "phase": "W6",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01XEHP2RTP24AZWSQZSE4AMA",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 30,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    14565
+  ],
+  "blocked_on": [],
+  "note": "2026-09-30 ~06:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): VERDICT (A): no qualifying setups. All 7 live legs evaluate each bar and are live and enabled; the VM sha matches main; a bar-by-bar replay reproduces past trades and finds no setup since 09-28. Of 121 emissions since 09-15, 22 were dispatched and 99 fell inside an open package. Silences this long are normal (gaps up to 7.7 days since 08-01). Bugs spun out: GATE-SCOPE and DONCHIAN-PARITY. #14565 (open_package_blocked audit row) MERGED. Lane ARCHIVED.",
+  "_seq": 246
+}

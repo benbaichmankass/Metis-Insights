@@ -1,0 +1,18 @@
+{
+  "id": "E64",
+  "title": "PIPELINE.jsonl is append-at-end, so every merge re-conflicts every other open PR \u2014 make it merge-safe",
+  "phase": "E",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01356KXWkZjKm43iSWevk2oP",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 30,
+  "spend_usd": 39.48,
+  "tier": 1,
+  "prs": [
+    12876
+  ],
+  "blocked_on": [],
+  "note": "WAVE 2, operator-selected 2026-09-24 ~15:55Z (popup). Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP. MEASURED 2026-09-24 by session_01Ljhs6sFAdWHdMDhJpL5aBP: of 9 green lane PRs, each squash merge re-conflicted the rest ONLY on docs/claude/work/PIPELINE.jsonl (E53, E56, E54, E59, D3, A10, E55 twice, E60, E51). Each re-resolve costs a ~20-minute CI cycle, and it forced an integration PR (#12858) that pr-landing-guard R12 had to hold. GitHub server-side merges do not honour .gitattributes merge drivers, so a union driver does not help. Options: one file per item (docs/claude/work/pipeline/<id>.jsonl), or per-session shard files that pipeline.py reads as one store. Must keep pipeline.py --check, pipeline-guard and render_section_0 working, and keep append-only semantics.\nMANAGER R12 READ of #12876 (delegated by the operator) found one BLOCKING gap. A flat PIPELINE.jsonl recreated by resolving a modify/delete conflict would be silently ignored, because the default store is the directory, so the rows it carries would be lost. Sent back; the lane fixed it at 8ed088f (--check refuses flat+dir coexisting; the migration is idempotent and incremental; the resolver recipe is in the PR body). Ceiling $30 breached ($39.48): the fix round was manager-requested.\n[2026-09-25T07:35Z manager] MERGED caac62d09 (manager merge of a landing: hold PR). E64-land re-merged main and migrated 23 new records; CI 4/4 green. Effect to observe: the next two concurrent lane PRs merge without a pipeline conflict. First real use: E69 (#12880) modify/delete resolved by the recipe, 1 record moved.\n[2026-09-25T09:55Z manager] Effect observed: E69 (#12880) and E39 (#12919) resolved their pipeline conflicts with the migrate recipe and merged; lanes since append one file per record with no cross-PR conflicts.",
+  "_seq": 99
+}

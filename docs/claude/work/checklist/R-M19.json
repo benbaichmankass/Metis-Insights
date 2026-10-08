@@ -1,0 +1,18 @@
+{
+  "title": "AI-trader post-mortem (13 retired manifests) + staged S1-S3 design as queue units",
+  "phase": "W6",
+  "state": "done",
+  "owner": "research lane",
+  "lane": "session_01SQtJGs52hkSe2xVnMmnbJh",
+  "model": "claude-fable-5-1",
+  "ceiling_usd": 35,
+  "spend_usd": 17.35,
+  "tier": 1,
+  "prs": [
+    13548
+  ],
+  "blocked_on": [],
+  "note": "2026-09-28 ~12:15Z: #13548 merged 4fbfa99 after Sonnet review MERGE. Units RQ-20260928-002/-005 runnable, blocked/-003/-004 need a harness extension.",
+  "id": "R-M19",
+  "_seq": 175
+}

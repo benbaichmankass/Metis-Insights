@@ -1,0 +1,19 @@
+{
+  "id": "RQ-RUN",
+  "title": "Token-free research execution: generic runner workflow + grade the ran-but-ungraded units; queue replenish (E58 self-land, e35 serialization)",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane",
+  "lane": "session_0179hCBVrY5PJMaHhK3BKcKe",
+  "model": "claude-fable-5-1",
+  "ceiling_usd": 200,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    14035,
+    14098
+  ],
+  "blocked_on": [],
+  "note": "2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): FIRST ROW for this lane -- it was dispatched by session_01KAQRJxRbRwpYTkPgBjNVyQ (tag manager:session_01KAQRJxRbRwpYTkPgBjNVyQ) with no checklist row. Ceiling was not recorded on the register (UNKNOWN; asked of the previous manager). Handoff trigger fired, returned the lane's own cse_ id. Replenish #13950 closed unmerged 09:33Z; successor auto PR #14035 open (CI re-running at read time). || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): ceiling set $200 (running spend $159.55 at 09:56Z per the previous manager's get_session read; the lane had none recorded). Above that, read its output, then kill or re-scope. || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): routed 10:07Z: check_research_queue_health H1 fails on main (runnable 8/58 < 25) -- starved queue vs threshold miscalibrated by #13952's 'runnable' redefinition; land #14035. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14098 MERGED 00711bf (H1: genuinely short 8/58<25 AND alarm miscalibrated in cadence; fillable H1 now dispatches replenish instead of paging; 25 unchanged). Running $170.15 of $200 at 10:50Z. #14035 closed unmerged earlier. Held #14011/#14041 still to review. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived (ended at its $200 ceiling per #14199). On main: #14098 (merge 00711bf6), #14011 bf03c359, #14041 c96649e3, #14199 613427c4. #14035 is not on main; the earlier note says it was closed unmerged. Partly observed: the first post-#14011 dispatcher cycle (run 36571325087) fired 3 units. Still owed, per PI-20260929-RQRUN-CLOSEOUT-0001 (queued): the backpressure line of that cycle and one post-#14041 cycle. Closes when that record clears.",
+  "_seq": 192
+}

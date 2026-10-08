@@ -1,0 +1,25 @@
+{
+  "id": "BACKLOG-BURNDOWN-2",
+  "title": "Burn the pipeline backlog down to a manageable level: kill what is dead, close what is done, fix small Tier-1 items, route the rest to a live lane",
+  "phase": "floor",
+  "state": "done",
+  "owner": "lane BACKLOG-BURNDOWN-2",
+  "lane": "session_01Urx25ZisSoJtVg4GA8WqpA",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 30,
+  "spend_usd": 38.07,
+  "tier": 1,
+  "prs": [
+    16489,
+    16490,
+    16512,
+    16514,
+    16517,
+    16518,
+    16523,
+    16524
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-05 lane BACKLOG-BURNDOWN-2 CLOSE-OUT] DONE-CONDITION MET AND OBSERVED ON MAIN (pipeline.py --check, 2026-10-05 ~03:2xZ after #16523/#16524): (a) unrouted 0 (start 49); (b) total due 19 (start 358; target <=25) \u2014 18 of the 19 are PI-SOAK-* items graded could-not-look that clear when the weekly soak-book-grade run (Sunday 03:00Z) lands the shadow_packages field shipped in #16512; (c) routed items naming no live row/lane: 0 (start 152); (d) due items filed >=14d ago: 0 (start 11, peaked at 179 on the 10-05 cadence cliff). PRs merged: #16489 #16490 #16512 #16514 #16517 #16518 #16523 #16524 (#16485 closed, replaced by #16489 after soak-contract-guard needed observation blocks; #16494 is the CI-AUTOMERGE lane's). Spend: manager meter $38.07 of $45. WHAT THIS DID NOT DO: 553 items filed >=14d ago remain OPEN (re-read and re-dated, not closed) and their cadences expire together on 2026-10-11/12 (~280 items) and 10-18/19 (~210), so due WILL climb back; filed as a pipeline item due 2026-10-10 with a runnable count (PI-20261005-4GA8WQPA-0002). OTHER FINDINGS FILED: stale-snapshot overwrite in pipeline.append (PI-20261004-4GA8WQPA-0002), Tier-2 diag log aggregate (PI-20261004-4GA8WQPA-0003), possibly unprotected paper TQQQ position (PI-20261005-4GA8WQPA-0001, due 10-06). OBSERVATION STILL OWED: PI-20261004-JC8KDKLF-0002 stays open until a committed grade record carries shadow_packages (first chance: Sunday 2026-10-11 03:00Z).",
+  "_seq": 285
+}

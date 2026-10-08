@@ -1,0 +1,18 @@
+{
+  "id": "RQ-RENUMBER-16386",
+  "title": "Unblock #16386: renumber RESEARCH-RUN units RQ-20261004-653..674 -> 753..774 (ID collision with queue_replenish) + file the ID-race root cause",
+  "phase": "W6",
+  "state": "done",
+  "owner": "manager-dispatched lane",
+  "lane": "session_01H1mFH3B2BtDBL5rt476Z5b",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 5,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    16386
+  ],
+  "blocked_on": [],
+  "note": "2026-10-05 05:49Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv; manager validated the recipe in a scratch worktree (manager-scope routes the edit to a lane). 06:06Z lane done: branch pushed 15fd4749, root cause filed PI-20261005-RQ-ID-RACE-0001 (due 10-12). Manager merges #16386 when CI is green. 06:36Z: #16386 MERGED f6060ad1 by manager after reading the two hand grades against their result files (105 net_total_r +18.7231 n=144 PASS; 106 -121.9644 n=178 FAIL). Research-only, no runtime effect.",
+  "_seq": 291
+}

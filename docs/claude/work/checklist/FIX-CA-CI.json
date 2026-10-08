@@ -1,0 +1,17 @@
+{
+  "phase": "W6",
+  "spend_usd": 11.51,
+  "blocked_on": [],
+  "owner": "fix lane",
+  "id": "FIX-CA-CI",
+  "state": "done",
+  "lane": "session_01Phg9t2xAaNUEF99cVHhhG1",
+  "prs": [
+    13247
+  ],
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 20,
+  "title": "FIX-CA-CI: FIX-CA-15",
+  "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-15..17 (Tier 1, self-land). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13247 self-landed 9a9f9e7 (Tier 1). Lane archived.",
+  "_seq": 160
+}

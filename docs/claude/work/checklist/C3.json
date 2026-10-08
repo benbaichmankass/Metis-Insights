@@ -1,0 +1,16 @@
+{
+  "id": "C3",
+  "title": "Let replay-pregate land",
+  "phase": "C",
+  "state": "dropped",
+  "owner": "build lane",
+  "lane": null,
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 20,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "runtime_logs/** is not in TIER1_SURFACE so pr-landing-guard R5 rejects the commit - 0 reports on main since inception. Separately the trainer swap-thrashes, so 6 of 6 nightly runs die at 10 of 22 heads and no non-BTC head has ever been graded. [!] \u26a0\ufe0f DUPLICATE OF E6 \u2014 same work (unblock replay-pregate) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push.\n[2026-09-25T07:35Z manager] KILLED: duplicate of E6 (same work, twin under the C/D scheme). E6 dispatched 2026-09-25; one lane only.",
+  "_seq": 18
+}

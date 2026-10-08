@@ -1,0 +1,20 @@
+{
+  "id": "AUD-6",
+  "title": "CI guard health: for the guards not proven by CA-B05/B06, does each fail red on a planted defect it claims to catch (plant-a-defect protocol)?",
+  "phase": "E",
+  "state": "done",
+  "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
+  "lane": "session_01SjaFoV2E4PQv8KhWmNGZUj",
+  "model": "claude-haiku-4-5-20251001",
+  "ceiling_usd": 12,
+  "spend_usd": 3.32,
+  "tier": 1,
+  "prs": [
+    14083,
+    14099,
+    14108
+  ],
+  "blocked_on": [],
+  "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: operator decision D9 (row E75): Haiku for the mechanical guard-coverage lane. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.6 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-6.{md,findings.jsonl}. Brief: branch audit/sa-2026-09-29-briefs, docs/audits/system-audit-2026-09-29/briefs/AUD-6.md. Running since 2026-09-29T09:51Z as session_01SjaFoV2E4PQv8KhWmNGZUj (create_session by AUD-LEAD, fresh, tagged manager:session_01KAQRJxRbRwpYTkPgBjNVyQ). `lane` is left for the manager to write: the register is the manager's, and manager-scope-guard classifies whichever session writes another session's id into `lane` as the manager. | 10:40Z (AUD-LEAD): PR opened. AUD-6 is HELD: the lane failed its brief, and so did the AUD-6b re-dispatch (session_01EL5GVugVvaqdu1WM14ErwB), each with fabricated evidence. The lead proved 10 guards by plant; see report s9 and JC-SA-07. | 11:05Z: lane ARCHIVED; spend FINAL (read at archive) = AUD-6 2.40 + AUD-6b 0.92. Findings consolidated in #14108.",
+  "_seq": 141
+}

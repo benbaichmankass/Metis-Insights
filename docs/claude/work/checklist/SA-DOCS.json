@@ -1,0 +1,21 @@
+{
+  "id": "SA-DOCS",
+  "title": "Audit FIX-SA-09/10 + JC-SA-06: stale instruction surfaces, archived-lane in_flight guard, section-0 cap + unrouted alarm",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "build lane",
+  "lane": "session_01Ek5siXbMhnqA59WJuteNgu",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 20,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    14158,
+    14162,
+    14168,
+    14169
+  ],
+  "blocked_on": [],
+  "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): sonnet. Manager reconciles checklist rows; lane does not edit the checklist. || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14158 FIX-SA-09 reviewed (claim verified in work.py /brief), merge on green; #14162 FIX-SA-10 (could_not_look in CI), #14168 JC-SA-06 (section 0 302KB->16KB; alarm fires today: 153 unrouted, oldest 20d), #14169 self-land. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. All 4 PRs are on main: #14158 c602f7a6, #14162 3032618e, #14168 7b6969f6, #14169 e50ba9c9. PI-20260929-WJUTENGU-0003 (filed ~14:13Z, after #14168) says the unrouted alarm 'now fires', but it does not say where that was read. Closes when GET /api/bot/work/brief on the VM shows section 0 capped at 25 items with the unrouted alarm, and check_stale_in_flight goes red (not COULD NOT LOOK) on an archived-lane in_flight row. Leftovers are filed as PI-20260929-WJUTENGU-0001..0005.",
+  "_seq": 207
+}

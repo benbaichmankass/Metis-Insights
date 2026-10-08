@@ -1,0 +1,16 @@
+{
+  "id": "E51",
+  "title": "Guard remedies that cannot be performed since the reset \u2014 check_allow_degraded resolves ids against archived backlogs; pr-landing-guard R13 names the archived session-board.json",
+  "phase": "E",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01E1T63y1YmRKGv5vj8GCdPo",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 25,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Merged #12841 (8a86e0f), operator-approved at 14:10Z. The fix is guard remedy text: the R13 message and check_allow_degraded now resolve live ids. The effect is visible in the merged code. Lane spend $18.59 (includes a rebase onto E57) against $25 plus $8. LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: CI tooling. One question: which CI guards tell a session to do something that the 2026-09-21 reset made impossible? Known instances: check_allow_degraded (no new `# allow-degraded:` can be written anywhere) and pr-landing-guard R13 (remedy names docs/claude/session-board.json; working route is .github/merge-slots/ via claim_merge_slot.py). This is the separable cheap win inside E49. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP.",
+  "_seq": 85
+}

@@ -1,0 +1,20 @@
+{
+  "id": "M19-S2EXIT",
+  "title": "M19 S2-exit: RQ-20260928-005 exit head on ict_scalp 15m vs trend_donchian",
+  "phase": "W6",
+  "state": "done",
+  "owner": "research lane",
+  "lane": "session_01LKkJDVYVLZ6GouLTikn8zV",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 25,
+  "spend_usd": 5.42,
+  "tier": 1,
+  "prs": [
+    14362,
+    14514,
+    14661
+  ],
+  "blocked_on": [],
+  "note": " 2026-09-29 ~19:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): verdict INDETERMINATE under the registered final-fold n_oos>=64 floor (pooled 5-fold descriptive only: recovered R -10.40/-13.69/-3.42, 0 of 3 legs positive). Manager refused post-hoc substitution of pooled CV; lane makes analyze_exit_head.py emit per-fold stats and measures whether history can reach the floor. || 2026-09-29 ~20:05Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): the lane's 2200d runs (0/3 legs > 0; recovered_R -11.25/-12.22/-14.43) were NOT accepted as RQ-005's verdict: the window was changed after an indeterminate result without re-registering, and the embargo, folds and tau also deviate. RQ-005 stays indeterminate; the 2200d runs are recorded as supplementary evidence. Ordered: register a new unit (2200d, per-year folds, 7-day embargo, tau resolved from code) and merge it BEFORE running, then grade. Pooled-row PRs #14373/#14375/#14376 closed. Ceiling set to $30. || 2026-09-29 ~22:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RQ-005 recorded as indeterminate (#14362 merged). Successor unit RQ-20260929-401 is registered in #14438 (per-year folds, 7-day embargo, the shipped below_half_r tau 0.10 policy, final-fold n SOL 100 / XRP 98 / ETH 84 on refreshed candles). The independent review found and the lane fixed a cost asymmetry that favoured PASS; three last items are pending, then the manager merges BEFORE any run. Ceiling raised to $45. || 2026-09-30 ~00:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RQ-20260929-401 GRADED INDETERMINATE (REFINE) by the committed grader: n 99/95/83; net recovered R SOL -4.2971, XRP +0.2102, ETH -1.1634. XRP's positive is baseline-driven. Results PR #14468 (records only). Lane session_01Um3DdFoaFgrhnEfcJRwVAK is done (~$40) and gets archived after #14468 merges. REFINE step (XRP re-run on the 2025 fold) DISPATCHED to lane M19-S2EXIT-XRP2 session_01TNzsuheQ7kSaaWJwt2FMhJ (sonnet, ceiling $25). It must register a unit and have the manager merge it before any run. || 2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". XRP2 session_01TNzsuheQ7kSaaWJwt2FMhJ ARCHIVED ($0.38, never started: waited for an operator confirmation). Re-dispatched as M19-S2EXIT-XRP3 session_01LKkJDVYVLZ6GouLTikn8zV (claude-sonnet-5-5, ceiling $25): register the XRP 2025-fold REFINE unit, manager merges it BEFORE any run, then run and grade. || 2026-09-30 ~06:05Z: registration #14514 (RQ-20260930-402) MERGED after two review rounds (stale-file false-PASS fixed; pre-run amendment on a missing fold). Lane M19-S2EXIT-XRP3 dispatches the run now. || 2026-09-30 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RQ-20260930-402 graded FAIL under the registered rule (#14514 registration, #14661 result 27aa6eb4): XRP 2025 fold n_oos 108, recovered_R_oos -6.1584 (baseline +4.7699, head net -1.3885). XRP's 2026 positive is not persistent; per the unit, the S2-exit lever narrows to trend_donchian. No exit flipped, no head promoted. Lane M19-S2EXIT-XRP3 ARCHIVED (session cost $5.42 per the session record). Next: the manager queues the trend_donchian S2-exit path.",
+  "_seq": 222
+}

@@ -1,0 +1,30 @@
+{
+  "id": "RQ-INFRA",
+  "title": "Research-queue infrastructure gaps: prop_ev_sim P(pass by 30/90/180d); harness-dispatch runs trend/ict_scalp/vwap at short timeframes; stranded automation PRs on cancelled CI; needs_review surfaces on a non-session cadence; session-debt measure; RQ id minting race",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane RQ-INFRA",
+  "lane": "session_01AkBwsnKEM8iz4BeP1ghUHC",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 30,
+  "spend_usd": 22.98,
+  "tier": 1,
+  "prs": [
+    16948,
+    16953,
+    16957,
+    16961,
+    16968,
+    16982,
+    16986,
+    16993
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-08T00:30Z manager] Lane closed out and archived; spend $22.98 final. 8 PRs merged, none deployed/observed; not done by the lane (filed PI-20261007-EP1GHUHC-0001/-0002, due 10-09): vwap wrapper, dukascopy, the 9 session-debt units, 9 undated automation PRs, the stamp-PR close list (#16938 held back). || [2026-10-07T23:27Z manager] #16982 (sweeper grader) MERGED 23:24Z (07db35be2); #16968 (id bands + guard) MERGED 23:24Z (90eca9908): lanes now mint ids from the generated band; manual allocation ends. || [2026-10-07T20:41Z manager] #16993 MERGED ~20:16Z (pipeline records EP1GHUHC-0001/0002 on main). #16968 (id bands + guard) converted by the lane to landing hold: main now classifies scripts/research/queue_replenish.py as landing machinery (R12), so it is the manager's to land, like #16982. Both watched; merge on green. After #16968 lands the lanes mint ids from the generated band themselves and the manager stops allocating. || [2026-10-07T20:18Z manager] Lane update: MERGED #16961 (trend+ict_scalp dispatch cells), #16986 (session-debt number in the work report, 20:12Z; closes when the 05:30Z work report carries a 'Session debt' section, measured 9). #16968 (id bands + guard) had pytest-run RED on two of the lane's own misses (guard lacked _dirty_tree.warn(); an old-numbering test), fixed and re-pushed, auto-merge armed. #16993 4/6 green. #16982 (sweeper grader) held for the manager, guards green, pytest running -> watcher merges on green. || [2026-10-07T19:42Z manager] Lane final for this pass: MERGED #16957 (p_pass_by_days, 19:21Z), #16953 (needs_review digest line, ~19:30Z), #16948 (by manager 19:34Z). HELD for manager: #16982 sweeper grader (dry run on 21 automation PRs: undated 16->9, refresh 3). Auto-merge armed: #16961 #16968 #16986 #16993. Not done: vwap dispatch, dukascopy cells, 9 session-debt units, 9 undated automation PRs. Do-not-close: #16938 (sole stamp for RQ-20261006-032), #16883/#16927. || [2026-10-07T19:36Z manager] #16948 MERGED 19:34Z (c4487fb0d): stamps replayed onto the main tip (no more stamp PRs stacked on receipt commits). Merged != observed: the first post-merge dispatch run must land its stamps without a 50-min wait; RQ-CADENCE (lane session_012KH4r5ZxKMvciL1dHH3Lcm) reads it. 16953/16957/16961/16968 still self-landing. || [2026-10-07T19:13Z manager] Self-landing: #16953 needs_review digest line (42 units), #16957 p_pass_by_days, #16961 trend+ict_scalp short-TF cells (vwap not: hardcoded symbol), #16968 RQ id bands (generated 001-899, hand 900-999) + guard. Debris: 7 superseded stamp PRs closed by the manager 19:11Z (#16656 #16810 #16823 #16838 #16850 #16900 #16938); #16790 #16883 #16927 kept; #11912/#13133 deferred. #16950 also edits attention_watch.py: the second to land may need a main merge. || [2026-10-07T18:55Z manager] ROOT CAUSE of stranded stamps: the dispatcher stacks the stamp commit on its receipt commit; the stamp PR conflicts with main and gets NO pull_request runs. PR #16948 (commit-to-main replays onto main's tip; test) held: landing machinery, the manager lands. Added: stale-automation-sweep runs 110-119 failing; ~16 superseded stamp PRs -> lane lists, manager closes. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261006-TPQQDKFF-0001, PI-20261006-TPQQDKFF-0002, PI-20261006-LCEVL8D5-0001, PI-20261006-LCEVL8D5-0002, PI-20261006-LCEVL8D5-0003, PI-20261005-RQ-ID-RACE-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+  "observation": {
+    "what": "the next research-queue-dispatch run opens a stamp PR with commits=1 that gets CI and merges (proves #16948); the 05:30Z work report carries a 'Session debt' section (#16986); the hourly digest carries a 'need a read' line (#16953)",
+    "how_to_check": "gh api repos/benbaichmankass/Metis-Insights/pulls?head=benbaichmankass:automation/research-queue-stamp-* ; PI-20261007-EP1GHUHC-0001/-0002",
+    "due_by": "2026-10-09T18:00Z"
+  },
+  "_seq": 323
+}

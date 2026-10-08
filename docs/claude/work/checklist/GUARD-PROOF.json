@@ -1,0 +1,16 @@
+{
+  "id": "GUARD-PROOF",
+  "title": "Audit JC-SA-07 (a): plant-a-defect proof for the ~80 CI guards not yet proven",
+  "phase": "W6",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_017ThKtGHMj5TRQHLeUUwhQc",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 20,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): DECIDED (a): Haiku failed the protocol twice (AUD-6, AUD-6b); Sonnet with the lead's plant.sh pattern; evidence rows need the planted diff + both exit codes. Pipeline PI-20260929-TWEW1FZJ-0006. || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): plant proof over 37 unproven guards: 25 caught, 0 missed, 2 unplantable, 10 not run (classifier-denied; PI-20260929-LEUUWHQC-0001). Remainder (10 not-run + 48 self-test-only) moves to GUARD-PROOF-2 under operator decision JC-SA-07 (a).",
+  "_seq": 210
+}

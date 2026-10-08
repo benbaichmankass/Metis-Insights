@@ -1,0 +1,23 @@
+{
+  "id": "EXIT-PARITY-RQ",
+  "title": "Declared exit levers that cannot fire live (prop close-type levers; xrp_pullback_2h trail_decay arm 4.49 > tp_r 3): register Stage-0 re-runs without them and report what survives",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane EXIT-PARITY-RQ",
+  "lane": "session_01Xz8wBZvFn1cmrjJF32kqbY",
+  "model": "claude-fable-5-1",
+  "ceiling_usd": 20,
+  "spend_usd": 21.08,
+  "tier": 1,
+  "prs": [
+    16970
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-08T00:24Z manager] Lane archived; spend $21.08 final. || [2026-10-07T23:27Z manager] #16970 MERGED (4c5ebb458) during the pause: RQ-20261007-020/021 on main. || [2026-10-07T19:30Z manager] Renumbered on the lane branch by the manager (lane closed): units + comms records RQ-20261007-001/-002 -> -020/-021, head 7b2404a6d; queue guards OK locally. Merge on green. || [2026-10-07T19:13Z manager] PR #16970 held (new units). Its RQ-20261007-001/-002 COLLIDE with the 001-004 allocation to #16955 -> manager assigns 020-021; renumber before merge. MEASURED locally after rule registration: (a) trend_donchian_eth_prop stale_exit WITH +13.02 R vs WITHOUT +12.84 R over 730d (dR +0.18 R, 2/4 folds) -> FAIL/live_without_lever: the close verb is NOT worth building; (b) xrp_pullback_2h decay at 4.49 == no decay, byte-identical (+14.67 R, 122 trades); every reachable arm worse (-3.6 to -17.6 R) -> FAIL/no_reachable_lever_beats_removed. Tier-3 proposals -> row EXIT-LEVER-STRIP. Also PI-20261007-JF32KQBY-0001 (_PB_LEVER_FLAG does not forward --trail-decay-*: 9 pullback records grade approximate for a wiring reason). || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-KX6ZKFNA-0001, PI-20261006-KX6ZKFNA-0004. Research-planning lane: write the queue units (rule registered before run, full cost stack) that re-measure each affected leg WITHOUT the unexecutable lever (prop legs: stale_exit_bars/giveback on paths with no close op; xrp_pullback_2h: a reachable arm or none), so the live book and its evidence match. Any param change is Tier-3 and comes back as a proposal with the record. Fable, auto.",
+  "observation": {
+    "what": "#16970 lands (renumbered 020-021) and the runner's E5 records for both units land",
+    "how_to_check": "ls research/results/RQ-20261007-020 research/results/RQ-20261007-021",
+    "due_by": "2026-10-10T18:00Z"
+  },
+  "_seq": 308
+}

@@ -1,0 +1,18 @@
+{
+  "id": "SA-SEC",
+  "title": "Audit FIX-SA-07/13: diag relay refuses .. and redacts before posting; workflow least privilege + weekly full-history gitleaks",
+  "phase": "W6",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01LF8rTDXMxEGKv4hJYtaQym",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 20,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    14167
+  ],
+  "blocked_on": [],
+  "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): sonnet. Workflow PRs are landing HOLD for manager review. || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14167 FIX-SA-07 reviewed: '..'/encoded traversal refused + redaction before every public sink; differential over 195 documented relay paths: 0 verdict changes. Merge on green. || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14180 (ccd155c) pytest-run RED 1/19973: check_mandate_autoland TemporaryDirectory cleanup race (Errno 39 'objects'); sent back to port the robustness fix + one re-run. Same race turned #14087 red. After merge the lane dispatches the first gitleaks run. Operator decided JC-SA-05 13:50Z: 'Leave it as one token, I'm not splitting it' -> option (b), record real scopes (JC-SA-05-SCOPES). JC-SA-04: operator 13:50Z 'Revoked'. 2026-09-29 ~19:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14265 3f2b385, #14277 4bc2b66 (gitleaks baseline; weekly scan run 36603441932 0 findings vs 352 before), #14316 f1c6ea1. Lane archived.",
+  "_seq": 205
+}

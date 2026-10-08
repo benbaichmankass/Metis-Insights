@@ -1,0 +1,18 @@
+{
+  "id": "CA-A01",
+  "title": "Code audit Wave A: order_monitor.py",
+  "phase": "CA",
+  "state": "done",
+  "owner": "audit lane",
+  "lane": "session_0155iFHoP6BJuj62kfWRL9r1",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 75,
+  "spend_usd": 25.73,
+  "tier": 1,
+  "prs": [
+    13161
+  ],
+  "blocked_on": [],
+  "note": "Scope: src/runtime/order_monitor.py (12,212 lines) and every test that exercises it (grep tests/ for order_monitor). Model reason: Opus \u2014 order path / real-money controls, per the manager model table and the operator naming Opus for this lane. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A01.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_0155iFHoP6BJuj62kfWRL9r1 (claude-opus-5-5; adopted from archived manager session_01GfmY83; PR #13161 (1 critical, 15 high, 29 med, 44 low)). landed_unproven until CA-LEAD consolidates; 1 critical CA-A01-001 re-verified CONFIRMED by CA-LEAD (#13162) -> fix lane FIX-CA-01 session_01CGDPn9CFWumLV61kb8TDp1 (Opus; cancel stranded ib_paper MES OCA oca-protect-t5836 before CME reopen ~22:00Z, then held code fix). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A01.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main.",
+  "_seq": 109
+}

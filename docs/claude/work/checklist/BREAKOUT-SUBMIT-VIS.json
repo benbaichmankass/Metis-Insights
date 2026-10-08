@@ -1,0 +1,18 @@
+{
+  "id": "BREAKOUT-SUBMIT-VIS",
+  "title": "breakout_1 executor cannot click submit on ETH: 'submit: not visible at its centre after scrolling (after 3 attempts)' (prop-manual-5f9892cb95db 04:44Z, prop-manual-74591fb6f6b1 05:15Z, 2026-10-02)",
+  "lane": "session_01WrKWEMWR3yfoSr9K6GM4e9",
+  "ceiling_usd": 30,
+  "phase": "W7",
+  "state": "done",
+  "owner": "build lane",
+  "model": "claude-opus-5",
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    15468
+  ],
+  "blocked_on": [],
+  "note": "2026-10-02 ~19:05Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv) OBSERVED: the FIRST automated strategy trade on breakout_1. Ticket prop-manual-d27fbb0b2b25 (trend_donchian_eth_prop, ETHUSDT SHORT, created 18:47:40Z, entry 2657.11, SL 2718.46, TP 2394.06, qty 1.2225, risk $75). Executor tick 18:49-18:50Z on code_sha 3cfdd9bb7 (contains 196341a9 #15465 and 5acb8bb7 #15468): band_ok, guards fits (ticket_risk_usd 74.85, risk_cap unchanged), place_bracket stage submitted with fill_trace qty 1.22 / SL 2718.46 / TP 2394.06 / price 2657.11, confirm verdict placed (prop_fills id 78). Next tick 18:54Z: confirm verdict OPEN (prop_fills id 79, entry 2657.17); positions 1, orders 0. The open verdict requires the broker position row to carry SL and TP within 2% of the ticket (classify_confirmation), so the bracket is on the position. Ticket status filled. CLOSES this row: the submit was clicked on the same footer geometry (submit box at y=1537, below vis_bottom 811) that refused at 04:44Z and 05:15Z. Fix #15468 MERGED (5acb8bb7), DEPLOYED (in the placing code_sha), OBSERVED. PI-20261002-UBMITVIS-0001 closed done. The forensic-log follow-up stays open as PI-20261002-UBMITVIS-0002. | 2026-10-02 06:09Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): fresh Opus lane dispatched. Two consecutive ETH long tickets were skipped pre-submit with the dxtrade.py:6509 reason. Lane root-causes the failure (layout, viewport or overlay; and whether a 10-01 merge caused it), reproduces it with a dry walk (submitted false), and opens a HELD Tier-2 PR plus a pipeline row that clears on the first ETH ticket PLACED after deploy. It must also state whether SOL is exposed.",
+  "_seq": 258
+}

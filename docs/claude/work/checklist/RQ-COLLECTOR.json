@@ -1,0 +1,16 @@
+{
+  "id": "RQ-COLLECTOR",
+  "title": "research-queue-dispatch reads 'failure' on every cycle because collect_runner_results.py reports 'lost a run's rows' (pre-existing; seen on every run since at least 16:34Z 2026-10-07) -- find the lost-rows cause, make the collector honest (lost vs could-not-list vs nothing-to-collect), and stop a healthy cycle from paging red",
+  "phase": "W6",
+  "state": "queued",
+  "owner": "lane RQ-COLLECTOR",
+  "lane": null,
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 15,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-08T00:32Z manager] Found by RQ-CADENCE while proving the hourly cadence (dispatch now ~1.5 min, land lock-free). ONE QUESTION: which runs' rows does the collector think it lost, why, and what is the correct verdict? Read scripts/ops/collect_runner_results.py + the 'Collect the runner's results since the last cycle' step logs of runs 37678623741 / the 22:52Z and 23:57Z cycles; distinguish lost (a harness run produced rows that never landed) from could-not-list (API) from nothing-to-collect; fix the verdict and, if rows really are lost, the landing path; a cycle whose fire/stamp/receipt landed must read success. Tier-1 (scripts/ops + workflow step), self-land. Dispatch after the midnight golden fix lands (every PR is red until then).",
+  "_seq": 347
+}

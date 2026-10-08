@@ -1,0 +1,18 @@
+{
+  "id": "CA-A07",
+  "title": "Code audit Wave A: src/prop + scripts/prop (Breakout)",
+  "phase": "CA",
+  "state": "done",
+  "owner": "audit lane",
+  "lane": "session_01CFHeaBLPVuLw2V2LvHWuCE",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 40,
+  "spend_usd": 12.1,
+  "tier": 1,
+  "prs": [
+    13199
+  ],
+  "blocked_on": [],
+  "note": "Scope: src/prop/** (33 files incl. the DXtrade platform adapter merged today in #13139) and scripts/prop/**, plus config for breakout_1 and the prop ruleset. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A07.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01CFHeaBLPVuLw2V2LvHWuCE (claude-sonnet-5; r2: r1 session_01U3SdKnWtWvXGeZQjLjWScR blocked on AskUserQuestion (suspected injection), archived). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A07.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main.",
+  "_seq": 115
+}

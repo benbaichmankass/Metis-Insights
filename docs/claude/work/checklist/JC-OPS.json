@@ -1,0 +1,20 @@
+{
+  "phase": "W6",
+  "state": "done",
+  "owner": "fix lane",
+  "blocked_on": [],
+  "spend_usd": 33.84,
+  "prs": [
+    13505,
+    13507,
+    13509
+  ],
+  "id": "JC-OPS",
+  "title": "Operator decisions JC-CA-02/04/05: HTF flag cleanup + research question, hold-merge post-merge alarm, deploy-fail loud alert",
+  "lane": "session_01Hmx51yERBBSjQpLm2XSoau",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 30,
+  "tier": 2,
+  "note": "2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Dispatched per the operator decisions recorded on the CA row. Sonnet: small CI/config/script changes; manager reviews the Tier-2 deploy-script PR independently. | 2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13505 (JC-CA-02 flag removal + RQ-20260928-001 + fingerprint refresh, only config_fingerprint changed in the 7 records) merged 6a29960. Not yet deployed-observed; zero behaviour change by its own test. || 2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): all three PRs on main (6a2996001 JC-CA-02, 78d00c890 JC-CA-04, 3c441d373 JC-CA-05). Lane archived.",
+  "_seq": 166
+}

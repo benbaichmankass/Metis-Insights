@@ -1,0 +1,16 @@
+{
+  "id": "E26",
+  "title": "GitHub's security-alert surfaces are unreadable from a session, and the blocker is the proxy, not a permission",
+  "phase": "E",
+  "state": "queued",
+  "owner": "build lane",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": 25,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "SPLIT OUT OF E24 2026-09-22 so the gap does not evaporate when E24 closes. MEASURED by the E24 sweep (record: docs/security/breach-sweep-2026-09-22.md): secret-scanning/alerts, dependabot/alerts, keys, actions/secrets and hooks all return HTTP 403 with body `Access to this GitHub API path is not permitted through this proxy`. [!] THE DIAGNOSIS IS PROVEN, NOT ASSUMED, AND IT IS THE OPPOSITE OF THE OBVIOUS ONE: `collaborators` 403s over raw HTTPS while the GitHub MCP tool list_repository_collaborators returns it successfully ON THE SAME CREDENTIAL -- two transports, two allowlists, one token. Six control paths (activity, events, branches, tags, forks, repo root) all return 200, so the probe can find a positive. [!] SO DO NOT READ THESE 403s AS `we lack admin rights` AND DO NOT ASK THE OPERATOR TO MINT A TOKEN -- that is the before-asking-the-operator failure this row exists to pre-empt. BUILD: an Actions job, which runs with no such proxy, reading the alerts from GITHUB_TOKEN under a `permissions: security-events: read` block and committing a dated record. Until it exists, source 1 of the health-review's five breach sources is `could_not_look` on every review, and a budget-truncated review takes the security sweep with it every time.",
+  "_seq": 58
+}

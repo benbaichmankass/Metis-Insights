@@ -1,0 +1,18 @@
+{
+  "id": "GUARD-PROOF-2",
+  "title": "Plant-a-defect proof for the remaining guards: 10 classifier-denied + 48 self-test-only (JC-SA-07 a, operator-supervised non-auto session)",
+  "phase": "W6",
+  "state": "done",
+  "owner": "build lane (operator-supervised)",
+  "lane": "session_01Q7TGqYqH4YebXv5vmBTZPh",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 30,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    14229
+  ],
+  "blocked_on": [],
+  "note": "2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): operator decided JC-SA-07 13:50Z 'Let's do a, if you can kick off the session then give me the link so I can take it off of auto mode'. Sonnet per the audit's D9 note (no Haiku for claimed measurements). 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. #14229 on main as e2e68673 ('92 caught, 5 unplantable of 97'). Effect OBSERVED by the plant runs themselves: pipeline PI-20260929-LEUUWHQC-0001 is done with terminal_reason 'all 10 guards plant-proven ... 9 caught'. Coverage gaps stay filed, not on this row: PI-20260929-5VMBTZPH-0001 and PI-20260929-LEUUWHQC-0002 (both queued, due 2026-10-06).",
+  "_seq": 213
+}

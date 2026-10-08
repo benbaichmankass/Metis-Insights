@@ -1,0 +1,19 @@
+{
+  "id": "LIVE-SILENCE",
+  "title": "Why have the four bybit_2 live legs produced zero order packages on any account since 2026-09-28T03:35Z (and alpaca_live since 09-23)? Market silence vs a change that stopped them firing",
+  "phase": "floor",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01Upz38GpgyiMYCjojTpwGCC",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 40,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    15805,
+    16208
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] DONE: LIVE-SILENCE-2 re-check merged #16208 (078195cc): real-money silence is market silence (ADX ~10 vs 25-28 needed; ETF legs downtrend long-only; 0 gate drops; 6 parity divergences explained). Prior: [2026-10-03T06:12Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Lane verdict: MARKET SILENCE on all 4 legs. The live order_package() replay over the bot candles gives 0 signals since 09-28T03:35Z (60 bars on each 2h leg, 30 on each 4h leg). It reproduces the pre-gap live fires to within ~15 min. All 4 legs jointly silent for 122h: 3.3% of rolling windows over Binance-spot bars 2026-04-01 to 2026-09-27 (lane-measured; the lane did not report the window count). Longest joint-silent run in that window: 168h. alpaca_live daily legs also silent. Manager read output.txt; it supports the verdict. Eviden",
+  "_seq": 268
+}

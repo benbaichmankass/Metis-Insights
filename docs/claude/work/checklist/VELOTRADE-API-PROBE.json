@@ -1,0 +1,17 @@
+{
+  "id": "VELOTRADE-API-PROBE",
+  "title": "Read-only DXtrade REST API probe on velotrade_1 + measured ETH/SOL/XRP specs (executor lots proposal)",
+  "phase": "W6",
+  "state": "in_flight",
+  "owner": "manager-dispatched lane",
+  "lane": "session_01JzDpamQRqFT7p3tS1ChgfQ",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 8,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "2026-10-05 07:51Z dispatched by manager; operator verbatim \"Ok, let's go that\" (web route first, API as follow-up). PI-20261005-APBY4NTV-0004. No order endpoints.",
+  "observation": null,
+  "_seq": 293
+}

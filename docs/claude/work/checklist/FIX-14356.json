@@ -1,0 +1,18 @@
+{
+  "id": "FIX-14356",
+  "title": "Repin test_corpus_fold_coverage for #14356's new corpus rows",
+  "phase": "W6",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01WJKF5ZpAgsF3BTsq5JJYwo",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 5,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    14356
+  ],
+  "blocked_on": [],
+  "note": "2026-09-30 ~06:35Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): repinned EXPECTED_UNCOVERED with the qqq_trend_long_1d vt_hot90_t2 fold years; #14356 MERGED. Lane ARCHIVED.",
+  "_seq": 247
+}

@@ -1,0 +1,23 @@
+{
+  "id": "EXIT-LEVER-STRIP",
+  "title": "Strip two exit levers that measurably cannot fire live: stale_exit_* on trend_donchian_eth_prop (+0.18 R / 730d; prop paths have no close op) and trail_decay_* on xrp_pullback_2h (dead arm 4.49 > tp_r 3.0, byte-identical to none); records re-run so declared == executable",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane EXIT-LEVER-STRIP",
+  "lane": "session_01NFqSy4cyVpVmpzzyChikrK",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 15,
+  "spend_usd": 2.14,
+  "tier": 3,
+  "prs": [
+    17002
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-07T20:07Z manager] Lane done: PR #17002 body carries the three WITH/WITHOUT pairs (positive control stated), the window-vs-lever attribution and the KX6ZKFNA-0001/-0004 closure records; head 53afaf310, CI queued. Lane archived 20:06Z, spend $2.14 final. Manager merges on green (watcher). || [2026-10-07T20:04Z manager] Pinned A/B (lane, committed 365d window 2025-09-26..2026-09-26, builder harness + cost stack): WITH +13.6082 R/n169 (reproduces the committed record exactly = positive control) vs WITHOUT +12.8653 R/n165, delta +0.74 R; advanced window (2025-10-07..2026-10-06): WITH +7.5950/n168 vs WITHOUT +9.3243/n163, delta -1.73 R; 730d ablation +0.18 R. The 13.61 -> 9.32 record move is mostly the window (-6.0 R), the lever +1.7 R on it. DECISION (manager, Tier-3 under the standing data-backed authorization): accept the strip -- the lever's effect is sign-unstable across windows and inside the 2.0 R materiality bar, and the prop path cannot fire it, so the executable leg is the WITHOUT arm regardless; the strip makes the record describe the leg that trades. Lane finishing the PR body (trig 20:01Z); manager merges on green and notifies the operator. || [2026-10-07T19:46Z manager] PR #17002 open (tier-3 hold): removes stale_exit_bars/stale_exit_below_r on trend_donchian_eth_prop and trail_decay_arm_r/tight_mult on xrp_pullback_2h; 1214 tests pass; TP-doctrine baseline unchanged (52). HOLD EXTENDED by the manager: the lane's record re-run moved eth_prop 13.61 R (n=169) -> 9.32 R (n=163) on a window that also advanced ~9 days (not an isolated A/B); lane asked (trig 19:48Z) to re-run WITH/WITHOUT on the same pinned window and stop if the delta differs from +0.18 R by > 0.5 R. Merge only after that. || [2026-10-07T19:30Z manager] Evidence paths are now comms/research/RQ-20261007-020 and -021 (renumbered from 001/002). || [2026-10-07T19:13Z manager] DATA-BACKED TIER-3 under the operator's standing authorization (2026-09-27: decide, ship, verify, then notify). Evidence: EXIT-PARITY-RQ local runs after rule registration on 5fd0163ca (comms/research/RQ-20261007-001 and -002/local-5fd0163ca/verdict.json on PR #16970): (a) eth_prop stale exit dR +0.18 R over 730d, 2/4 folds; (b) xrp decay dead and every reachable arm worse. Risk removed, none added: both are tightening-only levers that do not fire. Revert = restore the lines. Mirrors move with the live legs (tests require equality). Operator notified in the status update.",
+  "observation": {
+    "what": "#17002 merged; the next trader restart runs with the four lines gone; tp-doctrine guard baseline still 52; KX6ZKFNA-0001/-0004 closed",
+    "how_to_check": "git show origin/main:config/strategies.yaml | grep -c -E 'stale_exit_bars|trail_decay_arm_r'  (expect fewer than before); python3 scripts/ops/pipeline.py --check",
+    "due_by": "2026-10-09T18:00Z"
+  },
+  "_seq": 339
+}

@@ -1,0 +1,18 @@
+{
+  "id": "DXTRADE-REST-PILOT",
+  "title": "Does the DXtrade REST API work for the existing Tradeify 247 pilot account (login verified #14691)? Read-only login + account read from the VM; the precondition for moving tradeify_1 off the browser executor",
+  "phase": "W6",
+  "state": "done",
+  "owner": "lane DXTRADE-REST-PILOT",
+  "lane": "session_01Bjq43AVyaQ2LPKof8H8P28",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 15,
+  "spend_usd": 1.82,
+  "tier": 2,
+  "prs": [
+    16990
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-08T00:24Z manager] Lane archived; spend $1.82 final. || [2026-10-07T23:27Z manager] #16990 MERGED (fcb49a625). Lane to archive. || [2026-10-07T19:42Z manager] Lane done: PR #16990 (memo, auto-merge armed). NOTHING MEASURED: no allowlisted action can run the REST adapter against Tradeify (velotrade-api-probe hardcodes the Velotrade host + env prefix; breakout-login-check refuses dxtrade_api; egress probe GET-only). Proposal 7.2 = add a fixed --account velotrade_1|tradeify_1 choice to scripts/prop/velotrade_api_probe.py + its action script + a system-actions.yml input (Tier-1 code), then dispatch for tradeify_1 (Tier-2, $0 read-only) -> new row DXTRADE-PROBE-ACCOUNT. 7.3 (move tradeify_1 to dxtrade_api) stays a HELD proposal until the probe shows login + positionBased + ETH/SOL/XRP. Pipeline PI-20261007-OF8H8P28-0001. Archive after merge. || [2026-10-07T18:58Z manager] DXTRADE-PROBE (2026-10-07): dx.tradeify247.co reachable from the VM (200, no 1005/challenge), /specs 409 DXtrade JSON; the probe had already run 2026-09-30 and a pilot account was bought and its login verified (#14691) -- the manager's 'approve a $0 probe' popup was stale on that point. NOT established: whether the REST API answers for the pilot account. That is this row. Credentials: the pilot's, already on the VM per #14691 -- never ask the operator to paste; use the existing executor credential path.",
+  "_seq": 335
+}

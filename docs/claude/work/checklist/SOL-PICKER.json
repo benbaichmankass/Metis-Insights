@@ -1,0 +1,23 @@
+{
+  "id": "SOL-PICKER",
+  "title": "Phone executor: drive the terminal's 'Select market' chip so breakout_2's SOL leg can trade when the terminal shows ETH",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane SOL-PICKER",
+  "lane": "session_01Pinmhx9oym7vJRoPddeVeu",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 30,
+  "spend_usd": 5.69,
+  "tier": 2,
+  "prs": [
+    16944
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-07T19:40Z manager] Lane archived 19:39Z; spend $5.69 final (Opus). #16944 merged. Proof = one phone-dry-test with symbol SOL on the next APK (issue: action phone-dry-test / account breakout_2 / symbol SOL) reads dry_fill_ok with the SOL market selected; the manager dispatches it after the operator installs. The lane also opened #16985 (APK concurrency) in parallel with APK-BUILD-CONCURRENCY's #16991 -- manager reconciles. || [2026-10-07T18:55Z manager] MERGED #16944 b593448b (Select-market chip route: exactly one row or watchlist fallback/refuse; chip-vs-submit-label check). Proof after the operator installs the main APK: phone-dry-test SOLUSDT with the terminal on ETH -> dry_filled with SOL on the submit label; the lane dispatches it on my word. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0007. MEASURED (PHONE-EXEC-1B close-out): the real picker is the 'Select market' chip (role=button, aria 'Select market'); exec.js only works when the terminal already shows the ticket's symbol. Safe failure today (symbol verified on the submit label -> refuse), but a missed trade. DONE = a SOL phone-dry-test (system-action, issue-dispatched) dry_fills with the terminal starting on ETH. Opus (order path), default mode.",
+  "observation": {
+    "what": "SOL phone-dry-test dry_fills with the terminal starting on ETH",
+    "how_to_check": "GET /api/bot/prop/tickets?account_id=breakout_2 newest phone-test symbol SOLUSDT status dry_filled",
+    "due_by": "2026-10-09T18:00Z"
+  },
+  "_seq": 305
+}

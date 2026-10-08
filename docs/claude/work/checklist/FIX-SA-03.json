@@ -1,0 +1,26 @@
+{
+  "id": "FIX-SA-03",
+  "title": "Are Alpaca positions (incl. real-money alpaca_live) left without a working stop for ~6-7 min after entry? naked_rearm fires after 17/20 entries",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "fix lane",
+  "lane": "session_01Pr6YRTQYauPEEkK1xNyyAQ",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 45,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    14115,
+    14123,
+    14127,
+    14156,
+    14177,
+    14241,
+    14347,
+    14371,
+    14374
+  ],
+  "blocked_on": [],
+  "note": "2026-09-29 ~10:36Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): from E75 audit (lead-verified): naked_rearm 6-7 min after 17 of 20 Alpaca entries, incl. all 3 alpaca_live; whether live positions were actually naked is NOT established (no Alpaca order-history read surface). Money-path first: lane reports in one line before building if live positions were naked. Opus: order path, real money. || 2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): MEASURED via deployed /api/diag/alpaca_order_history (#14115 merged 02a6189): 20/20 brackets NOT naked -- stop legs rested until the re-arm cancelled them; unprotected only in the cancel->POST gap (<=0.35s alpaca_live, <=0.50s overall). Root cause confirmed: checker could not see held stop legs. #14123 (checker fix) reviewed by REVIEW-14123 -- full report requested (post_turn_summary alone is not acted on). #14127 reworked 124ce7d, held behind #14123. Next: JC-SA-08 data task (mirror-vs-live exit census). || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): JC-SA-08 evidence (#14156): n=1 twin (SLV), mirror +12.4 bps better; mechanism = paper-engine vs venue fill on an opening gap; not systematic at n=1 -> PR6YRTQY-0004 extends to 09-01. Protection gap PR6YRTQY-0003 (qty shortfall never re-armed) dispatched first: live-reachable paths + held fix stacked after #14127. || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Re-review: #14123 SEND BACK -- >2000 closed orders on a symbol returns None every call, order_monitor skips silently (naked never re-armed) and close() pre-cancel cancels nothing. Fix: time-bound the scan, count+alert on None, measure per-symbol counts. #14127/#14177 MERGE once #14123 is fixed. JC-SA-08 content re-routed to claude/jc-sa-08-alpaca-mirror-exits (#14156 closed superseded). 2026-09-29 ~16:03Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14123 merged (e449f57). #14255 merged 57e2e80, so #14127/#14177 drop their TRAINING-RESULTS commits, re-merge main and must show an empty alpaca_client.py diff vs 1b31ba1/1458e1f before merge. #14241 (head cbdae93) reports all 7 send-back items fixed; independent manager-local review running. 2026-09-29 ~19:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Stack merged: #14123 e449f57, #14127 feb2806, #14177 7d3885d, #14241 bebfa79, #14347 5b5e7ce (sweep summary log + 5 follow-ups). Trader restarted 18:05Z; running sha contains bebfa79 (diag 18:19Z). Closes on the first `_check_broker_naked_equity_positions: sweep {...}` line after 5b5e7ce deploys, then done at the first real re-arm/top-up event. || 2026-09-29 ~20:05Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14371 and #14374 merged (K1XNYYAQ-0002 done; K1XNYYAQ-0003 carries notes a/b/c for the next order_monitor.py change). Lane session_01Pr6YRTQYauPEEkK1xNyyAQ ARCHIVED ($58.24). Stays landed_unproven until a sweep line shows rearmed/topped_up/breach_exits/cap_exits > 0.",
+  "_seq": 199
+}

@@ -1,0 +1,18 @@
+{
+  "id": "PROP-EXIT-READ",
+  "title": "breakout_1 executor records a venue SL/TP exit as 'closed_on_terminal' with no exit price, P&L or TP/SL reason ('exit read from the terminal history is not built')",
+  "phase": "W8",
+  "state": "landed_unproven",
+  "owner": "build lane",
+  "lane": "session_01RZaDZHQNxS61WpDu6FR2PG",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 30,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    15649
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-03T16:20Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] #15649 MERGED by manager (d883f64f). Merged onto main d883f64f-parent and tested locally: 492 of 492 prop tests passed. Go-live review: only clicks the exact-text Trade History VIEW tab (existing _show_tab, never a button) and restores Orders; a failed read keeps today's report; close detection (absent>=2) unchanged; id columns dropped. NOT yet deployed/observed. Closing observation: the next automated breakout_1 close lands in prop_fills with exit_price/pnl/reason and exit_source set. || 2026-10-02 19:03Z: lane session_01RZaDZHQNxS61WpDu6FR2PG dispatched (Opus, $30, HELD Tier-2 PR). | 2026-10-02 ~19:05Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): filed when the first automated breakout_1 trade opened (prop-manual-d27fbb0b2b25). MEASURED on origin/main 2ef65c6b6: src/prop/prop_executor.py::_reconcile_journal reports a position absent for 2 reads as status closed with reason 'closed_on_terminal (executor reconcile; exit read from the terminal history is not built)', with no exit_price, pnl or TP/SL reason; dxtrade.py knows the 'Trade History' tab but reads it only in dump-tables. So this trade's close, and every automated breakout_1 close after it, lands ungraded and with a close reason that is not TP/SL. Deliverable: a read-only Trade History reader and the executor close report carrying exit price, realised P&L and tp/sl/manual reason, as a HELD Tier-2 PR. Tracked by PI-20261002-APBY4NTV-0002.",
+  "_seq": 266
+}

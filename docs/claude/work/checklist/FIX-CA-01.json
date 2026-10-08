@@ -1,0 +1,17 @@
+{
+  "phase": "W6",
+  "spend_usd": 6.68,
+  "blocked_on": [],
+  "owner": "fix lane",
+  "id": "FIX-CA-01",
+  "state": "landed_unproven",
+  "lane": "session_01CGDPn9CFWumLV61kb8TDp1",
+  "prs": [
+    13187
+  ],
+  "model": "claude-opus-5-5",
+  "ceiling_usd": null,
+  "title": "FIX-CA-01: CA-A01-001 critical: flat-finalise closes cancel the closing trade's own resting IB protec",
+  "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): CA-A01-001 critical: flat-finalise closes cancel the closing trade's own resting IB protection. #13187 merged (245b45d, Tier-2 data-backed); deploy via git-sync not yet OBSERVED (FIX-CA-01c task 3 reads it). Lane archived.",
+  "_seq": 153
+}

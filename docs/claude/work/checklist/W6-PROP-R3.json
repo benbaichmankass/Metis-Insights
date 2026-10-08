@@ -1,0 +1,17 @@
+{
+  "phase": "W6",
+  "spend_usd": 8.19,
+  "blocked_on": [],
+  "owner": "fix lane",
+  "id": "W6-PROP-R3",
+  "state": "done",
+  "lane": "session_01MMPhBZdbZJnDGF2skafUF5",
+  "prs": [
+    13266
+  ],
+  "model": "claude-opus-5-5",
+  "ceiling_usd": null,
+  "title": "W6-PROP-R3",
+  "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): prop-shaped parameter search: tune candidate legs for EV-per-account-life (RULE-B6 V2) after PROP-R2 found zero additions. Any roster proposal goes to the operator. | 2026-09-28 00:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): DONE with a NULL result (#13266 merged 570b096): no candidate leg cleared EV-per-account-life, so no roster proposal. Per the operator, one bad pass does not kill the idea; later prop work re-runs it on new evidence. Lane archived.",
+  "_seq": 163
+}

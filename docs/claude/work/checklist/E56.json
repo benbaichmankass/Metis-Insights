@@ -1,0 +1,16 @@
+{
+  "id": "E56",
+  "title": "/health-review \u2014 the first of the three reviews (O1), run on its skill",
+  "phase": "E",
+  "state": "done",
+  "owner": "review lane",
+  "lane": "session_011zU73V1WZfwZi8gKiASqWz",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 40,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Merged via #12858. comms/reviews/health/2026-09-24-health-review.json is on main. Final spend $7.52 against $40. LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: review lane per the model table. O1 order: health -> performance -> ml. Performance waits on D3 (realized cost). The review will also establish whether the diag relay the reviews need is working (handoff O2) \u2014 a broken relay is a finding to file with the failing run, not a reason to stop. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP.",
+  "_seq": 90
+}

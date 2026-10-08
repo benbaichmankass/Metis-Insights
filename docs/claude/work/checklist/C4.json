@@ -1,0 +1,16 @@
+{
+  "id": "C4",
+  "title": "Wire the 9 orphan backtest harnesses; replace the smoke fixture",
+  "phase": "C",
+  "state": "dropped",
+  "owner": "build lane",
+  "lane": null,
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 25,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "KILLED: duplicate of E7, done under E7 by PR #13049 (+ landing PRs #13065-13074, + follow-up #13090) -- see E7's note for the full evidence trail (10/10 harnesses dispatched and observed landing a real research_result on main).",
+  "_seq": 19
+}

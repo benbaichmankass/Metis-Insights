@@ -1,0 +1,23 @@
+{
+  "id": "HARNESS-AUDIT-FIXES",
+  "title": "Research-harness audit defects (CA-B04): stale-JSON reuse in sweeps, wrong Engle-Granger critical value, in-sample leaks -- fix with tests; research validity, pairs first",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane HARNESS-AUDIT-FIXES",
+  "lane": "session_019vKPsvXoNhVaJT1f8ainK1",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 20,
+  "spend_usd": 6.08,
+  "tier": 1,
+  "prs": [
+    16952
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-08T00:24Z manager] Lane archived; spend $6.08 final. || [2026-10-07T18:55Z manager] PR #16952 auto-merging (EG 2-var crit + pre-OOS vector fit; run_fresh for 4 sweeps; ict_scalp WF grade; pair_funding_drag hard-fail; session_gating OOS holdout). Blast radius 0 landed rows; pairs verdicts stand. Re-run list on PI-20260927-ZGQPHR3D-0002..0010. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-IRWQEEXT-0004. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+  "observation": {
+    "what": "#16952 is on main and the first sweep re-run listed on PI-20260927-ZGQPHR3D-0002..0010 completes with run_fresh (no stale-JSON reuse) and the corrected Engle-Granger critical value",
+    "how_to_check": "git log --oneline -1 origin/main -- scripts/research/ | grep -i 'harness\\|EG\\|run_fresh'; grep -l 'run_fresh' research/results/*/*.jsonl | head -1; python3 scripts/ops/pipeline.py --show PI-20260927-ZGQPHR3D-0002",
+    "due_by": "2026-10-14T00:00Z"
+  },
+  "_seq": 326
+}

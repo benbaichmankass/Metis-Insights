@@ -1,0 +1,16 @@
+{
+  "id": "E76",
+  "title": "SRQ-20260618-001/-002 (soft regime weight / recombination orchestrator regime_filter axis): dispatch + new research lines (review-pack D6)",
+  "phase": "E",
+  "state": "queued",
+  "owner": "research lane (backtesting skill)",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "OPERATOR DECISION 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D6), verbatim: \"2, as well as developing new lines of research for this general idea\" -- i.e. option 2 (dispatch a `backtesting`-skill lane on SRQ-20260618-001/-002, un-worked 6+ weeks since the hard-ADX-gate hypothesis was refuted 08-11), PLUS separately developing new lines of research on the soft-regime-weight / recombination-orchestrator `regime_filter` general idea, rather than killing the row or deferring further. THIS PR DOES NOT DISPATCH THE LANE -- it records the decision only. CHECKED THIS SESSION: no existing checklist row or lane id anywhere in this file references SRQ-20260618 or a `regime_filter` recombination lane (grep over the whole file, single hit: this row), so the lane reference is NOT YET ASSIGNED -- the session that dispatches it must backfill `lane`/`prs` here rather than a new id being invented for it now. `state` is set to `in_flight` per the dispatch decision having been made and acted on by the operator, not because a lane id is known yet; the next session touching this row should either fill in the lane or, if dispatch has not actually started, correct the state honestly. || [2026-10-04T20:15Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Corrected in_flight -> queued: no lane was ever dispatched (lane field empty since filing). Handed to BACKLOG-BURNDOWN (session_01TGCaeyMya7i4qiirWQeeXT) to either route it as a research-queue unit or kill it with a reason. Surfaced by the in_flight silence alarm (7d quiet).",
+  "_seq": 144
+}

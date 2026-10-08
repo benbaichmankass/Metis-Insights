@@ -1,0 +1,18 @@
+{
+  "id": "E43",
+  "title": "The register merge driver refuses on `updated_by`, so every lane that edits the checklist conflicts \u2014 land #12759",
+  "phase": "E",
+  "state": "dropped",
+  "owner": "build lane",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    12759
+  ],
+  "blocked_on": [],
+  "note": "DROPPED 2026-09-24 by operator decision (popup \"Land E54, close E43/E44\"): superseded. E64 replaces E43's merge-conflict purpose, and the manager supervises lanes directly. PRs #12759/#12752/#12765 closed. RE-REGISTERED 2026-09-24 by session_01Ljhs6sFAdWHdMDhJpL5aBP (handoff E-C): the row never reached main, so #12759 (and the now-closed #12747, superseded) were unattributable. Lane session_01V5myT9YBr46BkQPhoUDxG4 (archived). #12759 needs a rebase/merge onto main and a fresh CI read before it can land.",
+  "_seq": 93
+}

@@ -1,0 +1,16 @@
+{
+  "title": "gld_pullback_1h 3-part geometry (tp 6R, stop 1.5 ATR, 24-bar exit) + fresh Stage-0 record; MD-PROMOTE-S1-S2 roster PRs for gld_pullback_1h / slv_trend_1h",
+  "phase": "W6",
+  "state": "done",
+  "owner": "promotion lane",
+  "lane": "session_011h6MApXzTAY91VE8y3bgbs",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 40,
+  "spend_usd": 20.33,
+  "tier": 3,
+  "prs": [],
+  "blocked_on": [],
+  "note": "2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup ~13:20Z, verbatim answer \"Ship the 3-part change (Recommended)\" on the GLD confirming walk-forward (#13600: stop-only sm1.5 FAILED 3/6 folds; tp6_sm1.5_to24 PASSED 6/6, OOS dnet_R +20.08, n=54). Lane ships the geometry + regenerated evidence as a held PR, then prepares a held roster PR per leg that the armed mandate FIREs for (alpaca_live + alpaca_portfolio, cap + sizing arithmetic). Manager merges after independent review and notifies the operator with evidence + revert.\n[2026-09-29T09:50Z manager] PR #13698 (slv_trend_1h S1->S2) put to the operator; answer, verbatim: \"In general, we clearer, more automated processes for these kinds of decisions - either we have enough data to decide, or we don't and then getting that data becomes a task which needs to happen so that a decision can be made\". Applied: row DECIDE-AUTO (resolver gains NEEDS-DATA -> auto-filed data task; SLV is NEEDS-DATA: shadow/not soaked, cost fidelity insufficient_n) and #13698 closes with the data task linked. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): idle (review_ready). #13698 still open as a draft; DECIDE-AUTO closes it with a data task, then this lane is archived. || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #13698 closed unmerged by DECIDE-AUTO (resolver now returns NEEDS-DATA R-EXECUTION-SHADOW for slv_trend_1h; data task PI-20260929-TEKRDIIQ-0001). #13637/#13638 merged earlier (gld geometry + pipeline; landed_unproven until the first gld_pullback_1h stale_stop close on alpaca_paper, PI-20260928-E8Y3BGBS-0001). Open policy items PI-20260928-E8Y3BGBS-0002 (alpaca_portfolio side_filter) and -0003 (mandate affordability clause). Lane archived; $20.33 final.",
+  "id": "PROMOTE",
+  "_seq": 182
+}

@@ -1,0 +1,18 @@
+{
+  "phase": "W6",
+  "spend_usd": 8.68,
+  "blocked_on": [],
+  "owner": "fix lane",
+  "id": "CA-LANDING",
+  "state": "done",
+  "lane": "session_01CU8BpBc81jLSv3sMj9zsPb",
+  "prs": [
+    13199,
+    13226
+  ],
+  "model": "claude-sonnet-5",
+  "ceiling_usd": null,
+  "title": "CA-LANDING",
+  "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): landing steward: combines audit PRs that conflict on docs/DOCUMENT-INDEX.md. Wave A = #13199 (merged); Wave B = #13226 (refreshing). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13226 merged 1247cc8. The 4 experiments/ vwap result files a bot had pushed onto the branch were resolved to main's copy (manager decision); filed PI-20260927-PGBJNVYQ-0001. Lane archived.",
+  "_seq": 162
+}

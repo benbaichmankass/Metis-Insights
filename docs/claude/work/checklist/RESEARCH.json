@@ -1,0 +1,20 @@
+{
+  "title": "Standing research lane: GLD confirming walk-forward, macro re-shape units, queue upkeep",
+  "phase": "W6",
+  "state": "done",
+  "owner": "research lane",
+  "lane": "session_015JePcaHfBSBVrcGyu2QtAo",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": null,
+  "spend_usd": 18.72,
+  "tier": 1,
+  "prs": [
+    13600,
+    13540,
+    13568
+  ],
+  "blocked_on": [],
+  "note": "2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13600 merged 1f444970 (GLD result record); #13540 merged 20d0dbb8; #13568 renumbered by the manager to RQ-20260928-009/-010 (EXIT-OPS #13607 had claimed -006..-008), decision rules read and approved, auto-merge armed. Queue at 34 units per the lane.",
+  "id": "RESEARCH",
+  "_seq": 183
+}

@@ -1,0 +1,18 @@
+{
+  "phase": "W6",
+  "owner": "manager",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "blocked_on": [],
+  "id": "SKILL-ARCHIVE",
+  "title": "Manager skill: archive protocol for finished lane sessions + status-first rule when session tools fail",
+  "state": "done",
+  "lane": null,
+  "tier": 1,
+  "prs": [
+    14251
+  ],
+  "note": "2026-09-29 (manager session_01HYq6XtfesZ57VyaQrK6CL1): operator directive 14:52Z that closing finished sessions is the manager's job. Merged; protocol applied in the same session (13 lanes archived).",
+  "_seq": 221
+}

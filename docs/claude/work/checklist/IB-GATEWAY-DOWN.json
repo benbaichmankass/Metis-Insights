@@ -1,0 +1,16 @@
+{
+  "id": "IB-GATEWAY-DOWN",
+  "title": "ib_paper (mode live) could_not_look: IB gateway not answering, ict-ib-gateway-watchdog.timer inactive; stale non-templated ict-prop-executor.service 'failed'",
+  "phase": "W6",
+  "state": "in_flight",
+  "owner": "lane IB-GATEWAY-DOWN",
+  "lane": "session_01Bg2wzXPMGYwcCunv5RaMyi",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 15,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-08T03:47Z manager] Lane answer 03:33Z: the ib-gateway container on the gateway VM is RESTART-CHURNING, not down -- IBC full logins in pairs 5 min apart with ~20 min between pairs (19:55/20:00/20:17/20:22 10-07; 02:52/02:57/03:19/03:24 10-08), every login completing with no 2FA prompt. Each restart drops the trader's IB clients, so ib_paper reads could_not_look while they log back in (03:25Z: clients 9017/497 connected, 498 connect_failed at 03:19:32). WHO restarts it is NOT established (watchdog cooldown pattern vs docker restart policy vs IBC auto-restart); needs docker inspect + watchdog/reset timer state on the gateway VM, which no allowlisted action reads. Next: Tier-1 read-only gateway-forensics action PR (hold; manager merges), then one read; no Tier-2 action proposed yet. The earlier 'watchdog timer inactive' read was the TRADER VM, where that timer is designed not to run. || [2026-10-08T03:22Z manager] 03:17Z check-in: the gateway-logs run 37671437938 (issue #16983) COMPLETED/success hours ago while the lane still read it as queued; lane woken 03:19Z to read it and finish (Tier-1 fix PR or a named Tier-2 action for the morning). || [2026-10-07T19:42Z manager] Lane blocked on the Actions queue: gateway-logs issue #16983 run 37671437938 queued without a runner since 19:02Z; no cause yet. Verified by the lane: the watchdog timer is designed to run on the gateway VM only (so 'inactive' on the trader VM is not evidence); ict-prop-executor.service is breakout_1's deliberate non-templated unit (not stale). No change made. Manager: nothing to unstick (hosted-runner cap 20, saturated by lane PR CI); lane continues when the run gets a runner. || [2026-10-07T18:58Z manager] Found by API-COLLAPSED-STATES (relay 2026-10-07 18:43Z; PI-20261007-5ZFJCTNR-0001): ib_paper's gateway read is could_not_look and its watchdog timer is inactive, so the IB paper book is not trading and nothing alarms; a leftover non-templated ict-prop-executor.service reads failed beside the templated per-account units. Tier-2 (timers/services) via the allowlisted system-actions; verify post-state through the relay.",
+  "_seq": 336
+}

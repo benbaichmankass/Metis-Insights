@@ -1,0 +1,18 @@
+{
+  "id": "ML-REVIEW",
+  "title": "/ml-review: model lifecycle, promotion/demotion proposals, next experiments",
+  "phase": "W6",
+  "state": "done",
+  "owner": "lane",
+  "lane": "session_0193d6xZVThefpX6UaoAyGbb",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 40,
+  "spend_usd": 8.17,
+  "tier": 1,
+  "prs": [
+    14069
+  ],
+  "blocked_on": [],
+  "note": "2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): FIRST ROW for this lane -- it was dispatched by session_01KAQRJxRbRwpYTkPgBjNVyQ (tag manager:session_01KAQRJxRbRwpYTkPgBjNVyQ) with no checklist row. Ceiling was not recorded on the register (UNKNOWN; asked of the previous manager). Handoff trigger fired, returned the lane's own cse_ id.  || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): ceiling set $40 (no reading yet, mid first turn at 09:56Z). || 2026-09-29 ~10:05Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): W7 done: #14069 (Tier-1 self-land). 0 promotions/demotions. Flags filed PI-20260929-UAOAYGBB-0001..0003 (conviction-meta-v1 significant drift after 98d soak; 4 manifests blocked on 100%-NaN features; 2 shadow models with byte-identical scores). Follow-ups dispatched: E74 re-run, EXITHEAD-DONCHIAN-GATE. Archive the lane when #14069 merges. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14069 merged; lane archived, $8.17 final.",
+  "_seq": 193
+}

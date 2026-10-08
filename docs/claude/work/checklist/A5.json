@@ -1,0 +1,18 @@
+{
+  "id": "A5",
+  "title": "Stand down the governance layer",
+  "phase": "A",
+  "state": "done",
+  "owner": "this session + build lane",
+  "lane": null,
+  "model": "claude-opus-5",
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    12668
+  ],
+  "blocked_on": [],
+  "note": "DONE in this PR: archived the work store (210 objects), OPEN-ITEMS.json, the four review backlogs (951 open rows), SESSIONS.json, MANAGER-LEASE.json, MERGE-QUEUE.json, DUE.*, READOUT.md, the coordination board and 10 process skills. REMAINING for a build lane: retire the guards and crons that guarded the archived machinery, and prune the workflow catalog. [!] MERGED 2026-09-21 as 3ea2777 (PR #12668). `landed_unproven`, NOT `done`: the crons are commented out in the repo, which is a fact about the FILES. Whether the schedules actually stopped firing is a fact about GITHUB, and it has not been observed. Closing this row means checking that no run of the 12 disarmed workflows appears on a `schedule` event after 3ea2777 -- their cadences are hours apart, so the earliest honest check is ~24h out. A disarmed cron that still fires would look exactly like a quiet one until someone looked. CLOSED 2026-09-25, with a correction: of the 12 workflow files PR #12668 touched, only 10 actually ended up disarmed at merge (board-heartbeat, constraint-readout, due-list, error-feed-digest, pr-queue-watch, probes, session-reaper, sunset-pass, work-decision-commit, work-digest) -- main-tree-watch.yml and stale-automation-sweep.yml were disarmed-then-restored inside that same PR and have kept firing (confirmed live, both still ran scheduled 2026-09-25). Checked GitHub's own run history for the true 10 (event=schedule on each): zero scheduled runs on any of them since 3ea277787 (2026-09-21T12:18 UTC), as of 2026-09-25 -- 4 days of runway, not the ~24h floor this row asked for.",
+  "_seq": 7
+}

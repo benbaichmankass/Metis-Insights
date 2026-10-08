@@ -1,0 +1,16 @@
+{
+  "id": "D1",
+  "title": "Flip the backtest cost defaults on, and re-run the corpus",
+  "phase": "D",
+  "state": "dropped",
+  "owner": "research lane",
+  "lane": null,
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 40,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "KILLED 2026-09-22 (session_016FkzGuob8CJMJgqYRddvSV) as a DUPLICATE of R1 -- both rows describe the identical work (re-run the backtest corpus with the cost defaults on) under two numbering schemes; both rows' own text said so ('R1 and D1 ARE THE SAME WORK'). R1 is the survivor: it carries the more complete tracking (a stated decision rule, an expected shape to check the run against, and an explicit population). See R1 for the real work and its PR. Original note, preserved rather than deleted: src/runtime/execution_costs.py models fee + slippage + funding correctly; the HARNESSES set SLIPPAGE_BPS_ROUNDTRIP and FUNDING_BPS_PER_WINDOW to 0.0 by default, deliberately, for backward compatibility. So every 'passed the backtest' verdict in the corpus is fee-only and optimistic by an unknown amount - measured once at +0.57R on htf_pullback_trend_2h, the one leg anyone checked. 6 of 13 harnesses have no cost terms at all, including the vwap harness (vwap is 318 of 431 lifetime real-money trades).\n[2026-09-25T09:55Z manager] Still dropped as a row. Its SUBSTANCE was verified 2026-09-25 by #12928 (docs/research/d1-cost-stack-verification-2026-09-25.md): costs are no longer silently zeroed on any corpus harness path; what remains is staleness (24/27 perp records at 5.0 vs decided 3.0) and the unmeasured equity/futures 5.0 bps (E62). MD-PROMOTE-S1-S2 blocked_until is being rewritten to that checkable condition (see B5).\n[2026-09-25T12:10Z manager] Substance discharged except the E62 observation; see B5 note.",
+  "_seq": 21
+}

@@ -1,0 +1,16 @@
+{
+  "id": "C5",
+  "title": "Write the first ten pre-registered research questions",
+  "phase": "C",
+  "state": "dropped",
+  "owner": "operator + manager",
+  "lane": null,
+  "model": "claude-opus-5",
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "KILLED 2026-09-22 (session_01AHNgatHswZsemNiP8aSXCk) as a DUPLICATE of R4 -- both rows carry the identical title, 'Write the first ten pre-registered research questions', under two numbering schemes, and both rows' own dispatch said so. R4 is the SURVIVOR, on the same reasoning the eng lane used for D1/R1 the day before: R4 carries the more complete tracking (a typed blocked_on edge on R1, and the priority-ordered source list -- surviving legs first, then the flipped ones, then the four not clearing the bar) while C5 carried only owner/model/tier. R4 also sits in phase R, the live research plan adopted by E1, where C5 is from the superseded phase-C numbering. See R4 for the work and its PR. Original note, preserved rather than deleted: 'The only item in this plan that builds nothing - and the only one that produces knowledge. Each carries hypothesis / population / instrument / decision_rule / cost / tier.'",
+  "_seq": 20
+}

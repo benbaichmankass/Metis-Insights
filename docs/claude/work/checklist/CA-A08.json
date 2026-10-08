@@ -1,0 +1,18 @@
+{
+  "id": "CA-A08",
+  "title": "Code audit Wave A: src/web/api + src/bot + src/comms (security focus)",
+  "phase": "CA",
+  "state": "done",
+  "owner": "audit lane",
+  "lane": "session_01TCatsCY5RDg1pNXWFdeqsn",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 45,
+  "spend_usd": 14.88,
+  "tier": 1,
+  "prs": [
+    13199
+  ],
+  "blocked_on": [],
+  "note": "Scope: src/web/** (55 files), src/bot/** (13), src/comms/** (6); docs/api-tier-policy.md; docs/reference/bot-api-reference.md. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A08.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01TCatsCY5RDg1pNXWFdeqsn (claude-opus-5-5; r3 on Opus: r1 session_0114QGVx16ykfwNHVuxwvv4s and r2 session_01Bxb255g8h9SXKvxVupUsVR (Sonnet) both blocked on suspected injection; archived). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A08.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main.",
+  "_seq": 116
+}

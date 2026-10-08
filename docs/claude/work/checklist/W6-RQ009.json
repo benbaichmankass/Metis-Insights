@@ -1,0 +1,15 @@
+{
+  "phase": "W6",
+  "state": "done",
+  "lane": "session_01Y6PpcaEmGxcpSc3gSMAd7y",
+  "spend_usd": 5.31,
+  "prs": [],
+  "blocked_on": [],
+  "id": "W6-RQ009",
+  "title": "RQ-20260922-009 (eth_pullback_2h fails Stage 0 by cost) + close RQ-20260922-007 as answered by RQ-20260927-001/-002",
+  "owner": "research lane",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 20,
+  "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Queue-moving slot: real-money leg, highest-value non-prop research unit. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): lane archived.",
+  "_seq": 152
+}

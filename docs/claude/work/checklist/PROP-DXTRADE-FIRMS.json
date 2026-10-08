@@ -1,0 +1,20 @@
+{
+  "id": "PROP-DXTRADE-FIRMS",
+  "title": "Survey prop firms on DXtrade where our DXtrade executor can be reused; ranked top 3 by reuse and fit (scope only)",
+  "phase": "W6",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01Qq1du5HtYn9wnaWStCe9fh",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 30,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    14540,
+    14552,
+    14637
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-01T16:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] DISPOSITION after lane archived (PRs re-read 16:50Z: merged state only, not deploy): in_flight -> done. Scope-only survey; #14540, #14552 and #14637 merged. Tradeify was picked up as TRADEIFY-WIRE. || [2026-10-01T16:45Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Lane session session_01Qq1du5HtYn9wnaWStCe9fh is ARCHIVED (create_trigger refused 'session not active' at 16:41Z), so it cannot report; this row's in_flight state is unverified until the manager re-checks its PRs and sets a disposition. || 2026-09-30 ~05:28Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~05:26Z (prop route; options: ask HyroTrader + buy 5k / ask Breakout + home curl / free local agent / other-cloud VM), verbatim: \"So here's what I want to do The third option of building a free local agent. I want to understand what that would entail like what they're requirements are, what I would need to provide that and then for. I also want to look into the hydro trader and we're not going to ask them specifically. That's not how how problems work. But like if there is an option to work through a bike it's up account and that's definitely something we know we can do cuz we already do that. So I don't need to give me a link hydrator so I can check it out. For my side. I want you to do the research to understand like what the rules are and what kind of framework we would need for making that option and making a trade if what it means for the evaluation side of things like is that also on bybit or is there another platform that we're still going to have to be able to manage? And then the last thing that I would say is other platforms that use DX trader And that like where we could reuse some of that infrastructure that we've already built out here\". Lane dispatched (claude-sonnet-5-5, $20). No firm contacted; nothing bought. || 2026-09-30 ~05:42Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): memo #14540 (self-land armed). #1 Tradeify 247: crypto, DXtrade-only for US traders; its help center says DXtrade API access is allowed for owned bots, VPN/VPS allowed; BTC/ETH/SOL/XRP; 3% daily / 6% max; 20 s min hold; no hedging; host dx.tradeify247.co; price ~$100 for 10k (3P only). The rest of the DXtrade field is a poor fit (FTMO dropped DXtrade; FXIFY/BrightFunded say no bots on DXtrade; Alpha Capital prohibits autonomous EAs). Adapter reuse ~70% (judgement). Manager decision: a landing-only GET is data, not contacting the firm, so the lane measures dx.tradeify247.co / /specs / the main site from its sandbox AND from our live VM egress (smallest held Tier-2 probe change if none exists). Ceiling $20 -> $30. Pipeline PI-20260930-WSTCE9FH-0001. || 2026-09-30 ~08:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14552 MERGED; the VM probe (system-action #14635) shows the Tradeify terminal reachable from the Oracle VM at landing level (landing only, no login). Memo follow-up #14637.",
+  "_seq": 238
+}

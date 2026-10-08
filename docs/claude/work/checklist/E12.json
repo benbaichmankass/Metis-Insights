@@ -1,0 +1,16 @@
+{
+  "id": "E12",
+  "title": "Tie a checklist row's state to the PR that resolved it",
+  "phase": "E",
+  "state": "queued",
+  "owner": "build lane",
+  "lane": null,
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 12,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "PROMOTED FROM PIPELINE ITEM PI-20260921-M06, 2026-09-21, because it is a BUILD and the taxonomy has exactly two categories: a question goes to research/queue/, a build gets a row here. Filing it only in the pipeline would have left it a memo. [!] ORIGIN: row E10 read `queued` while its fix was already merged in #12676, so the manager dispatched a lane against work that was done. $0.93, which is cheap; the MECHANISM is not. The register's state is hand-maintained by whoever remembers, and nothing ties a row to the PR that changed it. [!] THIS IS THE MIRROR OF THE FAILURE THE RESET EXISTS FOR: the reset's concern is work that silently STOPS, this is work that silently RESTARTS, and the same gap in the other direction is a row marked `done` that nobody did -- which is the expensive one. [!] CANDIDATE, NOT PRESCRIBED: a guard that fails when a merged PR's body or commits name a checklist id whose row is still `queued`. Checkable from git alone, needs no new register. A lane should test that before building it. [!] ALSO IN SCOPE: the `prs` array. E10's was empty although #12676 carried its fix, so a reader who doubted the state had nothing to follow.",
+  "_seq": 43
+}

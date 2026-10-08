@@ -1,0 +1,25 @@
+{
+  "id": "RQ-FIX",
+  "title": "Research queue: results discarded (no PyYAML on the result runner) + hourly double-fire from the stamp race",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane RQ-FIX",
+  "lane": "session_01WDrcQFx7E9o11H71Y2h2VZ",
+  "model": "claude-fable-5-1",
+  "ceiling_usd": 15,
+  "spend_usd": 23.38,
+  "tier": 1,
+  "prs": [
+    16791,
+    16960,
+    16975
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-07T20:59Z manager] Lane RQ-RESULTS closed out and archived; spend $23.38 final (Fable). All three PRs merged (#16791, #16975, #16960). Step 5 still unobserved: run 37678623741's Grade-and-dispatch completed ~20:4xZ, now at 'Land the liveness receipt'; closes when its log + one more cycle show no double fire and one post-18:54Z harness result carries a real verdict (observation on this row). Open: PI-20261007-71Y2H2VZ-0001 (SLV fade PASS unpriceable until re-dispatch, due 10-10). || [2026-10-07T20:49Z manager] #16960 MERGED 20:48Z (cffffba38): Breakout-Turbo fit units RQ-20261007-010..013 (ADA/DOGE pullback 1h, DOGE squeeze 1h, LINK pullback 1h at 0.5%) on main for the runner. || [2026-10-07T20:48Z manager] Lane step-5 check-in 20:42Z: nothing observable -- the hand-dispatched cycle 37678623741 has waited for a runner since 20:01Z (100+ runs queued, 20 in progress); the pre-fix group holder failed at 'Land the liveness receipt' after 68 min; research-queue-grade 37675695549 still landing dispositions. Manager told the lane to close out now with step 5 'not yet observable: runner backlog'; the observation moves to the manager's check-ins + RQ-CADENCE's 00:00Z readout. #16960 green and clean -> manager merging. || [2026-10-07T19:59Z manager] #16975 MERGED 19:50Z (lane self-landed): 48 re-graded result rows on main; the next hourly grade cycle marks RQ-20261006-005..032. Step-5 observation (two consecutive cycles, no double fire, a real verdict) cannot start until a dispatch cycle runs: the 17:20/18:20/19:20Z slots were all skipped by GitHub (see RQ-CADENCE); manager told the lane to dispatch one cycle by hand (queues behind run 37670042103). Lane check-in 20:40Z. || [2026-10-07T19:13Z manager] #16975 regrade: 56 discarded rows, 48 appended (8 already re-graded by #16791); results guard 337 files / 472 records / 0 problems; next hourly grade cycle marks RQ-20261006-005..032. NEW FAIL: 032 pullback USO 1h (-6.72 R, n=74). #16960 renumbered 010-013 (d349ce223). || [2026-10-07T19:05Z manager] #16791 MERGED 18:54Z (pyyaml on the result job; opt-in --check-open-stamp-prs; idempotence). #16975 (regrade, 48 rows) self-landing. Two-cycle no-double-fire observation armed for 20:40Z. #16960 renumbered again to 010-013 (its 007-010 overlapped pairs' 005-009). || [2026-10-07T18:57Z manager] #16791 fixed (c88755e5: opt-in --check-open-stamp-prs; ruff) and auto-merging; #16960 (prop-bar fits for the 4 crypto PASS legs on the Breakout ruleset + committed Stage-0 trades artifacts) held for me; its ids collide with #16955 -> renumbering. Verdict table confirmed by the regrade dry run. SLV fade (031) unpriceable until the fade emitter fix lands (PI-20261007-71Y2H2VZ-0001). || [2026-10-07T18:15Z manager] First lane (session_01MZC82v4c5CnXkZ1vpYtx8e, Fable, $12.40 final) pushed branch claude/rq-fix-queue-verdicts (477521ee8: pyyaml on the result job, dispatcher idempotence, regrade tool, tests) and hit the weekly limit before landing it; PR #16791 is RED (pytest-run + guards). Re-dispatched as lane RQ-RESULTS (Fable, $20): fix #16791 CI, run the regrade over EVERY discarded row (MEASURED 45 of 54 results since 2026-10-06 13:00Z are wiring_only; 17 units fired 2-3x), seed prop-bar units for the 5 PASS legs. || [2026-10-06T13:05Z manager] Found while surveying the 41 prop units for the operator's 'push prop roster research' ask. PI-20261006-APBY4NTV-0010 has the measurements (8 of 358 result rows discarded across 6 units; 005 and 659 each fired twice). The double-fire is a consequence of my own #16736 (hourly cadence); the yaml bug predates it (#16388). Closes when a fresh harness result carries a real verdict and two consecutive cycles fire nothing twice.",
+  "observation": {
+    "what": "first post-fix research-queue-dispatch cycle completes: units fired, no double fire across two consecutive cycles, and one fresh harness result on main carries a PASS/FAIL/indeterminate verdict",
+    "how_to_check": "gh api repos/benbaichmankass/Metis-Insights/actions/runs/37678623741 --jq '.status,.conclusion'; then the next run's log; git log origin/main -- research/results | head",
+    "due_by": "2026-10-08T06:00Z"
+  },
+  "_seq": 301
+}

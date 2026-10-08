@@ -1,0 +1,18 @@
+{
+  "id": "CA-A12",
+  "title": "Code audit Wave A: scripts/ops part 2",
+  "phase": "CA",
+  "state": "done",
+  "owner": "audit lane",
+  "lane": "session_01Lt738sZBXdzhGTDpSCduBq",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 40,
+  "spend_usd": 9.83,
+  "tier": 1,
+  "prs": [
+    13199
+  ],
+  "blocked_on": [],
+  "note": "Scope: scripts/ops/ files 167\u2013332 in `ls scripts/ops` order (from mark_netted_duplicate_pnl.py to the end), EXCLUDING *_action.sh (CA-A10). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A12.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01MWzFAhEeFLsjPJC3X3etsD (claude-sonnet-5; r2: r1 session_011yHkJg6WTCvhDeQUv5KWsK blocked, archived). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A12.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main.",
+  "_seq": 120
+}

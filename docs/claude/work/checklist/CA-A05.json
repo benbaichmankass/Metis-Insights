@@ -1,0 +1,18 @@
+{
+  "id": "CA-A05",
+  "title": "Code audit Wave A: signal builders, strategies, ict_detection, regime",
+  "phase": "CA",
+  "state": "done",
+  "owner": "audit lane",
+  "lane": "session_01HdCvEVhTk66qUep6h6pP5E",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 45,
+  "spend_usd": 21.21,
+  "tier": 1,
+  "prs": [
+    13199
+  ],
+  "blocked_on": [],
+  "note": "Scope: src/runtime/strategy_signal_builders.py; src/units/strategies/** EXCEPT pairs_executor.py (CA-A02 owns it); src/ict_detection/**; src/runtime/regime/** plus src/runtime/{regime_bar_scoring,regime_shadow,forecast_live,cross_asset_live,entry_head_pwin,liquidity_state,decision_subject}.py; how config/strategies.yaml and config/regime_policy.yaml are consumed. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A05.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01HdCvEVhTk66qUep6h6pP5E (claude-sonnet-5; fresh). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A05.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main.",
+  "_seq": 113
+}

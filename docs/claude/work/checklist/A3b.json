@@ -1,0 +1,16 @@
+{
+  "id": "A3b",
+  "title": "Render the daily brief on the operator's page (dashboard SPA)",
+  "phase": "A",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01UMNJ2GoxuQzpbsUCMgkifm",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 25,
+  "spend_usd": 18.86,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "SPLIT OUT OF A3 AND DISPATCHED 2026-09-21, the hour A3a merged (9751e17) so the lane builds against a REAL contract rather than a promised one. Repo: benbaichmankass/ict-trader-dashboard. [!] THIS IS THE HALF THAT CLOSES A7, and nothing else does. A3a's route renders the brief live, but reaching it still requires someone to CHOOSE to call it \u2014 which is reason (5) in plan \u00a7 3b verbatim, the failure that killed DUE.md. A7 closes when section 0 and the unrouted count are on the page the operator already opens. [!] LANE GIVEN THE MERGED CONTRACT rather than left to re-derive it: GET /api/bot/work/brief's envelope, and the three properties that must survive the render \u2014 `present:false` carries a REASON and must show as a stated gap not a blank panel; `inputs` ships a three-way read state per source and must not be collapsed; `coverageComplete` is false and the page must say so. [!] AND THE 47 KB PROBLEM: the brief measured 47,604 chars against 11 items and gets worse at A8's ~1,150. The lane is told section 0 and the section-5 unrouted count must be visible WITHOUT scrolling, the rest may collapse, and any truncation must print its count beside it. The store-side fix is E14 and is explicitly NOT this lane's. [!] IT CANNOT ESTABLISH THE CLOSING OBSERVATION ITSELF \u2014 'the page renders correctly' needs a human on a real browser (headless against the deployed Pages URL fails from a sandbox, measured 2026-09-11). The lane can establish that the DEPLOY CARRIED THE CODE, and was told to do that with a positive control and a negative control rather than trusting a green pages.yml. [!] DONE 2026-09-21 ON THE CLOSING OBSERVATION, which this lane correctly said it could not make itself: the operator loaded the live Workflow page and section 0 was rendering there, with the read-state band intact (MANDATES: ABSENT separate from PIPELINE: READ). That same observation closed A7 and A3.",
+  "_seq": 46
+}

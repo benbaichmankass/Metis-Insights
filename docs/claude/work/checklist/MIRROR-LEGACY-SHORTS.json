@@ -1,0 +1,23 @@
+{
+  "id": "MIRROR-LEGACY-SHORTS",
+  "title": "alpaca_portfolio (Stage-2 mirror) holds two legacy shorts alpaca_live does not (TLT 738 et al.): mirror equality is the demotion signal, so resolve them (Tier-2 close proposal)",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane MIRROR-LEGACY-SHORTS",
+  "lane": "session_01FBnP34nkWQZrBTHTvXgdYJ",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 15,
+  "spend_usd": 4.65,
+  "tier": 2,
+  "prs": [
+    16951
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-07T20:27Z manager] DEPLOYED without a restart: the VM tree carries 9d78d3f4 and the live API already served the new code (lane: git-sync restarted ict-web-api after the merge). OBSERVED 20:00Z: /api/bot/performance/recent mirror.excludedTradeIds=[4195, 5912], exclusionsReadState=ok. Still unproven: the mirror-orphan-watch run 37678777586 (dispatched 20:00Z) queued behind the runner backlog; the lane's local run on live positions at 18:34Z found exactly the two shorts. Pipeline record carries the observation (due 10-14). Lane archived 20:27Z; spend $4.65 final. NOTE for #16974/#16987: if ict-git-sync restarts ict-web-api on pull, no separate web-api restart is needed -- verify on /api/diag/version restart_pending before dispatching one. || [2026-10-07T19:55Z manager] #16951 MERGED 19:54Z (9d78d3f49), implementing the operator's 2026-10-05 decision 'Let them run, exclude': trades 5912/4195 dropped from the Gate-2 mirror window via config/mirror_window_exclusions.yaml, r4_demotion_gate refuses on an unreadable list, daily mirror-orphan-watch workflow. Merged != deployed: the performance router needs a web-api restart (batch with #16974); the gate and the watch run from main on GitHub. Lane woken to deploy + observe. || [2026-10-07T18:57Z manager] PR #16951 held Tier-2: alpaca_portfolio IEF short 152 (trade 4195, +661.96) and TLT short 738 (trade 5912, +3131.51), both stop-protected; alpaca_live none. No closes (operator 2026-10-05 decision cited by the lane); PR excludes both from the Gate-2 window + daily mirror-orphan watch. Manager merges on green. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-J4SFBKU9-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+  "observation": {
+    "what": "mirror-orphan-watch run 37678777586 (or the 15:40Z daily cron) concludes reporting exactly IEF 4195 + TLT 5912",
+    "how_to_check": "gh api repos/benbaichmankass/Metis-Insights/actions/runs/37678777586 --jq '.status,.conclusion'; then its job summary",
+    "due_by": "2026-10-08T18:00Z"
+  },
+  "_seq": 320
+}

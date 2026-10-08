@@ -1,0 +1,22 @@
+{
+  "id": "TRADEIFY-SOL-SIZE",
+  "title": "Why the tradeify_1 SOLUSD submit is disabled (probes a market / b masked panel text / c SL-TP off)",
+  "phase": "floor",
+  "state": "landed_unproven",
+  "owner": "lane TRADEIFY-SOL-SIZE",
+  "lane": "session_01PwDy1zXY32sBNggRmZw1Ki",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 25,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    16212,
+    16220,
+    16232,
+    16287,
+    16332
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-04T14:10Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] CAUSE CONFIRMED (dry walks #16311 enabled at limit 0.5% below ask, #16313 disabled 0.5% above; terminal footer 'Entry Price you set must be lower than'). OPERATOR DECISION popup ~12:42Z: 'Retry in band (Recommended)'. #16332 reviewed+MERGED 50e83f90 by manager; DEPLOYED (tradeify_1 executor code_sha 5a5d4485a contains it, ticks exit 0). NOT YET OBSERVED: a real marketable ticket entering awaiting_resting_price. | [2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] MEASURED (a) #16232: MARKET 1.0 SOL submit ENABLED; LIMIT at the same size disabled (#16202). INFERRED: SOL quotes read bid==ask so a buy limit at the bid is marketable and DXtrade disables it. #16220 (masked sidebar_text, diagnostic) MERGED fafb61aa by manager; lane re-runs the limit walk to confirm in the terminal's words, then writes the Tier-3 policy options (refuse / market-within-band / wait) for the operator. (c) not needed.",
+  "_seq": 274
+}

@@ -1,0 +1,24 @@
+{
+  "id": "CA-B02",
+  "title": "Code audit Wave B: scripts/ml + scripts/training",
+  "phase": "CA",
+  "state": "done",
+  "owner": "audit lane",
+  "lane": "session_018nPWVCBmAyJ95AQwR6G7sZ",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 30,
+  "spend_usd": 9.59,
+  "tier": 1,
+  "prs": [
+    13226
+  ],
+  "blocked_on": [
+    {
+      "kind": "work_item",
+      "ref": "CA",
+      "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+    }
+  ],
+  "note": "Scope: scripts/ml/** (72 files) and scripts/training/**. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B02.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings combined into the landing steward's #13226 (dirty after B07 landed separately; steward refreshing, trig_01FNyZV7ncHttTNpr3xB39aL). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main via #13226 (1247cc8); lane archived.",
+  "_seq": 125
+}

@@ -1,0 +1,18 @@
+{
+  "title": "Research queue runs end-to-end: dispatcher cancellations, session-run units, 48h staleness alarm",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "ops lane",
+  "lane": "session_01G2SwTpGGacwEKLHukpTp3w",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 25,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    13571
+  ],
+  "blocked_on": [],
+  "note": "2026-09-28 (RQ-OPS-2, session_01G2SwTpGGacwEKLHukpTp3w): root-caused and fixed. The prior lane (session_01NceHayuAx2a9H58Vx8j8TX, archived) halted asking for direct human confirmation before touching CI; that confirmation was obtained via AskUserQuestion this session. ROOT CAUSE of the cancellations (both runs that actually cancelled, 36239222079 & 35996108860): the stamp PR's required pytest-run took ~13m GH queue + ~20m run (~33m total), already past commit-to-main's 30m verify-merged deadline before the outer 35m job timeout killed the wait mid-poll -- reported ambiguous 'cancelled' instead of a clear pass/fail. A SEPARATE bug (the stamp diff invalidating its own required test, tests/test_research_queue.py::test_w4_dispatcher_dry_run_selects_the_unit) was already fixed on main by 73a25dd0d before this lane started; the two branches it stranded (#12989, #13012) predate that fix by minutes/hours and are now superseded (their stamps landed via later runs) -- this session could not close them: mcp__github__update_pull_request and add_issue_comment both 403 'Resource not accessible by integration' for this session's GitHub MCP token (filed in PI-20260928-RQOPS2-0001), contradicting docs/reference/session-capabilities.md (itself flagged 'never verified'). FIXED: timeout-minutes 35->70 (real headroom for TWO sequential commit-to-main verify-merged waits, since a liveness receipt step was added). BUILT: a 48h liveness receipt + scripts/ci/check_research_queue_dispatch_liveness.py (self-test: planted stale + fresh quiet control), registered in run_guards.py and wired to dispatch send-ping via system-actions on staleness. DOCUMENTED: research/queue/README.md now states the declared-vs-dispatchable workflow split, MEASURED 13 workflow-routed (.yml) / 4 issue-label-relay / 2 none-session-local of 19 committed units (PI-20260928-RQOPS2-0002, the standing-lane-pickup claim for the latter 6 is NOT verified in this repo). landed_unproven, not done: closes when a scheduled run since this PR merged completes success/failure (never cancelled) and the manual proof-of-life dispatch (this session, see PR) is observed to land. | 2026-09-28 ~12:15Z: re-dispatched as RQ-OPS-2; fix pushed on claude/rq-ops-2-dispatcher-fix, awaiting live confirmation. || 2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13571 merged 11:32Z but research-queue-dispatch.yml has had no run since, and no scheduled run today (last schedule 09-27 12:12Z). Lane woken to dispatch, confirm end to end and explain the missing schedule.",
+  "id": "RQ-OPS",
+  "_seq": 170
+}

@@ -1,0 +1,18 @@
+{
+  "id": "E54",
+  "title": "The R5 research-queue dispatcher has NEVER fired \u2014 read one real dry-run against today's queue and establish whether its three spend gates hold",
+  "phase": "E",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_012TvrmHEEpsUErE5V6Uvr9J",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 30,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    12840
+  ],
+  "blocked_on": [],
+  "note": "LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: dry-run + gate evidence; arming held as Tier-2. Handoff E-A / M40 R5. The daily 06:20Z cron passes no --fire by design until a session reads a dry-run against live queue contents and observes the three spend gates (ledger preflight vs the $10/month GPU cap, GPU_BURST_ARMED, --max-gpu-dispatches-per-run). Arming is Tier-2: the lane PREPARES and HOLDS; the manager takes it to the operator. CPU/VM/Actions work is not under the GPU cap. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP.\n[2026-09-25T07:35Z manager] #12840 merged 2026-09-24; dispatcher now fires daily (11 live units). E73 (session_01JpR85YdyHGsYqMVeMiM34d, $3.79, done) landed #12847 + #12829 and closed #12781/#12730/#12777/#12726 as superseded with evidence. OBSERVED 2026-09-25: dispatcher's FIRE gate is live and firing for real -- RQ-20260922-005.yaml.last_dispatched_at=2026-09-24T11:58:37Z confirmed against the workflow run history. CPU-only spend gates verified sound; GPU path remains untested (0 queue units need it), tracked separately as PI-20260924-5V6UVR9J-0002.",
+  "_seq": 88
+}

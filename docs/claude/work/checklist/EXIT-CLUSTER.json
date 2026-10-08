@@ -1,0 +1,20 @@
+{
+  "id": "EXIT-CLUSTER",
+  "title": "Why do live closes land as exchange_flat_reconciled instead of sl/tp/strategy-close? Root-cause (labelling gap vs real protection failure) and fix",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "fix lane",
+  "lane": "session_01XpKxKGrnBP9u4xwL2hiWVs",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 45,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    14106,
+    14194,
+    14214
+  ],
+  "blocked_on": [],
+  "note": "2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): raised by DECIDE-AUTO: slv_trend_1h's 2026-08-24 demotion closed all 6 packages via exchange_flat_reconciled. Existing filing PI-20260924-BOFCWBO7-0001 (queued, unrouted): 4 of 5 alpaca_live-leg closes on alpaca_paper to 2026-09-24 were exchange_flat_reconciled. Session contract: any close not TP/SL/strategy-close is a bug to fix. Opus: close-reason / reconciler path on real-money accounts. Fresh session. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): also owns audit FIX-SA-02 (bybit_2 venue SL fills journaled reconciler_filled/netting_attributed; 7/11 real-money closes carry no TP/SL/strategy reason). Lane BLOCKED at 10:50Z on a permission prompt -- operator click. Running $7.95. || 2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): report 11:42Z: LABELLING, not protection (1,191 closed trades since 07-31; 64/77 exchange_flat_reconciled exit within 10 bps of pkg SL/TP; bybit_2 20/26 reconciler closes filled on the trade's own sl/tp order). #14106 (Tier 2, hold): label-only sweep keyed on venue order id / 10 bps price, notes-cap fix; never writes pnl/exit_price. Independent review REVIEW-14106 dispatched; manager merges on MERGE + green. Backfill (backfill-exit-labels, dry run 284 rows) NOT run -- separate Tier-2 step after merge. Unpriced bybit_2 close (#14113) = trade 5702 reduce leg, by design -> RECON-REDUCE. || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14194 merged (eb78e8d), deployed 13:23Z; backfill #14211: order-identity rule ON, 166 relabels (223 planned - 57 already swept), 0 pnl/exit_price/pnl_percent changes. NEW-close observation still owed (PI-20260929-WL2HIWVS-0003, #14214). 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. All 3 PRs are on main: #14106 89e71a5b, #14194 eb78e8db, #14214 8c2ea82e. The backfill half is observed (#14211: 166 relabels, 0 money changes). The NEW-close half is not: PI-20260929-WL2HIWVS-0003 is still queued. Closes when a close with closed_at >= 2026-09-29T12:50Z reads sl|tp with notes.pre_label_exit_reason set, as that record's clears_when states.",
+  "_seq": 198
+}

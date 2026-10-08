@@ -1,0 +1,16 @@
+{
+  "id": "DECIDE-AUTO",
+  "title": "Decisions are data-settled (automated) or become a data task: mandate resolver FIRE/REFUSE/NEEDS-DATA + auto-filed data tasks; manager popup rule",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "manager",
+  "lane": "session_01MzcnnctDtz7LFETeKrdiiQ",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": null,
+  "spend_usd": 11.52,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-01T16:45Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator-directed manager handoff (docs/claude/work/MANAGER-HANDOFF-2026-10-01.md, PR #15219): the owning manager is now session_01MM8o5js6TcDFeNAPBY4Ntv, replacing session_01HYq6XtfesZ57VyaQrK6CL1. || [2026-09-29T09:50Z manager] OPERATOR DIRECTIVE (verbatim on row PROMOTE). First case: slv_trend_1h / #13698. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): mandate_resolver returns FIRE/REFUSE/NEEDS-DATA; NEEDS-DATA auto-files a pipeline row; R-COST-FIDELITY no longer FIREs on a non-decisive R3 verdict (the #13698 bug). #13698 closed. #14091 (Tier-1 self-land) adds manager SKILL 'classify the decision before any popup'. Handed the exchange_flat_reconciled exit-cluster question to the manager -> row EXIT-CLUSTER. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14091 MERGED 10:38Z (resolver FIRE/REFUSE/NEEDS-DATA + SKILL 'classify before any popup'). Offline tooling; closes when the next real mandate evaluation returns NEEDS-DATA and auto-files its pipeline row. Lane archived, $11.52 final.",
+  "_seq": 191
+}

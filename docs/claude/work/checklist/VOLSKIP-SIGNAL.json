@@ -1,0 +1,19 @@
+{
+  "id": "VOLSKIP-SIGNAL",
+  "title": "Whole entry signal on the forming bar live vs closed bar in Stage 0 (RQ-301/302) + xrp_pullback_2h D1 restatement",
+  "phase": "W6",
+  "state": "done",
+  "owner": "research lane",
+  "lane": "session_01GvZxxxgFK3JVaBFhfzZx6N",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 45,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    14195,
+    14218
+  ],
+  "blocked_on": [],
+  "note": "2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RQ-302 pooled INCONCLUSIVE; SIGNAL-0003 (xrp) = NEEDS-DATA under MD-DEMOTE-S2-S1; lane computing bootstrap CI + MDE before any Tier-3 proposal. 2026-09-29 ~14:17Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): operator popup, verbatim 'Last 20 + strict test (Recommended)' for the MD-DEMOTE-S2-S1 trigger. Decision record PI-20260929-VOLSKIP-SIGNAL-0007 landed on main by the manager register commit (copied verbatim from #14218's branch) because #14272 cites it. Duplicate build #14270 closed; the build belongs to DEMOTE-T3. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. On main: #14195 bcdb8e72 (RQ-301, HARNESS_MODELS_FORMING) and #14218 e0ab29d4 (RQ-302 pooled INCONCLUSIVE; xrp_pullback_2h fails D1 under forming). Chose done over landed_unproven because the research result itself is the deliverable. It is committed as evidence (docs/research/evidence/forming-bar-pooled-2026-09-29.json), and PI-20260929-VOLSKIP-SIGNAL-0002 is done with that terminal_reason. No runtime effect is owed. Follow-ups PI-20260929-VOLSKIP-SIGNAL-0003..0007 stay queued and are routed to DEMOTE-T3 (in_flight).",
+  "_seq": 216
+}
