@@ -321,6 +321,16 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_checklist_readers.py"]],
     },
     {
+        # PI-20261005-4GA8WQPA-0002 (the lapse wave): a pipeline item whose
+        # next-due date moves LATER with its state unchanged must carry a
+        # `redate` block holding a NEW observation. Diff-scoped.
+        "name": "redate-guard",
+        "when": {"globs": ["docs/claude/work/pipeline/**", "scripts/ci/check_redate.py",
+                            "scripts/ops/pipeline.py"]},
+        "steps": [["python3", "scripts/ci/check_redate.py", "--self-test"],
+                  ["python3", "scripts/ci/check_redate.py", "--base", "origin/main"]],
+    },
+    {
         # PI-20261004-APBY4NTV-0003: the per-row checklist store/loader/generator
         # (step (a); the monolith-equals-render guard arrives with step (c)).
         "name": "checklist-store-guard",

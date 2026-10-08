@@ -43,7 +43,7 @@ on:
         required: false
         default: '0.099'
       levers:
-        description: "CSV of matrix lever columns to sweep (stale_stop,giveback_stop,trail_geometry,trail_decay,vol_trail). Empty = all."
+        description: "CSV of matrix lever columns to sweep (stale_stop,giveback_stop,trail_geometry,trail_decay,vol_trail). Empty = all. GEOM-B1: tp_extend and tp_retarget (a take-profit that MOVES; donchian / pullback / scalp legs) are OPT-IN -- their cells exist only when named here, so an empty value never grows. Pair with tp_cap_pct=0.099 and split_mode=oos-trades."
         required: false
         default: ''
       split:
