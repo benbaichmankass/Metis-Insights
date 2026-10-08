@@ -520,6 +520,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/integrations/breakout-instruments-2026-09-27.md` | architecture | unknown | — | never | `dir:integration-specs-declare-contracts / not-assessed` | — |
 | `docs/integrations/breakout-phone-executor-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/integrations/breakout-poc-manual-bridge-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
+| `docs/integrations/breakout-terms-read-2026-10-08.md` | lookup | live | — | 2026-10-08 | `header / header` | — |
 | `docs/integrations/bybit-ai-skill.md` | architecture | unknown | — | never | `dir:integration-specs-declare-contracts / not-assessed` | — |
 | `docs/integrations/dxtrade-contract-template.md` | architecture | unknown | — | never | `dir:integration-specs-declare-contracts / not-assessed` | — |
 | `docs/integrations/huggingface-datasets.md` | architecture | unknown | — | never | `dir:integration-specs-declare-contracts / not-assessed` | — |
