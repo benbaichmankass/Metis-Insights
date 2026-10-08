@@ -95,6 +95,24 @@ def observation_problems(obs: object) -> List[str]:
     return p
 
 
+def _prior_next_action(base: str, item_id: str) -> Optional[str]:
+    """`next_action` of `item_id`'s LATEST record at `base`, or None if the id is
+    new there. Records sort chronologically by filename, so the last one wins
+    (same fold as pipeline.read_log). `git grep` keeps this one call per added
+    record rather than a read of the ~4.8k-file store."""
+    hit = _git("grep", "-l", f'"id": "{item_id}"', base, "--", PIPE_DIR)
+    files = sorted(ln.split(":", 1)[1] for ln in hit.stdout.splitlines() if ":" in ln)
+    for f in reversed(files):
+        blob = _git("show", f"{base}:{f}")
+        try:
+            rec = json.loads(blob.stdout)
+        except ValueError:
+            continue
+        if rec.get("id") == item_id:
+            return rec.get("next_action")
+    return None
+
+
 def diff_findings(base: str, contracts: List[dict]) -> List[str]:
     ids = {c.get("id") for c in contracts}
     out = []
@@ -126,6 +144,13 @@ def diff_findings(base: str, contracts: List[dict]) -> List[str]:
         if item.get("next_action") != "check_observation" or item.get("state") in ("done", "killed"):
             continue
         if (item.get("due_when") or {}).get("soak") or item.get("id") in ids:
+            continue
+        # An UPDATE record is a new FILE but not a new definition-of-done
+        # question: the item was already a check_observation at base, so its
+        # filing was graded (or grandfathered) then. Only an item that BECOMES a
+        # check_observation here, or a brand-new id, is checked.
+        # (PI-20261005-WFBREDQP-0001: a plain re-date of 249 items failed CI.)
+        if _prior_next_action(base, item.get("id", "")) == "check_observation":
             continue
         if "observation" in item:
             out += [f"new pipeline item {item.get('id')}: {p}" for p in observation_problems(item["observation"])]
@@ -168,6 +193,30 @@ def _self_test() -> int:
        any("due_by" in p for p in observation_problems({"what": "w", "how_to_check": "h"})))
     ck("an observation with a non-date due_by is refused",
        any("ISO" in p for p in observation_problems({"what": "w", "how_to_check": "h", "due_by": "soon"})))
+    import tempfile  # noqa: PLC0415
+    with tempfile.TemporaryDirectory() as td:
+        def sh(*a):
+            return subprocess.run(a, cwd=td, capture_output=True, text=True, check=True)
+        sh("git", "init", "-q", "-b", "main")
+        sh("git", "config", "user.email", "t@t")
+        sh("git", "config", "user.name", "t")
+        d = Path(td) / PIPE_DIR
+        d.mkdir(parents=True)
+        (d / "1.json").write_text(json.dumps({"id": "OLD", "next_action": "check_observation"}))
+        (d / "2.json").write_text(json.dumps({"id": "ROUTED", "next_action": "dispatch_lane"}))
+        sh("git", "add", "-A")
+        sh("git", "commit", "-qm", "b")
+        global REPO
+        saved = REPO
+        REPO = Path(td)
+        try:
+            ck("an id already check_observation at base is recognised as an update",
+               _prior_next_action("HEAD", "OLD") == "check_observation")
+            ck("an item at base with another next_action is reported as such",
+               _prior_next_action("HEAD", "ROUTED") == "dispatch_lane")
+            ck("a brand-new id has no prior (still checked)", _prior_next_action("HEAD", "NEW") is None)
+        finally:
+            REPO = saved
     print("soak-contract-guard self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 
