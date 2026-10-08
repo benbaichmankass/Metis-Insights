@@ -1,0 +1,20 @@
+{
+  "based_on": "20261004T231458748203Z-1f2a1be3.json",
+  "due_when": {
+    "due_date": "2026-10-10",
+    "kind": "date"
+  },
+  "id": "PI-20261004-APBY4NTV-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv 2026-10-04 (CI-AUTOMERGE report on #16494)",
+    "rerun": "git log --oneline --since=7.days -- docs/claude/work/MANAGER-CHECKLIST.json | wc -l; then count open claude/* PRs whose diff touches that file and whose GitHub mergeable_state is dirty"
+  },
+  "redate": {
+    "observation": "Re-read 2026-10-08 against main: step (b1) loader+pure-data readers MERGED (#17013); (b2)+(c') history readers + checklist-readers-guard OPEN #17015 (held, unvouchable_paths); write CLI + docs OPEN #17017; seed+delete cutover NOT done (waits on #16941 and the stack). Conflict problem not yet removed: the monolith is still the committed register.",
+    "observed_at": "2026-10-08"
+  },
+  "state": "queued",
+  "what": "MANAGER-CHECKLIST.json is a single shared JSON array, so any PR that appends or edits a row conflicts on GitHub whenever main appends one. GitHub has no jsonregister merge driver; that driver exists only in a clone's local .git/config, which hides the conflict locally. MEASURED 2026-10-04: #16494 conflicted twice and #16500 once, both on this file only (CI-AUTOMERGE lane simulated GitHub's merge without the driver). Structural for every lane told to add its row in its first PR. Fix shape: one file per row (as docs/claude/work/pipeline/ already is), or a GitHub-side merge path. A build, not a doc edit."
+}

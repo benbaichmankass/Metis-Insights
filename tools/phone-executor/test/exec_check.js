@@ -264,5 +264,54 @@ document.querySelectorAll('[data-edit]').forEach(function(x){x.onclick=function(
   eq(await pS.evaluate("__ex.posEdit('ETHUSD','long|buy')"), "rows_2", "amend: two ETH long rows -> refused, nothing clicked");
   eq(await pS.evaluate("__ex.dlgSave()"), "none", "amend: no dialog -> no save");
 
+  // ACCOUNT PANEL READ (PHONE-BALANCE-READ): label-anchored, one distinct number or null.
+  const acctA = `<!doctype html><html><body><button>Positions</button><button>Open orders</button>
+<button id=pf>Portfolio 98,123.45 USD</button><button>Turbo Eval 1</button><div><span>Balance</span><span>97,000.10</span></div><div>Equity: 98,123.45</div></body></html>`;
+  const acctpA = await onHost(acctA);
+  eq(await acctpA.evaluate("__ex.accountPanel()"), {balance: 97000.1, equity: 98123.45, portfolio: 98123.45, n: {balance: 1, equity: 1, portfolio: 1}}, "account panel: balance/equity/portfolio read by label");
+  const acctpB = await onHost(`<!doctype html><html><body><button>Portfolio 10,000.00 USD</button><button>Turbo Eval 5</button></body></html>`);
+  eq(await acctpB.evaluate("__ex.accountPanel()"), {balance: null, equity: null, portfolio: 10000, n: {balance: 0, equity: 0, portfolio: 1}}, "account panel: only Portfolio shown -> balance/equity absent (null), portfolio read");
+  const acctpC = await onHost(`<!doctype html><html><body><button>Portfolio 1.00 USD</button><span>Portfolio 2.00 USD</span><button>Balance</button></body></html>`);
+  eq(await acctpC.evaluate("__ex.accountPanel()"), {balance: null, equity: null, portfolio: null, n: {balance: 0, equity: 0, portfolio: 2}}, "account panel: two different values or no value -> null, never guessed");
+  eq(await acctpC.evaluate("window.__submitted || 0"), 0, "account panel: read-only");
+
+  // Fixture H (SOL-PICKER, MEASURED 2026-10-06 dry-fill dumps): the real "Select market" chip (div role=button,
+  // aria-label "Select market", text "ETH 20x"), watchlist buttons WITH a price ("SOL 150.23 -1.23%"), the ticket open on
+  // ETH. The list the chip opens is UNMEASURED: H = a role=dialog of plain div rows (handler on the row, symbol in a
+  // leaf span, a "SOLV" decoy); I = the same rows with NO popup role, SOL first (found as "appeared after the click");
+  // J = the chip opens nothing -> watchlist fallback; K = two SOL rows -> ambiguous, nothing picked, watchlist fallback.
+  const market = (mode) => `<!doctype html><html><body>
+<div role=button id=chip aria-label="Select market">ETH 20x</div><button>Order form</button><button>Open orders</button><button>Positions</button>
+<div id=wl><button data-s=BTC>BTC 62,410.5 -1.20%</button><button data-s=ETH>ETH 2,612.40 -0.50%</button><button data-s=SOL>SOL 150.23 -1.23%</button></div>
+<div id=list></div>
+<form id=f><div role=tablist><button type=button role=tab aria-selected=false>Market</button><button type=button role=tab aria-selected=true>Limit</button></div>
+<div role=tablist><button type=button role=tab aria-selected=true>Buy</button><button type=button role=tab aria-selected=false>Sell</button></div>
+<label for=lp>Limit price</label><input id=lp type=text><label for=q>Quantity</label><input id=q type=text>
+<button type=button aria-label="Toggle quantity unit">USD</button><button type=submit id=sub>Long (buy) ETH</button></form>
+<script>var MODE='${mode}';var LEV={BTC:50,ETH:20,SOL:10,SOLV:5,XRP:5};
+function pick(s){document.getElementById('chip').textContent=s+' '+LEV[s]+'x';document.getElementById('sub').textContent='Long (buy) '+s;close();}
+function close(){document.getElementById('list').innerHTML='';}
+function row(s,name){var d=document.createElement('div');d.className='r';d.innerHTML='<span>'+s+'</span><span>'+name+'</span>';d.onclick=function(){window.__picks=(window.__picks||0)+1;pick(s.split(/[-\/]/)[0])};return d;}
+document.getElementById('chip').onclick=function(){if(MODE==='J')return;var l=document.getElementById('list');var box=l;
+ if(MODE!=='I'){box=document.createElement('div');box.setAttribute('role','dialog');l.appendChild(box);}
+ var rs=MODE==='I'?[['SOL','Solana'],['BTC','Bitcoin'],['ETH','Ethereum']]:[['BTC','Bitcoin'],['ETH','Ethereum'],['SOLV','Solv'],['SOL','Solana'],['XRP','Ripple']];
+ if(MODE==='K')rs.push(['SOL-PERP','Solana perp']);
+ rs.forEach(function(r){box.appendChild(row(r[0],r[1]))});};
+document.addEventListener('keydown',function(e){if(e.key==='Escape')close();});
+document.querySelectorAll('#wl button').forEach(function(b){b.onclick=function(){window.__wl=(window.__wl||0)+1;pick(b.getAttribute('data-s'));};});
+document.getElementById('f').onsubmit=function(e){e.preventDefault();window.__submitted=(window.__submitted||0)+1};</script></body></html>`;
+  for (const [mode, route] of [["H", ["opened_market", "picked_market"]], ["I", ["opened_market", "picked_market"]],
+    ["J", ["opened_market", "market_no_row", "clicked_watch"]], ["K", ["opened_market", "market_ambiguous", "clicked_watch"]]]) {
+    const pM = await onHost(market(mode)); const rM = (code) => pM.evaluate(code);
+    eq([await rM("__ex.marketShown()"), await rM("__ex.symbolShown()")], ["ETH", "ETH"], `market ${mode}: chip 'ETH 20x' read as ETH, ticket on ETH`);
+    eq(await rM("__ex.symbolReset()"), "ok", `market ${mode}: picker state reset per ticket`);
+    const got = []; for (let i = 0; i < route.length; i++) got.push(await rM("__ex.symbolStep('SOLUSD')"));
+    eq(got, route, `market ${mode}: route ${route.join(">")}`);
+    eq(await rM("__ex.symbolStep('SOLUSD')"), "done", `market ${mode}: then done`);
+    eq([await rM("__ex.symbolOnTicket()"), await rM("__ex.marketShown()")], ["SOL", "SOL"], `market ${mode}: submit label AND chip name SOL`);
+    eq([await rM("window.__picks || 0"), await rM("window.__wl || 0")], mode === "J" || mode === "K" ? [0, 1] : [1, 0], `market ${mode}: exactly one selection click (${mode === "J" || mode === "K" ? "watchlist" : "picker row"})`);
+    eq(await rM("window.__submitted || 0"), 0, `market ${mode}: nothing submitted`);
+    eq(await rM("[__ex.symbolStep('ETHUSD'), __ex.symbolStep('ETHUSD')]"), ["opened_market", mode === "J" ? "market_no_row" : "picked_market"], `market ${mode}: and back to ETH from SOL`);
+  }
   await b.close(); console.log("exec_check: all passed");
 })().catch((e) => { console.error(e); process.exit(1); });

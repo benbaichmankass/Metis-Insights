@@ -226,6 +226,9 @@ class DXtradeApiAdapter(PropPlatformAdapter):
     (``https://<host>/dxsca-web``)."""
 
     platform: str = "dxtrade_api"
+    # TP doctrine B1: modify_bracket PUTs the TP child's limitPrice (one
+    # conditional PUT per leg, spec'd and built for VELOTRADE-GOLIVE).
+    TP_AMEND_SUPPORTED = True
     transport: Transport = field(default=urllib_transport)
     sleep: Callable[[float], None] = field(default=time.sleep)
     timeout_s: float = 25.0

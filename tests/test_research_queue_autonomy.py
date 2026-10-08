@@ -247,3 +247,21 @@ def test_the_dispatcher_alarm_refills_a_fillable_gap_and_pages_the_rest():
     from scripts.ci import check_research_queue_health as hc
     assert hc.EXIT_REFILL == 3
     assert hc._exit_code(["H1-REFILL x"]) == 3 and hc._exit_code(["H1 x"]) == 1 and hc._exit_code(["H1-REFILL x", "H2 y"]) == 1
+
+
+def test_generated_ids_never_enter_the_hand_band():
+    """PI-20261005-RQ-ID-RACE-0001: generated units mint 001-899; hand-authored ones own 900-999."""
+    import importlib.util
+    from pathlib import Path
+    spec = importlib.util.spec_from_file_location(
+        "queue_replenish", Path(__file__).resolve().parents[1] / "scripts/research/queue_replenish.py")
+    qr = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(qr)
+    day = "2030-01-01"
+    # a hand unit at 905 must not make the generator continue from 906
+    units = {"RQ-20300101-003": {}, "RQ-20300101-905": {}}
+    assert qr.next_ids(units, day, 2) == ["RQ-20300101-004", "RQ-20300101-005"]
+    # a full band yields FEWER ids rather than crashing or spilling into 900+
+    full = {"RQ-20300101-897": {}}
+    assert qr.next_ids(full, day, 5) == ["RQ-20300101-898", "RQ-20300101-899"]
+    assert qr.next_ids({"RQ-20300101-899": {}}, day, 3) == []
