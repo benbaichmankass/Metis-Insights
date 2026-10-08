@@ -1,6 +1,6 @@
 # tradeify_1 feed trip — why the prop executor placed nothing since 2026-10-06 18:27:45Z
 
-> **Doc status:** `evidence` · category `research` · last verified `2026-10-07` · registered in [`docs/DOCUMENT-INDEX.md`](DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `evidence` · last verified `2026-10-07` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
 
 Lane TRADEIFY-FEED-TRIP (checklist row of the same name; pipeline `PI-20261007-APBY4NTV-0006`).
 Read-only diagnosis via the live-VM diag relay (`journalctl` for `ict-prop-feed@tradeify_1` and
