@@ -1,7 +1,7 @@
 {
   "due_when": {"due_date": "2026-10-15", "kind": "date"},
   "id": "PI-20261008-QAW8FBY5-0001",
-  "next_action": "investigate",
+  "next_action": "dispatch_lane",
   "origin": {
     "kind": "session",
     "ref": "lane OPS-SMALL-FIXES item 3 (session_01AfVqqFo3hkk3SBqaw8FbY5); flake seen by lane BREAKOUT1-RETIRE 2026-10-07/08",
