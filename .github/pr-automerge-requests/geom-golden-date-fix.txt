@@ -1,0 +1,1 @@
+auto-merge: golden test must not compare the harness run_date (main red since 2026-10-08 00:00Z)

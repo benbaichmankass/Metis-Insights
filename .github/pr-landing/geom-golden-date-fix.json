@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Test-only fix: tests/test_tp_geometry_harness.py compared the harness summary's run_date (today's date) against a golden captured 2026-10-07, so all five golden cases fail on main for every run after 00:00Z. The comparison now drops run_date; every other field and every emitted row is still compared exactly. No harness, config or order-path change."
+}
