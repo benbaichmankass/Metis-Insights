@@ -67,12 +67,6 @@ on:
         description: "Per-run cap on GPU bursts"
         default: "1"
 
-concurrency:
-  # Two dispatchers running at once could fire the same job twice — the ledger
-  # cap is monthly and would not stop it inside one window.
-  group: research-queue-dispatch
-  cancel-in-progress: false
-
 permissions:
   contents: read
   actions: write   # `gh workflow run` on the routed workflow
@@ -110,6 +104,23 @@ jobs:
           python3 scripts/ops/schedule_keeper.py dedupe
           --run-id "${{ github.run_id }}" --schedule "${{ github.event.schedule }}"
 
+  # ⚠️ SPLIT 2026-10-07 (lane RQ-CADENCE, PI-20261007-APBY4NTV-0004): THIS JOB NO
+  # LONGER LANDS ANYTHING. It used to hold the `research-queue-dispatch`
+  # concurrency group for the whole run INCLUDING three `commit-to-main`
+  # `verify-merged` waits (up to 50 min each, on a CI queue of 240+ runs), so
+  # one run held the group 1-2 h and the NEXT hourly slot could not start
+  # until it finished. MEASURED off the Actions API 2026-10-07 19:31Z, last
+  # 24 h: 18 runs (4 schedule + 14 keeper-dispatched), 16 failed + 1 cancelled
+  # AT THE LANDING WAIT, each 60-130 min; the largest start-to-start gap was
+  # 3 h 40 m (02:34Z -> 06:16Z) -- the keeper only runs on a push to main, and
+  # the landing PRs that would have been the push were the thing still waiting.
+  # So the cadence was bounded by how long CI took to merge a stamp PR, not by
+  # GitHub's cron. Now: this job (collect -> grade/fire -> receipt) holds the
+  # group for MINUTES and hands its working-tree changes to the `land` job as
+  # an artifact; `land` has no shared group. Two dispatchers still never fire
+  # the same unit -- this job is the only place a unit is FIRED, it is the
+  # only holder of the group, and the open-stamp-PR / landed-results checks in
+  # dispatch_queue.py cover the minutes between "fired" and "stamp PR open".
   dispatch:
     needs: dedupe
     if: |
@@ -117,6 +128,256 @@ jobs:
       github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch'
       )
+    runs-on: ubuntu-latest
+    concurrency:
+      # Two dispatchers running at once could fire the same job twice — the
+      # ledger cap is monthly and would not stop it inside one window.
+      group: research-queue-dispatch
+      cancel-in-progress: false
+    # No merge wait lives here any more: collect + grade + dispatch + receipt
+    # are ~1-3 min of work. 30 leaves room for a slow `gh` count under load.
+    timeout-minutes: 30
+    outputs:
+      fire: ${{ steps.flag.outputs.fire }}
+      collect_count: ${{ steps.collect.outputs.count }}
+      payload: ${{ steps.bundle.outputs.payload }}
+    env:
+      # THE ONE FIRE DECISION. Both consumers below read THIS, never `inputs`
+      # directly — see the header. A scheduled run fires; a hand dispatch fires
+      # only when explicitly asked.
+      #
+      # RQ-RUN (2026-09-28): a run the schedule-keeper dispatched to cover a
+      # slot GitHub dropped is a scheduled run by intent, so it fires too.
+      # The keeper dispatches with DEFAULT inputs (fire=false), which until
+      # now made every keeper-covered slot a DRY RUN — the keeper kept the
+      # liveness receipt fresh while nothing was dispatched. The keeper's
+      # runs are the only workflow_dispatch runs whose actor is the bot
+      # (scripts/ops/schedule_keeper.py KEEPER_ACTOR); a human's hand
+      # dispatch still defaults to dry.
+      FIRE: ${{ github.event_name == 'schedule' || inputs.fire == true || (github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]') }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pyyaml
+        run: pip install --quiet pyyaml
+
+      # RQ-OPS-2 (2026-09-28, follow-up to PI-20260928-RQOPS2-0002): a real
+      # dispatch on 2026-09-28 (run 36427562901) hit exactly the gap that PI
+      # documents — the only units due that day were two of the six whose
+      # `run.workflow` is a human note, not a `gh workflow run` target — and
+      # `dispatch_queue.py` exits 1 for a DISPATCH_FAILED row (correctly: the
+      # queue holds work it did not do). Under the OLD `set -euo pipefail`
+      # (no `continue-on-error`), that non-zero exit killed the JOB right
+      # here, skipping the receipt write and the stamp step entirely — so a
+      # real, correctly-detected partial failure also silently starved the
+      # liveness receipt, on top of not stamping the units that DID succeed.
+      # `continue-on-error: true` lets the job keep going (any unit that WAS
+      # stamped by dispatch_queue.py's `_stamp()` is still a file on disk for
+      # the stamp step below to land); the job is failed for real at the very
+      # end instead, once the receipt and any real stamps have had their
+      # chance.
+      # Manager review 2026-09-29 (01:27Z: 67 runs queued repo-wide, 12 research
+      # compute runs in flight, every system-action waiting behind them):
+      # the token-free runner no longer lands anything itself. Once per cycle
+      # this collects every completed research-script-run whose artifact is
+      # not yet on main and lands the WHOLE batch in one PR below -- one CI
+      # fan-out per cycle instead of two per unit. A lost artifact is a red
+      # step (rows that cost runner minutes never vanish silently), but the
+      # dispatch below still runs: `continue-on-error`, re-asserted at the end.
+      - name: Collect the runner's results since the last cycle
+        id: collect
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 scripts/research/collect_runner_results.py --self-test
+          python3 scripts/research/collect_runner_results.py --json-out /tmp/collected.json | tee /tmp/collect.txt
+
+      - name: Grade and dispatch
+        id: grade
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Backpressure (manager review 2026-09-29): defer every fire while
+          # >= 3 research compute runs are queued/in progress or > 10 runs are
+          # queued repo-wide; dispatch_queue.py counts via gh and says why.
+          ARGS=(--ref "${{ github.ref_name }}" --max-gpu-dispatches-per-run "${{ inputs.max_gpu || '1' }}"
+                --max-research-inflight 3 --max-repo-queued 10)
+          # --check-open-stamp-prs rides with the fire flag (same FIRE gate): a
+          # unit stamped by an OPEN stamp PR is already dispatched (lane RQ-FIX,
+          # 2026-10-06); if gh cannot list PRs the cycle defers every fire
+          # rather than double-fire.
+          if [ "${FIRE}" = "true" ]; then ARGS+=(--fire --check-open-stamp-prs); fi
+          if [ -n "${{ inputs.only }}" ]; then ARGS+=(--only "${{ inputs.only }}"); fi
+          python3 scripts/research/dispatch_queue.py "${ARGS[@]}" | tee /tmp/dispatch.txt
+
+      # RQ-OPS-2 (PI-20260928-RQOPS2-0001): the cron itself can go silent the
+      # same way any scheduled job can, invisibly. This writes a small
+      # receipt on EVERY run that reaches this point — including a grading
+      # failure, per the note above: the receipt attests the MECHANISM ran,
+      # not that grading succeeded, and `check_research_queue_dispatch_
+      # liveness.py` only ever grades presence + age, never `conclusion`.
+      # Placed BEFORE the (heavier, data-touching) stamp step deliberately:
+      # this diff is one small json file under docs/claude/work, so its own
+      # required checks are cheap and its `verify-merged` wait should
+      # resolve fast, leaving the stamp step the greater share of the job's
+      # budget.
+      #
+      # ⚠️ `verify-merged: true`, NOT skipped. tests/test_commit_to_main_
+      # callers.py::test_every_caller_verifies_its_rows_merged requires EVERY
+      # caller to confirm its rows landed, with no exemption for "low
+      # stakes" — an earlier draft of this step set verify-merged: false to
+      # dodge a second wait, and that is exactly the "twelve of thirteen
+      # callers never check" defect that test exists to catch. `timeout-
+      # minutes` below is sized for two sequential worst-case waits instead.
+      - name: Write the liveness receipt
+        env:
+          # `steps.grade.outcome` (GH Actions expression, resolved BEFORE the
+          # shell runs) is "success" or "failure" and reflects grading, never
+          # the job's own final conclusion — reported here as-is, per the
+          # note above.
+          GRADE_OUTCOME: ${{ steps.grade.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p docs/claude/work
+          python3 - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          import os
+          payload = {
+              "run_id": os.environ.get("GITHUB_RUN_ID", "unknown"),
+              "conclusion": os.environ.get("GRADE_OUTCOME") or "unknown",
+              "timestamp": datetime.now(timezone.utc).isoformat(),
+              "event_name": os.environ.get("GITHUB_EVENT_NAME", "unknown"),
+              "fired": os.environ.get("FIRE", "false"),
+          }
+          with open("docs/claude/work/research-queue-dispatch-receipt.json", "w", encoding="utf-8") as fh:
+              json.dump(payload, fh, indent=2)
+              fh.write("\n")
+          PY
+      # Hand the working-tree changes (stamps, receipt, collected results) to
+      # the `land` job. `if: always()` so a failed grade still lands the
+      # receipt and any stamp dispatch_queue.py wrote before it failed.
+      - name: Record the fire flag for the land job
+        id: flag
+        if: always()
+        run: echo "fire=${FIRE}" >> "$GITHUB_OUTPUT"
+
+      - name: Bundle the landing payload
+        id: bundle
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/payload
+          git ls-files -m -o --exclude-standard -- comms/research research/results research/queue \
+            docs/claude/work/research-queue-dispatch-receipt.json > /tmp/payload/changed.txt
+          cat /tmp/payload/changed.txt
+          if [ -f /tmp/collected.json ]; then cp /tmp/collected.json /tmp/payload/collected.json; fi
+          tar czf /tmp/payload/landing.tgz --ignore-failed-read -T /tmp/payload/changed.txt
+          echo "payload=true" >> "$GITHUB_OUTPUT"
+
+      # no-durable-result is declared at the bottom of this file (the landing
+      # guard greps the whole file): this artifact is a minutes-long hand-off
+      # between two jobs of one run, not a research result.
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.bundle.outputs.payload == 'true'
+        with:
+          name: rq-landing-payload
+          path: /tmp/payload
+          retention-days: 3
+
+
+      - name: Alarm if the dispatcher has gone stale
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          if ! python3 scripts/ci/check_research_queue_dispatch_liveness.py; then
+            echo "::warning::research-queue-dispatch liveness is stale or never_ran — dispatching send-ping."
+            gh workflow run system-actions.yml \
+              -f action=send-ping \
+              -f message="research-queue-dispatch has not had a successful run in 48h+ (or never committed a receipt). Check the last runs: https://github.com/${{ github.repository }}/actions/workflows/research-queue-dispatch.yml" \
+              -f priority=high \
+              -f target=claude \
+              || echo "::error::could not dispatch the send-ping system-action — see the step log above."
+          fi
+          # RQ-RUN (2026-09-28, operator: "keep replenishing it"): the queue
+          # itself must hold >= 25 runnable units and must have dispatched
+          # something in the last 12 h, whatever this run did. Graded from
+          # the checkout, so a dry queue pages even when every run is green.
+          # Exit 3 = the ONLY problem is an H1 the committed templates can fill:
+          # REFILL, do not page (manager 2026-09-29 10:07Z: runnable 8 with 153
+          # unclaimed template points; the refill is daily, consumption is up to
+          # 3 units per 6 h cycle, so a bare page would ring after most cycles).
+          # Exit 1 = a refill cannot fix it (unfillable H1, or H2 idle): PAGE.
+          HRC=0
+          HEALTH="$(python3 scripts/ci/check_research_queue_health.py 2>&1)" || HRC=$?
+          echo "${HEALTH}"
+          if [ "${HRC}" -eq 3 ]; then
+            echo "::notice::research-queue health: runnable below target but fillable — dispatching research-queue-replenish.yml (its concurrency group serialises it with the daily run)."
+            gh workflow run research-queue-replenish.yml -f target=25 \
+              || echo "::error::could not dispatch research-queue-replenish.yml — see the step log above."
+          elif [ "${HRC}" -ne 0 ]; then
+            echo "::warning::research-queue health tripped — dispatching send-ping."
+            gh workflow run system-actions.yml \
+              -f action=send-ping \
+              -f message="research-queue health: $(echo "${HEALTH}" | grep -o 'H[0-9][A-Z-]* .*' | head -3 | tr '\n' ' ') — a refill cannot fix this (unfillable gap or idle > 12h). Replenisher: https://github.com/${{ github.repository }}/actions/workflows/research-queue-replenish.yml" \
+              -f priority=high \
+              -f target=claude \
+              || echo "::error::could not dispatch the send-ping system-action — see the step log above."
+          fi
+
+      - name: Summarize in the job summary
+        if: always()
+        run: |
+          {
+            echo "### research-queue dispatch"
+            echo
+            echo '```'
+            cat /tmp/dispatch.txt 2>/dev/null || echo "(the dispatcher produced no output — see the step log)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Re-asserts the failure "Grade and dispatch" swallowed via `continue-
+      # on-error`, now that the receipt and any real stamps have had their
+      # chance to land. The job must still read red on a real problem — this
+      # only changes WHEN that becomes true, not WHETHER.
+      - name: Fail the job if the collector lost a run's rows
+        if: always() && steps.collect.outcome == 'failure'
+        run: |
+          echo "::error::collect_runner_results.py reported a lost run or could not list runs — see 'Collect the runner's results' above. The dispatch below still ran."
+          exit 1
+
+      - name: Fail the job if grading reported a problem
+        if: always() && steps.grade.outcome == 'failure'
+        run: |
+          echo "::error::dispatch_queue.py reported invalid or dispatch-failed unit(s) — see 'Grade and dispatch' above (or the job summary). The liveness receipt and any successfully-fired units' stamps still landed."
+          exit 1
+
+  # The three landings, moved out of the group-holding job. Each is a
+  # `commit-to-main` + `verify-merged` exactly as before (the tests that pin
+  # that follow this job). No `concurrency:` here ON PURPOSE: with
+  # `cancel-in-progress: false` GitHub still replaces an older PENDING run of a
+  # group with a newer one, which here would DROP a payload of stamps -- and a
+  # fired-but-unstamped unit re-fires. Distinct runs land on distinct branches.
+  # The one shared file, the receipt json, is protected below by skipping a
+  # receipt landing while another receipt PR is still open.
+  land:
+    needs: dispatch
+    if: |
+      !cancelled() && needs.dispatch.outputs.payload == 'true' &&
+      (needs.dispatch.result == 'success' || needs.dispatch.result == 'failure')
     runs-on: ubuntu-latest
     # 35, not 15: `verify-merged` below blocks until the stamp PR merges, and a
     # budget under that wait kills the job mid-wait and reports a timeout for a
@@ -173,19 +434,9 @@ jobs:
     # by tests/test_commit_to_main_callers.py::test_budget_covers_every_wait_in_the_job.
     timeout-minutes: 165
     env:
-      # THE ONE FIRE DECISION. Both consumers below read THIS, never `inputs`
-      # directly — see the header. A scheduled run fires; a hand dispatch fires
-      # only when explicitly asked.
-      #
-      # RQ-RUN (2026-09-28): a run the schedule-keeper dispatched to cover a
-      # slot GitHub dropped is a scheduled run by intent, so it fires too.
-      # The keeper dispatches with DEFAULT inputs (fire=false), which until
-      # now made every keeper-covered slot a DRY RUN — the keeper kept the
-      # liveness receipt fresh while nothing was dispatched. The keeper's
-      # runs are the only workflow_dispatch runs whose actor is the bot
-      # (scripts/ops/schedule_keeper.py KEEPER_ACTOR); a human's hand
-      # dispatch still defaults to dry.
-      FIRE: ${{ github.event_name == 'schedule' || inputs.fire == true || (github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]') }}
+      # Read from the dispatch job, which owns THE ONE FIRE DECISION (see its env).
+      # `inputs` is deliberately not consulted here: on a schedule event it is empty.
+      FIRE: ${{ needs.dispatch.outputs.fire }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -216,49 +467,28 @@ jobs:
       - name: Record the checked-out base
         run: echo "BASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
-      # RQ-OPS-2 (2026-09-28, follow-up to PI-20260928-RQOPS2-0002): a real
-      # dispatch on 2026-09-28 (run 36427562901) hit exactly the gap that PI
-      # documents — the only units due that day were two of the six whose
-      # `run.workflow` is a human note, not a `gh workflow run` target — and
-      # `dispatch_queue.py` exits 1 for a DISPATCH_FAILED row (correctly: the
-      # queue holds work it did not do). Under the OLD `set -euo pipefail`
-      # (no `continue-on-error`), that non-zero exit killed the JOB right
-      # here, skipping the receipt write and the stamp step entirely — so a
-      # real, correctly-detected partial failure also silently starved the
-      # liveness receipt, on top of not stamping the units that DID succeed.
-      # `continue-on-error: true` lets the job keep going (any unit that WAS
-      # stamped by dispatch_queue.py's `_stamp()` is still a file on disk for
-      # the stamp step below to land); the job is failed for real at the very
-      # end instead, once the receipt and any real stamps have had their
-      # chance.
-      # Manager review 2026-09-29 (01:27Z: 67 runs queued repo-wide, 12 research
-      # compute runs in flight, every system-action waiting behind them):
-      # the token-free runner no longer lands anything itself. Once per cycle
-      # this collects every completed research-script-run whose artifact is
-      # not yet on main and lands the WHOLE batch in one PR below -- one CI
-      # fan-out per cycle instead of two per unit. A lost artifact is a red
-      # step (rows that cost runner minutes never vanish silently), but the
-      # dispatch below still runs: `continue-on-error`, re-asserted at the end.
-      - name: Collect the runner's results since the last cycle
-        id: collect
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: rq-landing-payload
+          path: /tmp/payload
+
+      - name: Restore the dispatch job's working-tree changes
         run: |
           set -euo pipefail
-          python3 scripts/research/collect_runner_results.py --self-test
-          python3 scripts/research/collect_runner_results.py --json-out /tmp/collected.json | tee /tmp/collect.txt
+          tar xzf /tmp/payload/landing.tgz
+          if [ -f /tmp/payload/collected.json ]; then cp /tmp/payload/collected.json /tmp/collected.json; fi
+          git status --short | head -40
 
       - name: Land the batch of runner results on main
         id: batch
-        if: steps.collect.outputs.count != '0' && steps.collect.outputs.count != ''
+        if: needs.dispatch.outputs.collect_count != '0' && needs.dispatch.outputs.collect_count != ''
         uses: ./.github/actions/commit-to-main
         with:
           verify-merged: "true"
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
           paths: comms/research research/results
-          message: "research: batch-land ${{ steps.collect.outputs.count }} runner result(s) (dispatcher run ${{ github.run_id }})"
-          pr-title: "research results: batch of ${{ steps.collect.outputs.count }} runner run(s) (dispatcher run ${{ github.run_id }})"
+          message: "research: batch-land ${{ needs.dispatch.outputs.collect_count }} runner result(s) (dispatcher run ${{ github.run_id }})"
+          pr-title: "research results: batch of ${{ needs.dispatch.outputs.collect_count }} runner run(s) (dispatcher run ${{ github.run_id }})"
           pr-body: >-
             One landing per dispatcher cycle for every completed research-script-run
             whose artifact was not yet on main: comms/research/<unit>/<run_id>/ (manifest,
@@ -268,11 +498,11 @@ jobs:
           branch-prefix: automation/research-results-batch
 
       - name: Assert every batched record is readable on main
-        if: steps.collect.outputs.count != '0' && steps.collect.outputs.count != ''
+        if: needs.dispatch.outputs.collect_count != '0' && needs.dispatch.outputs.collect_count != ''
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
-          python3 - <<'PY'
+          python3 - <<'PY2'
           import json, subprocess, sys
           batch = json.load(open("/tmp/collected.json"))
           bad = 0
@@ -283,76 +513,31 @@ jobs:
               bad += rc != 0
           print(f"asserted {len(batch['landed'])} record(s) on main; {bad} missing")
           sys.exit(1 if bad else 0)
-          PY
+          PY2
 
-      - name: Grade and dispatch
-        id: grade
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          # Backpressure (manager review 2026-09-29): defer every fire while
-          # >= 3 research compute runs are queued/in progress or > 10 runs are
-          # queued repo-wide; dispatch_queue.py counts via gh and says why.
-          ARGS=(--ref "${{ github.ref_name }}" --max-gpu-dispatches-per-run "${{ inputs.max_gpu || '1' }}"
-                --max-research-inflight 3 --max-repo-queued 10)
-          # --check-open-stamp-prs rides with the fire flag (same FIRE gate): a
-          # unit stamped by an OPEN stamp PR is already dispatched (lane RQ-FIX,
-          # 2026-10-06); if gh cannot list PRs the cycle defers every fire
-          # rather than double-fire.
-          if [ "${FIRE}" = "true" ]; then ARGS+=(--fire --check-open-stamp-prs); fi
-          if [ -n "${{ inputs.only }}" ]; then ARGS+=(--only "${{ inputs.only }}"); fi
-          python3 scripts/research/dispatch_queue.py "${ARGS[@]}" | tee /tmp/dispatch.txt
-
-      # RQ-OPS-2 (PI-20260928-RQOPS2-0001): the cron itself can go silent the
-      # same way any scheduled job can, invisibly. This writes a small
-      # receipt on EVERY run that reaches this point — including a grading
-      # failure, per the note above: the receipt attests the MECHANISM ran,
-      # not that grading succeeded, and `check_research_queue_dispatch_
-      # liveness.py` only ever grades presence + age, never `conclusion`.
-      # Placed BEFORE the (heavier, data-touching) stamp step deliberately:
-      # this diff is one small json file under docs/claude/work, so its own
-      # required checks are cheap and its `verify-merged` wait should
-      # resolve fast, leaving the stamp step the greater share of the job's
-      # budget.
-      #
-      # ⚠️ `verify-merged: true`, NOT skipped. tests/test_commit_to_main_
-      # callers.py::test_every_caller_verifies_its_rows_merged requires EVERY
-      # caller to confirm its rows landed, with no exemption for "low
-      # stakes" — an earlier draft of this step set verify-merged: false to
-      # dodge a second wait, and that is exactly the "twelve of thirteen
-      # callers never check" defect that test exists to catch. `timeout-
-      # minutes` below is sized for two sequential worst-case waits instead.
       - name: Return to the checked-out base (drop the batch landing's commit)
         run: git checkout -q --detach "${BASE_SHA}"
 
-      - name: Write the liveness receipt
+      # The receipt json is ONE file that every run rewrites, so two receipt PRs
+      # open at once conflict (stamp PR #16938 failed_conflict 2026-10-07). With
+      # the group no longer serialising whole runs, skip this run's receipt
+      # LANDING when an earlier receipt PR is still open: that PR is the
+      # liveness signal (the guard grades age against a 48 h window, so a
+      # receipt a few minutes older changes nothing). Fails open: if the API
+      # call fails, land it.
+      - name: Check for an in-flight receipt PR
+        id: rcpt
         env:
-          # `steps.grade.outcome` (GH Actions expression, resolved BEFORE the
-          # shell runs) is "success" or "failure" and reflects grading, never
-          # the job's own final conclusion — reported here as-is, per the
-          # note above.
-          GRADE_OUTCOME: ${{ steps.grade.outcome }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
-          mkdir -p docs/claude/work
-          python3 - <<'PY'
-          import json
-          from datetime import datetime, timezone
-          import os
-          payload = {
-              "run_id": os.environ.get("GITHUB_RUN_ID", "unknown"),
-              "conclusion": os.environ.get("GRADE_OUTCOME") or "unknown",
-              "timestamp": datetime.now(timezone.utc).isoformat(),
-              "event_name": os.environ.get("GITHUB_EVENT_NAME", "unknown"),
-              "fired": os.environ.get("FIRE", "false"),
-          }
-          with open("docs/claude/work/research-queue-dispatch-receipt.json", "w", encoding="utf-8") as fh:
-              json.dump(payload, fh, indent=2)
-              fh.write("\n")
-          PY
+          n="$(gh api "repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=100" \
+                --jq '[.[] | select(.head.ref | startswith("automation/research-queue-receipt"))] | length' || echo 0)"
+          echo "open receipt PRs: ${n}"
+          if [ "${n}" != "0" ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+
+
       - name: Land the liveness receipt
+        if: steps.rcpt.outputs.skip != 'true'
         uses: ./.github/actions/commit-to-main
         with:
           verify-merged: "true"
@@ -425,71 +610,6 @@ jobs:
       # dispatch" itself failed (the exact case a receipt cannot update
       # for). `continue-on-error: true` so the alarm mechanism can never
       # itself be the reason this job's own conclusion goes red or cancels.
-      - name: Alarm if the dispatcher has gone stale
-        if: always()
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -uo pipefail
-          if ! python3 scripts/ci/check_research_queue_dispatch_liveness.py; then
-            echo "::warning::research-queue-dispatch liveness is stale or never_ran — dispatching send-ping."
-            gh workflow run system-actions.yml \
-              -f action=send-ping \
-              -f message="research-queue-dispatch has not had a successful run in 48h+ (or never committed a receipt). Check the last runs: https://github.com/${{ github.repository }}/actions/workflows/research-queue-dispatch.yml" \
-              -f priority=high \
-              -f target=claude \
-              || echo "::error::could not dispatch the send-ping system-action — see the step log above."
-          fi
-          # RQ-RUN (2026-09-28, operator: "keep replenishing it"): the queue
-          # itself must hold >= 25 runnable units and must have dispatched
-          # something in the last 12 h, whatever this run did. Graded from
-          # the checkout, so a dry queue pages even when every run is green.
-          # Exit 3 = the ONLY problem is an H1 the committed templates can fill:
-          # REFILL, do not page (manager 2026-09-29 10:07Z: runnable 8 with 153
-          # unclaimed template points; the refill is daily, consumption is up to
-          # 3 units per 6 h cycle, so a bare page would ring after most cycles).
-          # Exit 1 = a refill cannot fix it (unfillable H1, or H2 idle): PAGE.
-          HRC=0
-          HEALTH="$(python3 scripts/ci/check_research_queue_health.py 2>&1)" || HRC=$?
-          echo "${HEALTH}"
-          if [ "${HRC}" -eq 3 ]; then
-            echo "::notice::research-queue health: runnable below target but fillable — dispatching research-queue-replenish.yml (its concurrency group serialises it with the daily run)."
-            gh workflow run research-queue-replenish.yml -f target=25 \
-              || echo "::error::could not dispatch research-queue-replenish.yml — see the step log above."
-          elif [ "${HRC}" -ne 0 ]; then
-            echo "::warning::research-queue health tripped — dispatching send-ping."
-            gh workflow run system-actions.yml \
-              -f action=send-ping \
-              -f message="research-queue health: $(echo "${HEALTH}" | grep -o 'H[0-9][A-Z-]* .*' | head -3 | tr '\n' ' ') — a refill cannot fix this (unfillable gap or idle > 12h). Replenisher: https://github.com/${{ github.repository }}/actions/workflows/research-queue-replenish.yml" \
-              -f priority=high \
-              -f target=claude \
-              || echo "::error::could not dispatch the send-ping system-action — see the step log above."
-          fi
 
-      - name: Summarize in the job summary
-        if: always()
-        run: |
-          {
-            echo "### research-queue dispatch"
-            echo
-            echo '```'
-            cat /tmp/dispatch.txt 2>/dev/null || echo "(the dispatcher produced no output — see the step log)"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+      # no-durable-result: minutes-long artifact hand-off between two jobs of one run (dispatch -> land); the durable landings are the commit-to-main steps above, not this artifact
 
-      # Re-asserts the failure "Grade and dispatch" swallowed via `continue-
-      # on-error`, now that the receipt and any real stamps have had their
-      # chance to land. The job must still read red on a real problem — this
-      # only changes WHEN that becomes true, not WHETHER.
-      - name: Fail the job if the collector lost a run's rows
-        if: always() && steps.collect.outcome == 'failure'
-        run: |
-          echo "::error::collect_runner_results.py reported a lost run or could not list runs — see 'Collect the runner's results' above. The dispatch below still ran."
-          exit 1
-
-      - name: Fail the job if grading reported a problem
-        if: always() && steps.grade.outcome == 'failure'
-        run: |
-          echo "::error::dispatch_queue.py reported invalid or dispatch-failed unit(s) — see 'Grade and dispatch' above (or the job summary). The liveness receipt and any successfully-fired units' stamps still landed."
-          exit 1

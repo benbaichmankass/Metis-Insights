@@ -139,6 +139,14 @@ _HOLE = {
 
 def read_json(path: Path, root: Path | None = None) -> tuple[Any, str]:
     p = (root or REPO_ROOT) / path
+    from src.runtime import checklist_store as _ck  # noqa: PLC0415
+    if _ck.is_checklist_path(p):  # rows are the truth once the store is seeded
+        if not _ck.exists(p):
+            return None, "absent"
+        try:
+            return _ck.load_path(p), "read"
+        except (OSError, ValueError, UnicodeDecodeError):
+            return None, "unreadable"
     if not p.exists():
         return None, "absent"
     try:

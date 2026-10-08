@@ -34,110 +34,19 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 import tempfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-STORE = Path("docs/claude/work/checklist")
-MONOLITH = Path("docs/claude/work/MANAGER-CHECKLIST.json")
-HEADER = "_header.json"
-SEQ = "_seq"
-_ID_OK = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
 
-
-class ChecklistError(ValueError):
-    pass
-
-
-def _dump(obj) -> str:
-    return json.dumps(obj, indent=2) + "\n"
-
-
-def _row_path(store: Path, row_id: str) -> Path:
-    if not isinstance(row_id, str) or not _ID_OK.match(row_id) or row_id == "_header":
-        raise ChecklistError(f"row id {row_id!r} is not filename-safe ([A-Za-z0-9._-], not _header)")
-    return store / f"{row_id}.json"
-
-
-def _read_rows(store: Path) -> list[dict]:
-    rows = []
-    for p in sorted(store.glob("*.json")):
-        if p.name == HEADER:
-            continue
-        row = json.loads(p.read_text(encoding="utf-8"))
-        if row.get("id") != p.stem:
-            raise ChecklistError(f"{p.name}: id {row.get('id')!r} does not match the filename")
-        rows.append(row)
-    # stable order: _seq, then id. A row without _seq sorts last, not first.
-    rows.sort(key=lambda r: (r.get(SEQ, 1 << 60), r["id"]))
-    return rows
-
-
-def load(repo: Path = REPO, store: Path = STORE) -> dict:
-    """The checklist in exactly today's served shape. Raises ChecklistError /
-    OSError / ValueError when unreadable -- callers must not read that as empty."""
-    base = repo / store
-    header = json.loads((base / HEADER).read_text(encoding="utf-8"))
-    rows = [{k: v for k, v in r.items() if k != SEQ} for r in _read_rows(base)]
-    return {k: (rows if k == "items" else v) for k, v in header.items()}
-
-
-def render(repo: Path = REPO, store: Path = STORE) -> str:
-    return _dump(load(repo, store))
-
-
-def write_row(row: dict, repo: Path = REPO, store: Path = STORE) -> Path:
-    """Create or replace ONE row file. A new row takes `_seq` max+1; an existing
-    row keeps its position."""
-    base = repo / store
-    path = _row_path(base, row.get("id"))
-    row = dict(row)
-    if path.exists():
-        row[SEQ] = json.loads(path.read_text(encoding="utf-8")).get(SEQ, row.get(SEQ, 0))
-    elif SEQ not in row:
-        row[SEQ] = max((r.get(SEQ, 0) for r in _read_rows(base)), default=-1) + 1
-    path.write_text(_dump(row), encoding="utf-8")
-    return path
-
-
-def seed(src: Path | None = None, repo: Path = REPO, store: Path = STORE) -> int:
-    """Split a monolith into the store. Refuses duplicate ids; idempotent."""
-    src = src or (repo / MONOLITH)
-    data = json.loads(src.read_text(encoding="utf-8"))
-    ids = [i["id"] for i in data["items"]]
-    if len(ids) != len(set(ids)):
-        raise ChecklistError("duplicate row ids in the monolith")
-    base = repo / store
-    base.mkdir(parents=True, exist_ok=True)
-    for n, row in enumerate(data["items"]):
-        path = _row_path(base, row["id"])
-        path.write_text(_dump({**row, SEQ: n}), encoding="utf-8")
-    (base / HEADER).write_text(
-        _dump({k: (None if k == "items" else v) for k, v in data.items()}), encoding="utf-8")
-    for p in base.glob("*.json"):  # a row deleted from the monolith leaves the store
-        if p.name != HEADER and p.stem not in ids:
-            p.unlink()
-    return len(ids)
-
-
-def check(repo: Path = REPO, store: Path = STORE) -> list[str]:
-    """Why the monolith is not render(), or [] if it is."""
-    try:
-        want = render(repo, store)
-    except (OSError, ValueError) as exc:
-        return [f"store unreadable: {type(exc).__name__}: {exc}"]
-    have = (repo / MONOLITH).read_text(encoding="utf-8")
-    if have == want:
-        return []
-    h, w = json.loads(have), json.loads(want)
-    hi, wi = {r["id"]: r for r in h["items"]}, {r["id"]: r for r in w["items"]}
-    out = [f"row {i}: {'only in the monolith' if i not in wi else 'differs'}"
-           for i in hi if i not in wi or hi[i] != wi[i]]
-    out += [f"row {i}: only in the store" for i in wi if i not in hi]
-    out += [f"header key {k!r} differs" for k in h if k != "items" and h.get(k) != w.get(k)]
-    return out or ["bytes differ (key order / formatting) though the data is equal"]
+from src.runtime.checklist_store import *  # noqa: E402,F401,F403
+from src.runtime.checklist_store import (  # noqa: E402
+    MONOLITH, SEQ, STORE, ChecklistError, _dump, check, load,
+    render, seed, write_row,
+)
 
 
 def _self_test() -> int:

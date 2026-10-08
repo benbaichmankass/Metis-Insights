@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Tier-1 by content (research tooling, matrix, pipeline records, one test), but the diff adds a NEW hand-authored research/queue unit (RQ-20261007-904, the XRP trail4 short-only re-run), which check_pr_landing R5 refuses to self-land: a new queue unit is a registration, not a stamp. The manager lands it.",
+  "why": "Forwards the leg's side_filter in the M20 fleet-sweep wrapper (scripts/research only, no src/, no config) with a test; annotates four exit-coverage matrix cells; queues one re-run unit; closes/files pipeline records. strategies.yaml untouched - Tier-3 outcomes are in the lane report."
+}
