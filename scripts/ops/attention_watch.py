@@ -64,6 +64,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from datetime import date, datetime, timedelta, timezone
@@ -76,6 +77,7 @@ for _p in (REPO_ROOT, REPO_ROOT / "scripts"):
         sys.path.insert(0, str(_p))
 
 from scripts.ops import pipeline  # noqa: E402
+from scripts.ops import prop_trail_watch  # noqa: E402
 from scripts.ops import prop_silence  # noqa: E402
 
 # ⚠️ Anchored to the repo root, like work_digest_now.py: the unit carries no
@@ -310,6 +312,32 @@ def probe_manager(now: datetime) -> dict:
                                     f"(bound {MANAGER_SILENT_HOURS}h — no daily review?)"}
 
 
+PROP_TRIP_MAX_HOURS = 2      # the trip ping fires once; a tripped feed still trading nothing 2h later re-pages
+
+
+def probe_prop_feed(now: datetime) -> dict:
+    """A tripped prop feed means that account's executor places NOTHING (it exits
+    before running while ``feed/tripped`` exists) and the silence probe cannot see
+    it (it keys on fills). Reads the markers scripts/ops/prop_feed_tick.sh writes;
+    no base dir = we could not look (UNKNOWN), never OK."""
+    base = Path(os.environ.get("PROP_BROWSER_BASE") or Path.home() / ".cache" / "metis-prop-browser")
+    if not base.is_dir():
+        return {"status": UNKNOWN, "detail": f"no prop browser base dir ({base.name})"}
+    marks = [*base.glob("accounts/*/feed/tripped"), base / "feed" / "tripped"]
+    hit = []
+    for m in marks:
+        try:
+            age = (now - datetime.fromtimestamp(m.stat().st_mtime, timezone.utc)).total_seconds() / 3600
+        except OSError:
+            continue
+        name = "breakout_1" if m.parent.parent == base else m.parent.parent.name
+        hit.append((age, f"{name} ({age:.0f}h: {m.read_text(errors='replace')[:90].strip()})"))
+    old = [d for a, d in hit if a >= PROP_TRIP_MAX_HOURS]
+    return {"status": BREACHED if old else OK,
+            "detail": ("tripped, executor idle: " + "; ".join(old) + " — re-arm: breakout-login-check apply: reset-feed")
+            if old else f"{len(hit)} prop feed(s) tripped under {PROP_TRIP_MAX_HOURS}h" if hit else "no prop feed tripped"}
+
+
 REPORT_MAX_AGE_HOURS = 26     # daily 05:30Z + grace
 REPORT_DUE_UTC = (5, 50)      # today's report must exist by 05:50Z (review at 05:52Z)
 #: A report nobody can read in one sitting is the 737 KB brief again. BRIEF-FIX
@@ -373,14 +401,32 @@ def probe_inflight(now: datetime, shallow: bool | None) -> dict:
     which makes a stale row look FRESH — so a shallow clone reads ``unknown``.
     """
     try:
-        d = json.loads(CHECKLIST.read_text(encoding="utf-8"))
-        text_lines = CHECKLIST.read_text(encoding="utf-8").splitlines()
+        from src.runtime import checklist_store as _ck  # noqa: PLC0415
+        d = _ck.load_path(CHECKLIST)
+        text_lines = ([] if _ck.seeded(CHECKLIST)
+                      else CHECKLIST.read_text(encoding="utf-8").splitlines())
     except (OSError, ValueError) as exc:
         return {"status": UNKNOWN, "detail": f"checklist unreadable: {exc}", "rows": []}
     inflight = [r for r in d.get("items", []) if r.get("state") == "in_flight"]
     if shallow:
         return {"status": UNKNOWN, "detail": f"{len(inflight)} in_flight rows; clone is "
                 "shallow so row age cannot be read", "rows": []}
+    if not text_lines:  # per-row store: a row's activity is the last commit on ITS file
+        stale = []
+        for r in inflight:
+            out = _git("log", "-1", "--format=%ct", "--",
+                       f"docs/claude/work/checklist/{r.get('id')}.json")
+            if not out or not out.strip().isdigit():
+                continue
+            age = (now - datetime.fromtimestamp(int(out.strip()), tz=timezone.utc)).total_seconds() / 86400
+            if age >= INFLIGHT_STALE_DAYS:
+                stale.append({"id": r.get("id"), "days": round(age, 1), "lane": r.get("lane")})
+        stale.sort(key=lambda x: -x["days"])
+        return {"status": BREACHED if stale else OK, "rows": stale,
+                "detail": f"{len(stale)} of {len(inflight)} in_flight rows untouched "
+                          f">= {INFLIGHT_STALE_DAYS}d (per-row history)"
+                          + (": " + ", ".join(f"{s['id']} {s['days']:.0f}d" for s in stale[:6])
+                             if stale else "")}
     blame = _git("blame", "--line-porcelain", "--", str(CHECKLIST.relative_to(REPO_ROOT)))
     if blame is None:
         return {"status": UNKNOWN, "detail": "git blame failed", "rows": []}
@@ -430,10 +476,14 @@ def build(now: datetime | None = None) -> dict:
             "inflight": probe_inflight(now, shallow),
             "manager": probe_manager(now),
             "report": probe_report(now),
+            # TRAIL-PAUSE-PULSE: prop_trail_paused_<account>, one per executor
+            # account with a state dir on this host; see prop_trail_watch.py.
+            **prop_trail_watch.all_probes(now),
             # PROP-SILENCE-ALERTS: idle-fill (warn 14 d / urgent 21 d) per prop
             # account + breakout_2's phone heartbeat. Each carries `level` and
             # `priority`; see scripts/ops/prop_silence.py.
             **prop_silence.all_probes(now),
+            "prop_feed": probe_prop_feed(now),
         },
     }
 
@@ -444,7 +494,9 @@ PROBE_LABEL = {
     "inflight": "in_flight rows gone quiet",
     "manager": "manager's register not written",
     "report": "scheduled work report missing or broken",
+    **prop_trail_watch.LABELS,
     **prop_silence.LABELS,
+    "prop_feed": "a prop account feed is tripped (its executor is not trading)",
 }
 
 

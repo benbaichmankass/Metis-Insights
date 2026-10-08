@@ -172,6 +172,17 @@ The VM executor's order is: kill switch → read the terminal → reconcile → 
 | Submit | Re-hashes the live form; clicks **only if** it equals the verified hash and the token is unexpired | Never. Network loss between verify and click ⇒ **no click** (fail closed). |
 | Confirm | Re-reads positions/orders; classifies `confirmed / partial_no_sl_tp / absent` | Receives the report; `partial_no_sl_tp` triggers containment and an alert. |
 
+**Built (PHONE-GO-TOKEN, 2026-10-07; PI-20261005-YUVCGTMJ-0003).** `POST /api/bot/prop/phone/verify` and
+`POST /api/bot/prop/phone/go` (`src/prop/phone_executor.py::verify_readback` / `redeem_go_token`). As built, it differs
+from the table above in two stated ways: (1) the phone's own phase-1b checks are KEPT and run first; the server check is a
+second, independent one over the raw strings the page shows (symbol, selected side and order-type tabs, price, qty and
+its unit, TP, SL, submit label and its enabled state, TP/SL state), not a port of `check_form_shape`, because the
+proprietary terminal's form is not the DXtrade shape that function reads; (2) the 30 s token is REDEEMED on the server
+(`/phone/go`, consumed once, refused on replay, on a changed form hash, on expiry, or when the account / kill switch is
+no longer live) instead of being compared on the phone only. A `meta.test` ticket, a `dry_run` account or the kill
+switch get a `dry` token whose redeem always answers `go: false`; the dry path redeems it too, so a dry test exercises
+the whole route without a click.
+
 Why server-side for read-back: it keeps one tested implementation and means a fix lands without shipping an APK. The cost
 is that the phone cannot place an order while offline; that is correct, since it could not report either. The click
 guard on the phone is deliberately dumb (an equality check on a hash).
@@ -628,7 +639,7 @@ By the criteria registered before the run, that is 2 of 4: **NOT-YET** by the le
 |---|---|---|
 | Per-device auth | `config/prop_phone_devices.yaml`, `src/prop/phone_executor.py::authenticate` | The phone mints a 256-bit token. Only its SHA-256 **fingerprint** leaves the phone (the "Share ID" button) and is committed; a fingerprint is not a secret. Each device is pinned to one account. Revoke = `revoked: true`. This **replaces the § 3.2 pairing-code / new-table design**: no `prop_devices` table, no Telegram code and no new secret, and pairing is a git-visible change. |
 | Routes | `POST /api/bot/prop/phone/{claim,report,event,test-ticket}` (`routers/prop.py`, `docs/api-tier-policy.md`) | `claim` is the atomic `emitted -> claimed`, and it runs the 3-minute watchdog. `report` forces `account_id` from the token. `ticket_result` keeps the phone's form dump in `meta.phone.result`, which is how the unread TP/SL labels will be read. `event` pings Telegram with links, emails and 6+ digit runs scrubbed. `test-ticket` is always dry. |
-| Submit decision | `phone_executor.submit_mode` | `live` only if the account's `accounts.yaml` mode is `live`, `PROP_PHONE_MODE_<ACCOUNT>` is not `off` or `dry` (an unparseable value counts as `dry`), and the ticket is not a test. The phone also needs its own **ARMED** switch (default off). |
+| Submit decision | `phone_executor.submit_mode` | `live` only if the account's `accounts.yaml` mode is `live`, `PROP_PHONE_MODE_<ACCOUNT>` is not `off` or `dry` (an unparseable value counts as `dry`), and the ticket is not a test. This is the **only** live/dry decision: the phone's device-local ARMED switch was removed on 2026-10-06 (operator: *"not have the feature on the app where I need to arm it manually … extra gates that are unnecessary … actually less safe than we think"*; § 7.15). |
 | Account | `config/accounts.yaml::breakout_2` (`mode: dry_run`), `config/prop_platforms.yaml::phone_accounts.breakout_2`, `config/prop_rulesets/breakout_turbo_1step.yaml` | `phone_accounts` is a separate section, so the VM executor and the login check never load it. |
 | App | `tools/phone-executor/` (`com.metis.phoneexec`), CI `phone-executor-apk.yml` | Kiosk WebView, stock UA. Claim every 30 s. Fill: Limit tab, side tab, limit price, quantity (unit must name the base asset), TP/SL. Read every field back; the submit label must carry the side. In dry mode it does not submit; in live mode it submits, then reads Open orders / Positions back and flattens any opposite-side position. Fsynced intent ledger with no retry after a restart. Auto re-login: dedicated inbox, newest `breakoutprop.com` mail, the ONE link whose text equals the page's number, opened in the same WebView, 2 failures then latch and ping. Foreground service + boot receiver + "display over other apps" to come back after a reboot. |
 | Stable signing | `phone-executor-apk.yml` | The first run generates a keystore into Actions secrets (`PHONE_EXEC_KEYSTORE_*`) through the existing `BRANCH_PROTECTION_TOKEN`; it is never printed and never in git. Later builds install over the old app and keep the session. **New applicationId**, so the 1a probe and its session under measurement are untouched. |
@@ -670,7 +681,7 @@ Every one of these is a **refusal with the form dump**, never a guess, so the fi
 4. Leave the app open. It loads the terminal and should log itself in through the inbox; that first login is the first test of auto re-login. If it latches, log in by hand in the app and tap "Reset login".
 5. Tap **Share ID** and send the line to the manager. It is a fingerprint, not a secret. We commit it, which pairs the phone.
 6. Tap **Dry test**. The app fills one ETH ticket, reads it back, does **not** submit, and the VM pings the result.
-7. Keep the phone on charge with the app on screen. Do **not** tap ARMED until the go-live message.
+7. Keep the phone on charge with the app on screen. *(Superseded 2026-10-06, § 7.15: there is no ARMED button any more; live vs dry is decided by the server.)*
 
 ### 7.12 First dry ticket on the phone (2026-10-05 22:20Z): refused on the symbol, and what that measured
 
@@ -727,6 +738,58 @@ base before anything is typed — and additionally refuses if the chip, when the
 end on SOL with the chip and the submit label agreeing, make exactly one selection click, and submit nothing. They prove
 mechanics on synthetic DOM, **not** Breakout's real list: the proof is one `phone-dry-test` for `SOLUSDT` on breakout_2 with
 the terminal on ETH, after the operator installs the APK built from this change; its refusal reason, if any, names the route.
+
+### 7.14 Trail amends on the phone path (PROP-TRAIL-PHONE, 2026-10-07)
+
+**Why:** the prop trail (`src/prop/prop_trail.py::run_trail_step`) runs only in the VM executor tick, so breakout_2's
+`*_prop` legs traded a static SL+TP bracket while their Stage-0 record assumed the chandelier trail (§ 5.3 already named
+"no trailing amendments" as a cost of the phone path).
+
+**Server** (`src/prop/phone_trail.py`): the trail is planned with the same `plan_trail` replay, once per closed bar, for every
+`placed`/`filled` ticket. One amend is published in a single slot on the parent ticket (`meta.phone_trail`), so at most one
+is ever outstanding. The claim serves it ONLY to an app that posts `accepts: ["amend"]`. `submit` is the entry path's
+`submit_mode` (no device-local switch on top, § 7.15). TP revisions travel through the same slot (`request_tp_amend`).
+
+**Phone** (`executeAmend`, `exec.js` `posInfo` / `posEdit` / `editDialog` / `dlg*`):
+1. Find the ONE Positions row for the symbol and side.
+2. The terminal must show the stop (and target) the server believes is resting. If it shows anything else, report
+   `human_moved` and never override it.
+3. Click the row's ONE edit control (text, aria-label or title naming edit / modify / TP-SL). Never a close control.
+4. Find the ONE dialog, then the SL (and TP) fields by label. Type the values and read every one back; the kept TP must
+   read back unchanged.
+5. **DRY:** cancel and report `dry_amended`. **LIVE:** click the ONE save button, then read the result back on the terminal:
+   the row's SL/TP columns, or else the dialog re-opened read-only and cancelled.
+
+Anything unverified before the save is `refused`; after it, `mismatch`. The server locks that ticket's trail on
+`mismatch`, `human_moved`, a second refusal, or a claimed amend with no report, and pings the operator. A locked trail is
+never retried.
+
+**UNMEASURED:** no capture has shown Breakout's Positions row edit control or its dialog. The headless fixtures
+(`test/exec_check.js`, "amend") prove the helpers' mechanics on synthetic DOM only. The first real amend, dry or live,
+either passes or refuses with the dump (row headers and controls, dialog inputs and buttons) that names the label to fix.
+
+### 7.15 The device-local ARMED switch is removed: live vs dry is decided only by the server (2026-10-06, lane ARMED-GATE)
+
+**Operator decision (2026-10-06 ~07:50Z, verbatim):** *"not have the feature on the app where I need to arm it manually. That falls
+into the category of extra gates that are unnecessary and then make it harder to manage the system correctly and are actually less
+safe than we think".* It is the same rule as CLAUDE.md § "The two execution gates": no hidden, default-off third gate.
+
+**What changed:**
+- **App:** the ARMED button, its confirm dialog, `Store.ARMED` and `armed()` are gone. `execute()` submits exactly when the claim says
+  `submit: live` and the ticket is not `meta.test`. The heartbeat no longer carries `armed`; the idle status line no longer shows it;
+  the dry reason is `test ticket (always dry)` or `server mode dry`.
+- **Server:** `submit_mode` is unchanged and is now the only decision: `live` iff `accounts.yaml` mode is `live`, the kill switch
+  `PROP_PHONE_MODE_<ACCOUNT>` is not `off`/`dry`, and the ticket is not a test. A leg with `strategies.yaml` `execution: shadow` never
+  reaches a ticket (`execute_pkg` emits none for a dry/shadow leg). `"armed"` left the heartbeat allowlist, so an old APK's value is
+  dropped instead of displayed as if it still decided anything.
+- **Unchanged:** the terminal gate, symbol verification, field read-back, the submit-label side check, the fsynced ledger with no retry,
+  the busy-symbol check, and the opposite-side flatten.
+
+**How to stop live submits now:** set `PROP_PHONE_MODE_<ACCOUNT>` to `dry` (or `off`), or set the account's `mode: dry_run` through
+`set-account-mode`. Both are server-side and visible. The app's Pause button is not a stop: it lapses at login or after 10 minutes.
+
+**Until the new APK is installed** the old app still requires its own ARMED flag. On 2026-10-06 the phone was already armed, so
+installing the new APK does not change what it does today; it removes the way for the phone to silently drift to dry.
 
 ## 8. Open questions for the operator / manager
 

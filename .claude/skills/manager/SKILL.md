@@ -135,8 +135,8 @@ a dispute of operator authority") and does not file it anywhere else.
    that cost is acceptable. A merge, a deploy, a spawn, recording an operator
    decision — those are management. `src/`, `tests/`, `scripts/`,
    `.github/workflows/`, `config/`, `deploy/` are not.
-2. **Maintain more than one register.** `docs/claude/work/MANAGER-CHECKLIST.json`
-   is the only one. The lease, work store, session registry, merge queue,
+2. **Maintain more than one register.** The checklist (`docs/claude/work/MANAGER-CHECKLIST.json`,
+   rows under `docs/claude/work/checklist/` after the cutover) is the only one. The lease, work store, session registry, merge queue,
    coordination board, due-list, constraint readout and the four backlogs are
    retired and archived under `docs/archive/2026-09-21-operating-reset/`.
 3. **Write narrative observations about its own state.** Three timestamped
@@ -303,6 +303,13 @@ design intent.
 7. Then report to the operator and dispatch.
 
 ## Spawning
+
+### How lane PRs land
+
+A Tier-1 lane self-lands its PR using a fixed process: create `.github/pr-landing/<slug>.json` with `tier: 1` and `landing: self`, create `.github/pr-automerge-requests/<slug>.txt`, run `python3 scripts/ops/claim_merge_slot.py --branch-claim --branch <branch> --held-by <session_id>` to claim the merge slot, and arm GitHub auto-merge with `gh api -X PUT repos/<owner>/<repo>/pulls/<n>/ccr/auto_merge -f merge_method=squash`. If Claude Code's classifier refuses the auto-merge arming (returns "Merge Without Review"), the lane re-declares the PR with `landing: hold` and `hold_reason: operator_asked_to_hold`, reports the exact refused command to the manager in one line, and the manager lands the PR. Tier-2/3 lane PRs always carry `landing: hold` — the manager (Tier 2) or operator's recorded approval (Tier 3) lands them. Measured precedent: PR #16719.
+
+- **Tier-1 lanes:** self-land when the classifier arms auto-merge; report blocked arming to the manager in one line; manager lands if blocked.
+- **Tier-2/3 lanes:** hold for manager (T2) or operator approval (T3); never self-land.
 
 ### Model by task class
 
@@ -496,7 +503,36 @@ reason**. A successor reads the reasoning, not just the value.
 
 ## The checklist
 
-One file: `docs/claude/work/MANAGER-CHECKLIST.json`. Row schema:
+### How to edit it — the recipe (PI-20261004-APBY4NTV-0003)
+
+**Before the cutover** the register is the one file `docs/claude/work/MANAGER-CHECKLIST.json`.
+**From the cutover** (the day `docs/claude/work/checklist/_header.json` exists) it is
+**one file per row** under `docs/claude/work/checklist/<ROW-ID>.json`, and **no
+session edits it with ad-hoc python again** — a single shared array is why every
+concurrent row edit conflicted on GitHub (measured: 20 of 41 commits appended a row,
+11 touched the shared header). Use the CLI; it writes ONE row file atomically,
+checks the row against the file's own declared `states`, and never touches the
+shared header:
+
+```bash
+python3 scripts/ops/checklist.py add  NEW-ROW --title "one line" --state queued --owner me --tier 1 --by "$SESSION"
+python3 scripts/ops/checklist.py set  A3 state=in_flight lane=session_01... ceiling_usd=25 --by "$SESSION"
+python3 scripts/ops/checklist.py set  A3 prs='[123,456]' blocked_on='[]'     # values parse as JSON, else string
+python3 scripts/ops/checklist.py note A3 "what is true about this row"        # --append to add to it
+python3 scripts/ops/checklist.py archive-lane A3                              # lane -> lane_history, lane = null
+python3 scripts/ops/checklist.py header last_review '{"report_id": "...", "reviewed_at": "..."}'   # rare: the header is shared
+```
+
+A refused edit (state outside `states`, duplicate id, unknown row, `state`/`status`
+disagreement, path-shaped id) prints `checklist: refused -- <why>` and writes
+nothing. Rows carry their own `updated_at` / `updated_by`; the top-level
+`updated_at` / `updated_by` are no longer maintained. **Read** the register with
+`from src.runtime import checklist_store; checklist_store.load_path(path)` (or
+`load_at(repo, ref)` for history) — never parse the path yourself
+(`checklist-readers-guard`). History of a row is `git log -- docs/claude/work/checklist/<ID>.json`.
+`python3 scripts/ops/checklist.py --render` prints the served shape.
+
+One file: `docs/claude/work/MANAGER-CHECKLIST.json` (rows under `docs/claude/work/checklist/` after the cutover). Row schema:
 
 ```json
 {
@@ -745,7 +781,7 @@ incident.
    time gets a `send_later` wake.
 4. **Record the review.** Set the top-level `last_review` =
    `{report_id, reviewed_at, by, counts: {dispatched, closed, decided, carried}}`
-   on `MANAGER-CHECKLIST.json`, then push. Per-item dispositions live on the
+   on the checklist (`checklist.py header last_review '<json>'` after the cutover), then push. Per-item dispositions live on the
    pipeline items, so the next review sees what is new.
 
 ### Manager ↔ lane: PUSH plus POLL (operator directive 2026-10-04, binding)

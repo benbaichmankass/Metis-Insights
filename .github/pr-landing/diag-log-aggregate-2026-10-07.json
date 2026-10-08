@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "why": "Read-only token-gated /api/diag/log_aggregate (whole-file per-UTC-day counts, no row content). Lives in routers/diag.py (Tier-2 by name); live only after a web-api restart.",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Needs one operator/manager OK in chat, then a web-api deploy. Unblocks PI-20261004-4GA8WQPA-0003 and the multi-day soak criteria (bybit_coverage_soak, position_read_state_soak)."
+}

@@ -43,10 +43,136 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from src.runtime.checklist_store import *  # noqa: E402,F401,F403
+from src.runtime import checklist_store as _store  # noqa: E402
 from src.runtime.checklist_store import (  # noqa: E402
     MONOLITH, SEQ, STORE, ChecklistError, _dump, check, load,
     render, seed, write_row,
 )
+
+
+# ── the write CLI: every register edit goes through here, never ad-hoc python ──
+def _now_utc() -> str:
+    from datetime import datetime, timezone  # noqa: PLC0415
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _parse_value(text: str):
+    """``null`` / numbers / lists / objects parse as JSON; anything else is a string."""
+    try:
+        return json.loads(text)
+    except ValueError:
+        return text
+
+
+def _vocab_problems(row: dict, header: dict) -> list[str]:
+    """Grade ONE row against the file's own declared vocabulary, with the same
+    functions the vocabulary guard uses (`manager_status` owns them), so a bad row
+    is refused at the keyboard instead of at CI."""
+    from src.runtime.manager_status import _declared_vocabulary, effective_state  # noqa: PLC0415
+    vocab = _declared_vocabulary({"states": header.get("states"), "items": [row]})
+    eff = effective_state(row, vocabulary=vocab)
+    out: list[str] = []
+    if eff.disagrees:
+        out.append("`state` and the legacy `status` disagree; the file has ONE status field: `state`")
+    if eff.value is not None and not eff.in_declared_vocabulary:
+        out.append(f"state {eff.value!r} is not in the file's declared `states` "
+                   f"({', '.join(sorted(header.get('states') or {}))})")
+    if eff.value is None:
+        out.append("a row needs a `state`")
+    return out
+
+
+def _require_seeded(repo: Path) -> dict:
+    hp = repo / STORE / "_header.json"
+    if not hp.is_file():
+        raise ChecklistError(
+            "the per-row store is not seeded (no docs/claude/work/checklist/_header.json); "
+            "until the cutover the register is still edited in MANAGER-CHECKLIST.json")
+    return json.loads(hp.read_text(encoding="utf-8"))
+
+
+def _commit_row(row: dict, repo: Path, header: dict, by: str | None) -> Path:
+    problems = _vocab_problems(row, header)
+    if problems:
+        raise ChecklistError(f"row {row.get('id')!r} refused: " + "; ".join(problems))
+    row = dict(row, updated_at=_now_utc())
+    if by:
+        row["updated_by"] = by
+    return _store.write_row(row, repo)
+
+
+def op_add(repo: Path, row_id: str, fields: dict, by: str | None) -> Path:
+    header = _require_seeded(repo)
+    if _store.read_row(row_id, repo) is not None:
+        raise ChecklistError(f"row {row_id!r} already exists; use `set` or `note`")
+    row = {"id": row_id, "title": "", "phase": None, "state": "queued", "owner": None, "lane": None,
+           "model": None, "ceiling_usd": None, "spend_usd": None, "tier": None, "prs": [],
+           "blocked_on": [], "note": ""}
+    row.update(fields)
+    if not str(row["title"]).strip():
+        raise ChecklistError("`add` needs --title")
+    return _commit_row(row, repo, header, by)
+
+
+def op_set(repo: Path, row_id: str, fields: dict, by: str | None) -> Path:
+    header = _require_seeded(repo)
+    row = _store.read_row(row_id, repo)
+    if row is None:
+        raise ChecklistError(f"no row {row_id!r}")
+    if "id" in fields and fields["id"] != row_id:
+        raise ChecklistError("a row's id cannot change")
+    row.update(fields)
+    return _commit_row(row, repo, header, by)
+
+
+def op_note(repo: Path, row_id: str, text: str, append: bool, by: str | None) -> Path:
+    row = _store.read_row(row_id, repo)
+    if row is None:
+        raise ChecklistError(f"no row {row_id!r}")
+    return op_set(repo, row_id, {"note": (f"{row.get('note') or ''} {text}".strip() if append else text)}, by)
+
+
+def op_archive_lane(repo: Path, row_id: str, by: str | None) -> Path:
+    row = _store.read_row(row_id, repo)
+    if row is None:
+        raise ChecklistError(f"no row {row_id!r}")
+    if not row.get("lane"):
+        raise ChecklistError(f"row {row_id!r} has no lane to archive")
+    hist = list(row.get("lane_history") or [])
+    hist.append({"lane": row["lane"], "archived_at": _now_utc()})
+    return op_set(repo, row_id, {"lane": None, "lane_history": hist}, by)
+
+
+def _cli_write(a, repo: Path) -> int:
+    by = a.by or None
+    try:
+        if a.cmd == "add":
+            fields = {k: v for k, v in (("title", a.title), ("phase", a.phase), ("state", a.state),
+                                        ("owner", a.owner), ("tier", None if a.tier is None else _parse_value(a.tier)), ("note", a.note),
+                                        ("lane", a.lane)) if v is not None}
+            if a.prs:
+                fields["prs"] = [int(x) for x in a.prs.split(",") if x.strip()]
+            path = op_add(repo, a.id, fields, by)
+        elif a.cmd == "set":
+            fields = {}
+            for kv in a.assignments:
+                if "=" not in kv:
+                    raise ChecklistError(f"{kv!r}: expected key=value")
+                k, v = kv.split("=", 1)
+                fields[k] = _parse_value(v)
+            path = op_set(repo, a.id, fields, by)
+        elif a.cmd == "note":
+            path = op_note(repo, a.id, a.text, a.append, by)
+        elif a.cmd == "archive-lane":
+            path = op_archive_lane(repo, a.id, by)
+        else:  # header
+            _require_seeded(repo)
+            path = _store.write_header(a.key, _parse_value(a.value), repo)
+    except ChecklistError as exc:
+        print(f"checklist: refused -- {exc}")
+        return 1
+    print(f"checklist: wrote {path.relative_to(repo)}")
+    return 0
 
 
 def _self_test() -> int:
@@ -108,7 +234,30 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--render", action="store_true", help="print the generated monolith")
     ap.add_argument("--check", action="store_true", help="fail if the monolith != render()")
     ap.add_argument("--write-row", metavar="FILE", help="create/replace one row from a JSON file")
+    ap.add_argument("--repo", default=str(REPO), help=argparse.SUPPRESS)
+    sub = ap.add_subparsers(dest="cmd")
+    pa = sub.add_parser("add", help="add a new row")
+    pa.add_argument("id")
+    for flag in ("title", "phase", "state", "owner", "note", "lane", "tier", "prs"):
+        pa.add_argument(f"--{flag}")
+    ps = sub.add_parser("set", help="set fields on a row: key=value ... (JSON values parsed)")
+    ps.add_argument("id")
+    ps.add_argument("assignments", nargs="+")
+    pn = sub.add_parser("note", help="set (or --append to) a row's note")
+    pn.add_argument("id")
+    pn.add_argument("text")
+    pn.add_argument("--append", action="store_true")
+    pl = sub.add_parser("archive-lane", help="move a row's lane into lane_history and null it")
+    pl.add_argument("id")
+    ph = sub.add_parser("header", help="set one top-level key (rare; the header is shared)")
+    ph.add_argument("key")
+    ph.add_argument("value")
+    for sp in (pa, ps, pn, pl):
+        sp.add_argument("--by", help="session id stamped on the row as updated_by")
+    ph.add_argument("--by", help=argparse.SUPPRESS)
     a = ap.parse_args(argv)
+    if a.cmd:
+        return _cli_write(a, Path(a.repo))
     if a.self_test:
         return _self_test()
     if a.seed:

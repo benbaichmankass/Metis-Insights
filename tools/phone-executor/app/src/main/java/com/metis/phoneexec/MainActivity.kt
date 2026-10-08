@@ -48,11 +48,16 @@ import kotlin.math.round
  *                    Two failures latch it off and ping the operator.
  *   - logged in   -> claim the next ticket from the VM (atomic, one attempt per ticket), fill it, read EVERY field
  *                    back (the submit label must carry the side), then:
- *                      DRY  (default; any test ticket; server says dry; or the app is not ARMED): do NOT submit,
+ *                      DRY  (any test ticket, or the server says dry): do NOT submit,
  *                           report the read-back and clear the quantity.
- *                      LIVE (server says live AND the app is ARMED): submit, read Open orders / Positions back,
+ *                      LIVE (the server says live): submit, read Open orders / Positions back,
  *                           report the placement to the VM ledger; an opposite-side position is flattened.
  * Any unread, ambiguous or mismatched value is a refusal (fail closed), reported with the ticket dump.
+ *
+ * LIVE vs DRY IS DECIDED ONLY BY THE SERVER (operator 2026-10-06, ARMED-GATE): the claim's `submit` field, which
+ * src/prop/phone_executor.py::submit_mode derives from accounts.yaml `mode` and the PROP_PHONE_MODE_<ACCOUNT> kill
+ * switch (shadow / dry legs never emit a ticket at all). There is no device-local "armed" switch: a second, hidden
+ * gate on the phone made the system harder to manage, not safer. Test tickets stay always dry.
  *
  * BACKGROUND (PI-20261006-APBY4NTV-0006, OBSERVED 2026-10-06: heartbeat stopped 10:03Z while the app was backgrounded,
  * claims resumed only when the operator reopened it): a backgrounded WebView may never answer evaluateJavascript, and
@@ -64,7 +69,6 @@ import kotlin.math.round
 class MainActivity : Activity() {
     private lateinit var web: WebView
     private lateinit var status: TextView
-    private lateinit var armBtn: Button
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private lateinit var api: Api
     private lateinit var ledger: Ledger
@@ -105,6 +109,9 @@ class MainActivity : Activity() {
         const val PAUSE_MAX_MS = 10 * 60_000L
         const val JS_TIMEOUT_MS = 10_000L
         const val BG_WAKE_MAX_MS = 3 * 60_000L
+        // Server read-back (design 3.4): "key=value" lines in THIS order, hashed with SHA-256. Must equal
+        // src/prop/phone_executor.py READBACK_FIELDS (tests/test_phone_executor.py compares the two lists).
+        val READBACK_FIELDS = listOf("ticket_id", "symbol", "side", "order_type", "price", "qty", "qty_unit", "tp", "sl", "submit_label", "submit_disabled", "tpsl")
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -136,11 +143,9 @@ class MainActivity : Activity() {
             }
         }
         status = TextView(this).apply { setPadding(16, 8, 16, 8); setBackgroundColor(Color.parseColor("#202833")); setTextColor(Color.WHITE); textSize = 12f }
-        armBtn = Button(this)
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             fun btn(label: String, f: () -> Unit) = addView(Button(this@MainActivity).apply { text = label; isAllCaps = false; setOnClickListener { f() } })
-            addView(armBtn.apply { isAllCaps = false; setOnClickListener { toggleArm() } })
             btn("Setup") { setupDialog() }
             btn("Dry test") { dryTest() }
             btn("Share ID") { shareFingerprint() }
@@ -156,7 +161,6 @@ class MainActivity : Activity() {
             addView(web, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         }
         setContentView(root)
-        renderArm()
         KeepAliveService.start(this, launch = false)
         web.loadUrl(TRADE_URL)
 
@@ -196,16 +200,6 @@ class MainActivity : Activity() {
         pausedUntilMs = if (paused()) 0L else System.currentTimeMillis() + PAUSE_MAX_MS
         pauseBtn.text = if (paused()) "PAUSED (tap to resume)" else "Pause"
         setStatus(if (paused()) "paused: no reload, no re-login, no ticket until logged in or 10 min" else "resumed")
-    }
-    private fun armed() = Store.flag(this, Store.ARMED)
-    private fun renderArm() { armBtn.text = if (armed()) "ARMED (live)" else "Dry (not armed)"; armBtn.setTextColor(if (armed()) Color.RED else Color.DKGRAY) }
-
-    private fun toggleArm() {
-        if (armed()) { Store.setFlag(this, Store.ARMED, false); renderArm(); return }
-        AlertDialog.Builder(this).setTitle("Arm live submits?")
-            .setMessage("Live orders are submitted only when the server ALSO says live (the account is live). Test tickets are never submitted.")
-            .setPositiveButton("Arm") { _, _ -> Store.setFlag(this, Store.ARMED, true); renderArm() }
-            .setNegativeButton("Cancel", null).show()
     }
 
     private fun shareFingerprint() {
@@ -354,7 +348,7 @@ class MainActivity : Activity() {
         val now = System.currentTimeMillis()
         if (now - lastHbMs < HEARTBEAT_MS) return
         lastHbMs = now
-        val state = JSONObject().put("st", st).put("paused", paused()).put("hold", userActive()).put("armed", armed())
+        val state = JSONObject().put("st", st).put("paused", paused()).put("hold", userActive())
             .put("host", s?.optString("host") ?: "").put("onAccount", s?.optBoolean("onAccount") ?: false)
             .put("path_depth", s?.optInt("path_depth") ?: 0)
             .put("fg", resumed).put("jsTimeouts", jsTimeouts).put("pending", lastPending)
@@ -478,7 +472,8 @@ class MainActivity : Activity() {
         if (!resumed) { setStatus("backgrounded: no claim"); return }
         val now = System.currentTimeMillis()
         if (now < claimBackoffUntilMs) { setStatus("logged in · VM busy (5xx); backing off ${(claimBackoffUntilMs - now) / 1000 + 1} s (no claim)"); return }
-        val r = api.post("claim") ?: run { setStatus("logged in · VM unreachable (no claim, no click)"); return }
+        // accepts amend: this build executes trail amends (PROP-TRAIL-PHONE); the VM serves them to no older build
+        val r = api.post("claim", JSONObject().put("accepts", JSONArray().put("amend"))) ?: run { setStatus("logged in · VM unreachable (no claim, no click)"); return }
         if (!r.optBoolean("ok")) {
             // 5xx (e.g. the API restarting for a deploy): ONE attempt, no in-tick retry, and no execution -- we hold no
             // ticket, so nothing can be filled or submitted. Back off 1 -> 2 -> 4 -> 5 min. If the server committed the
@@ -494,7 +489,17 @@ class MainActivity : Activity() {
         claim5xx = 0; claimBackoffUntilMs = 0L
         claimedThisTick = true
         val t = r.optJSONObject("ticket")
-        if (t == null) { setStatus("logged in · ${if (armed()) "ARMED" else "dry"} · waiting for a ticket (none queued) · ${java.text.DateFormat.getTimeInstance().format(Date())}"); return }
+        if (t == null) { setStatus("logged in · waiting for a ticket (none queued) · ${java.text.DateFormat.getTimeInstance().format(Date())}"); return }
+        if (t.optString("kind") == "amend") {
+            val aid = t.optString("amend_id")
+            try { executeAmend(t, r.optJSONObject("config") ?: JSONObject()) }
+            catch (e: JsTimeout) {
+                // after the save click the stop is UNKNOWN (mismatch, the VM locks the trail and pings); before it, nothing changed
+                if (ledger.last(aid) == "submitted") { ledger.append(aid, "unconfirmed"); amendResult(t, "mismatch", "page stopped answering after the save click", null, null, null) }
+                else if (ledger.last(aid) == "intended") { ledger.append(aid, "refused"); amendResult(t, "refused", "page stopped answering before any save (nothing saved)", null, null, null) }
+            }
+            return
+        }
         val id = t.optString("ticket_id")
         try { execute(t, r.optJSONObject("config") ?: JSONObject()) }
         catch (e: JsTimeout) {
@@ -521,7 +526,7 @@ class MainActivity : Activity() {
         ledger.append(id, "intended")
         val meta = t.optJSONObject("meta") ?: JSONObject()
         val test = meta.optBoolean("test")
-        val live = t.optString("submit") == "live" && armed() && !test
+        val live = t.optString("submit") == "live" && !test
         val sym = t.optString("symbol").uppercase()
         val inst = cfg.optJSONObject("instruments")?.optJSONObject(sym)
         val venue = t.optString("venue_symbol").ifEmpty { inst?.optString("venue") ?: "" }
@@ -625,16 +630,41 @@ class MainActivity : Activity() {
         if (tk.optBoolean("tpsl") != true) return refuse(id, "TP/SL box not on at read-back", tk)
         if (!sideRe.containsMatchIn(subText) || oppRe.containsMatchIn(subText)) return refuse(id, "submit label does not match the side", tk)
         if (sub?.optBoolean("disabled") != false) return refuse(id, "submit disabled after fill", tk)
+        // 5b. SERVER read-back (design 3.4, PHONE-GO-TOKEN): a SECOND, independent check; every phone-side check above
+        //     stays. The phone posts what the page SHOWS (raw strings); the server re-verifies it against the ticket and
+        //     the venue steps and issues ONE token bound to the ticket id + the read-back hash (30 s). No token
+        //     (unreachable, refused) = no submit. Test tickets and dry accounts get a "dry" token that never says go.
+        val fieldsRb = listOf(fPrice, fQty, fTp, fSl)
+        val unitSrc = unitNow.ifEmpty { qNear.ifEmpty { alerts } }
+        val rb = readBack(id, tk, fieldsRb, unitSrc)
+        val rbHash = sha256(readBackLines(rb))
+        val v = api.post("verify", JSONObject().put("ticket_id", id).put("readback", rb).put("readback_sha256", rbHash))
+            ?: return refuse(id, "server verify unreachable (no go-token; not submitted)", tk)
+        if (!v.optBoolean("ok")) return refuse(id, "server read-back refused: ${v.optJSONArray("reasons")?.toString()?.take(200) ?: "http " + v.optInt("http")}", tk)
+        val token = v.optString("token")
+        val serverLive = v.optString("mode") == "live"
+        if (token.isEmpty() || v.optString("readback_sha256") != rbHash) return refuse(id, "server verify answered without a token bound to this read-back", tk)
 
-        if (!live) {
+        if (!live || !serverLive) {
+            // exercise the redeem on the dry path too: a DRY token must answer go=false (never a click either way). A LIVE
+            // token on a dry path (the claim said dry, the server now says live) is left to expire unredeemed.
+            val g = if (serverLive) null else api.post("go", JSONObject().put("ticket_id", id).put("token", token).put("readback_sha256", rbHash))
+            val goTxt = if (serverLive) "live token not redeemed (app dry)" else if (g == null) "go unreachable" else if (g.optBoolean("go")) "go=TRUE on a dry token" else "go=false (${g.optString("reason").take(40)})"
+            if (g?.optBoolean("go") == true) api.event("mismatch", "server said go on a DRY token; not submitted", id)
             ledger.append(id, "dry_filled")
-            report(id, "dry_filled", if (test) "test ticket (always dry)" else if (!armed()) "app not armed" else "server mode dry", tk)
-            api.event("dry_fill_ok", "filled + read back, NOT submitted: $sideTab ${fmt(qty, qStep)} $venue lim ${fmt(entry, pStep)} tp ${fmt(tp, pStep)} sl ${fmt(sl, pStep)}", id)
+            report(id, "dry_filled", (if (test) "test ticket (always dry)" else "server mode dry") + "; server verify ok, ${v.optString("mode")} token, $goTxt", tk)
+            api.event("dry_fill_ok", "filled + read back + SERVER verified (${v.optString("mode")} token, $goTxt), NOT submitted: $sideTab ${fmt(qty, qStep)} $venue lim ${fmt(entry, pStep)} tp ${fmt(tp, pStep)} sl ${fmt(sl, pStep)}", id)
             js("__ex.setByLabel('quantity', '', '')")
             setStatus("DRY ticket $id filled and read back; not submitted")
             return
         }
-        // 6. LIVE submit
+        // 6. LIVE submit: re-read the form NOW, re-hash, redeem the token (one-shot, server-side); click only on go=true
+        val tkNow = jsObj("__ex.ticket()") ?: return refuse(id, "ticket unreadable before submit", null)
+        val hashNow = sha256(readBackLines(readBack(id, tkNow, fieldsRb, unitSrc)))
+        if (hashNow != rbHash) return refuse(id, "form changed since the server verified it (not submitted)", tkNow)
+        val go = api.post("go", JSONObject().put("ticket_id", id).put("token", token).put("readback_sha256", hashNow))
+            ?: return refuse(id, "go-token redeem unreachable (not submitted)", tkNow)
+        if (!go.optBoolean("go")) return refuse(id, "go-token refused: ${go.optString("reason").ifEmpty { "http " + go.optInt("http") }}", tkNow)
         ledger.append(id, "submitted")
         if (js("__ex.submit()") != "clicked") { ledger.append(id, "refused"); return refuse(id, "submit not clickable", tk) }
         delay(1500)
@@ -671,6 +701,179 @@ class MainActivity : Activity() {
         api.event("mismatch", "submitted but not found in Open orders/Positions after 3 reads; CHECK the terminal", id)
         setStatus("ticket $id UNCONFIRMED — operator check")
     }
+
+    // ---------------- trail amends (PROP-TRAIL-PHONE) ----------------
+    /** Edit the stop (and a TP revision) of ONE open position, the way the entry is filled: locate by label, demand
+     *  exactly one match, read EVERY value back, never save without the read-back, then re-read the terminal.
+     *  Order: Positions row (unique for symbol+side) -> the terminal must show the stop the VM believes is resting
+     *  (else human_moved: a human's stop is never overridden) -> the row's ONE edit control -> the ONE dialog -> SL
+     *  (and TP) by label, typed and read back, the kept TP read back unchanged -> DRY: cancel and report; LIVE: the ONE
+     *  save button, then the position re-read (row column, else the edit dialog re-opened read-only and cancelled).
+     *  Anything unread or ambiguous before the save is "refused" (nothing changed); after it, "mismatch" (the VM
+     *  locks this ticket's trail and pings). One attempt per amend id (the ledger), never retried here. */
+    private suspend fun executeAmend(t: JSONObject, cfg: JSONObject) {
+        val aid = t.getString("amend_id")
+        if (ledger.seen(aid)) return amendResult(t, "refused", "ledger already holds this amend", null, null, null)
+        ledger.append(aid, "intended")
+        val live = t.optString("submit") == "live"   // the server decides (ARMED-GATE: no device-local switch)
+        val sym = t.optString("symbol").uppercase()
+        val inst = cfg.optJSONObject("instruments")?.optJSONObject(sym)
+        val venue = t.optString("venue_symbol").ifEmpty { inst?.optString("venue") ?: "" }
+        if (venue.isEmpty() || inst == null) return amendRefuse(t, "symbol not mapped in prop_platforms phone_accounts", null)
+        val pStep = inst.optDouble("price_step", Double.NaN)
+        if (pStep.isNaN()) return amendRefuse(t, "price step not declared", null)
+        val long = t.optString("direction").lowercase() == "long"
+        val sideRe = if (long) "long|buy" else "short|sell"
+        val fromSl = t.optDouble("from_sl", Double.NaN); val sl = t.optDouble("sl", Double.NaN)
+        val fromTp = t.optDouble("from_tp", Double.NaN); val tp = t.optDouble("tp", Double.NaN)
+        if (fromSl.isNaN() || sl.isNaN()) return amendRefuse(t, "amend has no from_sl/sl", null)
+        val tpChange = !tp.isNaN() && !(!fromTp.isNaN() && close(tp, fromTp, pStep))
+        // never loosen: the trail only tightens; a TP revision carries the SL unchanged
+        if (if (long) sl < fromSl - pStep / 2 else sl > fromSl + pStep / 2) return amendRefuse(t, "amend would loosen the stop", null)
+        setStatus("amend $aid: ${if (live) "LIVE" else "DRY"} $venue SL ${fmt(fromSl, pStep)} -> ${fmt(sl, pStep)}${if (tpChange) " TP -> ${fmt(tp, pStep)}" else ""}")
+        // 1. the position row
+        js("__ex.clickText('^positions$')"); delay(1500); ensure()
+        var pos = jsObj("__ex.posInfo(${q(venue)}, ${q(sideRe)})") ?: return amendRefuse(t, "positions unreadable", null)
+        if (pos.optInt("n") == 0) {
+            ledger.append(aid, "no_position")
+            val rows = try { JSONArray(js("JSON.stringify(__ex.rows())")) } catch (e: org.json.JSONException) { JSONArray() }
+            return amendResult(t, "no_position", "no $venue ${if (long) "long" else "short"} row in Positions", null, null, JSONObject().put("rows", rows))
+        }
+        if (pos.optInt("n") != 1) return amendRefuse(t, "position row not unique (n=${pos.optInt("n")})", pos)
+        // 2. the terminal must show the stop/target the VM believes is resting (row columns, when the layout has them)
+        val rowSl = firstNum(pos.optString("sl", "")); val rowTp = firstNum(pos.optString("tp", ""))
+        if (rowSl != null && !close(rowSl, fromSl, pStep)) return amendHuman(t, "row SL $rowSl != expected ${fmt(fromSl, pStep)}", pos)
+        if (rowTp != null && !fromTp.isNaN() && !close(rowTp, fromTp, pStep)) return amendHuman(t, "row TP $rowTp != expected ${fmt(fromTp, pStep)}", pos)
+        // 3. the row's ONE edit control, then the ONE dialog
+        val e = js("__ex.posEdit(${q(venue)}, ${q(sideRe)})")
+        if (e != "clicked") return amendRefuse(t, "position edit control: $e", pos)
+        delay(1500); ensure()
+        val d0 = jsObj("__ex.editDialog()")
+        if (d0?.optInt("n") != 1) { js("__ex.dlgCancel()"); return amendRefuse(t, "edit dialog not unique (n=${d0?.optInt("n")})", pos) }
+        val fSl = Field("SL price", "stop ?loss|\\bsl\\b", "price"); val fTp = Field("TP price", "take ?profit|\\btp\\b", "price")
+        val slF = dlgField(fSl) ?: return amendCancelRefuse(t, "dialog SL field unreadable", d0)
+        val tpF = dlgField(fTp)
+        if (slF.optInt("n") != 1) return amendCancelRefuse(t, "dialog SL field not unique (n=${slF.optInt("n")}, labels ${slF.optJSONArray("labels")})", d0)
+        if ((tpChange || !fromTp.isNaN()) && tpF?.optInt("n") != 1) return amendCancelRefuse(t, "dialog TP field not unique (n=${tpF?.optInt("n")})", d0)
+        // 4. the dialog's own values must be the resting ones before anything is typed
+        val dSl = num(slF.optString("value"))
+        if (dSl == null || !close(dSl, fromSl, pStep)) { js("__ex.dlgCancel()"); return amendHuman(t, "dialog SL ${slF.optString("value")} != expected ${fmt(fromSl, pStep)}", d0) }
+        if (!fromTp.isNaN()) { val dTp = num(tpF?.optString("value")); if (dTp == null || !close(dTp, fromTp, pStep)) { js("__ex.dlgCancel()"); return amendHuman(t, "dialog TP ${tpF?.optString("value")} != expected ${fmt(fromTp, pStep)}", d0) } }
+        // 5. type + read back, all of it, by label
+        if (!dlgType(fSl, fmt(sl, pStep), sl, pStep)) return amendCancelRefuse(t, "SL did not read back in the dialog", jsObj("__ex.editDialog()"))
+        if (tpChange && !dlgType(fTp, fmt(tp, pStep), tp, pStep)) return amendCancelRefuse(t, "TP did not read back in the dialog", jsObj("__ex.editDialog()"))
+        delay(400)
+        val d1 = jsObj("__ex.editDialog()")
+        val slR = num(dlgField(fSl)?.optString("value")); val tpR = if (fromTp.isNaN() && !tpChange) null else num(dlgField(fTp)?.optString("value"))
+        val wantTp = if (tpChange) tp else fromTp
+        if (slR == null || !close(slR, sl, pStep)) return amendCancelRefuse(t, "SL read-back mismatch ($slR)", d1)
+        if (!wantTp.isNaN() && (tpR == null || !close(tpR, wantTp, pStep))) return amendCancelRefuse(t, "TP read-back mismatch ($tpR)", d1)
+        if (!live) {
+            val c = js("__ex.dlgCancel()"); delay(800)
+            ledger.append(aid, "dry_amended")
+            amendResult(t, "dry_amended", "typed + read back in the dialog, NOT saved (server mode dry; cancel: $c)", slR, tpR, d1)
+            setStatus("DRY amend $aid read back; not saved"); return
+        }
+        // 6. LIVE save: the ONE save button
+        ledger.append(aid, "submitted")
+        val sv = js("__ex.dlgSave()")
+        if (sv != "clicked") { ledger.append(aid, "refused"); return amendCancelRefuse(t, "dialog save control: $sv", d1) }
+        delay(1500); ensure()
+        // a follow-up confirmation is accepted only if it carries no input and its ONE save/confirm button is not a close
+        jsObj("__ex.editDialog()")?.let { d2 ->
+            if (d2.optInt("n") == 1 && (d2.optJSONArray("inputs")?.length() ?: 0) == 0) { js("__ex.dlgSave()"); delay(1500) }
+        }
+        if ((jsObj("__ex.editDialog()")?.optInt("n") ?: 0) > 0) {
+            js("__ex.dlgCancel()"); ledger.append(aid, "unconfirmed")
+            return amendResult(t, "mismatch", "edit dialog still open after the save click", null, null, jsObj("__ex.editDialog()"))
+        }
+        // 7. read back on the terminal: the row's SL/TP columns, else the edit dialog re-opened read-only and cancelled
+        js("__ex.clickText('^positions$')"); delay(1500); ensure()
+        val p2 = jsObj("__ex.posInfo(${q(venue)}, ${q(sideRe)})")
+        if (p2 == null || p2.optInt("n") != 1) { ledger.append(aid, "unconfirmed"); return amendResult(t, "mismatch", "position row not unique after the save (n=${p2?.optInt("n")})", null, null, p2) }
+        var vSl = firstNum(p2.optString("sl", "")); var vTp = firstNum(p2.optString("tp", ""))
+        if (vSl == null || (vTp == null && !wantTp.isNaN())) {
+            if (js("__ex.posEdit(${q(venue)}, ${q(sideRe)})") == "clicked") {
+                delay(1500); ensure()
+                vSl = num(dlgField(fSl)?.optString("value"))
+                if (!wantTp.isNaN()) vTp = num(dlgField(fTp)?.optString("value"))
+                js("__ex.dlgCancel()"); delay(800)
+            }
+        }
+        val okSl = vSl != null && close(vSl, sl, pStep)
+        val okTp = wantTp.isNaN() || (vTp != null && close(vTp, wantTp, pStep))
+        if (okSl && okTp) {
+            ledger.append(aid, "amended")
+            amendResult(t, "amended", "saved and read back on the terminal", vSl, vTp, p2)
+            setStatus("LIVE amend $aid: SL ${fmt(sl, pStep)} read back")
+        } else {
+            ledger.append(aid, "unconfirmed")
+            amendResult(t, "mismatch", "after the save the terminal shows SL $vSl TP $vTp (asked ${fmt(sl, pStep)} / ${if (wantTp.isNaN()) "-" else fmt(wantTp, pStep)})", vSl, vTp, p2)
+            setStatus("amend $aid NOT VERIFIED — operator check")
+        }
+    }
+
+    private suspend fun dlgField(f: Field): JSONObject? = jsObj("__ex.dlgRead(${q(f.re)}, ${q(f.prefer)})")
+
+    private suspend fun dlgType(f: Field, text: String, want: Double, step: Double): Boolean {
+        val res = jsObj("__ex.dlgSet(${q(f.re)}, ${q(f.prefer)}, ${q(text)})") ?: return false
+        if (res.optInt("n", 0) != 1) return false
+        delay(300)
+        if (close(num(dlgField(f)?.optString("value")), want, step)) return true
+        if (js("__ex.dlgFocus(${q(f.re)}, ${q(f.prefer)})") != "focused") return false
+        typeKeys(text); delay(400)
+        return close(num(dlgField(f)?.optString("value")), want, step)
+    }
+
+    private fun firstNum(s: String?): Double? = s?.let { Regex("-?[0-9][0-9,]*(\\.[0-9]+)?").find(it)?.value }?.let { num(it) }
+
+    private suspend fun amendRefuse(t: JSONObject, why: String, dump: JSONObject?) {
+        ledger.append(t.optString("amend_id"), "refused")
+        amendResult(t, "refused", why, null, null, dump)
+        setStatus("amend ${t.optString("amend_id")} REFUSED: $why")
+    }
+
+    private suspend fun amendCancelRefuse(t: JSONObject, why: String, dump: JSONObject?) {
+        val c = try { js("__ex.dlgCancel()") } catch (e: JsTimeout) { "timeout" }
+        amendRefuse(t, "$why (dialog cancel: $c)", dump)
+    }
+
+    private suspend fun amendHuman(t: JSONObject, why: String, dump: JSONObject?) {
+        ledger.append(t.optString("amend_id"), "human_moved")
+        amendResult(t, "human_moved", why, null, null, dump)
+        setStatus("amend ${t.optString("amend_id")}: terminal differs from the VM ($why); not touched")
+    }
+
+    /** The amend's one report. The VM re-checks an "amended" claim against what it asked for and pings any lock. */
+    private suspend fun amendResult(t: JSONObject, result: String, why: String, slRead: Double?, tpRead: Double?, dump: JSONObject?) {
+        val b = JSONObject().put("kind", "amend_result").put("ticket_id", t.optString("ticket_id"))
+            .put("amend_id", t.optString("amend_id")).put("result", result).put("reason", why).put("form", dump ?: JSONObject())
+        if (slRead != null) b.put("sl_read", slRead)
+        if (tpRead != null) b.put("tp_read", tpRead)
+        api.post("report", b)
+    }
+
+    /** What the page SHOWS for the server read-back: raw strings, never our own computed numbers. Side and order type
+     *  are the SELECTED tabs read off the ticket; "" when none or several are selected (the server refuses ""). */
+    private suspend fun readBack(id: String, tk: JSONObject, f: List<Field>, unitSrc: String): JSONObject {
+        val tabs = tk.optJSONArray("tabs") ?: JSONArray()
+        fun selected(re: Regex): String {
+            val hit = (0 until tabs.length()).map { tabs.optJSONObject(it) }.filter { it != null && it.optBoolean("selected") && re.matches(it.optString("text").trim()) }
+            return if (hit.size == 1) hit[0]!!.optString("text").trim() else ""
+        }
+        val sub = tk.optJSONObject("submit")
+        val vals = f.map { (readField(it)?.optString("value") ?: "").trim() }
+        val tpsl = if (tk.isNull("tpsl")) "" else tk.optBoolean("tpsl").toString()
+        return JSONObject().put("ticket_id", id).put("symbol", tk.optString("symbol").trim())
+            .put("side", selected(Regex("(?i)buy|sell"))).put("order_type", selected(Regex("(?i)market|limit|trigger|stop")))
+            .put("price", vals[0]).put("qty", vals[1]).put("qty_unit", unitSrc.replace("\n", " ").trim()).put("tp", vals[2]).put("sl", vals[3])
+            .put("submit_label", (sub?.optString("text") ?: "").trim())
+            .put("submit_disabled", if (sub == null) "" else sub.optBoolean("disabled").toString()).put("tpsl", tpsl)
+    }
+
+    private fun readBackLines(rb: JSONObject) = READBACK_FIELDS.joinToString("\n") { "$it=" + rb.optString(it).trim() }
+
+    private fun sha256(s: String) = java.security.MessageDigest.getInstance("SHA-256").digest(s.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
 
     /** A ticket field named by its LABEL (regex), with an optional narrowing regex when several labels match. */
     private class Field(val name: String, val re: String, val prefer: String = "")

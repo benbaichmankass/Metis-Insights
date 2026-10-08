@@ -140,6 +140,14 @@
       "state": "recorded_na",
       "reason": "A measurement-FIDELITY knob, not a lever -- the same class as --exit-grain. It DISABLES the strategy's own take-profit so the harness can observe an excursion the live target would have truncated, which is what makes a target-setting MFE distribution possible at all (MI-312). It changes what the HARNESS can see, never what production does: production always has its target, so there is no production state this flag corresponds to and a matrix column would assert one. Declared by backtest_ict_scalp.py and backtest_fvg_range.py only, because those two get their target from the strategy itself; the trend/pullback/squeeze harnesses need no such flag since --tp-cap-pct 0 already leaves them with no target."
     },
+    "--tp-revision": {
+      "state": "needs_column",
+      "reason": "TP doctrine B1 (2026-10-07): re-estimates the TP after every closed bar with the declared rule (only donchian_measured_move, src/runtime/tp_revision.py, the SAME core the live trend_donchian monitor() and the prop trail call). A target-MOVING lever, distinct from --tp-r / --tp-cap-pct (which fix the entry target). No matrix column exists for a revised target; graded by RQ-20261007-080 (scripts/research/tp_revision_sweep.py). Adding the column is a coverage-matrix schema change, a manager decision."
+    },
+    "--tp-revision-width-mult": {
+      "state": "needs_column",
+      "reason": "Parameter of --tp-revision: the measured-move multiple of the Donchian channel height (swept {0.5,1.0,1.5,2.0} by RQ-20261007-080). Maps to the same future column as --tp-revision."
+    },
     "--trail-adx-below": {
       "state": "needs_column",
       "reason": "MOMENTUM-TRAIL-LEVER `momentum_trail` (2026-10-08): an ADX-conditioned trail tighten, a stop keyed to MOMENTUM not price path. Swept by m20_fleet_exit_sweep.cells_for (cells adx{20,25}_k{0,3}_t*) under matrix lever `momentum_trail`, but the coverage matrix has NO such column yet - adding one is a schema change to the 765 KB artifact that matrix-corpus-agreement / matrix-config-agreement read, deliberately not made in the lever PR. Open until the first sweep (RQ-20261007-042) produces rows to put in it."
@@ -164,7 +172,7 @@
   "summary_2026_09_12": {
     "mapped_to_column": 19,
     "recorded_na": 3,
-    "needs_column": 9,
+    "needs_column": 4,
     "note": "The four needs_column entries are the finding and are NOT fixed here: adding a column is a schema change to a 765 KB artifact that `matrix-corpus-agreement` and `matrix-config-agreement` both read, and it is one decision for the manager rather than four edits by a drain session. What this file removes is the ambiguity about WHICH four and WHY."
   }
 }

@@ -263,3 +263,42 @@ def test_population_census_is_computable_and_reports_its_denominator():
     assert rep["roster_slots"] == rep["passing"] + rep["failing"]
     assert rep["roster_slots"] > 0, "a census over zero slots would be vacuous"
     assert rep["risk_bearing_accounts"], "the derivation found no risk-bearing account"
+
+
+# --------------------------------------------------------------------------
+# The pairs sleeve's SECOND routing line: a per-pair `account_id` override.
+# `run_pairs_tick` reads `pair.get("account_id") or default_account`, so an
+# override under ONE pair routes that pair without touching the top-level
+# line the guard read until 2026-10-07 (PAIRS-STOCKTAKE lane).
+# --------------------------------------------------------------------------
+REAL_PAIRS = (REPO / "config/pairs.yaml").read_text(encoding="utf-8")
+
+
+def _pairs_with_override(pair_name: str, account: str) -> str:
+    data = yaml.safe_load(REAL_PAIRS)
+    hit = [p for p in data["pairs"] if p.get("name") == pair_name]
+    assert hit, f"{pair_name} must exist in the real config/pairs.yaml"
+    hit[0]["account_id"] = account
+    return yaml.safe_dump(data)
+
+
+def test_real_pairs_config_is_clean_against_itself():
+    assert G.promotions(REAL_ACCOUNTS, REAL_ACCOUNTS, REAL_PAIRS, REAL_PAIRS) == []
+
+
+def test_per_pair_account_override_onto_real_money_is_caught():
+    """The top-level `account_id: bybit_1` is untouched; ONE live pair gains
+    `account_id: bybit_2`. The executor would honour it; so must the guard."""
+    head = _pairs_with_override("pairs_sol_eth", "bybit_2")
+    found = G.promotions(REAL_ACCOUNTS, REAL_ACCOUNTS, REAL_PAIRS, head)
+    assert [(f["kind"], f["leg"], f["account"]) for f in found] == [
+        ("pairs_repoint", "pairs_sol_eth", "bybit_2")]
+    # and it is REFUSED: no pairs leg carries a committed evidence record today
+    # (checklist E37), so the clause verdicts must fail rather than pass by absence.
+    findings = G.grade(found, REAL_STRATEGIES, EVIDENCE)
+    assert len(findings) == 1 and "pairs_sol_eth -> bybit_2" in findings[0]
+
+
+def test_per_pair_override_onto_paper_is_free():
+    head = _pairs_with_override("pairs_sol_eth", "bybit_1")
+    assert G.promotions(REAL_ACCOUNTS, REAL_ACCOUNTS, REAL_PAIRS, head) == []

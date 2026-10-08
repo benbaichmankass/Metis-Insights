@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 10,
+    "clears_when": "the operator has answered whether to buy one small Tradeify 247 account for a login-only trial (memo section 5 option B; price to be read off the checkout: ~$100 3P vs $120 cited by the manager), and if yes, the login-only result from the VM (login accepted, or a Cloudflare/2FA/CAPTCHA feasibility stop; and whether the DXtrade REST API answers for that account) is recorded",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-WSTCE9FH-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-14",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-dxtrade-firms-2026-09-30.md",
+    "rerun": "Re-read help.tradeify247.co articles 13393256 (DXtrade guide), 13393249 (FAQ), 13393254 (rules) and re-check that dx.tradeify247.co is still the login host; then run a labelled read-only probe shaped like breakout-terminal-probe against / and /specs."
+  },
+  "state": "routed",
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('PROP-FIRM-DEEP (re-pointed from PROP-FIRM-DEEP (BACKLOG-BURN'); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "PROP-DXTRADE-FIRMS: Tradeify 247 (crypto, DXtrade-only for US) says in its own help center that own bots may use the DXtrade API and VPS is allowed (docs/research/prop-dxtrade-firms-2026-09-30.md). Unmeasured: whether dx.tradeify247.co is behind a Cloudflare/ASN block from our VM (the Breakout Error 1005 precedent, PI-20260929-FRJ7NMPU-0001) and whether https://dx.tradeify247.co/specs (REST API) is served. Decision for operator: approve a $0 read-only landing+specs probe, then optionally a ~$100 (3P price) account for a login-only trial.",
+  "routed_to": "checklist row DXTRADE-PROBE (operator decision 2026-10-07 recorded on the row)"
+}

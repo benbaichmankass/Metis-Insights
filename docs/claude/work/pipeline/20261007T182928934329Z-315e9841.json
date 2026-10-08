@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "due_date": "2026-10-10",
+    "kind": "date"
+  },
+  "filed": "2026-10-05",
+  "id": "PI-20261005-4GA8WQPA-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-BURNDOWN-2 close-out 2026-10-05 (session_01Urx25ZisSoJtVg4GA8WqpA)",
+    "rerun": "python3 - <<'X'\nimport sys,datetime,collections\nsys.path.insert(0,'scripts/ops')\nimport pipeline as p\nc=collections.Counter()\nfor i in p.load().items.values():\n    if i['state'] in('done','killed') or i['due_when'].get('soak'): continue\n    dw=i['due_when']\n    if dw.get('kind')=='date': nxt=dw.get('due_date')\n    else:\n        lc=dw.get('last_checked'); ev=dw.get('check_every_days')\n        nxt=(datetime.date.fromisoformat(lc[:10])+datetime.timedelta(days=ev)).isoformat() if lc and isinstance(ev,int) else 'NEVER/NO-CADENCE'\n    c[nxt]+=1\nprint(sorted(c.items())[:14])\nX"
+  },
+  "severity": "medium",
+  "state": "routed",
+  "tier": 1,
+  "what": "LAPSE WAVE: the BACKLOG-BURNDOWN-2 lane (2026-10-04/05) took the pipeline from due 358 to due 19 mostly by RE-READING items and re-dating them (check_every_days 7 or 14, last_checked set), not by closing them: 553 items filed >=14 days ago are still OPEN. Their cadences expire together, so the same cliff returns. MEASURED 2026-10-05 on main by the rerun below (items not done/killed, excluding soak-bound): 173 items next due 2026-10-11, 108 on 10-12, 94 on 10-18, 115 on 10-19, 249 on 10-21. ROOT CAUSE of the original cliff (which is how this was found): the A8 import gave 175 archived backlog rows state=queued, last_checked=2026-09-21, check_every_days=14, so all 175 lapsed on 2026-10-05; re-dating by a fixed N days recreates it N days later. WHAT TO DO FIRST: take the 10-11/10-12 wave in owner-row batches, and prefer CLOSING or KILLING over re-dating \u2014 most of this lane routings used a keyword heuristic to pick the owner row, so the owner may be imprecise. Consider jittering cadences, or making the import/triage helper spread last_checked, so a batch never lapses on one day. The done-condition (due <=25, unrouted 0) holds only until ~10-11 unless these are worked.",
+  "routed_to": "checklist row REGISTER-TOOLING"
+}

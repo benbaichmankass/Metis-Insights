@@ -72,6 +72,7 @@ CARRIER_GLOBS = (
     "docs/claude/work/objects/*.yaml",
     "docs/claude/work/intents/*.yaml",
     "docs/claude/work/steps/*.yaml",
+    "docs/claude/work/checklist/*.json",
 )
 CARRIER_FILES = (
     "docs/claude/OPEN-ITEMS.json",

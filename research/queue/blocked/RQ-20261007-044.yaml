@@ -1,0 +1,120 @@
+id: RQ-20261007-044
+title: >-
+  Pullback-in-trend entry x TREND-STRUCTURE exit: does the harness-ready --flip-exit-bars
+  lever (close on the wrong side of the trend midline for N bars) clear the P2 gate on the
+  live alt-pullback legs at live-parity geometry? Harness lever EXISTS; BLOCKED only on a
+  dispatch cell (m20 cells_for has no flip cell) -- a session can run it today
+status: blocked
+cadence: once
+kind: experiment
+theme: live_strategy
+priority: 2
+question: >-
+  scripts/backtest_pullback.py already crosses two structure signals: the ENTRY is the
+  pullback geometry (trend_lookback 40 / pullback_lookback 10 / pullback_frac 0.5) and
+  `--flip-exit-bars N` (backtest_pullback.py:1152; fired at :678, streak kept at :732-737)
+  EXITS at bar close once the close has sat on the wrong side of the trend midline for N
+  consecutive bars -- the trend-state signal, not the pullback signal and not the price
+  path. It was swept ONCE: M20 memo 2026-07-12 § "trend-flip" on BTC htf_pullback
+  (flip1 +35.5/+2.9, flip2 +22.4/+3.6 IS/OOS net_R; FAIL gate, IS net_R and maxDD
+  degrade) at the pre-live-parity geometry (tp_cap_pct 0, trail 4.0) on a leg that is
+  now shadow. It has never been run config-exact at tp_cap_pct 0.099 on the legs that
+  trade real money (xrp_pullback_2h, ada_pullback_2h) or the live/prop alt pullbacks
+  (eth_pullback_2h, sol_pullback_2h, eth_pullback_prop_2h), and m20_fleet_exit_sweep.cells_for
+  has no flip cell, so the monthly template cannot ask it. Does flip1 / flip2 clear Path A
+  or Path B in BOTH IS and OOS and the yearly walk-forward against each leg's config-exact
+  base, net of the full cost stack?
+why_this_matters: >-
+  It is the ONLY harness-ready cross cell in the matrix that no committed run has measured
+  at the geometry production places, and the prior is specific and negative (the July BTC
+  FAIL). A fail closes the cell on the real-money legs with a current record; a pass on an
+  alt leg would be the first structure-signal exit to beat the price-path trail and would
+  reopen the P4.5 finding ("the flip guts the trend tail") for a flip that is NOT
+  regime-label driven. Memo § 3.
+power:
+  expected_n: 34
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    d=0.45 -> 39; gate floor 25. expected_n is the MIN measured base OOS across the five
+    legs' most recent m20 rows: xrp_pullback_2h 34 (2026-08-15), ada_pullback_2h 49
+    (2026-09-29), eth_pullback_2h / sol_pullback_2h / eth_pullback_prop_2h 30-40 range on
+    the 2026-08-15 live-parity re-sweep (coverage rows). Per leg, never pooled.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Grounded on committed m20 coverage rows; the flip lever fires only on trades whose
+      close crosses the midline, a population unknown until run. Nothing accrues forward.
+decision_rule:
+  id: RULE-RQ1007-044-PULLBACK-TREND-FLIP-EXIT
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: >-
+    Per leg, per cell {flip1, flip2}: IS and OOS delta net_R and delta maxDD vs the
+    config-exact base (every declared lever present; m20_fleet_exit_sweep base_args),
+    Path A or Path B (grant cap dN/N_b <= 1.0), yearly walk-forward, base OOS trade count;
+    net of fee + venue slippage + funding (resolve_cost_policy in backtest_pullback.main).
+    Exit-reason attribution: net_R of trades the base closed by trail_stop that the cell
+    closed by trend_flip.
+  rule: >-
+    PASS IF a cell clears the gate in BOTH IS and OOS with base_trades_OOS >= 25 and wins
+    >= 4 of 6 effective folds -> Tier-3 proposal (flip_exit_bars N) for that leg; the two
+    legs carrying a shipped trail_decay (xrp_pullback_2h, eth_pullback_2h) report it as a
+    COMBO result, no proposal without a swap A/B. honest_negative IF no cell clears with
+    base_trades_OOS >= 25: coverage row gains column flip_exit = honest_negative with this
+    run's reference. insufficient_base IF < 25. One pass; FAIL re-queues once.
+  what_it_does_not_do: >-
+    Touches no config. The flip lever exists only in the pullback harness; porting it to
+    backtest_trend.py (Donchian entry x trend-midline exit) is a separate NEEDS-A-LEVER
+    cell in the memo matrix and is NOT asked here. Does not re-test the regime-label flip
+    (P4.5).
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 4.0
+  est_minutes: 60
+  basis: >-
+    Five legs x two cells via m20-exit-lever-sweep.yml once the cell exists; session-local
+    today via the command in run.note (~5 min per leg on the trainer's frames).
+blocked_on:
+  - what: >-
+      The MEASUREMENT exists (backtest_pullback.py --flip-exit-bars) but no dispatchable
+      route runs it with a verdict: m20_fleet_exit_sweep.cells_for emits no flip cell, so
+      m20-exit-lever-sweep.yml cannot be asked for it, and research-script-run.yml cannot
+      fetch candles or write verdict.json for a bare harness command (script_run.py
+      ALLOWED_SCRIPT_RE admits scripts/backtest*.py but the harness writes no verdict.json
+      and the runner holds no candles).
+    ref: >-
+      docs/research/cross-signal-exits-2026-10-07.md § 4.3 (one-line cell addition, not a
+      harness change) -- proposed to the manager, lane CROSS-SIGNAL-RESEARCH 2026-10-07
+    clears_when: >-
+      m20_fleet_exit_sweep.cells_for emits ("flip1", "flip_exit", ["--flip-exit-bars", "1"])
+      and ("flip2", "flip_exit", ["--flip-exit-bars", "2"]) for fam == "pullback",
+      m20-exit-lever-sweep.yml accepts `flip_exit` in `levers`, and
+      docs/research/exit-refinement-coverage.json gains a flip_exit column. Then: git mv to
+      research/queue/, status queued, run.workflow m20-exit-lever-sweep.yml with inputs
+      {legs: "xrp_pullback_2h,ada_pullback_2h,eth_pullback_2h,sol_pullback_2h,eth_pullback_prop_2h",
+      levers: flip_exit, tp_cap_pct: '0.099', split_mode: oos-trades,
+      research_unit: RQ-20261007-044}.
+run:
+  workflow: null
+  note: >-
+    SESSION-LOCAL ROUTE AVAILABLE TODAY (marked as such per the dispatch): on a box holding
+    the legs' frames, `python3 scripts/research/m20_fleet_exit_sweep.py --only <leg>
+    --levers trail_geometry --tp-cap-pct 0.099 --split-mode oos-trades` produces the
+    config-exact base; the flip arm is the same base argv plus `--flip-exit-bars 1|2`
+    graded with the module's own beats() / walkforward() imported, never re-derived.
+    Preferred route is the dispatch cell in clears_when.
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- docs/research/cross-signal-exits-2026-10-07.md
+- docs/research/M20-exit-refinement-2026-07-12.md
+- scripts/research/m20_fleet_exit_sweep.py
+- docs/research/exit-refinement-coverage.json
+last_dispatched_at: null

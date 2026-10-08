@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-08",
+    "kind": "date"
+  },
+  "id": "PI-20261006-KX6ZKFNA-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane ACTIVE-GEOMETRY scan session_01WeYNGaK7Ao3hp4Kx6ZkFna (manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-06 ~08:15Z; child of PI-20261006-APBY4NTV-0003",
+    "rerun": "grep -n 'modify_rollout\\|trail_state' src/web/api/routers/diag.py || echo 'NOT EXPOSED'; grep -n 'STATE_DIR=' scripts/ops/prop_executor_tick.sh"
+  },
+  "state": "done",
+  "terminal_reason": "#16943 merged ~18:52Z, deployed (git-sync, 19:00Z) and observed: prop_trail_latch_<acct> / prop_trail_state_<acct> resolve on /api/diag/log_file; tradeify_1 latch absent (not paused), state {}.",
+  "what": "THE PROP TRAIL'S LATCH AND STATE ARE UNREADABLE FROM A SESSION (Tier-1 observability). prop_trail pauses for EVERY ticket after any armed step until a person runs executor-clear-rollout (<state dir>/modify_rollout.json), and keeps its per-ticket replay in <state dir>/trail_state.json (state dir = ${BASE}/accounts/<account>/executor per scripts/ops/prop_executor_tick.sh). Neither file is in diag._LOG_FILES, so whether tradeify_1's trail is currently PAUSED (and since when) cannot be read without the operator; MEASURED 2026-10-06: grep of src/web/api/routers/diag.py for modify_rollout/trail_state = no match, with _LOG_FILES positively matching 60+ other runtime files. Deployed executor sha 54a21312 (07:53Z) carries EDIT_DIALOG_MEASURED=True, so the latch is live-relevant now. FIX: add per-account entries for the two files to _LOG_FILES (read-only, no secrets: prices, ticket ids, timestamps), and have the executor's existing prop_monitor_pulse carry a 'trail_paused_since' field. DONE WHEN scripts/ops/diag_fetch.sh 'log_file?name=prop_trail_state_tradeify_1' returns present:true. || UPDATE 2026-10-07 (lane TRAIL-OBSERVABILITY): FIRST HALF DONE. PR #16943 merged ~18:52Z and deployed; OBSERVED 19:00Z via diag_fetch.sh: prop_trail_latch_tradeify_1 present:false (no latch, trail not paused), prop_trail_state_tradeify_1 present:true content {}. REMAINING: the 'trail_paused_since' field on prop_monitor_pulse, so a pause is announced rather than only readable. Part of 'DONE WHEN' met; item stays open for that field. | ",
+  "routed_to": "checklist row TRAIL-OBSERVABILITY"
+}

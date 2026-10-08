@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "TRAIL-PAUSE-PULSE lane, manager dispatch: the manager merges this lane's work.",
+  "why": "One appended pipeline record (docs/claude/work/pipeline/) updating PI-20261006-KX6ZKFNA-0003 after #16997 merged: states it is merged but not deployed-verified or observed, and names the observation that closes it. Docs/data only; no runtime, order-path or config touched."
+}

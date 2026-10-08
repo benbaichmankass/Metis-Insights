@@ -1,0 +1,129 @@
+id: RQ-20261007-040
+title: >-
+  Cross-signal exit, CONFIRMATION: does the volatility-conditioned trail (vt_hot90_t2.5)
+  that cleared the m20 gate on ada_pullback_2h on 2026-09-29 clear it again on a fresh
+  window, config-exact at live parity? (CROSS-SIGNAL-RESEARCH, operator idea 2026-10-07)
+status: queued
+cadence: once
+theme: live_strategy
+priority: 1
+kind: experiment
+question: >-
+  OPERATOR IDEA 2026-10-07 (paraphrased from voice): "a strategy based on one type of market
+  structure with a stop loss correlated to momentum instead of price movement; see if
+  different ways of crossing how we look at the signals provide a sustainable edge." The
+  ONE cross-family exit that has passed the exit-refinement gate on a REAL-MONEY leg is the
+  volatility-conditioned trail on ada_pullback_2h: entry = pullback-in-trend (market
+  structure, scripts/backtest_pullback.py), exit = the Chandelier trail tightened from 5.0
+  to 2.5 ATR on bars whose trailing-200 ATR percentile exceeds 0.9 (a VOLATILITY-REGIME
+  signal the entry never reads; `--trail-vol-above-pctl 0.9 --trail-vol-tight-mult 2.5`,
+  scripts/backtest_pullback.py:1207-1217). MEASURED 2026-09-29 (RQ-20260928-019, run
+  36505251734, research/results/RQ-20260928-019/36505251734.jsonl): 17 cells swept,
+  passing_cells ['vt_hot90_t2.5'], base OOS net +19.66R over 49 OOS trades, tp_cap_pct
+  0.099. docs/research/exit-refinement-coverage.json carries the same cell as
+  `passed_unshipped` from the 2026-07-15 sweep (#6510). Two windows, same cell, never
+  confirmed on a third and never proposed. Does the vol_trail lever family clear the
+  IS/OOS Path A/B gate AND the yearly walk-forward on ada_pullback_2h again, on the
+  window available at dispatch, against the config-exact trail-only base (trail 5.0,
+  atr_stop_mult 1.5, tp_r 4, adx_min 28, vol_skip_below_pctl 0.1)?
+why_this_matters: >-
+  The operator's hypothesis is that the exit should listen to a different dimension than
+  the entry did. Across the coverage matrix that hypothesis has mostly FAILED where it was
+  testable: vol_trail is honest_negative on trend_donchian_eth_4h, trend_donchian_xrp_4h,
+  xrp_pullback_2h, trend_donchian_eth/sol (1h) and both prop legs; trail_decay (the
+  stall-armed momentum-exhaustion proxy, P4.1) is honest_negative on most legs and shipped
+  on two; regime_flip_exit is honest_negative fleet-wide. ada_pullback_2h vol_trail is the
+  exception, and it is a real-money leg on bybit_2 (mirrored on bybit_portfolio, soaked on
+  bybit_1). A third independent pass turns a twice-passed cell into a Tier-3 declare
+  proposal; a fail says the two passes were window artifacts and closes the cell as
+  honest_negative. Either outcome is the first decision-grade read of the cross-signal
+  idea on money the operator actually risks. Memo:
+  docs/research/cross-signal-exits-2026-10-07.md.
+power:
+  expected_n: 49
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    d=0.45 -> (1.96+0.8416)^2/0.45^2 = 38.76 -> 39 at alpha 0.05 / power 0.8, the repo's
+    standing floor; MIN_OOS_TRADES=25 is the gate's own denominator floor
+    (RULE-EXIT-REFINEMENT-P2-GATE). expected_n=49 is the MEASURED base OOS trade count of
+    the 2026-09-29 run on this leg (split_mode oos-trades targets 50). The window at
+    dispatch ends ~2 weeks later, so n moves by a few trades.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Grounded on a committed result record (research/results/RQ-20260928-019/36505251734.jsonl,
+      base_trades_OOS 49) rather than a corpus key, because the m20 corpus rows are cell
+      aggregates keyed by run stamp and the e5 record is the one that states the OOS
+      denominator. Nothing accrues forward; the sweep runs on the full history the trainer
+      holds for ADAUSDT 2h at dispatch.
+decision_rule:
+  id: RULE-RQ1007-040-ADA-VOLTRAIL-CONFIRM
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: >-
+    Per vol_trail cell (vt_hot90_t2.5, vt_hot80_t2.5, vt_cold10_t2.5): IS and OOS delta
+    net_R and delta maxDD vs the config-exact base book (scripts/research/m20_fleet_exit_sweep.py
+    base_args, every declared lever present), Path A (beats) or Path B
+    (net_r_per_capital_day, grant cap dN/N_b <= 1.0), then the yearly walk-forward
+    (FOLDS 2021..2026); base OOS trade count. Net of the harness's full cost stack
+    (fee 7.5 bps + venue slippage + funding via execution_costs.resolve_cost_policy,
+    resolved in backtest_pullback.main). The m20 e5 record's verdict is the mechanical
+    half (pass IF cells_passed >= 1 among the vol_trail cells; no_action_warranted IF 0;
+    indeterminate IF no gradeable cell), and queue_grade reads it.
+  rule: >-
+    PASS IF the e5 record reads verdict pass with base_trades_OOS >= 25 AND the passing
+    cell is vt_hot90_t2.5 -> CONFIRMED on a third window: a Tier-3 declare proposal for
+    ada_pullback_2h (trail_vol_above_pctl 0.9, trail_vol_tight_mult 2.5) in ONE PR covering
+    bybit_2, bybit_portfolio and bybit_1 (tests/test_paper_portfolio_accounts.py forces
+    roster and trade-shaping equality), with the walk-forward fold count quoted. PASS with a
+    DIFFERENT passing cell (hot80 or cold10) is a pass on the mechanical rule but NOT a
+    confirmation of the registered cell: `grading.needs_review`, recorded as
+    'vol_trail passes, cell unstable', no proposal. FAIL (verdict no_action_warranted with
+    base_trades_OOS >= 25) IF no vol_trail cell clears: the 2026-07-15 and 2026-09-29
+    passes were window artifacts; coverage row ada_pullback_2h/vol_trail moves
+    passed_unshipped -> honest_negative in the readout PR. indeterminate IF
+    base_trades_OOS < 25 (insufficient_base, never a fail). One pass only: a FAIL here is
+    read as a kill of the cell, because this unit IS the confirmatory run of two prior passes.
+  what_it_does_not_do: >-
+    Touches no config and ships nothing; the declare is a Tier-3 proposal the manager
+    carries. Does not grade the mirror or bybit_1 copies separately (roster equality).
+    Does not test a momentum-conditioned stop -- no harness lever exists for one; those
+    questions are pre-registered in research/queue/blocked/RQ-20261007-042 and -043 and
+    wait on the lever specs in docs/research/cross-signal-exits-2026-10-07.md § 4.
+    A pass on ADA alone does not establish that crossing signal families is a PRINCIPLE;
+    RQ-20261007-041 asks that on the three sibling real-money legs.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 4.0
+  est_minutes: 30
+  basis: >-
+    One leg, three cells plus base and walk-forward folds on a GitHub runner; the workflow
+    scp's the leg's frames from the trainer (same shape as the monthly m20 template units,
+    research/templates/m20-exit-lever.yaml, measured ~40 min for 17 cells).
+run:
+  workflow: m20-exit-lever-sweep.yml
+  inputs:
+    legs: ada_pullback_2h
+    levers: vol_trail
+    tp_cap_pct: '0.099'
+    split_mode: oos-trades
+    research_unit: RQ-20261007-040
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+grading:
+  auto: true
+related:
+- RQ-20260928-019
+- research/results/RQ-20260928-019/36505251734.jsonl
+- docs/research/exit-refinement-coverage.json
+- docs/research/M20X-vol-conditional-trail-DESIGN.md
+- docs/research/cross-signal-exits-2026-10-07.md
+- RQ-20261007-041
+last_dispatched_at: null

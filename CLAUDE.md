@@ -82,7 +82,10 @@ Priority" — **the two must always agree** (`canonical-doc-coherence` enforces 
 3. `docs/plans/OPERATING-PLAN-2026-09-21.md` — the promotion ladder, the
    research loop, and how work is chosen. Adopted 2026-09-21.
 4. `docs/claude/work/MANAGER-CHECKLIST.json` — what is actually being worked
-   right now, and by whom.
+   right now, and by whom. Once `docs/claude/work/checklist/` exists the rows live
+   there, one file per row, and are edited ONLY through
+   `scripts/ops/checklist.py add|set|note|archive-lane` and read through
+   `src/runtime/checklist_store.py` (guard: `checklist-readers-guard`).
 5. Skills under `.claude/skills/` (binding, composable workflows) — the manager
    contract is `.claude/skills/manager/SKILL.md`.
 6. The root `CLAUDE.md` — repo orientation and pointers.

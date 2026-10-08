@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "CHECKLIST step (d1): the write CLI the manager uses for every register edit after the cutover -- `scripts/ops/checklist.py add|set|note|archive-lane|header` -- one atomic row file per edit, vocabulary-checked against the file's own `states`, never touching the shared header. Code + tests only; docs follow in the cutover PR. Stacked on #17015.",
+  "hold_reason": "depends_on_unmerged_pr",
+  "hold_text": "Depends on #17015 (and through it #17013): extends the loader module those introduce. Land them first; this PR then retargets to main."
+}

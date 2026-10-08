@@ -8,7 +8,9 @@ are documented there.
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -20,7 +22,7 @@ _ID_OK = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 __all__ = ["ChecklistError", "HEADER", "MONOLITH", "MONOLITH_NAME", "REPO", "SEQ", "STORE",
-           "check", "exists", "is_checklist_path", "load", "load_path", "render", "seeded", "seed", "write_row"]
+           "HISTORY_PATHS", "check", "exists", "is_checklist_path", "load", "load_at", "load_path", "read_row", "render", "seeded", "seed", "write_header", "write_row"]
 
 
 class ChecklistError(ValueError):
@@ -100,13 +102,70 @@ def _load_dir(base: Path) -> dict:
     return {k: (rows if k == "items" else v) for k, v in header.items()}
 
 
+HISTORY_PATHS = (str(STORE), str(MONOLITH))
+"""Pass both to ``git log -- <paths>``: a row's history is its own file after the
+cutover, the monolith's before it."""
+
+
+def load_at(repo, ref: str):
+    """The checklist as of git ``ref``, in the served shape: ``None`` when neither the
+    store nor the monolith exists there ("absent", not "empty"); raises ValueError
+    when one exists but cannot be read. Uses ONE ``git cat-file --batch`` per call, so
+    walking hundreds of revisions stays cheap."""
+    repo = str(repo)
+
+    def git(*args):
+        return subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True)
+
+    head = git("show", f"{ref}:{STORE}/{HEADER}")
+    if head.returncode != 0:
+        mono = git("show", f"{ref}:{MONOLITH}")
+        return None if mono.returncode != 0 else json.loads(mono.stdout)
+    names = [n for n in git("ls-tree", "-r", "--name-only", ref, "--", str(STORE)).stdout.splitlines()
+             if n.endswith(".json") and not n.endswith(f"/{HEADER}")]
+    rows = []
+    if names:
+        out = subprocess.run(["git", "-C", repo, "cat-file", "--batch"],
+                             input="".join(f"{ref}:{n}\n" for n in names).encode(),
+                             capture_output=True)
+        buf, pos = out.stdout, 0
+        for n in names:
+            nl = buf.index(b"\n", pos)
+            meta = buf[pos:nl].split()
+            if len(meta) != 3 or meta[1] != b"blob":
+                raise ChecklistError(f"{ref}:{n}: unreadable ({buf[pos:nl][:80]!r})")
+            size = int(meta[2])
+            rows.append(json.loads(buf[nl + 1:nl + 1 + size]))
+            pos = nl + 1 + size + 1
+    rows.sort(key=lambda r: (r.get(SEQ, 1 << 60), r["id"]))
+    rows = [{k: v for k, v in r.items() if k != SEQ} for r in rows]
+    return {k: (rows if k == "items" else v) for k, v in json.loads(head.stdout).items()}
+
+
 def render(repo: Path = REPO, store: Path = STORE) -> str:
     return _dump(load(repo, store))
 
 
+def read_row(row_id: str, repo: Path = REPO, store: Path = STORE) -> dict | None:
+    """One row as stored (``_seq`` stripped), or None if there is no such row."""
+    path = _row_path(repo / store, row_id)
+    if not path.is_file():
+        return None
+    return {k: v for k, v in json.loads(path.read_text(encoding="utf-8")).items() if k != SEQ}
+
+
+def _atomic_write(path: Path, text: str) -> None:
+    tmp = path.with_name(f".{path.name}.tmp")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write(text)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)  # atomic: no reader ever sees a partial row
+
+
 def write_row(row: dict, repo: Path = REPO, store: Path = STORE) -> Path:
-    """Create or replace ONE row file. A new row takes `_seq` max+1; an existing
-    row keeps its position."""
+    """Create or replace ONE row file, atomically. A new row takes ``_seq`` max+1;
+    an existing row keeps its position."""
     base = repo / store
     path = _row_path(base, row.get("id"))
     row = dict(row)
@@ -114,7 +173,18 @@ def write_row(row: dict, repo: Path = REPO, store: Path = STORE) -> Path:
         row[SEQ] = json.loads(path.read_text(encoding="utf-8")).get(SEQ, row.get(SEQ, 0))
     elif SEQ not in row:
         row[SEQ] = max((r.get(SEQ, 0) for r in _read_rows(base)), default=-1) + 1
-    path.write_text(_dump(row), encoding="utf-8")
+    _atomic_write(path, _dump(row))
+    return path
+
+
+def write_header(key: str, value, repo: Path = REPO, store: Path = STORE) -> Path:
+    """Set one top-level (non-row) key in the header. Rare; this file is shared."""
+    if key == "items":
+        raise ChecklistError("'items' is the row list; use write_row")
+    path = repo / store / HEADER
+    header = json.loads(path.read_text(encoding="utf-8"))
+    header[key] = value
+    _atomic_write(path, _dump(header))
     return path
 
 

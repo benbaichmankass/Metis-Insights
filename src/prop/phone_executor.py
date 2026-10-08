@@ -23,13 +23,20 @@ What this module owns, and why each piece is here and not on the phone:
   ``config/accounts.yaml`` mode is ``live`` AND the kill switch
   ``PROP_PHONE_MODE_<ACCOUNT>`` is not ``off``/``dry`` AND the ticket is not a
   test ticket. Everything else is ``dry``: the phone fills the form, reads it
-  back, and does NOT submit. The phone has its own "armed" switch on top
-  (default off), so a live submit needs both sides.
+  back, and does NOT submit. This is the ONLY live/dry decision: the phone has
+  no device-local "armed" switch (removed by operator decision 2026-10-06,
+  ARMED-GATE: an extra manual gate on the device made the system harder to
+  manage and was less safe than it looked). ``execution: shadow`` legs never
+  reach a ticket at all (``execute_pkg`` emits none for a dry/shadow leg).
 * **Report** wraps :func:`src.prop.prop_report.ingest_report`, overwriting
   ``account_id`` from the token so a device can never write another account.
 * **Events** (login ok / failed, logout seen, refusal, mismatch) ping the
   operator on Telegram. Event text is a fixed vocabulary plus a short reason;
   the phone never sends a link, token, email body or account number.
+* **Server read-back + go-token (§ 3.4).** Before a live click the phone posts what the filled form shows;
+  :func:`verify_readback` re-checks it against the ticket and the instrument steps and issues ONE 30 s token
+  bound to the read-back hash; :func:`redeem_go_token` consumes it right before the click. See the section at
+  the end of this module.
 """
 from __future__ import annotations
 
@@ -40,6 +47,7 @@ import logging
 import math
 import os
 import re
+import secrets
 import sqlite3
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -208,9 +216,15 @@ def expire_stale_claims(account_id: str, now: Optional[datetime] = None) -> list
     return out
 
 
-def claim_next(device: PhoneDevice, now: Optional[datetime] = None) -> Optional[Dict[str, Any]]:
+def claim_next(device: PhoneDevice, now: Optional[datetime] = None,
+               accepts: tuple = ()) -> Optional[Dict[str, Any]]:
     """Atomically claim the oldest still-valid emitted ticket for the device's
-    account. ``None`` when there is nothing to do."""
+    account. ``None`` when there is nothing to do.
+
+    Entry tickets first (time-critical). Then, only for an app that declares
+    ``"amend"`` in ``accepts`` (PROP-TRAIL-PHONE), the trail is planned and one
+    amend is claimed (``kind: "amend"``; :mod:`src.prop.phone_trail`). An older
+    app never receives an amend it would misread as an entry."""
     now = now or _now()
     acct = device.account_id
     if kill_switch(acct) == "off":
@@ -243,9 +257,13 @@ def claim_next(device: PhoneDevice, now: Optional[datetime] = None) -> Optional[
             t["venue_symbol"] = venue_symbol(acct, t.get("symbol"))
             t["claimed_at"] = now.isoformat()
             return t
-        return None
     finally:
         conn.close()
+    if "amend" not in accepts:
+        return None
+    from src.prop import phone_trail
+    phone_trail.plan_amends(acct, now=now)
+    return phone_trail.claim_amend(device, now=now)
 
 
 def venue_symbol(account_id: str, symbol: Any) -> Optional[str]:
@@ -273,6 +291,9 @@ def record_report(device: PhoneDevice, body: Dict[str, Any]) -> Dict[str, Any]:
             "form": json.loads(dump_capped(form, 20000)),
             "at": _now().isoformat()})
         return {"ok": n == 1, "kind": "ticket_result", "updated": n}
+    if body.get("kind") == "amend_result":
+        from src.prop import phone_trail
+        return phone_trail.record_amend_result(device, body)
     if body.get("kind") == "account_status":
         # MEASURED off the terminal's account panel (read-only). A value that was not read stays None (absent, never 0);
         # a report with neither is refused so "we did not look" never lands as a snapshot.
@@ -294,6 +315,10 @@ def record_report(device: PhoneDevice, body: Dict[str, Any]) -> Dict[str, Any]:
     from src.prop.prop_report import ingest_report
     res = ingest_report(body)
     tid = body.get("ticket_id")
+    if tid and str(body.get("kind") or "") == "amend":
+        # The human {kind: amend} path ("moved stop/target"): the phone trail's resting levels follow it.
+        from src.prop import phone_trail
+        phone_trail.note_human_amend(device.account_id, str(tid), body.get("sl"), body.get("tp"))
     if tid and str(body.get("status") or "") in ("placed", "open", "filled"):
         prop_journal.set_ticket_status(str(tid), "placed", account_id=device.account_id)
     return res
@@ -335,10 +360,12 @@ def _unserved_dry_test_request(account_id: str) -> Optional[str]:
     return None if seen else req
 
 
-def pending_count(device: PhoneDevice, now: Optional[datetime] = None) -> int:
-    """READ-ONLY peek for the backgrounded app (PI-20261006-APBY4NTV-0006): how many tickets the next claim
-    would find (still-valid ``emitted`` tickets, plus one for an unserved ``dry_test_request``). Claims nothing,
-    writes nothing; 0 when the kill switch is off, matching ``claim_next``."""
+def pending_count(device: PhoneDevice, now: Optional[datetime] = None, accepts: tuple = ()) -> int:
+    """Peek for the backgrounded app (PI-20261006-APBY4NTV-0006): how many tickets the next claim
+    would find (still-valid ``emitted`` tickets, plus one for an unserved ``dry_test_request``). Claims nothing;
+    0 when the kill switch is off, matching ``claim_next``. With ``"amend"`` in ``accepts`` it also runs the
+    trail planner (which may PUBLISH an amend on the parent ticket, so a backgrounded app wakes for it) and
+    counts the emitted amends; it still claims nothing."""
     now = now or _now()
     acct = device.account_id
     if kill_switch(acct) == "off":
@@ -351,6 +378,10 @@ def pending_count(device: PhoneDevice, now: Optional[datetime] = None) -> int:
     finally:
         conn.close()
     n = sum(1 for r in rows if (vu := _parse(r["valid_until"])) is not None and vu > now)
+    if "amend" in accepts:
+        from src.prop import phone_trail
+        phone_trail.plan_amends(acct, now=now)
+        n += phone_trail.pending_amends(acct, now=now)
     return n + (1 if _unserved_dry_test_request(acct) else 0)
 
 
@@ -492,7 +523,7 @@ def _write_diag(account_id: str, reason: str, controls: Any) -> None:
 # tick path at most every 2 min; only the latest is kept. Keys are a fixed allowlist; values are bools, small
 # ints or scrubbed short strings.
 _HB_KEYS = {"st", "paused", "hold", "host", "onAccount", "path_depth", "ready", "probe", "panels", "orderControl",
-            "ticketOpen", "buySell", "tabs", "inputs", "armed", "build", "fg", "jsTimeouts", "pending", "acct"}
+            "ticketOpen", "buySell", "tabs", "inputs", "build", "fg", "jsTimeouts", "pending", "acct"}
 
 
 def _write_heartbeat(account_id: str, reason: str, state: Any) -> None:
@@ -543,3 +574,255 @@ def alert_expired(account_id: str, ids: list, *, send=None) -> None:
         send(msg, parse_mode=None)
     except Exception:  # noqa: BLE001  # allow-silent: logged
         logger.warning("phone_executor: expiry alert failed", exc_info=True)
+
+
+# ---------------------------------------------------------------------------
+# Server-side read-back + go-token (design § 3.4, PI-20261005-YUVCGTMJ-0003).
+#
+# The phone already checks its own fill (labels, values within one step, the submit label carries the side). This is
+# the SECOND, independent check, on the server: before a LIVE click the phone posts what it READ on the page (raw
+# strings, never its own computed numbers) to ``/phone/verify``; the server re-verifies them against the stored ticket
+# and the venue's instrument steps in ``config/prop_platforms.yaml`` and answers with a one-shot token bound to the
+# ticket id and a hash of the verified read-back, valid GO_TOKEN_TTL_S. Right before the click the phone re-reads the
+# form, re-hashes it, and redeems the token at ``/phone/go``; the click happens only on ``go: true``. The redeem is a
+# conditional UPDATE on the exact meta text, so a token is consumed at most once (a replay is refused). A test ticket,
+# a dry account or the kill switch never get a LIVE token: they get a ``dry`` token whose redeem always says no.
+# Every mismatch fails closed (``ok: false`` + reasons, kept on the ticket, operator pinged).
+# ---------------------------------------------------------------------------
+
+GO_TOKEN_TTL_S = 30  # design § 3.4: "valid 30 s"
+# The read-back fields, in hash order. The phone builds the SAME "key=value" lines in the same order (MainActivity.kt
+# readBackLines); the server recomputes the hash from the posted fields and refuses when the phone's hash differs.
+READBACK_FIELDS = ("ticket_id", "symbol", "side", "order_type", "price", "qty", "qty_unit", "tp", "sl",
+                   "submit_label", "submit_disabled", "tpsl")
+_EPS = 1e-9
+
+
+def readback_hash(fields: Dict[str, Any]) -> str:
+    """SHA-256 over ``key=value`` lines in READBACK_FIELDS order (values as the phone read them, trimmed)."""
+    lines = "\n".join(f"{k}={str(fields.get(k) if fields.get(k) is not None else '').strip()}" for k in READBACK_FIELDS)
+    return hashlib.sha256(lines.encode("utf-8")).hexdigest()
+
+
+def _num(s: Any) -> Optional[float]:
+    try:
+        v = float(str(s).replace(",", "").replace(" ", ""))
+    except (TypeError, ValueError):
+        return None
+    return v if v == v and v not in (float("inf"), float("-inf")) else None
+
+
+def _base_asset(venue: str) -> str:
+    v = re.sub(r"[^A-Z0-9]", "", str(venue or "").upper())
+    return re.sub(r"(USDT|USDC|USD|PERP)$", "", v)
+
+
+def check_readback(ticket: Dict[str, Any], fields: Dict[str, Any], instrument: Dict[str, Any]) -> list:
+    """Every reason the phone's read-back does not match the ticket ([] = verified). Pure; no I/O.
+
+    Tolerances are ONE venue step from the TICKET's own value (the phone rounds to the step and reads back within
+    half a step, so a correct fill is always inside one step). Quantity may never exceed the ticket (sizing is the
+    risk), and may sit at most one step below it (the phone floors to the step)."""
+    reasons = []
+    venue = str(instrument.get("venue") or "")
+    q_step, p_step = _num(instrument.get("qty_step")), _num(instrument.get("price_step"))
+    if not venue or not q_step or not p_step or q_step <= 0 or p_step <= 0:
+        return ["instrument venue/qty_step/price_step not declared in prop_platforms phone_accounts"]
+    base = _base_asset(venue)
+    for k in READBACK_FIELDS:
+        if "\n" in str(fields.get(k) if fields.get(k) is not None else ""):
+            reasons.append(f"{k} contains a newline")
+    if str(fields.get("ticket_id") or "") != str(ticket.get("ticket_id") or ""):
+        reasons.append("ticket_id differs from the ticket")
+    long = str(ticket.get("direction") or "").lower() == "long"
+    side_re = re.compile(r"long|buy", re.I) if long else re.compile(r"short|sell", re.I)
+    opp_re = re.compile(r"short|sell", re.I) if long else re.compile(r"long|buy", re.I)
+    sym = re.sub(r"[^A-Z0-9]", "", str(fields.get("symbol") or "").upper())
+    if not base or base not in sym:
+        reasons.append(f"symbol '{str(fields.get('symbol') or '')[:24]}' does not name {base}")
+    label = str(fields.get("submit_label") or "")
+    if base not in re.sub(r"[^A-Z0-9]", "", label.upper()):
+        reasons.append(f"submit label does not name {base}")
+    if not side_re.search(label) or opp_re.search(label):
+        reasons.append("submit label does not carry the ticket's side")
+    side = str(fields.get("side") or "").strip().lower()
+    if side != ("buy" if long else "sell"):
+        reasons.append(f"side tab '{side[:12]}' is not {'buy' if long else 'sell'}")
+    if str(fields.get("order_type") or "").strip().lower() != "limit":
+        reasons.append(f"order type '{str(fields.get('order_type') or '')[:12]}' is not limit")
+    if str(fields.get("submit_disabled") or "").strip().lower() != "false":
+        reasons.append("submit not read as enabled")
+    if str(fields.get("tpsl") or "").strip().lower() != "true":
+        reasons.append("TP/SL not read as on")
+    unit = re.sub(r"[^A-Z0-9]", "", str(fields.get("qty_unit") or "").upper())
+    if not unit or base not in unit:
+        reasons.append(f"quantity unit '{str(fields.get('qty_unit') or '')[:24]}' does not name {base}")
+
+    want = {k: _num(ticket.get(k)) for k in ("entry", "qty", "tp", "sl")}
+    got = {"entry": _num(fields.get("price")), "qty": _num(fields.get("qty")),
+           "tp": _num(fields.get("tp")), "sl": _num(fields.get("sl"))}
+    for k, name in (("entry", "price"), ("tp", "tp"), ("sl", "sl")):
+        if want[k] is None or got[k] is None:
+            reasons.append(f"{name} unreadable")
+        elif abs(got[k] - want[k]) > p_step + _EPS:
+            reasons.append(f"{name} {got[k]} is more than one step ({p_step}) from the ticket's {want[k]}")
+    if want["qty"] is None or got["qty"] is None or got["qty"] <= 0:
+        reasons.append("qty unreadable or not positive")
+    elif got["qty"] > want["qty"] + _EPS:
+        reasons.append(f"qty {got['qty']} exceeds the ticket's {want['qty']}")
+    elif want["qty"] - got["qty"] >= q_step - _EPS:
+        reasons.append(f"qty {got['qty']} is a full step ({q_step}) or more below the ticket's {want['qty']}")
+    e, tp, sl = got["entry"], got["tp"], got["sl"]
+    if None not in (e, tp, sl) and not ((sl < e < tp) if long else (tp < e < sl)):
+        reasons.append("bracket geometry on the form is wrong for the side")
+    return reasons
+
+
+def _token_sha(token: str) -> str:
+    return hashlib.sha256(("go:" + str(token)).encode("utf-8")).hexdigest()
+
+
+def _ping(msg: str, send=None) -> bool:
+    try:
+        if send is None:
+            from src.runtime.notify import send_telegram_direct
+            send = send_telegram_direct
+        return bool(send(msg, parse_mode=None))
+    except Exception:  # noqa: BLE001  # allow-silent: logged; the refusal itself is the safety property
+        logger.warning("phone_executor: go-token ping failed", exc_info=True)
+        return False
+
+
+def _claimed_ticket(conn: sqlite3.Connection, device: PhoneDevice, ticket_id: str):
+    r = conn.execute("SELECT * FROM prop_tickets WHERE ticket_id = ? AND account_id = ?",
+                     (ticket_id, device.account_id)).fetchone()
+    if r is None:
+        return None, "ticket not found for this account"
+    if r["status"] != "claimed":
+        return None, f"ticket is {r['status']}, not claimed"
+    if str((_meta(r).get("phone") or {}).get("device_id") or "") != device.device_id:
+        return None, "ticket was claimed by another device"
+    return r, ""
+
+
+def verify_readback(device: PhoneDevice, body: Dict[str, Any], *, now: Optional[datetime] = None,
+                    env: Optional[Dict[str, str]] = None, send=None) -> Dict[str, Any]:
+    """``POST /phone/verify``: re-verify the phone's read-back; issue ONE token per ticket.
+
+    ``mode`` on the answer is ``live`` only when :func:`submit_mode` says live NOW (account live, kill switch not
+    off/dry, not a test ticket); otherwise ``dry``. Refusals are kept in ``meta.phone.verify`` and pinged."""
+    now = now or _now()
+    fields = body.get("readback") if isinstance(body.get("readback"), dict) else {}
+    tid = str(body.get("ticket_id") or fields.get("ticket_id") or "")[:80]
+    conn = prop_journal._connect()
+    try:
+        prop_journal.ensure_tables(conn)
+        r, why = _claimed_ticket(conn, device, tid)
+        if r is None:
+            return _verify_refused(device, tid, [why], None, send=send)
+        m = _meta(r)
+        ph = m.get("phone") or {}
+        if ph.get("go"):
+            return _verify_refused(device, tid, ["a go-token was already issued for this ticket (one per ticket)"],
+                                   None, send=send)
+        ticket = prop_journal._ticket_row(r)
+        inst = (phone_config(device.account_id).get("instruments") or {}).get(str(ticket.get("symbol") or "").upper())
+        reasons = check_readback(ticket, fields, inst or {})
+        rb_hash = readback_hash(fields)
+        if str(body.get("readback_sha256") or "") != rb_hash:
+            reasons.append("phone's read-back hash differs from the server's (canonical form drift)")
+        test = bool(m.get("test"))
+        mode = submit_mode(device.account_id, test=test, env=env)
+        vu = _parse(r["valid_until"])
+        if mode == "live" and (vu is None or vu <= now):
+            reasons.append("ticket validity expired before the live submit")
+        if reasons:
+            ph["verify"] = {"at": now.isoformat(), "ok": False, "reasons": reasons[:12]}
+            m["phone"] = ph
+            conn.execute("UPDATE prop_tickets SET meta = ? WHERE ticket_id = ? AND status = 'claimed'",
+                         (json.dumps(m), tid))
+            conn.commit()
+            return _verify_refused(device, tid, reasons, rb_hash, send=send)
+        token = secrets.token_urlsafe(24)
+        expires = now + timedelta(seconds=GO_TOKEN_TTL_S)
+        ph["go"] = {"token_sha256": _token_sha(token), "readback_sha256": rb_hash, "mode": mode,
+                    "issued_at": now.isoformat(), "expires_at": expires.isoformat(), "used": False}
+        ph["verify"] = {"at": now.isoformat(), "ok": True, "mode": mode}
+        m["phone"] = ph
+        cur = conn.execute("UPDATE prop_tickets SET meta = ? WHERE ticket_id = ? AND status = 'claimed' AND meta = ?",
+                           (json.dumps(m), tid, r["meta"]))
+        conn.commit()
+        if cur.rowcount != 1:
+            return _verify_refused(device, tid, ["ticket changed while verifying"], rb_hash, send=send)
+    finally:
+        conn.close()
+    logger.info("phone_executor: go-token issued %s %s mode=%s", device.account_id, tid, mode)
+    return {"ok": True, "ticket_id": tid, "mode": mode, "token": token, "readback_sha256": rb_hash,
+            "expires_at": expires.isoformat(), "ttl_s": GO_TOKEN_TTL_S}
+
+
+def _verify_refused(device: PhoneDevice, tid: str, reasons: list, rb_hash: Optional[str], *, send=None) -> Dict[str, Any]:
+    logger.warning("phone_executor: read-back REFUSED %s %s: %s", device.account_id, tid, "; ".join(reasons)[:300])
+    _ping(f"📱 phone {device.account_id}: SERVER read-back refused [{_scrub(tid, 64)}] — "
+          f"{_scrub('; '.join(reasons), 300)}. No go-token; the phone does not submit.", send)
+    return {"ok": False, "ticket_id": tid, "mode": None, "token": None, "readback_sha256": rb_hash,
+            "reasons": reasons[:12]}
+
+
+def redeem_go_token(device: PhoneDevice, body: Dict[str, Any], *, now: Optional[datetime] = None,
+                    env: Optional[Dict[str, str]] = None, send=None) -> Dict[str, Any]:
+    """``POST /phone/go``: consume the ticket's token right before the click. ``go: true`` only for an unexpired,
+    unused, LIVE token whose hash matches the form the phone re-read just now, while submit_mode is still live.
+    Any redeem attempt consumes the token (a refused redeem cannot be retried), so a replay is always refused."""
+    now = now or _now()
+    tid = str(body.get("ticket_id") or "")[:80]
+    token = str(body.get("token") or "")
+    rb_hash = str(body.get("readback_sha256") or "")
+    conn = prop_journal._connect()
+    try:
+        prop_journal.ensure_tables(conn)
+        r, why = _claimed_ticket(conn, device, tid)
+        if r is None:
+            return _go_refused(device, tid, why, send=send)
+        m = _meta(r)
+        ph = m.get("phone") or {}
+        go = ph.get("go") or {}
+        if not go:
+            return _go_refused(device, tid, "no go-token was issued for this ticket", send=send)
+        if not token or not hmac.compare_digest(_token_sha(token), str(go.get("token_sha256") or "")):
+            return _go_refused(device, tid, "token does not match this ticket", send=send)
+        if go.get("used"):
+            return _go_refused(device, tid, "token already used (replay)", send=send)
+        reason = ""
+        exp = _parse(go.get("expires_at"))
+        if exp is None or exp <= now:
+            reason = "token expired"
+        elif not hmac.compare_digest(rb_hash, str(go.get("readback_sha256") or "")):
+            reason = "form changed since it was verified (hash differs)"
+        elif go.get("mode") != "live":
+            reason = "dry token (test ticket, dry account or kill switch): never a live submit"
+        elif submit_mode(device.account_id, test=bool(m.get("test")), env=env) != "live":
+            reason = "account or kill switch is no longer live"
+        go.update({"used": True, "used_at": now.isoformat(), "go": not reason, "refused": reason or None})
+        ph["go"] = go
+        m["phone"] = ph
+        cur = conn.execute("UPDATE prop_tickets SET meta = ? WHERE ticket_id = ? AND status = 'claimed' AND meta = ?",
+                           (json.dumps(m), tid, r["meta"]))
+        conn.commit()
+        if cur.rowcount != 1:
+            return _go_refused(device, tid, "token already used (concurrent redeem)", send=send)
+    finally:
+        conn.close()
+    if reason:
+        # a dry token's refusal is the expected dry path: logged, not pinged
+        return _go_refused(device, tid, reason, send=send, quiet=go.get("mode") != "live")
+    logger.info("phone_executor: GO %s %s", device.account_id, tid)
+    return {"ok": True, "go": True, "ticket_id": tid}
+
+
+def _go_refused(device: PhoneDevice, tid: str, reason: str, *, send=None, quiet: bool = False) -> Dict[str, Any]:
+    logger.warning("phone_executor: go REFUSED %s %s: %s", device.account_id, tid, reason)
+    if not quiet:
+        _ping(f"📱 phone {device.account_id}: go-token refused [{_scrub(tid, 64)}] — {_scrub(reason, 160)}. "
+              f"The phone does not submit.", send)
+    return {"ok": True, "go": False, "ticket_id": tid, "reason": reason}

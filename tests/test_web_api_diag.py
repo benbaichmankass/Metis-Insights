@@ -882,3 +882,47 @@ def test_journal_snapshot_still_serves_bare_lists(client, fake_runtime):
     body = client.get("/api/diag/snapshot?limit=5", headers=_bearer(_TOKEN)).json()
     assert isinstance(body["trades"], list)
     assert [r["id"] for r in body["trades"]] == [3, 2, 1]
+
+
+# ── /log_aggregate (PI-20261004-4GA8WQPA-0003) ──────────────────────────────
+def _soak_rows(path: Path, rows: list[dict]) -> None:
+    path.write_text("\n".join(json.dumps(r) for r in rows) + "\nnot json\n", encoding="utf-8")
+
+
+def test_log_aggregate_counts_across_utc_days_not_just_the_tail(client, fake_runtime, monkeypatch):
+    soak = fake_runtime["runtime_logs"] / "bybit_coverage_soak.jsonl"
+    rows = (
+        [{"logged_at_utc": f"2026-10-0{d}T0{h}:00:00+00:00", "account_id": "bybit_1",
+          "mode": "annotate", "verdicts_differ": False} for d in (1, 2, 3) for h in range(3)]
+        + [{"logged_at_utc": "2026-10-03T09:00:00+00:00", "account_id": "bybit_2",
+            "mode": "apply", "verdicts_differ": True}]
+        + [{"no_timestamp": 1}]
+    )
+    _soak_rows(soak, rows)
+    monkeypatch.setitem(diag_router._LOG_FILES, "bybit_coverage_soak", soak)
+    r = client.get("/api/diag/log_aggregate?name=bybit_coverage_soak&fields=mode&count_true=verdicts_differ",
+                   headers=_bearer(_TOKEN))
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert b["read_state"] == "complete"
+    assert b["distinct_utc_days"] == 3 and (b["first_day"], b["last_day"]) == ("2026-10-01", "2026-10-03")
+    assert b["days"]["2026-10-03"]["rows"] == 4
+    assert b["days"]["2026-10-03"]["by_account"] == {"bybit_1": 3, "bybit_2": 1}
+    assert b["days"]["2026-10-03"]["values"]["mode"] == {"annotate": 3, "apply": 1}
+    assert b["days"]["2026-10-03"]["true_counts"] == {"verdicts_differ": 1}
+    assert "true_counts" in b["days"]["2026-10-01"] and b["days"]["2026-10-01"]["true_counts"] == {}
+    assert b["unparseable_lines"] == 1 and b["rows_without_day"] == 1, "nothing is silently dropped"
+
+
+def test_log_aggregate_time_budget_is_reported_not_hidden(tmp_path):
+    p = tmp_path / "x.jsonl"
+    p.write_text("\n".join(json.dumps({"logged_at_utc": "2026-10-01T00:00:00+00:00"}) for _ in range(5000)))
+    out = diag_router.aggregate_jsonl(p, [], [], time_budget_s=-1.0)
+    assert out["read_state"] == "time_budget_hit" and out["scanned_lines"] < 5000
+
+
+def test_log_aggregate_rejects_unknown_name_bad_field_and_no_token(client, fake_runtime):
+    h = _bearer(_TOKEN)
+    assert client.get("/api/diag/log_aggregate?name=/etc/passwd", headers=h).status_code == 400
+    assert client.get("/api/diag/log_aggregate?name=audit&fields=a;b", headers=h).status_code == 400
+    assert client.get("/api/diag/log_aggregate?name=audit").status_code in (401, 403)
