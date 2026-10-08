@@ -1,6 +1,6 @@
 # Repo public → private: feasibility and transition plan — 2026-10-08
 
-> **Doc status:** `live` · category `evidence` · last verified `2026-10-08` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `evidence` · last verified `2026-10-08` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
 >
 > Lane `REPO-PRIVATE-SCOPE` (Sonnet, ceiling $15), dispatched by the manager. **Memo only: no workflow, secret, VM or setting was changed.** No IPs, account ids or secret values appear here (public repo).
 
