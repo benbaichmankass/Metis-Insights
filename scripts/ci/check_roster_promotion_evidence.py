@@ -202,10 +202,24 @@ def is_risk_bearing(account_class: Optional[str]) -> bool:
 
 
 def pairs_state(pairs_text: Optional[str]) -> Dict[str, Any]:
-    """`{"account_id": str|None, "live_pairs": [name]}` for config/pairs.yaml."""
+    """`{"account_id": str|None, "live_pairs": [name], "live_pair_accounts":
+    {name: account_id|None}}` for config/pairs.yaml.
+
+    `live_pair_accounts` is the EFFECTIVE account per live pair: the pair's own
+    `account_id` when it declares one, else the top-level default. This is
+    exactly what `src.units.strategies.pairs_executor.run_pairs_tick` reads
+    (`pair.get("account_id") or default_account`), so a per-pair override is a
+    second way to route a live pair onto a real-money account. Until 2026-10-07
+    this function read ONLY the top-level line (PAIRS-STOCKTAKE lane, MEASURED
+    by reading both files): an edit adding `account_id: bybit_2` under ONE pair
+    would have armed it on real money without touching the line this guard
+    watched. `account_id` / `live_pairs` are kept for the existing callers.
+    """
     data = _load_yaml(pairs_text, PAIRS_REL)
     acct = data.get("account_id")
+    default_acct = None if acct is None else str(acct)
     live: List[str] = []
+    live_accounts: Dict[str, Optional[str]] = {}
     entries = data.get("pairs")
     if isinstance(entries, list):
         for item in entries:
@@ -216,8 +230,12 @@ def pairs_state(pairs_text: Optional[str]) -> Dict[str, Any]:
             # would make the guard quiet on the very edit that adds a pair
             # without declaring one.
             if str(item.get("execution", "live")).strip().lower() != "shadow":
-                live.append(str(item.get("name") or "<unnamed>"))
-    return {"account_id": None if acct is None else str(acct), "live_pairs": live}
+                name = str(item.get("name") or "<unnamed>")
+                live.append(name)
+                own = item.get("account_id")
+                live_accounts[name] = default_acct if own is None else str(own)
+    return {"account_id": default_acct, "live_pairs": live,
+            "live_pair_accounts": live_accounts}
 
 
 def canonical_account_classes(module_text: Optional[str]) -> Optional[frozenset]:
@@ -462,17 +480,23 @@ def promotions(base_accounts: Optional[str], head_accounts: Optional[str],
 
     if head_pairs is not None:
         ph, pb = pairs_state(head_pairs), pairs_state(base_pairs)
-        target = ph["account_id"]
-        if target and ph["live_pairs"]:
+        # PER PAIR, on the EFFECTIVE account (own `account_id`, else the
+        # top-level default) -- the same resolution the executor performs. A
+        # (pair, account) routing is a finding when the account is risk-bearing
+        # and the base did not already carry that exact routing live: a new
+        # live pair, a repointed default, or a per-pair override are all the
+        # same question through different lines.
+        base_routes = pb["live_pair_accounts"]
+        for name, target in sorted(ph["live_pair_accounts"].items()):
+            if not target:
+                continue
             acct_cfg = head.get(target)
             cls = acct_cfg["class"] if acct_cfg else None
-            was_target = pb["account_id"]
-            was_safe = was_target != target or set(pb["live_pairs"]) != set(ph["live_pairs"])
-            if is_risk_bearing(cls) and was_safe:
-                for name in ph["live_pairs"]:
-                    found.append({"kind": "pairs_repoint", "account": target, "leg": name,
-                                  "why": f"{PAIRS_REL} account_id={target!r} "
-                                         f"(account_class={cls!r}), pair not shadow"})
+            already_live_there = base_routes.get(name) == target
+            if is_risk_bearing(cls) and not already_live_there:
+                found.append({"kind": "pairs_repoint", "account": target, "leg": name,
+                              "why": f"{PAIRS_REL} routes {name} to account_id={target!r} "
+                                     f"(account_class={cls!r}), pair not shadow"})
     return found
 
 
@@ -684,6 +708,26 @@ def self_test() -> int:
         p7b = promotions(base, base, pairs_base,
                          yaml.safe_dump({"account_id": "real_acct", "pairs": [{"name": "p2"}]}))
         check("P7b pair with absent execution treated as live", len(p7b), 1)
+        # P7c: a PER-PAIR `account_id` override is the executor's second
+        # routing line (pair.get("account_id") or default). Top-level default
+        # stays paper; ONE pair is pointed at real money -> that pair, only.
+        p7c = promotions(base, base, pairs_base, yaml.safe_dump({
+            "account_id": "paper_acct",
+            "pairs": [{"name": "p1", "execution": "live", "account_id": "real_acct"},
+                      {"name": "p3", "execution": "live"}]}))
+        check("P7c per-pair account_id override onto real money is detected",
+              [(x["kind"], x["leg"], x["account"]) for x in p7c],
+              [("pairs_repoint", "p1", "real_acct")])
+        # P7d: a NEW live pair added under a default that already points at
+        # real money is a promotion of that pair (the old pair stays silent).
+        p7d = promotions(base, base,
+                         yaml.safe_dump({"account_id": "real_acct",
+                                         "pairs": [{"name": "p1", "execution": "live"}]}),
+                         yaml.safe_dump({"account_id": "real_acct",
+                                         "pairs": [{"name": "p1", "execution": "live"},
+                                                   {"name": "p4", "execution": "live"}]}))
+        check("P7d new live pair under a real-money default is detected, old one not",
+              [(x["kind"], x["leg"]) for x in p7d], [("pairs_repoint", "p4")])
 
         print("NEGATIVE CONTROLS — each must stay silent:")
         # N1: DEMOTION IS FREE. This is the one the guard must never break.

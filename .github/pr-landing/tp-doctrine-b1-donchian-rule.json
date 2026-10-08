@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "TP doctrine B1, first rule (strategy logic, Tier-3). Operator directive 2026-10-06, verbatim (docs/ARCHITECTURE-CANONICAL.md § TP doctrine): \"there should be no fictional TPs -- even if the exit strategy is based on momentum, we need to constantly have a prediction about where momentum will run out that is embodied in the TP, and this also needs to move as the trade goes on (the prediction is constantly updated to the most recent market conditions)\". Adds the donchian_measured_move TP-revision rule to the trend_donchian unit's monitor(), a default-off harness lever, and research unit RQ-20261007-080 that grades it before any leg declares it. Inert on merge (no leg declares tp_revision). Stacked on PR 1/2 (claude/tp-doctrine-b1-mechanism): merge that first. Held for the manager/operator merge.",
+  "why": "Checklist row TP-DOCTRINE, pipeline PI-20261006-5FUGHVX8-0001 build B1 (first producer, trend_donchian family -- the real-money bybit_2 ETH 4h leg and the prop ETH/SOL legs by money at stake); dispatched by Manager Session 2026-10-01 (session_01MM8o5js6TcDFeNAPBY4Ntv)."
+}
