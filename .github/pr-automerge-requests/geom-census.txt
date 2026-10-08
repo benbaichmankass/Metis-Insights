@@ -1,0 +1,1 @@
+GEOM-CENSUS — geometry amend census script, test, 2026-10-07 baseline, weekly pipeline row.

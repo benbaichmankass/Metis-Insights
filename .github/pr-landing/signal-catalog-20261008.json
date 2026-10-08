@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "SIGNAL-CATALOG: a committed catalog of every strategy/ML/regime/macro input (docs/reference/signal-catalog.yaml), its review questions, and a new CI guard (signal-catalog-guard) with a unit test. Docs, tooling and CI only; no src/, config or order-path change."
+}
