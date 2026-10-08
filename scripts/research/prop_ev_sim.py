@@ -1031,13 +1031,19 @@ def grade_v2(results: Dict[str, Any]) -> Tuple[str, str]:
 # ---------------------------------------------------------------------------
 # Today's book
 # ---------------------------------------------------------------------------
-BOOKS = {"breakout_1": ("trend_donchian_sol_prop", "trend_donchian_eth_prop")}
+# breakout_1 retired 2026-10-07 (empty roster); breakout_2 is the live Breakout book.
+BOOKS = {"breakout_2": ("trend_donchian_eth_prop", "trend_donchian_sol_prop")}
+# `--book breakout_1` is still named by queued research units (RQ-20260928-015). The legs'
+# evidence records are per-leg, not per-account, so the retired book scores identically on
+# breakout_2's roster; the alias keeps those units runnable.
+BOOK_ALIASES = {"breakout_1": "breakout_2"}
 
 
 def resolve_book(book: str) -> Tuple[Dict[str, Path], Dict[str, Any]]:
     """Map each leg on `book` to the per-trade rows beside its committed evidence
     record, and verify the record still describes the leg's CURRENT params."""
     import yaml
+    book = BOOK_ALIASES.get(book, book)
     sys.path.insert(0, str(REPO))
     sys.path.insert(0, str(REPO / "scripts" / "ci"))
     from check_roster_promotion_evidence import config_fingerprint  # byte-identical to the producer's
@@ -1393,7 +1399,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--self-test", action="store_true")
-    ap.add_argument("--book", choices=sorted(BOOKS), help="score a live prop book from its evidence records")
+    ap.add_argument("--book", choices=sorted(set(BOOKS) | set(BOOK_ALIASES)), help="score a live prop book from its evidence records")
     ap.add_argument("--trades", action="append", default=[], metavar="LEG=PATH",
                     help="per-leg trade JSONL (repeatable). See INPUT SCHEMA in --help / the module doc.")
     ap.add_argument("--ruleset", default=str(DEFAULT_RULESET))
