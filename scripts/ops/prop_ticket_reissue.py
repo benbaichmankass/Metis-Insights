@@ -55,9 +55,10 @@ import re
 import sqlite3
 import sys
 import time
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
@@ -74,11 +75,11 @@ _BLOCKER_RE = re.compile(r"outstanding_ticket:([a-z_]+):\s*(prop-[a-z]+-[0-9a-f]
 _COLS = ("ticket_id, account_id, strategy, symbol, direction, side, entry, sl, tp, qty, "
          "risk_usd, signal_time, valid_until, status, order_package_id, message, meta, created_at")
 
-Rebuild = Callable[[Dict[str, Any], Dict[str, Any], datetime], Tuple[Optional[Dict[str, Any]], str]]
-GuardCheck = Callable[[str, str, str, datetime], Optional[str]]
+Rebuild = Callable[[dict[str, Any], dict[str, Any], datetime], tuple[dict[str, Any] | None, str]]
+GuardCheck = Callable[[str, str, str, datetime], str | None]
 
 
-def _parse_ts(s: Any) -> Optional[datetime]:
+def _parse_ts(s: Any) -> datetime | None:
     if not s:
         return None
     try:
@@ -88,12 +89,12 @@ def _parse_ts(s: Any) -> Optional[datetime]:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
-def _row(conn: sqlite3.Connection, ticket_id: str) -> Optional[Dict[str, Any]]:
+def _row(conn: sqlite3.Connection, ticket_id: str) -> dict[str, Any] | None:
     r = conn.execute(f"SELECT {_COLS} FROM prop_tickets WHERE ticket_id = ?", (ticket_id,)).fetchone()
     return dict(r) if r else None
 
 
-def account_cfg_for(account_id: str, accounts_path: Optional[Path] = None) -> Optional[Dict[str, Any]]:
+def account_cfg_for(account_id: str, accounts_path: Path | None = None) -> dict[str, Any] | None:
     """The account's ``config/accounts.yaml`` mapping plus ``account_id``.
 
     The live coordinator hands ``emit_prop_ticket`` a dict carrying the
@@ -102,21 +103,15 @@ def account_cfg_for(account_id: str, accounts_path: Optional[Path] = None) -> Op
     ``unit_for_account`` reads first). ``data_loaders._load_yaml_accounts``
     drops ``backtest_ruleset``, which would size a tradeify ticket against
     breakout.yaml's $5k, so it is NOT used here. None when unreadable."""
-    import yaml
+    from src.config.accounts_loader import load_accounts_dict
 
-    p = Path(accounts_path) if accounts_path else _REPO_ROOT / "config" / "accounts.yaml"
-    try:
-        data = yaml.safe_load(p.read_text()) or {}
-    except Exception:  # noqa: BLE001 — could not look; the caller refuses
-        return None
-    accounts = data.get("accounts") if isinstance(data.get("accounts"), dict) else data
-    acc = (accounts or {}).get(account_id)
+    acc = load_accounts_dict(accounts_path).get(account_id)
     if not isinstance(acc, dict):
         return None
     return {**acc, "account_id": account_id}
 
 
-def strategy_gate(strategy: str, strategies_path: Optional[Path] = None) -> Tuple[Optional[str], Optional[str]]:
+def strategy_gate(strategy: str, strategies_path: Path | None = None) -> tuple[str | None, str | None]:
     """(execution, timeframe) for a strategy in ``config/strategies.yaml``;
     (None, None) when it cannot be read."""
     import yaml
@@ -133,8 +128,8 @@ def strategy_gate(strategy: str, strategies_path: Optional[Path] = None) -> Tupl
     return str(e.get("execution") or "live"), (str(e["timeframe"]) if e.get("timeframe") else None)
 
 
-def rebuild_fields(row: Dict[str, Any], account_cfg: Dict[str, Any], now: datetime, *,
-                   timeframe: str) -> Tuple[Optional[Dict[str, Any]], str]:
+def rebuild_fields(row: dict[str, Any], account_cfg: dict[str, Any], now: datetime, *,
+                   timeframe: str) -> tuple[dict[str, Any] | None, str]:
     """Rebuild the ticket fields with emission's own functions (mirrors
     ``emit_prop_ticket`` from the sizing step to the journal write; parity is
     asserted in tests). ``(fields, "")`` or ``(None, why)``."""
@@ -157,10 +152,10 @@ def rebuild_fields(row: Dict[str, Any], account_cfg: Dict[str, Any], now: dateti
     if sizing.skip_reason:
         return None, f"sizing ({sizing.mode}) skips: {sizing.skip_reason}"
     cvpp = float(be._per_symbol(routing, symbol, "contract_value_usd_per_point", 1.0))
-    kw = dict(dxtrade_symbol=be._per_symbol(routing, symbol, "dxtrade_symbol", None),
-              contract_value_usd_per_point=cvpp,
-              entry_band_frac=float(routing.get("entry_band_frac") or 0.25),
-              ttl_bars=float(routing.get("ttl_bars") or 1.0))
+    kw = {"dxtrade_symbol": be._per_symbol(routing, symbol, "dxtrade_symbol", None),
+          "contract_value_usd_per_point": cvpp,
+          "entry_band_frac": float(routing.get("entry_band_frac") or 0.25),
+          "ttl_bars": float(routing.get("ttl_bars") or 1.0)}
     leg = build_account_leg(sig, unit, risk_usd_override=sizing.risk_usd, **kw)
     gate_cap = None
     if leg.decision == "place" and leg.ticket is not None:
@@ -180,29 +175,29 @@ def rebuild_fields(row: Dict[str, Any], account_cfg: Dict[str, Any], now: dateti
                                ticket_id=str(row["ticket_id"])).get("text")
     if not message:
         return None, "ticket text did not render (the executor reads the entry band from it)"
-    meta: Dict[str, Any] = {}
+    meta: dict[str, Any] = {}
     if sizing.mode != prop_sizing.FLAT or gate_cap is not None or sizing.detail:
         meta = {"sizing_mode": sizing.mode, "sizing": sizing.detail, "risk_gate": gate_cap}
     return {"side": leg.ticket.side, "qty": leg.ticket.qty_units, "risk_usd": leg.ticket.risk_usd,
             "valid_until": leg.ticket.valid_until.isoformat(), "message": message, "meta": meta}, ""
 
 
-def _live_guard(account_id: str, symbol: str, direction: str, now: datetime) -> Optional[str]:
+def _live_guard(account_id: str, symbol: str, direction: str, now: datetime) -> str | None:
     from src.prop.breakout_executor import _reticket_suppress_reason
 
     return _reticket_suppress_reason(account_id, symbol, direction, now=now)
 
 
 def plan(conn: sqlite3.Connection, *, account_id: str, ticket_id: str, now: datetime,
-         account_cfg: Optional[Dict[str, Any]], max_age_min: float,
-         strategy_info: Callable[[str], Tuple[Optional[str], Optional[str]]],
-         guard: GuardCheck, rebuild: Callable[..., Tuple[Optional[Dict[str, Any]], str]]
-         ) -> Dict[str, Any]:
+         account_cfg: dict[str, Any] | None, max_age_min: float,
+         strategy_info: Callable[[str], tuple[str | None, str | None]],
+         guard: GuardCheck, rebuild: Callable[..., tuple[dict[str, Any] | None, str]]
+         ) -> dict[str, Any]:
     """The decision, without writing: ``{"ok", "why", "before", "fields"}``."""
-    out: Dict[str, Any] = {"ok": False, "account_id": account_id, "ticket_id": ticket_id,
+    out: dict[str, Any] = {"ok": False, "account_id": account_id, "ticket_id": ticket_id,
                            "before": None, "to": TO_STATUS}
 
-    def refuse(why: str) -> Dict[str, Any]:
+    def refuse(why: str) -> dict[str, Any]:
         out["why"] = why
         return out
 
@@ -266,7 +261,7 @@ def plan(conn: sqlite3.Connection, *, account_id: str, ticket_id: str, now: date
     return out
 
 
-def apply(conn: sqlite3.Connection, decision: Dict[str, Any]) -> Dict[str, Any]:
+def apply(conn: sqlite3.Connection, decision: dict[str, Any]) -> dict[str, Any]:
     """Write one guarded UPDATE; return the row after it."""
     b, f = decision["before"], decision["fields"]
     cur = conn.execute(
@@ -295,8 +290,8 @@ def _backup(db_path: str) -> str:
     return dest
 
 
-def main(argv: Optional[list] = None, *, guard: Optional[GuardCheck] = None,
-         rebuild: Optional[Callable[..., Tuple[Optional[Dict[str, Any]], str]]] = None) -> int:
+def main(argv: list | None = None, *, guard: GuardCheck | None = None,
+         rebuild: Callable[..., tuple[dict[str, Any] | None, str]] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--db", required=True)
     ap.add_argument("--account", required=True)
