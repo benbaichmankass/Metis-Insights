@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "touches src/units/accounts/execute.py (order-path module); change is two additive journal columns, observability-only, but the path is outside the Tier-1 surface so a human merges",
+  "why": "persist killzone/bias from signal meta into trades so ML datasets stop reading 100% NaN"
+}
