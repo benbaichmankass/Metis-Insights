@@ -24,6 +24,7 @@ operator sees the decision even if the push/telegram leg dropped.
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -172,6 +173,62 @@ def _reticket_suppress_reason(
     return None
 
 
+_PLACED_BLOCKER_RE = re.compile(r"^outstanding_ticket:placed:\s*(prop-[a-z]+-[0-9a-f]+)$")
+
+
+def _supersede_candidate(
+    suppress: str, *, account_id: str, account_cfg: Dict[str, Any], trade_id: str,
+    strategy: str, symbol: str, direction: str, entry: float, sl: float, tp: float,
+    timeframe: str, now: Optional[datetime] = None,
+) -> Optional[Dict[str, Any]]:
+    """The supersede candidate a suppressed ticket carries, or None.
+
+    OPERATOR DECISION 2026-10-08 ~20:03Z ("Approve as proposed", pipeline item
+    PI-20261008-3QRUJSYR-0001, checklist row PROP-SUPERSEDE): a new signal for
+    the same (account, strategy, symbol, direction) whose outstanding ticket is
+    ``placed`` may supersede that resting entry. Emission has no terminal read,
+    so it only MARKS the candidate; the executor, holding the read, decides and
+    performs cancel -> confirm -> old ``skipped: superseded by <new>`` -> new
+    released (``prop_supersede.release``).
+
+    A candidate is recorded only when the blocker is a ``placed`` ticket of the
+    SAME strategy on this account, and the ticket rebuilds with emission's own
+    functions (``prop_ticket_reissue.rebuild_fields``): its rendered message
+    carries the entry band the executor checks BEFORE it cancels anything.
+    Every other suppression (an open position, ``awaiting_report``,
+    ``claimed``, an ``emitted`` ticket, another strategy) records no candidate
+    and blocks exactly as before. Any error records no candidate (fail closed:
+    the block stands)."""
+    m = _PLACED_BLOCKER_RE.match(str(suppress or ""))
+    if not m:
+        return None
+    blocker_id = m.group(1)
+    try:
+        from src.prop import prop_journal
+        from scripts.ops.prop_ticket_reissue import rebuild_fields
+
+        blocker = prop_journal.get_ticket(blocker_id)
+        if (not blocker or str(blocker.get("account_id") or "") != account_id
+                or str(blocker.get("status") or "").lower() != "placed"
+                or str(blocker.get("strategy") or "") != strategy):
+            return None
+        now = now or datetime.now(timezone.utc)
+        fields, why = rebuild_fields(
+            {"ticket_id": trade_id, "account_id": account_id, "strategy": strategy,
+             "symbol": symbol, "direction": direction, "entry": entry, "sl": sl, "tp": tp},
+            account_cfg, now, timeframe=timeframe)
+        if fields is None:
+            logger.info("breakout_executor: %s no supersede candidate for %s (%s)",
+                        trade_id, blocker_id, why)
+            return None
+        return {"blocked_by": blocker_id, "at": now.isoformat(),
+                "message": fields["message"], "valid_until": fields["valid_until"]}
+    except Exception as exc:  # noqa: BLE001 — no candidate: the block stands
+        logger.warning("breakout_executor: supersede candidate failed for %s (%s); block stands",
+                       trade_id, exc)
+        return None
+
+
 def _leverage_refusal(account_id: str, unit: Any, symbol: str, qty_units: Any, entry: Any,
                       cvpp: float) -> Optional[str]:
     """The ruleset's leverage-cap breach reason for this ticket, or None.
@@ -278,6 +335,10 @@ def emit_prop_ticket(
             "breakout_executor: %s reticket SUPPRESSED for %s %s (%s) → %s",
             account_id, symbol, direction, suppress, trade_id,
         )
+        candidate = _supersede_candidate(
+            suppress, account_id=account_id, account_cfg=account_cfg, trade_id=trade_id,
+            strategy=strategy, symbol=symbol, direction=direction, entry=entry, sl=sl, tp=tp,
+            timeframe=str(timeframe or _DEFAULT_TIMEFRAME))
         try:
             from src.prop import prop_journal
 
@@ -295,6 +356,7 @@ def emit_prop_ticket(
                     order["meta"].get("order_package_id")
                     if isinstance(order.get("meta"), dict) else None
                 ),
+                **({"meta": {"supersede": candidate}} if candidate else {}),
             })
         except Exception as exc:  # noqa: BLE001 — audit row is best-effort
             logger.warning(

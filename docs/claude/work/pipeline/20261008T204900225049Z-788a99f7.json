@@ -1,0 +1,22 @@
+{
+  "based_on": "20261008T161705165334Z-c50ddfb5.json",
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261008-3QRUJSYR-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-22",
+    "how_to_check": "diag relay: journalctl?unit=ict-prop-executor@<acct> for a supersede action line, plus GET /api/bot/prop/tickets?account_id=<acct> showing the superseded/new pair",
+    "what": "first live supersede on a prop account: a newer same-key signal arrives while an older entry rests unfilled with no position; the executor cancels the resting entry, the old ticket reads 'skipped: superseded by <new>', and the new ticket is placed (or refused by its own entry band without the old order being cancelled)"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-REISSUE 2026-10-08 (manager session_01Uq7MrjPQDRWqbhCjwuMava); tradeify_1 prop-manual-2116662b7d8d suppressed by prop-manual-e6badec7ae10",
+    "rerun": "GET /api/bot/prop/tickets?account_id=tradeify_1 via the diag relay; count status=suppressed rows whose message names outstanding_ticket:placed: <id> while that <id> was later skipped/expired with no prop_fills row (a resting LIMIT never filled)"
+  },
+  "routed_to": "PR #17176 (claude/prop-supersede; checklist row PROP-SUPERSEDE) \u2014 operator approved 2026-10-08 ~20:03Z 'Approve as proposed (Recommended)'; Tier-3 hold, manager merges",
+  "state": "routed",
+  "what": "ROOT CAUSE (PROP-REISSUE): an unfilled RESTING limit from an older signal suppresses a newer in-band signal from the same strategy, so the trade is lost when price runs before fill. src/prop/breakout_executor.py _BLOCKING_UNTIL_RESOLVED counts `placed` as outstanding with NO time window (manager decision 2026-09-29 17:24Z: a doubled position costs more than one lost signal). MEASURED 2026-10-08 (manager, live API + diag journal): tradeify_1 ETH-short prop-manual-e6badec7ae10 (LIMIT 2471.31, placed 15:28Z) rested unfilled while ETH fell to ~2423; the 16:00Z signal prop-manual-2116662b7d8d (entry 2433.80) was suppressed. TIER-3 PROPOSAL (do not build without operator approval): supersede / cancel-replace semantics -- when a new signal arrives for the same (account, strategy, symbol, direction) and the outstanding ticket is `placed` with the executor's terminal read showing NO position on that symbol+side (resting entry only, no partial fill), the executor cancels the resting entry, reports the old ticket `skipped: superseded by <new id>`, and only then takes the new ticket through intake. A position or a possible partial fill keeps today's block. Interim path: system action prop-ticket-reissue (one ticket per dispatch, Tier 2)."
+}
