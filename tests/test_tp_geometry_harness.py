@@ -104,15 +104,8 @@ def test_defaults_reproduce_pre_lever_golden(cid, tmp_path):
     golden = json.loads(GOLDEN.read_text())[cid]
     summary, rows = _run_case(cid, tmp_path)
     assert golden["rows"], f"{cid}: golden holds no trades -- the equality would prove nothing"
-    # `run_date` is the wall-clock date the summary was produced, not an output
-    # of the levers: comparing it made this test fail for every branch after the
-    # golden's capture day rolled over (UTC). Every other field is compared.
-    assert _undated(summary) == _undated(golden["summary"])
+    assert summary == golden["summary"]
     assert rows == golden["rows"]
-
-
-def _undated(summary):
-    return {k: v for k, v in summary.items() if k != "run_date"}
 
 
 # --------------------------------------------------------------------------- #
