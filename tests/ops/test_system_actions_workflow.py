@@ -278,6 +278,11 @@ EXPECTED_ACTIONS = {
     # `expired`. DRY-RUN by default; apply gated + DB backup; every other
     # transition, a non-REST account, or a ticket with fills is refused.
     "prop-ticket-expire": "prop_ticket_expire_action.sh",
+    # 2026-10-08 — PROP-REISSUE: re-issue ONE `suppressed` prop ticket whose
+    # blocking ticket is terminal, rebuilt with emission's own sizing so the
+    # executor's intake (band, expiry, guards) decides placement. DRY-RUN by
+    # default; apply gated + DB backup; every other case refused.
+    "prop-ticket-reissue": "prop_ticket_reissue_action.sh",
     # 2026-08-20 — prop-journal hygiene for fills admitted with NO direction
     # (BL-20260820-PROP-FILL-DIRECTION-ADMISSION-GAP). _position_key needs
     # (account, symbol, direction) but ingest_report only validates the first
@@ -431,6 +436,7 @@ TIER_2_ACTIONS = {
     "supersede-intent-reduce-phantom-pnl",
     "fix-prop-mislinked-close",
     "prop-ticket-expire",
+    "prop-ticket-reissue",
     "repair-prop-fill-direction",
     "breakout-login-check",
     "breakout-terminal-probe",
