@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "clears_when": "a heartbeat route + latched missing-heartbeat alert exist and are observed firing once on a deliberately closed app",
+    "kind": "event"
+  },
+  "id": "PI-20261005-YUVCGTMJ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PHONE-EXEC-1B session_01Ce3EyP4Z9A4P4MyUvcgtmJ; branch claude/phone-exec-1b",
+    "rerun": "grep -n 'heartbeat' src/prop/phone_executor.py tools/phone-executor/app/src/main/java/com/metis/phoneexec/MainActivity.kt"
+  },
+  "state": "routed",
+  "what": "PHONE HEARTBEAT ALERT is not built: the phone executor posts no periodic heartbeat and the VM raises nothing when the phone dies while breakout_2 is live (design 5.2 'Heartbeat'). Today a dead phone is visible only as missed tickets plus the 3-min claim watchdog (which needs a claim). Build: phone posts event app_alive every 60s; VM alerts latched on-cross when breakout_2 is live and no heartbeat for 5 min, [OK] on recovery.",
+  "routed_to": "checklist row PROP-SILENCE-ALERTS"
+}

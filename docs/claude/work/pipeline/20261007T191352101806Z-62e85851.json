@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "kind": "date",
+    "due_date": "2026-10-10"
+  },
+  "id": "PI-20261007-APBY4NTV-0003",
+  "next_action": "dispatch_lane",
+  "state": "routed",
+  "routed_to": "checklist row PROP-FLOW-SEPARATION",
+  "origin": {
+    "kind": "session",
+    "ref": "operator directive 2026-10-07 ~19:15Z, relayed by manager session_01MM8o5js6TcDFeNAPBY4Ntv",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/tickets?account_id=velotrade_1' | python3 -c \"import json,sys;print([t['status'] for t in json.load(sys.stdin)['tickets'][:10]])\"  # any expiry_prompted / reticket-suppressed on a REST account = not done"
+  },
+  "what": "OPERATOR DIRECTIVE 2026-10-07 (verbatim): \"In general, if a ticket expires and I haven't logged a trade, the system should assume that the trade wasnt placed and the ticket should be kept alive. And the prop accounts should have their own separate flow that isn't contaminated by the telegram channels activity.\" CONTEXT: velotrade_1's first live signal (2026-10-07 01:59Z) expired unplaced, the manual bridge moved it to expiry_prompted (awaiting a human report) and suppressed four later signals for 17 h until the operator tapped the Telegram X. DESIGN (manager's reading, to be confirmed by the lane against the operator's words): (1) MANUAL BRIDGE: expiry with no logged fill = terminal 'not placed' (never a blocking awaiting-report state); the opportunity stays live: the next valid signal re-tickets instead of being suppressed as an outstanding re-ticket; the X button becomes unnecessary for expiry. (2) PROP FLOW SEPARATION: accounts executed by REST (velotrade_1) or the phone (breakout_2) take a prop-executor flow with NO Telegram prompt/report states (no expiry_prompted, awaiting_report, invalidated_prompted); Telegram is notify-only for them; only manual accounts use the bridge. Supersedes/extends #16947 (which already skips the expiry prompt for REST accounts) and #16977 (prop-ticket-expire). DONE = a state-machine doc section in ARCHITECTURE-CANONICAL (prop ticket flow per executor type), the code enforcing it with tests (expiry-no-report -> not placed + re-ticket allowed, on manual AND prop paths), and an observation: the next expired unplaced ticket on velotrade_1/breakout_2 does not block the following signal."
+}

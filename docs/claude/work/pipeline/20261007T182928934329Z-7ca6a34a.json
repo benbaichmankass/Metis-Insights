@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "filed": "2026-10-05",
+  "id": "PI-20261005-ZRM27CBW-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "by": "session_01CbWE56MbSskgGNZrm27cBW",
+    "kind": "session",
+    "ref": "VELOTRADE-API-EXEC (branch claude/velotrade-api-exec)",
+    "rerun": "grep -n 'API_PLATFORMS' scripts/prop/prop_executor_tick.py scripts/prop/breakout_login_check.py  # a refusal there = no REST tick/feed yet"
+  },
+  "severity": "medium",
+  "state": "killed",
+  "tier": 2,
+  "what": "velotrade_1 has a REST order adapter (platform dxtrade_api) but NO runner drives it: scripts/prop/prop_executor_tick.py and scripts/prop/breakout_login_check.py (the ict-prop-executor@ / ict-prop-feed@ ticks) are Playwright-only and now REFUSE an API platform (exit feasibility) instead of driving it. Before any velotrade_1 go-live: give the tick + status feed a REST path (no Chromium; adapter.login / read_* / place_bracket over REST; resume_session = a fresh REST login), and read ict-prop-feed@velotrade_1.timer state on the VM (diag) so a refusing feed does not alert every tick. This is definition-of-done item 1 (a RUNNER) for the adapter.",
+  "terminal_reason": "Stale: lane VELOTRADE-API-EXEC wired the REST runner (ict-prop-executor@velotrade_1 timer active, live tick observed 2026-10-06 10:18Z; #16705/#16738/#16756-16759)."
+}

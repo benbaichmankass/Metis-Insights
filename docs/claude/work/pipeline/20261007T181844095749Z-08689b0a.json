@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-07",
+    "kind": "date"
+  },
+  "id": "PI-20261006-APBY4NTV-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv, operator request 2026-10-06 ~07:15Z",
+    "rerun": "python3 - <<'X'\nimport yaml;a=yaml.safe_load(open('config/accounts.yaml'))['accounts'];print({k:v.get('strategies') for k,v in a.items() if v.get('type')=='prop'})\nX"
+  },
+  "state": "routed",
+  "what": "STRATEGY SEARCH FOR FASTER PROP PASSES (operator, 2026-10-06 ~07:15Z, verbatim: \"continue searching for new strategies (in general, but specifically for the prop accounts), with an emphasis on shorter-timeframe strategies, or at least strategies that turn a profit faster (we would ideally want +10% monthly, not over more than 6 months)\"). Start AFTER the weekly usage reset (Wed 2026-10-07 18:00Z). CONTEXT (MEASURED): every current prop roster is ETH+SOL trend_donchian 1h at 0.5% risk; velotrade_1 sim RQ-20261006-002 has median ~220d to +10% (P(pass in 730d) ~0.62) and P(net>0) ~0.46 -- pace, not risk, is the binding constraint, and 1.5% risk breaks the daily-loss line. TARGET: a prop book that reaches +10% in ~30d median (hard ceiling 6 months) WITHOUT breaching the daily-loss / static-DD rules of tradeify_247_1step, breakout_turbo_1step and velotrade_classic_1step. SCOPE: (1) shorter timeframes (5m/15m/1h) on prop-eligible symbols (Breakout list https://www.breakoutprop.com/symbols/, Tradeify, Velotrade instruments); (2) higher-frequency or higher-expectancy legs that diversify the ETH/SOL trend book (low daily-PnL correlation); (3) book construction: more uncorrelated legs at the same per-trade risk so pace rises without daily-loss breach. METHOD: register each rule BEFORE the run (research/queue unit + RULE id), full cost stack per venue, prop ruleset sim with median-days-to-target and P(pass by 30/90/180d) as headline metrics alongside the existing risk gates. Feeds research/THEMES.yaml new_strategy_prop (weight 6). DONE = a ranked candidate list with registered verdicts and, for any leg/book that clears, the exact proposed accounts.yaml diff for the manager's Tier-3 call.",
+  "routed_to": "checklist row PROP-STRATEGY-SEARCH"
+}

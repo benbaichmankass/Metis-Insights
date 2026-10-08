@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "clears_when": "first breakout_2 ticket with status placed/filled and a phone_result showing the confirm dialog handled and the order seen in Open orders/Positions",
+    "kind": "event"
+  },
+  "id": "PI-20261006-APBY4NTV-0008",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-21T00:00Z",
+    "how_to_check": "GET /api/bot/prop/tickets?account_id=breakout_2 -> newest ticket with meta.phone.live true: status in (placed, filled), phone_result.confirm_handled true, phone_result.seen_in_open_orders true",
+    "what": "the first LIVE breakout_2 ticket's phone_result shows the confirm dialog handled, the order seen in Open orders/Positions (status placed/filled, not mismatch), and SL/TP present on the venue position"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "PHONE-EXEC-1B lane close-out 2026-10-06 10:33Z (session_01Ce3EyP4Z9A4P4MyUvcgtmJ), filed by manager session_01MM8o5js6TcDFeNAPBY4Ntv",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/tickets?account_id=breakout_2' | python3 -c \"import json,sys;[print(t['ticket_id'],t.get('status'),json.dumps(t.get('phone_result'))[:400]) for t in json.load(sys.stdin)['tickets'][:5]]\""
+  },
+  "routed_to": "manager session_01MM8o5js6TcDFeNAPBY4Ntv: check_observation on the first LIVE breakout_2 ticket (checklist row PHONE-EXEC-1B landed_unproven; sibling PI-20261005-YUVCGTMJ-0005 reads SL/TP survival off the same ticket)",
+  "state": "routed",
+  "what": "BREAKOUT PHONE EXECUTOR LIVE PATH UNPROVEN (closes PHONE-EXEC-1B landed_unproven). The submit click has never run against the real page. On the first LIVE breakout_2 ticket (after #16763 merges and the operator taps ARMED) read its phone_result and confirm: (a) the confirm dialog text was read and handled; (b) the order is seen in Open orders/Positions (status placed/filled, not mismatch); (c) SL and TP are present on the venue position (operator-confirmed or read back). Any failure -> fix in the phone executor, not a retry. Also unverified: broker contract size for 'Quantity 0.01 ETH' (inferred from the unit toggle + the alert vanishing). DONE = all three observed on one live ticket. | ROUTED 2026-10-07 19:30Z by the manager (session_01MM8o5js6TcDFeNAPBY4Ntv): breakout_2 is live + ARMED since 2026-10-07 and no live signal has fired yet; the manager reads the ticket list at each check-in and dispatches a lane only if the phone_result shows a defect. Sibling PI-20261005-YUVCGTMJ-0005 reads SL/TP survival off the same ticket."
+}
