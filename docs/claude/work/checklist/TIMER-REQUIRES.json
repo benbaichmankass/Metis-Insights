@@ -1,0 +1,20 @@
+{
+  "id": "TIMER-REQUIRES",
+  "title": "Drop Requires=<own service> from 19 deploy timers",
+  "phase": "PACE-W40",
+  "state": "landed_unproven",
+  "owner": "lane session_014XiPXfgCqmNmwdpXLsMgUM",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    17160
+  ],
+  "blocked_on": [],
+  "note": "PR #17160 ready, Tier-2 hold; manager merges. Closes when, after deploy, the next timer restart does not start the services and a deploy leaves the 19 timers active (observation by manager). Pipeline PI-20261008-APBY4NTV-0004 closed on the PR.",
+  "updated_at": "2026-10-08T18:05:14Z",
+  "updated_by": "session_014XiPXfgCqmNmwdpXLsMgUM",
+  "_seq": 360
+}
