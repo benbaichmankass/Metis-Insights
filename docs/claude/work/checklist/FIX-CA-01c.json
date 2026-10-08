@@ -1,0 +1,17 @@
+{
+  "phase": "W6",
+  "spend_usd": 8.05,
+  "blocked_on": [],
+  "owner": "fix lane",
+  "id": "FIX-CA-01c",
+  "state": "landed_unproven",
+  "lane": "session_01To8QXkNwBZNW7VXZMgdpem",
+  "prs": [
+    13241
+  ],
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 25,
+  "title": "FIX-CA-01c: PI-20260927-YDVVYLKH-0002 (deploy_pull_restart",
+  "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): PI-20260927-YDVVYLKH-0002 (deploy_pull_restart.sh must not start a stopped ict-trader-live) + -0003 (10148 PendingCancel graded refused_by_venue) + confirm #13187 is running. Tier-2 data-backed; manager merges. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): review HELD it: pull-and-deploy could leave a held trader down; a stop-marker race; other restart scripts not clearing the marker. All fixed (d4e5ff5), merged e3af98f. DEPLOYED and OBSERVED running: /api/diag/status (issue #13278) read git_sha 9b2884c, bot_uptime 429 s, last tick 17:26:35Z, heartbeat 21 s -- contains the merge. The next stop window will be the first real observation. Lane archived.",
+  "_seq": 155
+}

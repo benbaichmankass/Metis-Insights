@@ -1,0 +1,18 @@
+{
+  "id": "RESTART-SAFE",
+  "title": "No bar lost to a trader restart: find why ict-trader-live restarts at every sampled 4h boundary, and make every live leg evaluate missed closed bars from candle history after a restart (persisted evaluated-bar marker, stated staleness bound)",
+  "phase": "floor",
+  "state": "landed_unproven",
+  "owner": "build lane",
+  "lane": "session_01TF8g3Zypj92cTnPxDJvmGw",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 45,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    15830
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-03T12:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] MERGED #15830 (cdd9c3a8, ~11:00Z). DEPLOYED: diag status git_sha_running=cdd9c3a8 (restart 11:25:02Z); git_sha_on_disk is 1e4c4048f, six later commits all non-runtime. OBSERVED (journalctl ict-trader-live 11:20-11:49Z, 3 windows of 2000 lines each, two short gaps): 0 'never evaluated' WARNINGs across the 11:25 restart; 0 Tracebacks; 0 decision_bar_ledger or _entry_in_bar errors; one honest 'skipped as stale' line (trend_donchian_xrp_4h bar 04:00Z, closed 12333s before the restart, outside the 900s bound); one 'caught up after restart' line (ict_scalp_mgc_15m 11:30Z). OBSERVED (journalctl ict-git-sync 11:29-11:50Z): 3 of 3 commits logged 'Non-runtime commit ... restart skipped'; the trader PID was unchanged. bybit_2 legs still evaluated: 'no actionable signal' lines for 4 of 4 legs (xrp_pullback_2h 24, ada_pullback_2h 24, trend_donchian_eth_4h 24, trend_donchian_xrp_4h 12). STILL TO OBSERVE: no restart has yet run with a ledger written by an earlier process (the ledger file was created by this deploy). Closing observation: the next runtime restart logs 'evaluated by a previous process' for a bar the prior PID evaluated, with no 'never evaluated' WARNING. || [2026-10-03T06:12Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR (chat 2026-10-03 ~06:10Z): a trade interrupted by a restart is a problem; after a restart the strategies must review history to know where they are in the cycle, not start from this minute. MEASURED by LIVE-SILENCE: new PID at all 15 sampled 4h boundaries 09-30T20Z..10-03T04Z; _CLOSED_BAR_EVALUATED is process-local; a false 'never evaluated' WARNING after the 09-30 20:06:39 restart. Pipeline PI-20261003-OJTPWGCC-0001. Done = the restart cause attributed with counts, a HELD Tier-2 PR (catch-up from history + persisted marker + accurate log line + tests + a real-data replay of the 09-30 scenario) merged and OBSERVED across one restart.",
+  "_seq": 269
+}

@@ -1,0 +1,18 @@
+{
+  "id": "P2",
+  "title": "Prop-candidate-search lane (breakout_1): candidates ONLY from the Breakout symbols list",
+  "phase": "P",
+  "state": "in_flight",
+  "owner": "research lane",
+  "lane": "session_01H9tuxUP7F1tJ6BQMFwXu81",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 20,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    14049
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-01T21:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Round 2 dispatched (wave 2, slot freed by RESEARCH-W7): untested Breakout-listed symbol x full-cost-stack strategy cells, rule registered before each run; roster PR only if a rule clears (Tier 3). Round-1 lane session_017iooKr4neXBffsffxbdWY9 archived after PR #14049 (6 power-adequate crypto legs null). || [2026-10-01T20:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator popup ~20:55Z: selected for wave 2, starts when RESEARCH-W7 or STAMP-RACE closes (pace-staggered). || FIRST TRACKING ROW for the wave-6 \"P2 prop candidate search, crypto on Breakout\" lane -- dispatched per the operator's wave-6 launch decision already recorded on row R4 (\"launch WAVE 6 now... P2 prop candidate search, crypto on Breakout\"), but no distinct checklist row existed for it before this PR (checked: grep of this file for P1/P1b/P2 as an `id` before this edit returns nothing). OPERATOR DECISION 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D5), verbatim, in response to breakout_1/iaum_pullback_1d being evaluated as a drop candidate on an account it was never tradable on: \"Why was it even checked if it can't be traded? We are only supposed to checking candidates from the symbols list I gave you.\" STANDING CONSTRAINT recorded by this row: every prop-candidate this lane (or any breakout_1/prop-account candidate search) considers must come ONLY from https://www.breakoutprop.com/symbols/. This does not reopen or dispute RQ-20260827-001's own finding that breakout_1 should drop iaum_pullback_1d (p_profitable=0.0647, EV -$3.65/trade, gld_compat) -- that specific drop stands. The operator's point is upstream of it: a candidate should never have been scoped or evaluated at all if it is not on the approved, tradable symbols list. Documentation-only PR; no candidate-list code or scoping logic changed here -- the dispatching/continuing session must apply the constraint going forward and should update this row's `lane`/`prs` once it has a session id.\n[2026-09-29T09:40Z manager] Dispatched: Breakout candidate search, Breakout-listed symbols x corpus strategies, net of cost; ranked shortlist + held roster PR only if a pre-registered rule clears. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived 2026-09-29; the row's prs was empty. #14049 is on main (merge c5a5caaa; branch claude/p2-prop-fit-breakout-gap-units): it pre-registered RQ-20260929-043..060 and graded some of them with zero passes. By status field, 8 of those 18 units are done (044,045,047,048,050,051,053,054) and 10 are still queued (043,046,049,052,055..060). No ranked shortlist is recorded and no roster PR exists. Needs re-dispatch to grade the rest and produce the shortlist, or an explicit drop.",
+  "_seq": 146
+}

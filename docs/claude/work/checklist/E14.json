@@ -1,0 +1,16 @@
+{
+  "id": "E14",
+  "title": "The brief renders at 159,766 characters \u2014 give the store a length discipline",
+  "phase": "E",
+  "state": "queued",
+  "owner": "build lane",
+  "lane": null,
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 12,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "PROMOTED FROM PI-20260921-M07. MEASURED TWICE. First real render after A3a merged: 42,159 characters, 140 lines. Re-measured after A8 imported the archived registers (#12679, on main as 497bae2): 159,766 characters -- 3.8x, and the store it was warned about at scale is now the store that exists. The GENERATOR is not at fault \u2014 it prints each item's `what` and `routed_to` verbatim, correct for a store whose fields are sentences. The manager wrote paragraph-length routing essays and section 0 printed them. [!] NEAR MISS OF THE EXACT FAILURE A8 WAS WARNED AGAINST: A8's acceptance test was that section 0 must not become a wall of UNDISPOSITIONED rows and it passed cleanly; mine is a wall of DISPOSITIONED rows, which is better in kind and identical in effect, because the mechanism rests entirely on the operator reading it daily. [!] TWO FIXES, NOT EQUIVALENT: (a) truncate per row with the full text one click away \u2014 mitigation, and this repo's rule is a truncation may never hide, so the count must print beside it; (b) give the STORE a length discipline, `what` is one sentence and the reasoning lives in the linked artifact \u2014 the real fix. Prefer (b). The validator currently enforces a MINIMUM on these fields and no maximum. [!] UNBLOCKED 2026-09-21: A8's import is on main, so the ~1,150-item store this row was told to size against is the live one. The blocker is discharged by observation, not by waiting. [!] URGENCY CHANGED WITH THE NUMBER: at 42 KB this was a tidiness item; at 159,766 characters it is the mechanism failing, because the whole pull rests on the operator reading section 0 daily and nobody reads 160 KB daily.",
+  "_seq": 45
+}

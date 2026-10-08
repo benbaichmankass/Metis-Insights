@@ -1,0 +1,16 @@
+{
+  "id": "E52",
+  "title": "Nothing watches Caddy, the TLS cert expiry, or the DuckDNS record \u2014 three of the six ways the only live dashboard dies",
+  "phase": "E",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01VCCktutb7TTY31txRL5eXB",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 30,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Merged #12849 (6cf103d). NOT YET OBSERVED: the first scheduled dashboard-edge-watch run and its receipt. Final spend $7.06 against $30. LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: CI/observability workflow. Outside-in probe from a GitHub runner: HTTPS reachability of ict-bot.duckdns.org, days-to-expiry of the served cert, DNS A record == the live VM. Must alert through the channel existing watchers already use, and must distinguish did-not-run from ran-and-found-healthy (collapsed-state rule). Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP. OBSERVED 2026-09-25: first scheduled dashboard-edge-watch run is run 36040894419 (2026-09-24T18:23:29Z), conclusion=success, JSON receipt artifact uploaded (1120B); 3 further successful scheduled runs since.",
+  "_seq": 86
+}

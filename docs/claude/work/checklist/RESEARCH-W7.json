@@ -1,0 +1,24 @@
+{
+  "id": "RESEARCH-W7",
+  "title": "Standing research lane W7: keep the queue running every day (live pipeline first, research next), with a written research plan and queue priorities",
+  "phase": "W7",
+  "state": "done",
+  "owner": "manager",
+  "lane": "session_0119TTEhEppYPRbD1Mx1rCzs",
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    14880,
+    14886,
+    14891,
+    15008,
+    15218,
+    15243,
+    15289
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-01T21:20Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] landed_unproven -> done: lane closed out 21:17Z, nothing left with it. The one open observation (RQ-20260930-703 dispatch on the 00:20Z cron, verdict one cycle later) moves to REGIME-SCOPE via PI-20261001-1MX1RCZS-0002. New finding filed by the lane: PI-20261001-1MX1RCZS-0004 (research_queue.validate accepted a unit with a copied last_dispatched_at). || [2026-10-01T21:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Lane closing out. 701/702/E38 trend-axis nulls; 704 vol axis FAIL no_headroom_vol_axis, power-bounded (673<785), live_verified=false, replay-verify is a precondition of any future vol-axis unit (#15289). A0 proven: dispatch runs 68/69 success post-#15008; run 70 red from a stamp-landing wait race (fix #15298, PI-20261001-1MX1RCZS-0003). Closes on: RQ-20260930-703 dispatched (00:20Z cron, after #15282) and graded, tracked by PI-20261001-1MX1RCZS-0002. || [2026-10-01T16:45Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator-directed manager handoff (docs/claude/work/MANAGER-HANDOFF-2026-10-01.md, PR #15219): the owning manager is now session_01MM8o5js6TcDFeNAPBY4Ntv, replacing session_01HYq6XtfesZ57VyaQrK6CL1. Lane session_0119TTEhEppYPRbD1Mx1rCzs told of the change by trig_01MiUuFDDrdf3yr2T3kj9xH6. Decision in force 16:21Z: REGISTER BOTH (selection-sensitivity arm of RQ-20260930-701; VOL-axis feasibility then a unit), rules registered before any run (PI-20261001-1MX1RCZS-0002). || 2026-09-30 ~19:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR (chat 19:13Z): continuous research is second only to the live trader; the queue must always have work running, not necessarily an active session. The previous standing RESEARCH row is done (2026-09-28). Priority themes named by the operator: strategy improvement, ML in general, the overall AI trader, the regime classifier (REGIME-SCOPE). Dispatch after the survey lands and the operator agrees the priorities. || 2026-10-01 ~02:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): A0 #14886 merged (liveness alarm, throughput in the brief, session-bound units not_due); A+A2 #14891 merged 434345f6 (themes + weighted fair share + aging + requires_result + research/queue/PLANNING.md; weights regime 5, live 4, ml 3, new_strategy_prop 2, infra 2, macro 1); #14880 merged 093f4bf1 (RQ-701 regime impact scoping, RQ-702 pooled Donchian E38). Weekly research-planning session scheduled: routine trig_01NDbwo7UviviYj2tYnMVVrk, Mondays 06:57Z, fresh session, push on. OWED: A0 proof (run ids of backlog units firing).",
+  "_seq": 252
+}

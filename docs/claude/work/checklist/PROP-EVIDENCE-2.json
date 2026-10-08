@@ -1,0 +1,25 @@
+{
+  "id": "PROP-EVIDENCE-2",
+  "title": "Confirming test for HELD Tier-3 #16269 (SOL prop bracket tp_r 2.0 / atr_stop 3.5): out-of-sample walk-forward, neighbourhood plateau, tradeify ruleset; pre-registered",
+  "phase": "W6",
+  "state": "blocked",
+  "owner": "lane PROP-EVIDENCE-2",
+  "lane": "session_018skNe5EqyibonwsfrvQeQ6",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 25,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    16244,
+    16269
+  ],
+  "blocked_on": [
+    {
+      "kind": "work_item",
+      "ref": "WORK-SYSTEM",
+      "what": "paused 2026-10-04 15:00Z to free capacity for the top-priority structural fix (operator)"
+    }
+  ],
+  "note": "[2026-10-04T14:10Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Replaces stalled PROP-EVIDENCE. #16269 stays HELD; goes to the operator only if the pre-registered confirming test passes (operator directive 2026-09-29: file the data task instead of asking).",
+  "_seq": 281
+}

@@ -1,0 +1,19 @@
+{
+  "id": "WEBAPI-RESTART",
+  "title": "ict-web-api reports restart_pending=true (running b9d518516, disk 380025921): is it expected, and does the normal deploy path restart it?",
+  "phase": "W6",
+  "state": "done",
+  "owner": "ops lane",
+  "lane": "session_01RiFXCLYtZRFT7Zn64zJM46",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 15,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    14094,
+    14114
+  ],
+  "blocked_on": [],
+  "note": "2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): observed by lane JC-CA-06 via /api/diag/version at ~09:47Z. The trader reports 380025921. Merged-not-deployed on the API. Data-backed Tier-2: a restart that loads code already on main is in authority; ship, verify, notify. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): restart_pending was the deploy's correct non-runtime-commit restart-skip. Real bug found+fixed: vm-web-api-recover.yml shared one literal concurrency group so any issue starved a restart (runs queued since 2026-05-15) -> #14094 MERGED (per-issue group). OBSERVED: issue #14112 ran in ~15s; ict-web-api b9d518516 -> f61e8d743 == on-disk, restart_pending false (diag 10:48Z). PI-20260929-TARTLANE-0001 done. Archive after #14114 (close-out) merges.",
+  "_seq": 196
+}

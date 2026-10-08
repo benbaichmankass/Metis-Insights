@@ -1,0 +1,16 @@
+{
+  "id": "E53",
+  "title": "Roadmap status sweep \u2014 no in-progress milestone has been updated since 2026-08-31",
+  "phase": "E",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_016esXb8N3RvmZycrDXJStcA",
+  "model": "claude-fable-5-1",
+  "ceiling_usd": 20,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Merged via #12858 (e537982, 2026-09-24T13:53Z). The deliverable is the roadmap edit plus docs/research/roadmap-status-sweep-2026-09-24.json, verified present on main. Fable lane, final spend $11.09 against a $20 ceiling. E54 (#12840) edits the same M40 row and is re-applied separately. LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH fable: E11-validated sweep class, separate weekly pool. FABLE, fresh: E11 validated grep-and-classify sweeps on Fable, and this is one, verifiable against git log / merged PRs / this checklist. Doc-only (ROADMAP.md). Every status change cites a sha or PR. Must precede the O1 reviews so they grade against a true roadmap. Known: M40 R1 landed as #12739 and the roadmap does not say so. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP.",
+  "_seq": 87
+}

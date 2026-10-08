@@ -1,0 +1,25 @@
+{
+  "id": "RQ-CADENCE",
+  "title": "Make research-queue-dispatch run hourly in WALL-CLOCK terms: MEASURED 2026-10-07 only 4 schedule fires in 24 h (GitHub drops ~4 in 5 hourly slots for this repo; dashboard-edge-watch 4/24, schedule-keeper 7/48), the keeper covers it only at a 26 h stale window, and each run holds the `research-queue-dispatch` concurrency group up to 50 min waiting for a stamp PR to merge through a saturated CI queue (20 concurrent jobs, 15 of them pytest-run)",
+  "phase": "W6",
+  "state": "done",
+  "owner": "lane RQ-CADENCE",
+  "lane": "session_012KH4r5ZxKMvciL1dHH3Lcm",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 20,
+  "spend_usd": 3.04,
+  "tier": 1,
+  "prs": [
+    17004
+  ],
+  "blocked_on": [
+    16948
+  ],
+  "note": "[2026-10-08T00:32Z manager] OBSERVED: #17004 merged 21:15Z; dispatch cycles started 20:51, 21:54, 22:52, 23:57 (plus a deduped 22:01 schedule no-op) -- hourly in wall-clock terms; the dispatch job now takes ~1.5 min and frees the concurrency group in minutes; the CI wait moved into the lock-free land job (63 min on the 22:53 run) and no longer blocks the next slot. The three-consecutive-hours criterion is met (21:54/22:52/23:57). REMAINING RED (pre-existing, not this row's): every dispatch run still ends 'failure' at 'Fail the job if the collector lost a run's rows' (collect_runner_results.py) although fire/stamp/receipt land -> row RQ-COLLECTOR. Lane archived 00:32Z; spend $3.04 final. || [2026-10-07T19:48Z manager] Lane report: PR #17004 ready, squash auto-merge armed, CI queued. Change: research-queue-dispatch split into a minutes-long dispatch job (holds the concurrency group) + a land job without the group doing the 3 verified commit-to-main landings; schedule_keeper stale_hours 26->3 for it; hourly self-tests. Lane finding: the keeper dispatches on slot age, not stale_hours -- cadence was bounded by runs holding the group 60-130 min through merge waits. Spend ~$2 running. Archive after merge; observation 2026-10-08T00:00Z. || [2026-10-07T19:30Z manager] ONE QUESTION: how does the dispatcher fire about once an hour regardless of GitHub cron delivery and of the stamp-landing wait? Candidates for the lane to measure, not assume: (a) drop research-queue-dispatch's keeper stale window from 26 h to ~1.5 h so every push to main re-dispatches a missed slot (keeper already runs on push); (b) after #16948 (stamps replayed onto the main tip) the 50-min wait should vanish; verify on the first post-merge run; (c) decouple the liveness-receipt/stamp landing from the dispatch run so the concurrency group frees in minutes. Tier-1 (workflows + scripts/ops). DONE = three consecutive hours each with a completed dispatch run (schedule OR keeper OR push), measured off the Actions API, and the stale alarm window documented.",
+  "observation": {
+    "what": "three consecutive hours each with a completed research-queue-dispatch run after #17004 merges",
+    "how_to_check": "gh api 'repos/benbaichmankass/Metis-Insights/actions/workflows/research-queue-dispatch.yml/runs?per_page=30' --jq '.workflow_runs[]|\"\\(.created_at) \\(.status) \\(.conclusion) \\(.event)\"'",
+    "due_by": "2026-10-08T00:00Z"
+  },
+  "_seq": 341
+}

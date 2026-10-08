@@ -1,0 +1,18 @@
+{
+  "id": "CA-A04",
+  "title": "Code audit Wave A: src/units/accounts (brokers, executors, risk)",
+  "phase": "CA",
+  "state": "done",
+  "owner": "audit lane",
+  "lane": "session_01L6oxNwzTguNk5ZKRaKE1tG",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 75,
+  "spend_usd": 14.15,
+  "tier": 1,
+  "prs": [
+    13199
+  ],
+  "blocked_on": [],
+  "note": "Scope: src/units/accounts/** (23 files, 19.7k lines) and their tests. Model reason: Opus \u2014 order path / real-money controls, per the manager model table and the operator naming Opus for this lane. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A04.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01L6oxNwzTguNk5ZKRaKE1tG (claude-opus-5-5; fresh). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A04.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main.",
+  "_seq": 112
+}

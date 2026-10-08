@@ -1,0 +1,19 @@
+{
+  "id": "AUD-1",
+  "title": "Order-path safety: does each venue's resting-order state match the journal's protection for every real-money position open in the window, across its life?",
+  "phase": "E",
+  "state": "done",
+  "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
+  "lane": "session_01UpiFwDpkceKjnEZUdziKG6",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 45,
+  "spend_usd": 6.23,
+  "tier": 1,
+  "prs": [
+    14104,
+    14108
+  ],
+  "blocked_on": [],
+  "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: order-path work is always opus (manager model table). One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.1 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-1.{md,findings.jsonl}. Brief: branch audit/sa-2026-09-29-briefs, docs/audits/system-audit-2026-09-29/briefs/AUD-1.md. Running since 2026-09-29T09:51Z as session_01UpiFwDpkceKjnEZUdziKG6 (create_session by AUD-LEAD, fresh, tagged manager:session_01KAQRJxRbRwpYTkPgBjNVyQ). `lane` is left for the manager to write: the register is the manager's, and manager-scope-guard classifies whichever session writes another session's id into `lane` as the manager. | 10:40Z (AUD-LEAD): lane landed its PR; findings consolidated in docs/audits/system-audit-2026-09-29.md. | 11:05Z: lane ARCHIVED; spend FINAL (read at archive). Findings consolidated in #14108.",
+  "_seq": 136
+}

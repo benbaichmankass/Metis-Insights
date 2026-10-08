@@ -1,0 +1,22 @@
+{
+  "id": "E58",
+  "title": "Inventory every research run whose result never reached main, recover what still exists, re-run what was lost",
+  "phase": "E",
+  "state": "done",
+  "owner": "research lane",
+  "lane": "session_01Uv7VtA1RmxDRNWNKNG2bgS",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 50,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [
+    {
+      "kind": "work_item",
+      "ref": "E57",
+      "what": "Re-landing needs a landing path that works; the INVENTORY does not wait on it."
+    }
+  ],
+  "note": "Merged #12852 (e54c068, 15:42Z). Inventory at docs/research/e58-research-loss-inventory-2026-09-24.json; took E57's workflow fix. Final spend $18.13 against $56. Lane finished ($7.51 against $50). Its PR #12852 is not yet merged, because its landing depended on E57, which has now merged. Manager to merge. DISPATCHED 2026-09-24T12:35Z by session_01Ljhs6sFAdWHdMDhJpL5aBP, FRESH. Recovery half of the operator directive recorded on E57. Population to establish first: every run of every research/evidence workflow since the R1 results contract (#12739) and, separately, since 2026-09-01; for each, is its result on main, in an open PR, in a still-retained Actions artifact, or gone. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP.",
+  "_seq": 92
+}

@@ -1,0 +1,21 @@
+{
+  "id": "PAPER-RESET",
+  "title": "Reset the alpaca_paper account to clear the GLD zombie OCO (PI-20260930-ZIFJ1RKM-0001), closing journal rows with an operational reason",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "build lane",
+  "lane": "session_01JjPRfAYQKaocTX3QnHBgnD",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 25,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    14600,
+    14726,
+    14777,
+    14899
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-01T16:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] DISPOSITION after lane archived (PRs re-read 16:50Z: merged state only, not deploy): in_flight -> landed_unproven. 4/4 PRs merged (#14600, #14726, #14777, #14899); #14899 deployed and OBSERVED (3 defers, 0 failures). Closes on: the SPY 8-share exit (PI-20260930-ZIFJ1RKM-0003), the GLD zombie OCO confirmed cleared, and journal rows closed with the operational reason. || [2026-10-01T16:45Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Lane session session_01JjPRfAYQKaocTX3QnHBgnD is ARCHIVED (create_trigger refused 'session not active' at 16:41Z), so it cannot report; this row's in_flight state is unverified until the manager re-checks its PRs and sets a disposition. || 2026-09-30 ~06:44Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP (Alpaca ticket / reset the paper account / leave and exclude), answer verbatim: \"Reset the paper account\". Lane dispatched to establish what the reset does (dashboard-only? new keys?), list the open positions and packages, close the journal rows with an operational reason so the reconciler does not book strategy exits, and hand the manager the minimal operator steps. Model opus: broker and credential handling. || 2026-09-30 ~08:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Lane working (dispatched 06:44Z). || 2026-09-30 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~09:05Z, given the full picture (6 positions GLD/IEF/QLD/QQQ/SPY/TLT, about $80.7k equity, 7 open journal rows; the wedge contained by #14585/#14643; the lane's narrower support-ticket option offered as Recommended), answer verbatim: \"Reset as decided\". The lane proceeds: #14600 (row-scoped close-stranded-journal-row with exit_kind) held for review; SPY row 6131 to be booked sl @ 763.70 exchange_fill before any bulk close; the operator gets a click-path for the new paper account and keys (never pasted in chat). || 2026-09-30 ~13:25Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14726 MERGED (pre-swap evidence; PI-20260930-3QNHBGND-0001/-0004). OPERATOR POPUP ~13:23Z with the click-path (a new Alpaca paper account; generate keys; update the existing secrets ALPACA_API_KEY_ID / ALPACA_API_SECRET_KEY; do not delete the old account), answer verbatim: \"$100k (Recommended)\". Waiting on the operator's 'keys updated'; then sync-vm-secrets -> verify -> close SPY row 6131 sl @763.70 FIRST -> the other 6 rows -> verify. The lane also re-checks broker_account_status once at ~15:00Z. || 2026-09-30 ~16:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Operator corrected my 13:23Z new-account steps (\"Why a new alpaca account? That's not what we discussed\"), then: \"there isn't a reset feature but i cancelled all the gold orders, if it's still not working then lets try keeping the account and seeing if the orders expire sometime\". KEEP the account; no reset, no key change. Lane measured at 15:02Z: both GLD legs STILL rest (the cancel had no effect); the other 6 rows match live positions and are not to be closed; GTC auto-cancel ~2026-11-25 (inferred). #14777 (close row 6131 while siblings exactly account for the broker position) is under independent review. || 2026-09-30 ~19:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): 19:00Z: #14777 still at 1dd1a369; lane nudged 18:53Z for the broker_flat_confirmed stamp fix (:191/:384/:389/:406). || 2026-10-01 ~02:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14777 still at 1dd1a369 (no push since 16:56Z). The after-hours false-page bug was a separate lane (ALPACA-CLOSE-WEDGE session_01LLCqwwDGQM7BZMZifj1rkM): #14899 merged d7f7697b, deployed 22:04Z, OBSERVED (3 defers, 0 failures, sweep checks SPY again); -0003 closes on the 13:30Z SPY 8-share exit.",
+  "_seq": 245
+}

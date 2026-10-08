@@ -1,0 +1,17 @@
+{
+  "phase": "W6",
+  "spend_usd": 6.9,
+  "blocked_on": [],
+  "owner": "fix lane",
+  "id": "FIX-CA-01b",
+  "state": "done",
+  "lane": "session_012GKDYrc8Nk7FCTyDVvyLkh",
+  "prs": [
+    13228
+  ],
+  "model": "claude-opus-5-5",
+  "ceiling_usd": null,
+  "title": "FIX-CA-01b: ib_paper MES 906 cancelled (IBKR 202); 907 PendingCancel on a flat book, expected to final",
+  "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): ib_paper MES 906 cancelled (IBKR 202); 907 PendingCancel on a flat book, expected to finalise at the CME reopen -> PI-20260927-YDVVYLKH-0001, manager check 22:20Z (trig_01S9gtwEaptoNtEvVS68Kipn). Root cause of Error 326 found: git-sync restarts a deliberately stopped trader (PI-...-0002). #13228 merged. Lane archived.",
+  "_seq": 154
+}

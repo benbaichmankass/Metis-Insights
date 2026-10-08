@@ -1,0 +1,20 @@
+{
+  "id": "SA-INFRA",
+  "title": "Audit FIX-SA-08/11/12: OnFailure= on timer oneshots, running-vs-disk sha, trainer disk 93% prune + 90% alarm",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "build lane",
+  "lane": "session_01QLcLE9ogmHJziMbtg1yDoi",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 35,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    14173,
+    14174,
+    14176
+  ],
+  "blocked_on": [],
+  "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): sonnet (no order path). FIX-SA-08 Tier 2 hold; FIX-SA-12 may delete only provably rebuildable/superseded data on its own, lists the rest for a decision. Never restarts ict-trader-live. || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14173 (0553bf1), #14174 (86315f8), #14176 (207ffa6) merged. Observations (a)-(d) owed per PI-20260929-BTG1YDOI-0001. Trainer disk decision (BTG1YDOI-0002): operator asked 13:50Z for a recommendation to approve.",
+  "_seq": 206
+}

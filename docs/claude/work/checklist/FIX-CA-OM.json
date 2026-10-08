@@ -1,0 +1,17 @@
+{
+  "phase": "W6",
+  "spend_usd": 9.65,
+  "blocked_on": [],
+  "owner": "fix lane",
+  "id": "FIX-CA-OM",
+  "state": "landed_unproven",
+  "lane": "session_01UvLYi7DiqLG9z5YpScuGqX",
+  "prs": [
+    13251
+  ],
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 45,
+  "title": "FIX-CA-OM: FIX-CA-02",
+  "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-02..06 (order_monitor.py) per docs/audits/code-audit-2026-09-27.md s5. Tier 2; manager merges under data-backed authority. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13251 merged f1ce436 after an independent pre-merge review (206/206 on branch, 33 fail on main). DEPLOYED and OBSERVED running at f089c40 (#13263). Effect on a real close not yet observed. Lane archived.",
+  "_seq": 156
+}

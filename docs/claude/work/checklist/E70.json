@@ -1,0 +1,18 @@
+{
+  "phase": "E",
+  "blocked_on": [],
+  "spend_usd": 7.51,
+  "id": "E70",
+  "title": "bybit_2 real-money realized P&L: why the broker-truth ledger is 73 days stale, and the true number",
+  "state": "done",
+  "owner": "engineering lane",
+  "lane": "session_015ZRxtKkuRyto7yzRoYCdy4",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 15,
+  "tier": 2,
+  "prs": [
+    12881
+  ],
+  "note": "OPERATOR 2026-09-24 ~17:15Z, popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, verbatim: \"Yes, spawn a lane (Recommended)\". From E67: bybit_2 has 10 closes and 0 winners since 09-08; broker-truth is as_of 2026-07-13; the journal under-records loss about 8x. #12881 is Tier-2 held (it surfaces ledger staleness).\nOPERATOR 2026-09-24 ~18:15Z, popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, verbatim: \"Merge + fix the gap (Recommended)\", in reply to \"#12881 adds as_of_age_days/stale fields; the ledger has no scheduled producer (a hand snapshot from an operator Bybit CSV); the automated wallet read shows -$49.99/90d but may cover only one of bybit_2's two sub-accounts\". APPROVED: (a) merge #12881 (Tier-2, read-only); (b) the lane then makes the automated wallet-truth read cover BOTH bybit_2 sub-accounts, so the true realized number needs no CSV from the operator.\n[2026-09-25T07:35Z manager] #12881 staleness flag merged + deployed (6e8c1fd54, pid 247727, boot 19:13:46Z, CURRENT). #12888 (\"fix the gap\") merged, then REVERTED by #12897 (7d39031df) after E71 found bybit_2's second sub-account history-only: the gap fix needed a new Bybit key the operator never approved (manager popup wording at fault). OBSERVED 2026-09-25: /api/bot/pnl/broker-truth?account_id=bybit_2 live now shows stale:true, as_of_age_days:74, with the MAIN/SUB explanation deployed. Auto-covering SUB was reverted (operator declined new credential); gap tracked at PI-20260924-PN2PXMTE-0001, not silently dropped.",
+  "_seq": 105
+}

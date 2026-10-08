@@ -1,0 +1,18 @@
+{
+  "id": "CA-A10",
+  "title": "Code audit Wave A: deploy/ + VM-mutating action scripts",
+  "phase": "CA",
+  "state": "done",
+  "owner": "audit lane",
+  "lane": "session_016shE4tRmBjWERor1Dj7Suq",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 40,
+  "spend_usd": 22.39,
+  "tier": 1,
+  "prs": [
+    13199
+  ],
+  "blocked_on": [],
+  "note": "Scope: deploy/** (64 files: systemd units, timers, Caddy, etc.); scripts/ops/*_action.sh (57 files) and the system-actions workflow allowlist that maps to them (docs/claude/system-actions.md); scripts/deploy_pull_restart.sh, install_systemd_units.sh, vm_bootstrap.sh, setup.sh, render_env_from_master.py. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A10.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_016shE4tRmBjWERor1Dj7Suq (claude-sonnet-5; r2: r1 session_01K3p5Byu4ziPUvBeszsbLtZ blocked, archived). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A10.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main.",
+  "_seq": 118
+}

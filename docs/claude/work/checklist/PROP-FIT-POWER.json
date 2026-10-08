@@ -1,0 +1,20 @@
+{
+  "id": "PROP-FIT-POWER",
+  "title": "Tradeify 1-Step prop fit, powered: re-run the underpowered legs (n 65-84 < floor 88) on longer-window full-cost evidence under freshly pre-registered units; PASS = Tier-3 tradeify_1 roster proposal",
+  "phase": "W6",
+  "state": "done",
+  "owner": "manager-dispatched lane",
+  "lane": "session_01SGtB43mEJKQKsfmg7bGr46",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 15,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    16567,
+    16593,
+    16598
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-05T10:33Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] DONE. Over 10 units (RQ-20261005-801..810), NO crypto leg passes the Tradeify bar. Data-backed Tier-3 (standing authorization 2026-09-27): trend_donchian_sol_prop was removed from tradeify_1 (#16598, merge 14db3bd2). Evidence: RQ-20261005-807 FAIL at 0.5% risk, 730d window, n=132 trades, full cost stack, 5 seeds: EV -$72..-$75 per life, P(net>0) 0.11-0.12. MERGED 14db3bd2; DEPLOYED: diag git_sha 14db3bd2a at 10:32Z; OBSERVED: /api/bot/config tradeify_1 strategies=[trend_donchian_eth_prop], symbols=[ETHUSDT]. Account was flat before the merge (unrealized 0.0 at 10:18Z). REVERT: re-add the leg and SOLUSDT to tradeify_1 in config/accounts.yaml. Follow-up PI-20261005-MG7BGR46-0002 (does an ETH+SOL book reach P>=0.70?, due 10-12) and THEMES weight PI-20261005-MG7BGR46-0001 stay open. Operator notified in chat 10:33Z. || 2026-10-05 06:37Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv (priority 1 prop; research slot freed by RESEARCH-RUN). RQ-20261004-755..764 were UNDERPOWERED/NULL because prop_ev_grid prices the newest evidence record, which holds fewer trades than the units declared; 765 FAIL. Lane does not edit config.",
+  "_seq": 296
+}

@@ -1,0 +1,19 @@
+{
+  "title": "M28 re-shape via research: wire-and-rescore + reshaped-thesis units",
+  "phase": "W6",
+  "state": "queued",
+  "owner": "research lane",
+  "lane": "session_015JePcaHfBSBVrcGyu2QtAo",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 30,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    14043,
+    14046
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-01T20:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator popup ~20:55Z: selected for wave 3, queued behind wave 2. || 2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup answer \"Re-shape via research (Recommended)\". Basis: comms/macro/thesis_p4_scorecard.json n=1,104, 2005-2026, zero cost: calibration_rank -0.0037, edge_vs_baseline -0.0047; P2 event join never wired (PI-20260927-CAA05-0002). Offline harness only; M29 dormant until it reads out.\n[2026-09-29T09:40Z manager] Resumed on the standing RESEARCH lane. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14043 (self-land, workflow land-step fix) and #14046 (held: RQ-20260929-001 scoping unit, verdict NOT_YET) open. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived 2026-09-29. On main: #14043 c61f13d6 and #14046 (merge 316efffe). The scoping unit RQ-20260929-001 is status done, verdict NOT_YET: band-restriction does not clear the naive baseline. The re-shape itself is not done. RQ-20260928-010 (realistic-cost P4 rescore) is queued. RQ-20260928-009 (event-wired rescore) is in research/queue/blocked because the thesis_backtest_run.py / build_replay_entries events argument is not built. Needs re-dispatch or explicit drop.",
+  "id": "MACRO-RESHAPE",
+  "_seq": 173
+}

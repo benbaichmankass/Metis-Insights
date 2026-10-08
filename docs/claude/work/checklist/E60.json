@@ -1,0 +1,16 @@
+{
+  "id": "E60",
+  "title": "Set per-venue slippage: Bybit perps 3.0 bps, equities/futures 5.0 (operator-approved, D3)",
+  "phase": "E",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_016cjxU99FFSfQUWJCvFrwEA",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 15,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "OBSERVED 2026-09-24T15:10Z after pull-and-deploy (#12864, wrapper exit 0). runtime-config: git_sha 8a86e0fd5 contains 7373971 (git merge-base --is-ancestor exit 0); pid 151913; boot 15:09:20Z (was 139823 at 14:40:31Z); strategies digest b9d95c4c and accounts digest efdec092 both unchanged (E60 touches neither; the accounts digest is the control); verdict CURRENT; bot_ticking true. Final lane spend $5.24. Merged #12855 (7373971, 15:07Z), operator-approved Tier-2. Deploy dispatched as issue #12864 under MD-DEPLOY-AN-APPROVED-MERGE. Pre-state read at 15:08Z: git_sha 5cf61a841, pid 139823, boot 14:40:31Z, strategies digest b9d95c4c, accounts digest efdec092 (the control). NOT YET OBSERVED: runtime-config git_sha containing 7373971 plus a new boot, with the accounts digest unchanged. Operator decision recorded on D3. Opus: slippage_bps_roundtrip_for feeds the live EV scorer. Deploy + verify under MD-DEPLOY-AN-APPROVED-MERGE.",
+  "_seq": 95
+}

@@ -1,0 +1,23 @@
+{
+  "id": "PHONE-SCREENSHOTS",
+  "title": "Phone executor: screenshots blank (FLAG_SECURE on the whole window) + the one-off claim 502",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane PHONE-SCREENSHOTS",
+  "lane": "session_01FMJ8hcTGUi1r3NPSCwvvdz",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 15,
+  "spend_usd": 2.39,
+  "tier": 1,
+  "prs": [
+    16945
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-07T19:40Z manager] Lane archived 19:38Z; spend $2.39 final. #16945 merged; proof = the operator's screenshot of the app no longer blacks out on the next APK (FLAG_SECURE scoped) -- manager reads it from the operator. || [2026-10-07T18:55Z manager] MERGED #16945 b2cc9777 (FLAG_SECURE only on credential screens, fail-closed until logged_in; claim 5xx backoff, no double-claim). 502 root cause NOT confirmed by the lane. On the phone only with the next APK install. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0006. Scope FLAG_SECURE to credential surfaces only (login page, credential dialog) so the terminal can be screenshotted; root-cause the 502 on /phone/claim seen 2026-10-06 10:26Z. Background robustness already landed (#16764). Sonnet, auto.",
+  "observation": {
+    "what": "operator screenshots the trading terminal (not black) with the APK built from main (run 37669999484 or later)",
+    "how_to_check": "operator report; phone_heartbeat st logged_in",
+    "due_by": "2026-10-09T18:00Z"
+  },
+  "_seq": 306
+}

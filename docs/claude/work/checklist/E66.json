@@ -1,0 +1,18 @@
+{
+  "id": "E66",
+  "title": "Prop: record the stop on report-back, so rule-distance subtracts open loss-to-stop",
+  "phase": "E",
+  "state": "done",
+  "owner": "lane",
+  "lane": "session_01MhYvLy1zgbNmSDBoEZjaFz",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 25,
+  "spend_usd": 20.8,
+  "tier": 2,
+  "prs": [
+    12869
+  ],
+  "blocked_on": [],
+  "note": "WAVE 2, operator-selected 2026-09-24 ~15:55Z (popup). Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP. From E59 PI-20260924-MQ3CDMU6-0003: fill #44 (ETH short 1.3 @ 2666.11) has sl null, and the operator moved the stop 2736.00 -> 2711.10 without it being recorded anywhere. compute_rule_distance subtracts no open loss-to-stop, so a second ticket grades within_cushion while ~$68 is at risk. Opus: prop ingest plus the risk read.\nOPERATOR 2026-09-24 ~17:10Z, popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, verbatim: \"Merge + deploy (Recommended)\". MERGED as dd5a8b3c2 (#12869) at ~17:46Z. DEPLOYED and OBSERVED via issue #12882: /api/bot/runtime-config git_sha dd5a8b3c2, pid 214033, boot 2026-09-24T17:47:45Z, verdict CURRENT. NOT YET OBSERVED: the behaviour. What closes it: the operator's amend report for fill #44 (stop 2711.10) journals the stop, and rule distance then reads an after-open-risk cushion of about $26.29 instead of $94.76.\n[2026-09-25T07:35Z manager] Deployed dd5a8b3c2; fill #44 stop journaled at 2711.1 and rule-distance reads it.",
+  "_seq": 101
+}

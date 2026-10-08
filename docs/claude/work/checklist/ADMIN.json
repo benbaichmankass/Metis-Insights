@@ -1,0 +1,19 @@
+{
+  "title": "Apply operator bulk decision on 16 tier-6 triage items + record REVERIFY keep-held + mandate prose fixes",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "ops lane",
+  "lane": "session_0116oibqE8zMM9FZC4kXtcUs",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 25,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    13624,
+    13633
+  ],
+  "blocked_on": [],
+  "note": "2026-09-28 ~12:15Z: operator popup \"Apply my recommendations (Recommended)\" (12:10Z). Dispatched when a lane slot frees. || 2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): dispatched, working. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): state corrected in_flight -> landed_unproven: lane is ARCHIVED (status_bucket COMPLETED) and #13633/#13624 are on main (git log --grep). Deploy/observation not verified by this session; the lane's own pipeline items carry the observation that closes it.",
+  "id": "ADMIN",
+  "_seq": 180
+}

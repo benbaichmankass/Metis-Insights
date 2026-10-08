@@ -1,0 +1,18 @@
+{
+  "title": "Arm MD-PROMOTE-S1-S2 at bar.cost_tolerance_bps 2.0 (operator decision)",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "fix lane",
+  "lane": "session_01XepGtLH2ULAFoVT4Nf69L4",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 15,
+  "spend_usd": null,
+  "tier": 3,
+  "prs": [
+    13582
+  ],
+  "blocked_on": [],
+  "note": "2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup answer \"Arm, tolerance 2 bps\" (manager had recommended keep unarmed). Both blocked_until clauses verified cleared: (a) PI-20260924-JCVFRWEA-0001 done and 0 of 27 Bybit-perp cost-stacked records differ from slippage_bps_roundtrip_for; (b) operator reaffirmation 2026-09-27. No auto-land arming; promotion PRs held for manager merge + operator ping. Held Tier-3 PR, manager merges. | 2026-09-28 ~12:15Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): lanes MANDATE-ARM ($0.61), -2 ($3.56), -3 (archived before start) produced no PR (-2 blocked by the auto-mode classifier on the mandates.yaml write). Operator started session_01XepGtLH2ULAFoVT4Nf69L4 directly; #13582 merged 06f3eeda after independent Opus review MERGE and operator answer \"Merge as is\" to a popup stating gld_pullback_1h + slv_trend_1h become eligible for alpaca_live on the provisional 5 bps basis. Consequences recorded: r3_cost_fidelity reads this field as T for all cells, so MD-DEMOTE-S1-OFF grading loosens at the next R3 run; stale in-entry prose + docs/research/r3-gate1-cost-fidelity-rule-2026-09-25.md:70 to be fixed by the ADMIN lane. Promotions: gld waits for its stop walk-forward; slv_trend_1h gets a record + alpaca_live sizing check before any roster PR. Closes when the first promotion (or explicit decline) under the mandate is recorded.",
+  "id": "MANDATE-ARM",
+  "_seq": 172
+}

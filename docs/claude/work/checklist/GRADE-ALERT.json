@@ -1,0 +1,18 @@
+{
+  "id": "GRADE-ALERT",
+  "title": "Grading-freshness guard -> alert-only: PR warning + one daily Telegram ping when grading is stale (operator decision b)",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "build lane",
+  "lane": "session_014PWy5CbFYcBszh7j9epRLF",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 20,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    14230
+  ],
+  "blocked_on": [],
+  "note": "2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): operator 13:50Z 'let's do b'. Sonnet: bounded CI/tooling change. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. #14230 on main as 0b566cbb (adds .github/workflows/grading-freshness-alert.yml and alert-only scripts/ci/check_grading_freshness.py). No record observes it firing. Closes on the first stale-grading run of grading-freshness-alert.yml that sends exactly one Telegram ping, or a PR run that warns without failing. || 2026-09-30 ~04:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): NOT OBSERVED. Actions API: grading-freshness-alert.yml is active (id 370239814) with 0 runs ever, ~45 min past its first 04:10Z slot. It is not a schedule_keeper target, and GitHub cron here runs 4-6h late or drops slots (schedule_keeper.py docstring). Filed PI-20260930-AQRK6CL1-0001: make it a keeper target. Still landed_unproven. || 2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane GRADE-KEEPER session_01GWrrhKT1wx6eYBvjTN54AS (claude-sonnet-5-5, ceiling $10): add grading-freshness-alert.yml to schedule_keeper TARGETS plus its dedupe job, then observe the first run (PI-20260930-AQRK6CL1-0001). || 2026-09-30 ~05:52Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): GRADE-KEEPER #14512 MERGED 82c7973. OBSERVED: the keeper dispatched run 36673584794 (workflow_dispatch by github-actions[bot], 05:28:44Z) -> success; the dedupe job was skipped (correct); the alert logged 'fresh - max(reviewed_at)=2026-09-29T11:58:51Z over 3937 graded rows; age 0.7d vs limit 3d'; no ping (fresh is silent by design). The schedule half is PROVEN. The ping path is still unexercised end to end, so the row stays landed_unproven until a stale-grading run pings. Lane session_01GWrrhKT1wx6eYBvjTN54AS ARCHIVED. PI-20260930-AQRK6CL1-0001 closed.",
+  "_seq": 214
+}

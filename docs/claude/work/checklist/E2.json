@@ -1,0 +1,18 @@
+{
+  "id": "E2",
+  "title": "Engineering / infra build-out plan",
+  "phase": "E",
+  "state": "landed_unproven",
+  "owner": "this session",
+  "lane": null,
+  "model": "claude-opus-5",
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    12668
+  ],
+  "blocked_on": [],
+  "note": "docs/plans/ENGINEERING-PLAN-2026-09-21.md. The infra the research programme needs: harnesses, corpus, durable results, the trainer. Distinct from Phases A-D, which repair the OPERATING model. [!] Shipped in PR #12668 (3ea2777). Still `landed_unproven`: merged is not observed, and for the doc rows the observation that matters is whether a SESSION can actually work from them -- which the next manager session is the first test of. [!] \u26a0\ufe0f NOT TESTED BY THIS SESSION, AND SAYING SO RATHER THAN MARKING IT PROVEN. The handoff named A2/A4/E1/E2 as proven by whether a session can actually work from the new docs. This session worked from CLAUDE.md, the manager contract and the CHECKLIST -- it did not open this plan once, in a full day of dispatching and merging. That is itself a finding, and it cuts two ways: either the checklist is carrying the plan's job (in which case the plan is a memo, which is the exact category this repo has 404 of), or the manager should have been reading it and was not. Do not read this row's silence as a pass. [!] CLOSING THIS ROW MEANS a session naming a decision it made BY READING THIS PLAN that it would have made differently otherwise. [2026-09-25 sweep] Checked: no commit or checklist row since #12668 cites ENGINEERING-PLAN-2026-09-21.md as having changed a decision (git log --all --grep + docs/ grep, both empty). The plan's own header still reads \"last verified: never -- do not act on it as current.\" Still landed_unproven; recheck next time a build session actually consults docs/plans/.",
+  "_seq": 27
+}

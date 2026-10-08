@@ -1,0 +1,21 @@
+{
+  "id": "STAGE2-MIRROR",
+  "title": "Stage-2 Alpaca mirror is not trade-identical (side_filter long vs none) + MD-PROMOTE-S1-S2 has no affordability clause (fired gld_pullback_1h onto alpaca_live)",
+  "phase": "W6",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_012Q62RPzq1M36Ruk7u61jJu",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 35,
+  "spend_usd": 20.1,
+  "tier": 3,
+  "prs": [
+    14539,
+    14543,
+    14558,
+    14657
+  ],
+  "blocked_on": [],
+  "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Money path. Items PI-20260928-E8Y3BGBS-0002/-0003 and SVBNZOVH-0001/-0002. The mirror fix follows the operator's recorded strict-equality decision (B2, 2026-09-21). Lane dispatched: held Tier-3 PRs. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here. || 2026-09-30 ~05:41Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Q1 #14539 (alpaca_portfolio side_filter: long; risk max_dd_pct/daily_loss_pct 0.05 -> 0.10 to equal alpaca_live; a fail-closed trade-shaping equality test for both pairs; notes.dry_cause on dry rows) passed independent review with MERGE: only 3 config lines; allowlist keys are identity-only; risk caps refuse per trade and never flip mode; effective_dry is unchanged; 56/56 targeted tests pass; the Bybit pair was already equal. DATA/DECISION-BACKED TIER-3 under the standing authorization: operator decision B2 (2026-09-21, strict equality) supersedes the 2026-08-23 scoping for alpaca_portfolio only; alpaca_paper/ib_paper stay two-sided. Un-drafted, auto-merge armed; operator notified. REVERT: revert the squash commit (restores side_filter absent and caps 0.05). || 2026-09-30 ~05:51Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Q2 #14543 (R-AFFORD in mandate_resolver.py for MD-PROMOTE-S1-S2; committed equity snapshots) passed independent review with MERGE: it can never turn REFUSE/NEEDS_DATA into FIRE; no secrets; 93 tests pass including the real gld record -> REFUSE (0/54 setups at $393.01 vs $193.56 equity). Un-drafted, auto-merge armed. Follow-ups relayed: a future captured_at never goes stale, and NaN/Inf equity. The 2026-09-28 gld fire never reached a real-money roster (no roster PR; gld_pullback_1h is on alpaca_paper only), so nothing to revert. The lane is measuring PI-20260930-K7U61JJU-0001 (mirror trades live could not size) instead of asking the operator. || 2026-09-30 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): DONE. #14543, #14539, #14558 (R-AFFORD hardening, merged 9bd85d19 by the manager under the data-backed Tier-2 authorization; NaN/inf equity or buying power and a future-dated snapshot now return NEEDS_DATA) and #14657 all MERGED. NOT OBSERVED: the first side_filter-suppressed alpaca_portfolio row carrying notes.dry_cause. K7U61JJU-0002 (alpaca_portfolio TLT short #5912) routed to ALPACA-CLOSE-WEDGE and MEASURED: the broker holds 738 short with a resting GTC OCO (stop 81.18 about 2.6 above the mark, TP 73.38), the order monitor manages pkg-dfe2ec1e82fd46c8, and the sweep covers it; not an orphan. Follow-up filed PI-20260930-MGR01HYQ-0001 (NaN confidence defaults to 1.0 in R-AFFORD). Lane ARCHIVED ($20.1).",
+  "_seq": 227
+}

@@ -1,0 +1,18 @@
+{
+  "id": "TRADEIFY-PORTFOLIO",
+  "title": "Can we field a reasonably profitable portfolio within Tradeify 247's rules (DXtrade, crypto)? Rule set, Monte Carlo ruleset, portfolio, trade frequency, adapter reuse",
+  "phase": "W6",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01CwrESbNXfhSLrXX9scjQLY",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 35,
+  "spend_usd": 7.1,
+  "tier": 1,
+  "prs": [
+    14580
+  ],
+  "blocked_on": [],
+  "note": "2026-09-30 ~05:47Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR, verbatim: \"the Tradeify option sounds like it uh, might be good, even if they don't serve the API docs, if we can at least reuse the info where we already build, and that's also uh, a step up. Uh, so let's see there also if like uh, we think we can get a portfolio that would uh, be reasonably profitable within their limits.\" Lane dispatched (claude-sonnet-5-5, $35), carrying the operator's trade-frequency worthwhileness requirement. || 2026-09-30 ~08:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): The operator bought the $10k pilot (popup ~08:24Z) -> TRADEIFY-WIRE. || 2026-09-30 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): DONE. #14580 MERGED eff4448a (memo: marginal; B3 = trend_donchian_eth_prop + trend_donchian_sol_prop + ict_scalp_xrp_15m at 0.5% risk, about 30 trades a month; sim EV about +$840/life on $10k 1-Step, V2 rule INDETERMINATE). A manager-authored conflict merge broke manager-scope; the lane redid it (force-with-lease over the manager commit only). Lane ARCHIVED ($7.1).",
+  "_seq": 240
+}

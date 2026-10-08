@@ -99,7 +99,7 @@ Priority" — **the two must always agree** (`canonical-doc-coherence` enforces 
 
 | A question | → `research/queue/<id>.yaml` |
 |---|---|
-| **A build** | → **a row in [`docs/claude/work/MANAGER-CHECKLIST.json`](docs/claude/work/MANAGER-CHECKLIST.json)** |
+| **A build** | → **a row in [`docs/claude/work/checklist/`](docs/claude/work/checklist/)** (one file per row; `MANAGER-CHECKLIST.json` was deleted at the 2026-10-08 cutover) |
 
 Nothing else is work. A spec file, a memo or a design doc that no checklist row
 and no queue unit points at **is not work — it is a memo**, and this repo has

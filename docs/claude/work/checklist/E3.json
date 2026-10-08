@@ -1,0 +1,18 @@
+{
+  "id": "E3",
+  "title": "Make the cost model reach every harness",
+  "phase": "E",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01HmQgaLfZv9rv7uuWfgA321",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 40,
+  "spend_usd": 72.51,
+  "tier": 1,
+  "prs": [
+    12684
+  ],
+  "blocked_on": [],
+  "note": "THE SINGLE HIGHEST-VALUE ENGINEERING ITEM: R1 depends on it and R1 gates everything, including the arming of MD-PROMOTE-S1-S2. execution_costs.py is correct; the defect is at the call sites -- harness globals set SLIPPAGE_BPS_ROUNDTRIP and FUNDING_BPS_PER_WINDOW to 0.0, documented as deliberate for backward compatibility. THAT ARGUMENT HAS EXPIRED: it preserved comparability with runs we no longer trust. 6 of 15 harnesses carry no cost terms at all, including vwap. [!] KEEP resolve_cost_policy's None-vs-explicit-0.0 distinction: a fee-only ARM is a legitimate experiment, a fee-only DEFAULT is the defect. [!] DISPATCHED 2026-09-21, ahead of the A-phase order the handoff gave, and the reason is on this row already: it is named THE SINGLE HIGHEST-VALUE ENGINEERING ITEM, it is unblocked, Tier-1, and it conflicts with no file any other live lane is in. Holding it behind A9 would have bought nothing. FRESH, sonnet-5. [!] MODEL CHOICE ARGUED, because this one is close to the order-path rule and close calls are where a table gets misread: the task table sends anything ON A REAL-MONEY ORDER PATH to opus, and a backtest harness is not one. The downstream risk -- a wrong cost number arming a real-money promotion -- is real but cannot fire today: MD-PROMOTE-S1-S2 does not arm until D1, and B5 (the mandate mechanism) is not built, so nothing automatic follows from this landing. Sonnet is correct HERE and would not be once B5 exists. [!] LANE FENCED OUT of changing what execution_costs.py COMPUTES (it is correct, and a behaviour change there is a different tier) and out of re-running the corpus (that is D1/R1). It was told to wire vwap FIRST if it cannot finish -- 318 of 431 lifetime real-money trades -- and to file the remainder in the pipeline rather than leave it in a PR body. [!] PR IS #12684. The lane's own summary named #8831, a number that belongs to no PR of this change -- recorded because a wrong PR number in a summary is unfalsifiable from the summary alone, and the manager merged from the branch name, not the number. [!] MERGED 2026-09-21 as 3afc02b. \u26a0\ufe0f THE FIRST REAL CI RUN ON THIS PR IS THE ONE THAT MERGED IT -- before the conflict-resolution push only `watch` had ever fired, so the green in the lane's original summary was a local run. guards/pytest-collect/pytest-run all green on e6bd336. [!] DONE means the harnesses are wired; it does NOT mean the corpus is re-run. Every leg whose harness previously defaulted to fee-only now has a STALE backtest record, and that is D1/R1.",
+  "_seq": 34
+}

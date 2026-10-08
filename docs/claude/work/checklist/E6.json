@@ -1,0 +1,18 @@
+{
+  "id": "E6",
+  "title": "Unblock replay-pregate",
+  "phase": "E",
+  "state": "landed_unproven",
+  "owner": "build lane",
+  "lane": "session_018ZrLU4TiW7Dhjh8FX7sD8T",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 30,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    12921
+  ],
+  "blocked_on": [],
+  "note": "TWO independent faults and both must go: runtime_logs/** is not in TIER1_SURFACE so pr-landing R5 rejects the commit (0 reports on main since inception), AND the trainer swap-thrashes so 6 of 6 runs die at 10 of 22 heads with NO non-BTC head ever graded. [!] Fixing only the surface produces a green workflow that still grades a third of the fleet -- do not report it fixed on the commit landing. Raising trainer memory is an OCI capacity question: the Ampere pool is FULL at 4 of 4 OCPU. [!] \u26a0\ufe0f DUPLICATE OF C3 \u2014 same work (unblock replay-pregate) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push.\n[2026-09-25T07:35Z manager] WAVE 3, operator-selected 2026-09-25 (popup \"C1+E6 research plumbing\"), paired with C1 in one lane, $40 ceiling.\n[2026-09-25T09:55Z manager] PR #12921 had NO CI on its head since 07:33Z (conflict after E64); lane nudged 08:58Z to merge main + migrate.\n[2026-09-25T12:10Z manager] E6(a) done: #12815 landed, 12 stale replay-pregate PRs closed. E6(b) memory-lifetime fix merged (del + gc.collect per head); proven only when a nightly replay-pregate run grades 22/22 heads (next 04:00Z). [2026-09-25 sweep] Fix (#12921) merged 10:42Z UTC. The only report since (20260925T100601Z, still 10/22 heads, \"undetermined\") was dispatched before the fix landed and does not test it -- confirmed by commit timestamps. No run since. Recheck after the 2026-09-26T04:00Z nightly cron, or dispatch manually now.\n[2026-09-26 14:05Z manager session_01Ljhs6sFAdWHdMDhJpL5aBP] E6(b) NOT MET: the 2026-09-26 nightly (#12988, runtime_logs/replay_pregate/20260926T095107Z.partial.json) is PARTIAL -- 15 of 22 heads scored, 0 errors, partial_reason 'undetermined' (transport exit code not captured). Cannot tell OOM from a relay timeout. Next nightly re-checks; if partial again, dispatch a lane to capture the exit code.",
+  "_seq": 37
+}

@@ -1,0 +1,18 @@
+{
+  "id": "EXITHEAD-DONCHIAN-GATE",
+  "title": "Gate-check exit-head-donchian-1h-v1 through the exit-refinement pipeline (twin-dedup blocker now cleared)",
+  "phase": "W6",
+  "state": "done",
+  "owner": "research lane",
+  "lane": "session_01CPyNx1pUaNYfmvVd4cdZ7y",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 30,
+  "spend_usd": null,
+  "tier": 3,
+  "prs": [
+    14093
+  ],
+  "blocked_on": [],
+  "note": "2026-09-29 ~10:05Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): from ML-REVIEW W7 (#14069): the twin-dedup blocker (E77) is confirmed cleared live; the existing OOS re-grade is a marginal pass (+1.3127R, n=119). Not in ml list-models registry, so it goes through the exit-refinement skill's E0/E1/E1.5 + live-parity steps. Output is the gate verdict + evidence record; any flip is a later Tier-3 decision. || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): FAIL (not underpowered): RQ-20260927-002 3-fold embargoed walk-forward, n=1041 pooled, recovered_R_oos -14.66 (1/3 folds positive), reversing RQ-20260927-001's single-split +1.31R (n=119); AUC 0.5403 < 0.55; 11 live closes sum -1.13 USD. Model stays shadow, no change. Evidence #14093 (Tier-1 self-land); PI-20260929-HIANGATE-0001. ML-REVIEW W7 cited only the superseded single-split -- ml-review should read the latest graded unit, not the first.",
+  "_seq": 197
+}

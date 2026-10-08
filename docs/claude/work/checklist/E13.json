@@ -1,0 +1,18 @@
+{
+  "id": "E13",
+  "title": "pipeline.append() ID collision check (PI-20260921-M04)",
+  "phase": "E",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01YUnvQssdGXkpjB2MRkddF3",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 18,
+  "spend_usd": 87.64,
+  "tier": 1,
+  "prs": [
+    12686
+  ],
+  "blocked_on": [],
+  "note": "PROMOTED FROM PIPELINE ITEM PI-20260921-M04 at close-out 2026-09-21, because a lane is live on it and a live lane belongs on the checklist -- the pipeline is the INTAKE, the checklist is what is being worked. Leaving it only in the pipeline would have hidden an $18 lane from the operator's Workflow page. [!] ORIGIN: pipeline.append() has no id-collision check, so one finding can silently displace another while --check still reports `clean`. The manager caused one and repaired the data in #12685; this row is the TOOL fix. [!] LANE FENCED OUT of render_section_0/unrouted_count signatures (A3a now calls them) and told the store will carry ~1,150 rows after A8, so the cost of folding the log on every call is a real constraint. [!] TOLD NOT to fix it by making ids opaque and stopping there. [!] \u26a0\ufe0f ITS OWN NEW CHECK FLAGGED ITS OWN RECORD AT THE MERGE, which is the best available evidence that the check works. The lane's update to PI-20260921-M04 rewrote `what` wholesale and repointed `origin.ref` at its own session and PR -- making a legitimate state change indistinguishable from a displaced finding, the exact defect this row exists to fix. `origin` is WHERE THE FINDING CAME FROM; the worker's PR belongs in `routed_to`. Repaired at merge by the manager. [!] Spend $43.41 against an $18 ceiling. [!] \u26a0\ufe0f SPEND CORRECTED AGAIN, READ AFTER ARCHIVING: $87.64. The figure committed hours earlier was ALSO mid-flight.",
+  "_seq": 44
+}

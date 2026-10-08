@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "CHECKLIST seed cutover: split the 348-row MANAGER-CHECKLIST.json into docs/claude/work/checklist/<ROW-ID>.json (+_header.json), delete the monolith, re-point the two guards that declared the monolith as their subject, repair the tests and the pytest-run path filter that named it. Rows, ids and the Workflow page payload are identical before and after (verified).",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Manager (session_01MM8o5js6TcDFeNAPBY4Ntv, routine 'mgr\u2192REGISTER-TOOLING: #17036 merged, seed PR go') instructed: landing hold, Tier-1, manager merges on green. The change deletes the live register file and creates ~350 files, so it is landed by hand after the manager checks the Workflow page rows."
+}

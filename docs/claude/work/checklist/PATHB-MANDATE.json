@@ -1,0 +1,23 @@
+{
+  "id": "PATHB-MANDATE",
+  "title": "Draft a PROPOSED mandate: soak-only exit-refinement Path-B cells ship without a popup (PI-20260929-AQRK6CL1-0013); the operator grants or declines",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "build lane",
+  "lane": "session_01R2PHzyjMvQoNiB39SdYWco",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 35,
+  "spend_usd": null,
+  "tier": 3,
+  "prs": [
+    14520,
+    14626,
+    14651,
+    14676,
+    14696,
+    14712
+  ],
+  "blocked_on": [],
+  "note": "2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane dispatched: session_01R2PHzyjMvQoNiB39SdYWco (claude-sonnet-5-5, ceiling $15). Writes proposed: only, never mandates:. Held Tier-3 PR, then the manager puts grant/decline to the operator. || 2026-09-30 ~05:17Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): the lane opened #14520 (proposed MD-SOAK-EXIT-CELL-PATHB; resolve_exit_cell and --exit-cell/--dry-proposed in mandate_resolver.py; 32 tests). The dry run returns FIRE on #14332's cell. OPERATOR POPUP ~05:15Z; bounds stated: soak-only by Stage-1 membership, never on a Stage-2 roster; folds >=5/6; maxDD worsening <=0.35x base; leverage <=2.0; pullback/donchian only; no runner exists yet. Answer verbatim: \"Grant; firing opens a PR (Recommended)\". GRANTED AS WRITTEN, NO autoland: a fire opens a PR and pings, and the manager merges it. Relayed to the lane: move the entry into mandates: on #14520 (Tier-3 hold, the manager merges on green), then build the runner PI-20260930-39SDYWCO-0001 as a held Tier-2 PR. Ceiling $15 -> $35. The lane found (not blocking): trend_donchian_eth_4h / trend_donchian_xrp_4h were in the 08-30 batch and are now on bybit_2, so the entry refuses them; skill Path-B text vs the shipped path_b_wf_pass differ (-0003); corpus rows lack a cost-stack stamp (-0002). || 2026-09-30 ~06:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): the grant record is on main (#14550); lane told to move the entry into mandates: on #14520 (no autoland, landing hold) and then build the runner. || 2026-09-30 ~08:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): In-lane operator messages, verbatim: \"Grant confirmed, proceed with the mandate move\" and (amendment) \"Yes, make spy_pullback_1h's contamination a bound\" -> clause 8 refuse_timeout_contaminated. The review of #14520 found non-finite evidence could FIRE and the top-cell rule was unimplemented; both fixed at f3ac5a42 (16 NaN/inf cases; R-NOT-TOP-CELL). Runner PR #14626 (manager-opened; the lane has no PR write). Findings: the matrix note on spy_pullback_1h (17 of 39) is stale, the raw corpus reads 0 of 39 (-0004); the E35 08-31 doc had recommended DECLINE for #14332 on OOS retention and one-fold dependence (-0006), relayed to the operator; the leg stays (soak-only). || 2026-09-30 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14520 MERGED 81e8d009 (Tier 3; MD-SOAK-EXIT-CELL-PATHB GRANTED under mandates:, a fire opens a human-merge PR, no autoland). #14651 MERGED (spy_pullback_1h matrix note corrected to CLEAN 0/39; manager re-ran timeout_binding_audit: spy 0/39 clean, trend_donchian_ada_4h 17/38 contaminated). OPERATOR POPUP ~09:05Z on the spy bound, answer verbatim: \"Follow the data (Recommended)\" = no name-based block; the existing audit-OR-note clause (8) stands. The lane then built claude/pathb-bound-follows-audit (b63605e9), which LOOSENS clause (8) to audit-only; the manager refused it as not authorised (the answer did not grant a mandate-text change); dead branch, no PR. Runner #14626 retargeted to main; pytest RED on 774d5442 (test_commit_to_main_callers: no merged-confirmation step; budget 30m = merge wait 30m), fix relayed. #14676 closes -0004 and files -0007 (08-29 write-up's 18/41 contamination count not reproducible from committed data). || 2026-09-30 ~13:25Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14626 MERGED 4d3a3e50 (verify-merged, 45m). #14696 MERGED 781a395d (verdicts in the job log + artifact exit-cell-mandate-run). #14712 MERGED: first read-only run OBSERVED over 16 legs = 0 FIRE / 5 NEEDS_DATA / 10 REFUSE / 1 NO-OP (spy). The dead branch claude/pathb-bound-follows-audit (b63605e9) is never to be merged. -0008 observation due 2026-10-01 (08:23Z run).",
+  "_seq": 224
+}

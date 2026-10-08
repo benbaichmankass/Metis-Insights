@@ -1,0 +1,16 @@
+{
+  "id": "E49",
+  "title": "A register-only change should not cost a PR, three landing files and two 20-minute CI cycles",
+  "phase": "A",
+  "state": "queued",
+  "owner": "eng lane",
+  "lane": null,
+  "model": "claude-opus-5",
+  "ceiling_usd": 60,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "OPERATOR-RAISED 2026-09-24, verbatim: 'it just doesn't seem like we've basically spent 24 hours trying to close up something that we were supposed to close up two days ago already... It seems. Like something might be wrong here.' They then chose 'file it as a checklist row' over raising it at the sync.\nMEASURED ON ONE REAL CHANGE (#12828, 2026-09-24): flipping TWO fields in MANAGER-CHECKLIST.json from `in_flight`/`blocked` to `done` required a PR, `.github/pr-landing/<slug>.json`, `.github/pr-automerge-requests/<slug>.txt`, `.github/merge-slots/<slug>.json`, and TWO full CI cycles. `pytest-run` is ~20 minutes and every push restarts it. Wall clock from PR open (11:24:15Z) to merge (11:52Z) was 28 minutes for a 35-line docs diff.\n\u26a0\ufe0f SPLIT THE CAUSE HONESTLY, because most of it was the manager and a fix aimed at the wrong half will not help. Roughly 40 minutes was MY error: I discovered the landing requirements by failing CI twice instead of running `python3 scripts/ci/check_pr_landing.py --base origin/main`, which takes 8 SECONDS and names every missing file at once. That is a discipline problem, addressed in the handoff, NOT something to build around. What remains after removing it is still real: three landing files and a full test suite for a docs-only diff.\nCANDIDATE DIRECTIONS, none decided:\n  (a) a docs-only CI path that skips `pytest-run` when the diff touches no Python -- note `guards` must       still run, since pr-landing-guard and the register guards live there;\n  (b) let the manager batch register updates into ONE PR per day instead of one per closure;\n  (c) collapse the three landing files into one, or derive the merge-slot claim from the declaration.\n[!] A CHEAP, SEPARABLE FIX WORTH DOING WHATEVER ELSE IS CHOSEN: pr-landing-guard's R13 failure message tells you to write `docs/claude/session-board.json`, which the 2026-09-21 operating reset ARCHIVED and which CLAUDE.md says not to resurrect. The route that works is `.github/merge-slots/<branch>.json` (MI-280, 2026-09-12), documented ~20 lines below the stale remedy in the guard's own source. That message cost a CI cycle on 2026-09-24 and will cost the next session one too. guard-liveness already baselines check_pr_landing.py as DEGRADED with session-board.json among its absent subjects, so the repo knows the subject is gone -- what nobody noticed is that the REMEDY TEXT still points at it.\n[!] NOT ESTABLISHED: whether `pytest-run` can be skipped safely for a docs-only diff. Nobody has checked what in that suite reads docs/ or the registers -- `check_manager_checklist_vocabulary` and `pipeline --check` both do, and both live in `guards`, not `pytest-run`. Establish it before building (a).",
+  "_seq": 83
+}

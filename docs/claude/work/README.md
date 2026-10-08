@@ -5,9 +5,8 @@
 Since the operating reset of **2026-09-21** this directory holds exactly one
 live file:
 
-- **[`MANAGER-CHECKLIST.json`](MANAGER-CHECKLIST.json)** (after the per-row cutover:
-  one file per row under [`checklist/`](checklist/), edited only with
-  `scripts/ops/checklist.py`) — every plan item and
+- **[`checklist/`](checklist/)** (one file per row; was `MANAGER-CHECKLIST.json`, deleted at the 2026-10-08
+  cutover. Edited only with `scripts/ops/checklist.py`) — every plan item and
   every live lane. It is served to the operator as the **Workflow page** on the
   SPA (`GET /api/bot/work/checklist`), read from the VM's working tree.
   `ict-git-sync` pulls `main` every ~5 minutes, so the page is exactly as fresh

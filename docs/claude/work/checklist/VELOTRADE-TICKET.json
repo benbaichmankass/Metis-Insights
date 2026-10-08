@@ -1,0 +1,25 @@
+{
+  "id": "VELOTRADE-TICKET",
+  "title": "velotrade_1: an unplaced ticket past valid_until (expiry_prompted) blocks every later signal on a REST-executed account",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane VELOTRADE-TICKET",
+  "lane": "session_01BbBqjBgks6BVLgjoHnSxdJ",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 40,
+  "spend_usd": 10.43,
+  "tier": 2,
+  "prs": [
+    16947,
+    16977,
+    17009
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-08T02:03Z manager] #17009 (closing-observation record) was RED on two guards: pr-landing R11 (files named velotrade-ticket-observe but the branch slug is chore-velotrade-ticket-observe) and the new soak-contract-guard (#16973: PI-20261007-JOHNSXDJ-0003 had no definition of done). Manager renamed the landing files and added observation {what, how_to_check, due_by 2026-10-10} (b737e8d0a); auto-merge stays armed. || [2026-10-07T20:11Z manager] DEPLOYED (lane): VM tree 9dd129024 contains f42ddf9a1 (diag /version 19:54Z); trader restart via system-action issue #17008 (restart-bot-service, directive sentence in the body): stopped/started 19:56:38Z, ict-trader-live active, first 5 min 2 pre-existing ERRORs (pybit recv_window, IB peer-closed also seen before the restart), 0 tracebacks, 0 prop_expiry_prompt lines; open positions identical pre/post on every account. Executor tick 19:53:10Z already on code_sha 9dd129024. #16977 merged 19:56Z. Observation filed as PI-20261007-JOHNSXDJ-0003 via PR #17009 (self-landing) because the manager's PI-20261007-APBY4NTV-0001 is on the unmerged register branch, not main. Lane archived 20:10Z; spend $10.43 final (Opus). || [2026-10-07T20:02Z manager] #16977 MERGED 20:01Z (0fcba3dc7) under the operator's Tier-2 OK: system-action prop-ticket-expire (dry-run default; apply = backup + one guarded UPDATE). Runs through system-actions.yml on GitHub -> no VM restart needed; verify = one dry-run issue against velotrade_1 once the lane finishes the #16947 deploy. || [2026-10-07T20:00Z manager] OPERATOR OK (verbatim, 2026-10-07 ~20:00Z): 'Ok on the tier 2 items' -- covers the six groups put to the operator at 19:4xZ: #16977 prop-ticket-expire action. Merge on green, verify the action's dry-run default. || [2026-10-07T19:51Z manager] #16947 MERGED 19:50Z (f42ddf9a1): REST accounts skip the expiry prompt; an unattempted expiry posts the terminal skipped report with its last verdict. Merged != deployed: needs a live-trader restart (prompter) + the next executor timer tick; lane woken 19:54Z to deploy (trader-restart system-action, authorised under the operator's 2026-10-07 directive) and verify, then name the observation. #16977 still held for the operator's Tier-2 OK. || [2026-10-07T19:13Z manager] PR #16977 held Tier-2: system-action prop-ticket-expire (dry-run default; apply = backup + ONE guarded UPDATE expiry_prompted / emitted-past-validity -> expired; refuses non-REST accounts, tickets with fills, wrong account). JOHNSXDJ-0001 measured: signal 01:59:24Z, band 2664.72-2679.28, first tick bid 2615.72 (-2.11%); hypothesis: entry = prior 2h bar close (signal 36 s before the 02:00Z close). Stuck ticket cleared by the operator's Telegram X (status expired 19:08Z). || [2026-10-07T18:55Z manager] FACT 1: band_wait on all 12 ticks 02:03-02:58Z (bid 2608.97-2618.41 vs short entry 2672.0), never attempted. PR #16947 held Tier-2 (expiry prompter leaves REST accounts to the executor; expired unplaced -> terminal skipped with last verdict); I merge on green + restart the trader. Stuck ticket: operator taps the Telegram \u274c (asked) or self-clears 2026-10-08 02:59Z. Follow-up: allowlisted prop-ticket-expire. Findings PI-20261007-JOHNSXDJ-0001 (stale-at-emission, 2.1% from market) / -0002. || [2026-10-07T18:15Z manager] MEASURED on /api/bot/prop/tickets: first live signal 01:59:22Z (trend_donchian_eth_prop ETH SHORT, entry 2672, risk_usd 50.0 = the 1% sizing OBSERVED) was never placed; status expiry_prompted after valid_until 02:59Z; the 02:01, 03:02, 10:08 and 11:01Z re-tickets were all 'reticket suppressed -- outstanding_ticket:expiry_prompted'. Balance 4999.97 unchanged; executor alive (status posted 18:08Z). The manual bridge's expiry_prompted state waits for a human report; the REST path has none, so the account cannot trade until the ticket is terminal. Opus (live order path), default mode. Fix = terminal state for unplaced-expired tickets on REST accounts + unblock the stuck ticket in tier.",
+  "observation": {
+    "what": "next velotrade_1 ticket that expires unplaced reaches status skipped with reason 'expired unplaced; ...', never expiry_prompted, no Telegram prompt, and the next same-key signal tickets",
+    "how_to_check": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/tickets?account_id=velotrade_1' | python3 -c \"import json,sys;[print(t['ticket_id'],t['status'],(t.get('reason') or '')[:60]) for t in json.load(sys.stdin)['tickets'][:8]]\"; pipeline PI-20261007-JOHNSXDJ-0003",
+    "due_by": "2026-10-10T18:00Z"
+  },
+  "_seq": 332
+}

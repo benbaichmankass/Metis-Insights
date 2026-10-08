@@ -1,0 +1,18 @@
+{
+  "id": "ACTIVE-GEOMETRY-PLAN",
+  "title": "Active geometry (all accounts): measure SL vs TP amends per leg since 2026-09-01, then turn the operator's framing into ranked research units and build rows",
+  "phase": "W6",
+  "state": "done",
+  "owner": "lane ACTIVE-GEOMETRY-PLAN",
+  "lane": "session_017GnSZfLoVVFF5isxUzgfme",
+  "model": "claude-fable-5-1",
+  "ceiling_usd": 20,
+  "spend_usd": 15.94,
+  "tier": 1,
+  "prs": [
+    16955
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-07T19:40Z manager] Lane archived 19:34Z; spend $15.94 final (Fable). Next pickup named by the lane: GEOM-B1-HARNESS (a build; needs its own row when chosen). || [2026-10-07T19:36Z manager] #16955 MERGED 19:34Z (9eba43908): RQ-20261007-001..004 under research/queue/blocked/ + PLANNING.md + exit-refinement skill note. Docs/queue only: merged == done for the plan; the units run when unblocked. Archive the lane. || [2026-10-07T18:57Z manager] PR #16955 held (new queue units cannot self-land by design); the manager lands. Units RQ-20261007-001..004 COLLIDE with #16960's ids -> RQ-RESULTS renumbers its own; #16955 lands first. Plan accepted: rows GEOM-B1-HARNESS + GEOM-CENSUS written. The 6R-vs-doctrine question is a data task (RQ-20261007-002 costed-null branch), not a popup. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0003. Operator 2026-10-06: 'turning active management into active geometry ... TPs never seem to be moving ... for all the accounts'. ACTIVE-GEOMETRY-SCAN measured SL moved on 126/734 trades, TP on 0. This lane produces the plan: queue units (rule before run) + proposed build rows, ranked by money at stake, consistent with the TP doctrine. Fable (analysis, cheap to verify), auto.",
+  "_seq": 307
+}

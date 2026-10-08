@@ -1,0 +1,16 @@
+{
+  "id": "GITSYNC-REVIVE",
+  "title": "ict-git-sync restarts every ict-* unit, reviving a deliberately stopped ict-trader-live: restart only active units",
+  "phase": "W6",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_014hPP8CTfoZ8y3kfDt5QsCC",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 25,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Item PI-20260927-YDVVYLKH-0002. Lane dispatched. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here. || 2026-09-30 ~06:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14534 MERGED, deployed 06:19Z and the live VM confirmed running the new script; #14579 closed PI-20260927-YDVVYLKH-0002. Lane ARCHIVED.",
+  "_seq": 228
+}

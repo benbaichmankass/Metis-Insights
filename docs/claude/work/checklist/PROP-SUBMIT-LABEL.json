@@ -1,0 +1,18 @@
+{
+  "id": "PROP-SUBMIT-LABEL",
+  "title": "place_bracket's submit_label_mismatch passes a submit label that is not '<Buy|Sell> <qty> <SYM>' (e.g. 'Save', 'Modify'): make it strict and rewrite the invented executor fixtures to the measured label shape",
+  "phase": "W8",
+  "state": "in_flight",
+  "owner": "build lane",
+  "lane": "session_01PNFmCa7dgP1ykmsBd5s8kE",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 12,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    15666
+  ],
+  "blocked_on": [],
+  "note": "2026-10-02 20:50Z (manager): DIALOG-MEASURE (session_01PNFmCa7dgP1ykmsBd5s8kE) built it before the handoff reached it, as HELD PR #15666. The manager reviewed and approved it: strict refusal, honest per-fixture relabel, 3 tests own their label via __noAutoLabel. It merges on green. The fresh lane session_01PPCMtF1dfV9QSo9pJDHc9X was stopped and archived as a duplicate (~$3.40 spent). | 2026-10-02 20:20Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): found by lane DIALOG-MEASURE. A modify-mode surface is ALREADY refused before submit by the side/type read-back (dxtrade.py verify_form_selection :4286, 'no side selector' :6737; the manager verified both on main), so this is defence in depth, not a live hazard. All 16 distinct measured live labels, plus 'Sell 1.22 ETHUSD at 2,657.11', parse under the strict rule. 25 executor tests use invented labels ('Place Order'). Operator-style decision (a): rewrite those fixtures honestly; no weaker rule. HELD Tier-2 PR from branch claude/prop-submit-label-strict-wip.",
+  "_seq": 267
+}

@@ -45,7 +45,11 @@ sys.path.insert(0, str(REPO / "scripts" / "ops"))
 sys.path.insert(0, str(REPO))
 import soak_state as ss  # noqa: E402
 
-CHECKLIST = "docs/claude/work/MANAGER-CHECKLIST.json"
+# Subject = the per-row store (monolith deleted at the seed cutover); the loader takes
+# the legacy monolith path and resolves the sibling store from it, so that path is
+# derived, not declared (a declared deleted file reads as a dead guard).
+CHECKLIST = "docs/claude/work/checklist"
+_MONOLITH = CHECKLIST.rsplit("/", 1)[0] + "/MANAGER-CHECKLIST.json"
 PIPE_DIR = "docs/claude/work/pipeline/"
 
 
@@ -117,7 +121,7 @@ def diff_findings(base: str, contracts: List[dict]) -> List[str]:
     ids = {c.get("id") for c in contracts}
     out = []
     from src.runtime import checklist_store  # noqa: PLC0415
-    new_rows = checklist_store.load_path(REPO / CHECKLIST).get("items") or []
+    new_rows = checklist_store.load_path(REPO / _MONOLITH).get("items") or []
     old_state = {}
     try:  # the monolith before the per-row cutover, row files after
         old_doc = checklist_store.load_at(REPO, base)

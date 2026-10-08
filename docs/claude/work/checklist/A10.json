@@ -1,0 +1,16 @@
+{
+  "id": "A10",
+  "title": "Dispose of the 85 unrouted rows section 0 is reporting",
+  "phase": "A",
+  "state": "done",
+  "owner": "build lane",
+  "ceiling_usd": 25,
+  "spend_usd": null,
+  "lane": "session_01KrFipsGe9UQjRKvP9t5JL2",
+  "model": "claude-fable-5-1",
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Merged via #12851 -> #12858. MEASURED on main after merge with pipeline.py --stats: see the due/unrouted figures in the manager's commit message. Final spend $14.65 against $25 (Fable). One stale A10 record was dropped in integration: its re-route of -0004, which E50 had closed. LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH fable: classification sweep verifiable by each item's own origin.rerun; live-money items routed not killed. OBSERVED ON THE OPERATOR'S PAGE 2026-09-21, in the same screenshot that closed A7: `85 UNROUTED \u00b7 93 DUE \u00b7 1,168 ITEM(S)`. Those are A8's imported `OI-*` rows, carried rather than killed. [!] THIS IS ONE BOUNDED SWEEP, NOT 85 RUBBER-STAMPS \u2014 the plan's own position is that most archived rows should be KILLED EXPLICITLY with a stated reason rather than routed, and a lane that routes all 85 to `ask_operator` or to a new row has done the opposite of the work. Read each, kill with `terminal_reason` by default, and promote by exception with the exception argued. [!] ACCEPTANCE IS A NUMBER ON THE PAGE: unrouted_count() back to a figure the operator can read in one sitting, with the kill reasons in the store, not in a PR body. [!] DO NOT batch-kill on a pattern match \u2014 `killed` is a first-class outcome precisely because it is a JUDGEMENT; an 85-row sed is the same non-reading that produced 951 open rows and one `actioned`.",
+  "_seq": 25
+}

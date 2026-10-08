@@ -1,0 +1,25 @@
+{
+  "id": "PROP-TRAIL-PHONE",
+  "title": "Mid-trade trail for the PHONE-executed prop account (breakout_2): compute the trail plan server-side, amend SL/TP through the phone",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane PROP-TRAIL-PHONE",
+  "lane": "session_01YT5VE5mnD6LfbHaVMK2Q5Y",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 45,
+  "spend_usd": 25.62,
+  "tier": 2,
+  "prs": [
+    16959,
+    16980,
+    16988
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-08T02:42Z manager] #16980 (phone half) MERGED 02:34Z (048822347) after the branch APK compiled at c37b532e (run 37716819748) and c1c19dbf added only the catalog line. Both halves on main; server half deployed (VM 1763b675b). Main APK run 37718551780 (048822347) queued at 02:34Z = the morning install candidate unless #17005 lands first and supersedes it. Lane archived, FINAL spend $25.62 (ceiling on row). Observation unchanged: first live breakout_2 position gets one trail amend (meta.phone_trail.amend.status == amended) -- needs the new APK installed. || [2026-10-08T02:35Z manager] #16980 head c1c19dbf: lane merged main again (MainActivity vs #16987) and PORTED the signal-catalog fix line (signal-catalog-guard is red on main since #17043 landed after #16966's tp_revision import; SIGNAL-CATALOG lane woken 02:29Z to land the one-line fix on main). APK compiled at c37b532e (run 37716819748); c1c19dbf adds only the catalog line, so that APK is the one to install once #16980 merges. || [2026-10-08T02:12Z manager] #16959 (server half) MERGED 02:05Z (1763b675b) and DEPLOYED (VM git_sha 1763b675b 02:07Z). Inert until an APK posts accepts:[amend]. #16980 (phone half) is green incl. the branch APK compile (run 37711756407) but DIRTY against main after #16987 landed (MainActivity, exec_check.js, DESIGN doc); lane woken 02:07Z to merge main; manager merges on green, then the post-merge main APK is the one to install. || [2026-10-07T23:27Z manager] #16959 green but conflicts with main (#16966 touched prop_trail); lane woken 23:29Z; #16980 follows. || [2026-10-07T20:00Z manager] OPERATOR OK (verbatim, 2026-10-07 ~20:00Z): 'Ok on the tier 2 items' -- covers the six groups put to the operator at 19:4xZ: #16959 then #16980 (phone trail amends). Merge order kept; APK after. || [2026-10-07T19:42Z manager] Lane reports BUILT, not merged: #16959 server (phone_trail.py plans one amend per closed bar per placed breakout_2 ticket; inert until an APK posts accepts:[amend]) and #16980 phone (executeAmend; Kotlin compiled only by the branch APK run) both HELD Tier-2 for the operator's OK; #16988 self-lands the row/pipeline. Merge order 16959 -> 16980 -> APK. Observation: first live breakout_2 position receives one amend with meta.phone_trail.amend.status == amended. New finding filed by the lane: PI-20261007-AVMK2Q5Y-0001 (phone fills never journaled 'open'). || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-KX6ZKFNA-0002. MEASURED 2026-10-06: run_trail_step is called only from the dxtrade/REST executor tick; phone_executor.py and breakout_ticket.py have no trail/modify call, so breakout_2's ETH/SOL legs trade a static bracket while their Stage-0 record assumed a chandelier trail (trail_mult 3.5, tp_r 6, stale_exit_bars 12). velotrade_1's REST trail IS active since 2026-10-06 (the item text predates that). Opus (live order path), default mode.",
+  "observation": {
+    "what": "first live breakout_2 position receives one trail amend",
+    "how_to_check": "GET /api/bot/prop/tickets?account_id=breakout_2 -> meta.phone_trail.amend.status == 'amended' on a placed ticket",
+    "due_by": "2026-10-21T00:00Z"
+  },
+  "_seq": 303
+}

@@ -1,0 +1,18 @@
+{
+  "id": "E63",
+  "title": "A landing: \"hold\" PR was auto-merged anyway \u2014 the per-branch arming file survives on main, so every later PR from that branch is pre-armed",
+  "phase": "E",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01PdYRNozpaZYhRZsZ7Mg8w7",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 20,
+  "spend_usd": 6.24,
+  "tier": 1,
+  "prs": [
+    12870
+  ],
+  "blocked_on": [],
+  "note": "WAVE 2, operator-selected 2026-09-24 ~15:55Z (popup). Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP. OBSERVED 2026-09-24 by session_01Ljhs6sFAdWHdMDhJpL5aBP. #12858 declared landing \"hold\" with hold_reason changes_landing_machinery (pr-landing-guard R12: exit 0, state=declared_hold). github-actions[bot] merged it anyway at 13:53:00Z. Cause (INFERRED, to verify): .github/pr-automerge-requests/tender-mayer-2g1vtq.txt had landed on main with #12838, and claude-pr-automerge appears to key on the file existing on the branch, ignoring whether it changed vs main and ignoring the landing declaration. Consequence: a branch that has self-landed once stays armed for every later PR. That PR can be a Tier-2/3 hold, which is exactly the case R12 and the hold reasons exist for. The content that merged was the intended content and CI was green, so no damage this time; the control failed silently. FIX: the automerge workflow must refuse when the landing declaration says hold, and arming files should be deleted on merge. Verify the cause against the workflow before building. Tier-1 (CI).\nOPERATOR 2026-09-24 ~17:10Z, popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, verbatim: \"Manager reads + merges\" (the R12 human read of #12870 and #12876 is delegated to the manager). MANAGER READ of #12870: sound and strictly subtractive. The landing gate arms only on landing==\"self\" or when there is no declaration; the request gate compares against the merge-base; automerge_landing_gate.py is added to LANDING_MACHINERY. Merge once CI is green.\n[2026-09-25T07:35Z manager] #12870 merged 2026-09-24 (merge-base request gate in claude-pr-automerge.yml). OBSERVED 2026-09-25: merge-base request gate + automerge_landing_gate.py-in-LANDING_MACHINERY are live on main; ran the fix's own regression tests this session, 66/66 pass. No recurrence since.",
+  "_seq": 98
+}

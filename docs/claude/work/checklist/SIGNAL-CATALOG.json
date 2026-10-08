@@ -1,0 +1,23 @@
+{
+  "id": "SIGNAL-CATALOG",
+  "title": "Catalog of every variable/signal/feature the system reads (strategies, ML heads, regime, macro): source, definition, where used, and live health/quality metrics; plus a recurring research review to expand/optimise it",
+  "phase": "W7",
+  "state": "landed_unproven",
+  "owner": "lane SIGNAL-CATALOG",
+  "lane": "session_01JKohsxjzY5pRDh8mpYFo1s",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 25,
+  "spend_usd": 11.4,
+  "tier": 1,
+  "prs": [
+    17043
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-08T02:42Z manager] Guard GREEN on main again: the one-line catalog entry for trend_donchian's src.runtime.tp_revision rode in with #16980 (048822347); check_signal_catalog.py on main tip = 0 problems (lane and manager both verified locally; Actions run on 048822347 in progress). Lane archived, FINAL spend $11.40. Next: triage the 20 review questions in docs/reference/signal-catalog-review.md into research/queue/ units (manager allocates ids) -- a daytime task. || [2026-10-08T02:35Z manager] #17043 MERGED 01:53Z (ad777b888). Guards on main RED since then: check_signal_catalog.py FAIL F2 trend_donchian reads uncatalogued runtime_imports ['src.runtime.tp_revision'] (import added by #16966/#16994 before the guard landed). Lane woken 02:29Z to land the one-line catalog fix (PROP-TRAIL-PHONE's port in c1c19dbf is the reference). Spend $11.00 running at 02:30Z. || [2026-10-08T02:03Z manager] Lane reports PR #17043 armed (auto-merge): docs/reference/signal-catalog.yaml 333 inputs (strategy 72, ML 105, regime/macro 156) + 15 strategy modules + 76 ML models, each with definition/source/file:line/timeframe/freshness/used_by/health; signal-catalog-review.md with 20 research questions (5 unused, 3 redundant, 7 unmeasured, 5 candidate additions; no queue units written); guard signal-catalog-guard + 7 tests. Health = metric-exists, no live values. Spend ~$6 est (lane's figure, not metered). Manager archives after merge and reads the 20 questions into the research queue (next unit of work for the operator's cross-signal ask). || [2026-10-08T00:24Z manager] FIRST DISPATCH DEAD: the session was created without the repository attached (session_context had no sources; add_repo push access denied) and did no work ($0.13). Archived; RE-DISPATCHED 00:24Z with source_url set explicitly. Lesson for the manager skill: pass source_url on every create_session. || [2026-10-07T20:24Z manager] DISPATCHING NOW (operator asked for its status 2026-10-07 ~20:20Z; it had sat queued since 2026-09-30 with no lane). Scope unchanged from the 09-30 triage: inventory every input with file:line; definition/source/freshness/null-rate/where-used per input; committed catalog file + a guard that fails on an uncatalogued input; a standing 'catalog review' research item. Lane id filled after create_session. || 2026-09-30 ~19:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): SOURCE: operator ideas inbox (idea synced 2026-09-30; its IDEAS.md row lands with the MGR-SKILL-IDEAS PR, which registers the file in docs/DOCUMENT-INDEX.md); the first end-to-end test of the inbox flow, requested by the operator. TRIAGE: a BUILD (the catalog is a maintained artifact) with a research tail. Theme ml_health. PLACED, not chased: queued behind the live pipeline, the prop go-live work and RESEARCH-W7 A0/A/A2 (queue liveness and weights), per PACE-W40. Scope when dispatched: (1) inventory every input the live strategies, ML heads (ml/configs), regime router and macro producers consume, with file:line; (2) per input, record definition, source/feed, freshness, null rate, and where it is used (which legs/models); (3) a committed catalog file plus a guard that fails when a new input appears in code without a catalog entry; (4) hand the research-planning session a standing 'catalog review' item: which signals are unused, redundant or unmeasured, and candidate additions, each becoming a registered unit. Sonnet, ceiling ~$25.",
+  "observation": {
+    "what": "#17043 merged; the 20 review questions triaged into research/queue/ units or killed with a reason",
+    "how_to_check": "git log --oneline -1 -- docs/reference/signal-catalog.yaml; grep -c 'RQ-2026' docs/reference/signal-catalog-review.md",
+    "due_by": "2026-10-10T00:00Z"
+  },
+  "_seq": 253
+}

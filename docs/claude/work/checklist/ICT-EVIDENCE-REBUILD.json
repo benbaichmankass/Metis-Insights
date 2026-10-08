@@ -1,0 +1,18 @@
+{
+  "id": "ICT-EVIDENCE-REBUILD",
+  "title": "Rebuild the 7 ict_scalp evidence records on the causal HTF harness (lookahead fix), xrp_15m first; re-run mandate_resolver (PI-20261001-JWZSVYVS-0003/-0004)",
+  "phase": "W8",
+  "state": "in_flight",
+  "owner": "research lane",
+  "lane": "session_01Vaq4L8zaozp2cyEXi7AXXN",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 15,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    15603
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-03T16:20Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] #15603 result approved (0 PASS of 7 ict_scalp records on the causal harness). It cannot merge: its unit id RQ-20261002-001 collides with a generated unit on main. Lane told to renumber and re-push; the manager merges on green. None of the 7 legs is on a real-money roster (bybit_1 soak; ict_scalp_xrp_15m on tradeify_1, which is dry). || 2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; operator popup verbatim 'Evidence rebuild (xrp_15m)'.",
+  "_seq": 264
+}

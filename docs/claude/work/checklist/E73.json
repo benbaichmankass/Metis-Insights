@@ -1,0 +1,18 @@
+{
+  "id": "E73",
+  "title": "Review pack for the joint operator/manager session -- ml-review + performance-review + audit-scoping findings as decisions",
+  "phase": "E",
+  "state": "queued",
+  "owner": "OPS lane",
+  "lane": "session_01HbnXpk8Tt6c91tYZrZQ725",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    13085
+  ],
+  "blocked_on": [],
+  "note": "Final assignment of the wave-6 OPS lane, per the operator's 2026-09-27 ~08:15Z request (relayed by the manager): a single decision-shaped pack for the upcoming joint review, drawn from R4/E71's ml-review + performance-review + audit-scoping outputs. Delivered: docs/plans/review-pack-2026-09-27.md -- 12 numbered accept/reject decisions (D1-D3 ml-review: shadow-drift archive fallback, exit-head twin-dedup fix, SOL trend_vol OFF-cell; D4-D6 performance-review: pairs classifier coverage gap, breakout_1/iaum_pullback_1d drop, SRQ-20260618 dispatch-or-kill; D7-D10 the audit proposal's own four operator questions; D11 a newly-found repo-wide operator-owed-guard CI instability (PI-20260927-EPMBGUYB-0003) currently blocking Tier-1 self-land on multiple PRs including both of this wave's; D12 a synthesis connecting two operator-owed pipeline rows (PI-20260924-MQ3CDMU6-0001/-0002) with PR #13084's fresh breakout_1 EV-simulator finding into one sizing decision), plus a table of operator-owed items currently closest to their due window (MEASURED via check_operator_owed.py --verbose, 2026-09-27T08:28Z). Does not edit OPERATING-PLAN, ROADMAP.md, or checklist priorities itself -- every row/priority change is a proposal for the joint session to accept or reject.",
+  "_seq": 107
+}

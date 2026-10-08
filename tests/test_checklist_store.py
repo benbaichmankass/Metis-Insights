@@ -1,6 +1,5 @@
 """scripts/ops/checklist.py -- the per-row checklist store (PI-20261004-APBY4NTV-0003)."""
 import json
-import shutil
 import sys
 from pathlib import Path
 
@@ -10,22 +9,33 @@ import checklist as C  # noqa: E402
 REAL = Path(__file__).resolve().parents[1]
 
 
+def _real():
+    """The live checklist in monolith shape. The monolith FILE was deleted at the seed
+    cutover, so the real data is the committed per-row store, rendered back."""
+    return C.load(REAL)
+
+
+def _write_real_monolith(repo):
+    """Materialise the real checklist as a monolith file under ``repo`` (the pre-cutover
+    layout), byte-for-byte what the generator renders."""
+    (repo / C.MONOLITH.parent).mkdir(parents=True, exist_ok=True)
+    (repo / C.MONOLITH).write_text(C.render(REAL), encoding="utf-8")
+
+
 def test_self_test_passes():
     assert C._self_test() == 0
 
 
 def test_the_real_monolith_round_trips_byte_for_byte(tmp_path):
-    (tmp_path / C.MONOLITH.parent).mkdir(parents=True)
-    shutil.copy(REAL / C.MONOLITH, tmp_path / C.MONOLITH)
+    _write_real_monolith(tmp_path)
     n = C.seed(repo=tmp_path)
-    assert n == len(json.loads((REAL / C.MONOLITH).read_text())["items"])
+    assert n == len(_real()["items"])
     assert C.check(tmp_path) == []
-    assert C.load(tmp_path) == json.loads((REAL / C.MONOLITH).read_text())
+    assert C.load(tmp_path) == _real()
 
 
 def test_two_branches_adding_different_rows_touch_different_files(tmp_path):
-    (tmp_path / C.MONOLITH.parent).mkdir(parents=True)
-    shutil.copy(REAL / C.MONOLITH, tmp_path / C.MONOLITH)
+    _write_real_monolith(tmp_path)
     C.seed(repo=tmp_path)
     a = C.write_row({"id": "NEW-A", "title": "a", "state": "queued"}, tmp_path)
     b = C.write_row({"id": "NEW-B", "title": "b", "state": "queued"}, tmp_path)
@@ -40,9 +50,8 @@ def test_readers_return_the_same_data_before_and_after_the_cutover(tmp_path, mon
     from src.runtime import manager_status as ms
 
     rel = C.MONOLITH
-    (tmp_path / rel.parent).mkdir(parents=True)
-    shutil.copy(REAL / rel, tmp_path / rel)
-    want = json.loads((REAL / rel).read_text())
+    _write_real_monolith(tmp_path)
+    want = _real()
     path = tmp_path / rel
 
     sr = importlib.import_module("session_registry")
@@ -93,8 +102,7 @@ def test_load_at_reads_both_layouts_from_git_history(tmp_path):
 
 # ── the write CLI (manager recipe: every register edit goes through it) ─────
 def _seeded_repo(tmp_path):
-    (tmp_path / C.MONOLITH.parent).mkdir(parents=True)
-    shutil.copy(REAL / C.MONOLITH, tmp_path / C.MONOLITH)
+    _write_real_monolith(tmp_path)
     C.seed(repo=tmp_path)
     return tmp_path
 
@@ -145,4 +153,4 @@ def test_cli_header_sets_one_top_level_key(tmp_path):
     repo = _seeded_repo(tmp_path)
     assert _cli(repo, "header", "updated_by", "session_z") == 0
     assert C.load(repo)["updated_by"] == "session_z"
-    assert [r["id"] for r in C.load(repo)["items"]] == [r["id"] for r in json.loads((REAL / C.MONOLITH).read_text())["items"]]
+    assert [r["id"] for r in C.load(repo)["items"]] == [r["id"] for r in _real()["items"]]

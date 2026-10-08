@@ -1,0 +1,18 @@
+{
+  "id": "PROP-FUNNEL",
+  "title": "breakout_1 ticket->executor funnel since 09-29; root-cause no-attempt/expired tickets (08:19Z ETH fb466451 expiry_prompted with no prop_fills row)",
+  "phase": "W8",
+  "state": "landed_unproven",
+  "owner": "build lane",
+  "lane": "session_018JiqKhEVf8Jgj2xa75rbeb",
+  "model": "claude-opus-5",
+  "ceiling_usd": 30,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    15595
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-03T16:20Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] #15595 MERGED by manager (d2942162) under the standing data-backed authorization (alert only; no order, report or ticket-status change). Tested merged with #15649: 408 passed. NOT yet observed. Closing observation: the next breakout_1 ticket that expires unattempted produces exactly one 'NOT PLACED ... NO placement attempt' alert. || 2026-10-02 ~19:05Z (manager): the funnel produced its first executor-placed strategy trade, prop-manual-d27fbb0b2b25 ETHUSDT short, placed 18:50Z and open 18:54Z (prop_fills 78/79). Recount 'placed 0' accordingly; the earlier no-attempt/expiry questions stand. | 2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; operator popup verbatim 'PROP-FUNNEL (Recommended)'. Since 09-23: 20 tickets, 9 suppressed, 6 skipped, 2 expired, 2 expiry_prompted, 1 closed; the executor has placed 0 strategy trades. Held Tier-2 fix PRs plus an expired-unattempted alert.",
+  "_seq": 262
+}

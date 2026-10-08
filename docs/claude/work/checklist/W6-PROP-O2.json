@@ -1,0 +1,17 @@
+{
+  "phase": "W6",
+  "state": "done",
+  "lane": "session_01MYq794bQXtq7nHy1h6HySr",
+  "spend_usd": 18.25,
+  "prs": [
+    13255
+  ],
+  "blocked_on": [],
+  "id": "W6-PROP-O2",
+  "title": "RQ-20260927-003: exit-head-for-prop-legs feasibility (score breakout_1 legs' own trades with exit-head-donchian-1h-v1, incl. swap saved)",
+  "owner": "research lane",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 20,
+  "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Scope: RQ-20260927-003 as written (scoping, not promotion). One question: is a prop-geometry exit-head retrain worth doing. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13255 merged 77fcb62: real resample-skip bug fixed (1h params ran on 5m bars); the exit-head question itself stays open (corrected run too slow on the shared trainer, PI-20260927-F4CD9293-0001). Lane archived.",
+  "_seq": 149
+}

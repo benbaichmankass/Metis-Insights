@@ -1,0 +1,18 @@
+{
+  "id": "SOL-BRACKET-REGRADE",
+  "title": "Re-grade the breakout_1 prop legs (SOL, ETH) on the static SL+TP exit the bracket actually performs (PI-20261001-S8DMYMUN-0001)",
+  "phase": "W8",
+  "state": "done",
+  "owner": "research lane",
+  "lane": "session_01FDKSBG6aQnf416DXVHEUaU",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 20,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    15589
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-03T16:20Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] #15589 MERGED (f203e1b1). Verdict under the pre-registered rule: ETH PASS (365d n=100, +21.28R), SOL PASS on the 730d pool (n=105, +13.37R). SOL stays live (operator popup 'Keep SOL live until re-grade'). Recent-year SOL weakness (365d -0.49R, n=53) filed as PI-20261003-APBY4NTV-0002. || 2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched. Operator popup verbatim: 'Keep SOL live until re-grade (Recommended)'. If SOL FAILS, the lane writes the exact shadow diff (not applied) and the manager brings it to the operator.",
+  "_seq": 260
+}

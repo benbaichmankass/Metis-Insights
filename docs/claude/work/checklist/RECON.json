@@ -1,0 +1,18 @@
+{
+  "title": "Automated broker reconciliation: alpaca_live + breakout_1 (+ bybit_2 where API allows)",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "build lane",
+  "lane": "session_01QJHvVv5YeH8tiSim38KwDt",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 25,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    14054
+  ],
+  "blocked_on": [],
+  "note": "2026-09-28 ~12:15Z: operator popup \"Build automated reconcile (Recommended)\" on OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT. || 2026-09-28 ~13:45Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): queued behind PROP-TERM (operator priority: prop first).\n[2026-09-29T09:40Z manager] Resumed after reset. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): PR #14054 opened (draft, Tier 2 held): account-broker-reconcile; breakout_1 empty read reports could_not_look until #14005 is deployed and confirmed. Guards 64/64 locally. Awaiting manager review/merge. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): independent review lane REVIEW-14054 session_01A5PjDMkmDdn8q6THQ9S7do (Sonnet, read-only, $15); merge only on its MERGE. || 2026-09-29 ~10:04Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): REVIEW-14054 (archived, $2.39 final) says FIX FIRST: account_broker_reconcile.py:412 reads 'read_state' but the live bybit_wallet_truth key is 'state' (bybit_2 P&L permanently could_not_look); match_positions expects 'qty' but bybit position rows key 'size' (false divergent on every open bybit_2 position). Fixtures invented both key names. Relayed to the lane (fire returned its own cse_ id). || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): b89ca09: both REVIEW-14054 bugs fixed; fixtures rebuilt from the real WalletTruth/_bybit_position_row shapes; mutation-verified (reverting each fix fails its test). Manager merges on green CI. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14054 MERGED 278166a (CI 4/4, review fixes verified by mutation). Lane dispatched the first run (36557738060) to check live payload shapes; BREAKOUT_POSITIONS_READER_FIXED stays False until #14005 is deployed and a live read confirms. || 2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane ARCHIVED. First run (issue #14113, run 36557738060): could_not_look on bybit_2 P&L caused by trade 5702, a by-design NULL-pnl reduce leg -> fix + re-run dispatched as RECON-REDUCE. Closing observation: a reconcile run that compares bybit_2 journal vs broker P&L.",
+  "id": "RECON",
+  "_seq": 181
+}

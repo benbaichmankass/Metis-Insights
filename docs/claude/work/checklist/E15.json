@@ -1,0 +1,18 @@
+{
+  "id": "E15",
+  "title": "The Workflow page's 'Waiting on you' panel renders a false all-clear",
+  "phase": "E",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01S2iRKZgnA7coozWoGZRXyn",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 15,
+  "spend_usd": 20.99,
+  "tier": 1,
+  "prs": [
+    12693
+  ],
+  "blocked_on": [],
+  "note": "PROMOTED FROM PI-20260921-M09, and FOUND BY THE OPERATOR LOOKING AT THE PAGE \u2014 which is now the SECOND time that has been the discovery method for this exact class, and the reason E9's row says a filename grep is the wrong PRIMARY probe. [!] _decision_inbox sources from docs/claude/work/objects/*.yaml :: decision_requests[]; the reset ARCHIVED that directory, _yaml_files() returns [] for an absent one, and the panel therefore reports on an empty folder. [!] THE OPERATOR ANSWERED FIVE DECISIONS TODAY and the page says zero are on record. [!] THE SERIOUS HALF IS THE ALL-CLEAR, NOT THE MISSING HISTORY: a genuine unanswered decision renders IDENTICALLY to none existing. 'Nothing is waiting on you' is the most load-bearing sentence on that page and it is currently unearned. [!] DO NOT resurrect the work store to fix it. Decisions live on the checklist and as pipeline rows with next_action: ask_operator. Either read those, or say the source is unreadable \u2014 never a silent zero. [!] DISPATCHED 2026-09-21, PR #12693. The lane MEASURED the size of the false all-clear: the page read 0 where the open `ask_operator` pipeline population alone is 84. [!] MERGED 2026-09-21 as f914a13. MEASURED: 84 open ask_operator items where the page read 0. \u26a0\ufe0f ESTABLISHES MERGED, NOT OBSERVED -- whether the panel shows the right number on the live page needs a human on a browser, and this row is closed on the code being right, not on that.",
+  "_seq": 47
+}

@@ -1,0 +1,18 @@
+{
+  "id": "TRADEIFY-OWNERSHIP-NOTE",
+  "title": "Tradeify 247 bot-ownership exposure: keep a written sole-ownership statement + how to produce the commit history, ready for a source-files or payout-interview demand",
+  "phase": "W6",
+  "state": "done",
+  "owner": "lane TRADEIFY-OWNERSHIP-NOTE",
+  "lane": "session_01BwCfskE3ZscdutzLC3MtVD",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 6,
+  "spend_usd": 2.05,
+  "tier": 1,
+  "prs": [
+    16956
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-07T19:40Z manager] Lane archived 19:39Z; spend $2.05 final. #16956 merged. Operator follow-up still open: git author-name mapping for the ~100 commits by an unidentified author (raise at the next sync). || [2026-10-07T18:55Z manager] PR #16956 auto-merging. Flag for the operator: git author-name mapping (~100 commits by an unidentified author). || [2026-10-07T18:37Z manager] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): 'Ownership note ready, nothing else (Recommended)'. Doc-only. Pipeline: PI-20261004-OZ9AAZSV-0003.",
+  "_seq": 327
+}

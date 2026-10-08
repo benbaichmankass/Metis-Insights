@@ -1,0 +1,21 @@
+{
+  "id": "DONCHIAN-PARITY",
+  "title": "Live trend_donchian evaluates the forming bar while the backtest uses the closed bar (PI-20260930-QZSE4AMA-0002): measure and fix",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "build lane",
+  "lane": "session_01KjACh47AwiaCPSgQPT6PQF",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 25,
+  "spend_usd": null,
+  "tier": 3,
+  "prs": [
+    14577,
+    14735,
+    14800,
+    14804
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-01T16:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] DISPOSITION after lane archived (PRs re-read 16:50Z: merged state only, not deploy): in_flight -> landed_unproven. 4/4 PRs merged (#14577 xrp 4h closed-bar flip, #14735, #14800 post-close cache bypass, #14804). #14800 deploy not confirmed. Closes on: a post-close 4h window deciding on the full bar with no partial-bar read, AND PI-20260930-GQPT6PQF-0004 (other closed-bar consumers) dispositioned. ETH leg still held. || [2026-10-01T16:45Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator-directed manager handoff (docs/claude/work/MANAGER-HANDOFF-2026-10-01.md, PR #15219): the owning manager is now session_01MM8o5js6TcDFeNAPBY4Ntv, replacing session_01HYq6XtfesZ57VyaQrK6CL1. Lane session session_01KjACh47AwiaCPSgQPT6PQF is ARCHIVED (create_trigger refused 'session not active' at 16:41Z), so it cannot report; this row's in_flight state is unverified until the manager re-checks its PRs and sets a disposition. The old manager reported it closed earlier; verifying. || 2026-09-30 ~06:30Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager decision relayed, data-backed: flip trend_donchian_xrp_4h ONLY to decision_bar: closed; trend_donchian_eth_4h and the eth prop leg are held pending an eth follow-up. Required before merge: 5 red guards fixed, xrp re-run with the live stop anchor, a distinct log reason for a missed stale window, the eth yaml line reverted. #14577 held Tier-3; the manager merges on green after review and notifies the operator with the revert (delete one config line). || 2026-09-30 ~08:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14577 MERGED 07:49Z (trend_donchian_xrp_4h decision_bar: closed; evidence record rebuilt with build_strategy_evidence.py, n=16 OOS net +8.94R unchanged, fingerprint moved). Revert: delete the one yaml line. Deploy and first closed-bar evaluation observation pending with the lane; eth_4h bootstrap queued (PI-20260930-GQPT6PQF-0001). || 2026-09-30 ~13:25Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Lane status (session summary 13:02Z): PR #14735 opened with auto-merge armed, awaiting CI; re-check at the 16:00Z close. Its closed-bar parity observation result has not yet been reported to the manager. || 2026-09-30 ~16:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OBSERVED on 3 closes (08/12/16Z): closed-bar evaluation holds, no trades. FOUND: 1 of 3 closes read a partial bar (1.5143 then 1.5161); root cause is the 300 s candle cache plus the clock-only drop_forming_bar. Fix #14800 (bypass the cache in the post-close window; decide only once the venue has opened the next bar). Review round 1 CHANGES-NEEDED; fixed at 9a568827 (manager-verified); merge on green CI. Same-bar debounce (strategy_monocle:476) blocks a second entry; STRATEGY_BAR_DEBOUNCE_DISABLED live value UNVERIFIED. Filed PI-20260930-GQPT6PQF-0004: the same defect in other closed-bar consumers.",
+  "_seq": 243
+}

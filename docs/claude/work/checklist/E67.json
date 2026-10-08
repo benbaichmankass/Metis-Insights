@@ -1,0 +1,18 @@
+{
+  "id": "E67",
+  "title": "/performance-review \u2014 the second of the three reviews (O1)",
+  "phase": "E",
+  "state": "done",
+  "owner": "lane",
+  "lane": "session_01HUMdsBGKWKBmNC2S8DxGtz",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 40,
+  "spend_usd": 11.75,
+  "tier": 1,
+  "prs": [
+    12875
+  ],
+  "blocked_on": [],
+  "note": "WAVE 2, operator-selected 2026-09-24 ~15:55Z (popup). Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP. Unblocked: costs are measured for perps (D3, E60 deployed) and the harness models tp_r (E55). Must read the corrected corpus.\nFindings put to the operator 2026-09-24 ~17:15Z (popups in session_01Ljhs6sFAdWHdMDhJpL5aBP), verbatim answers: gld_pullback_1h S1->S2 \"Wait for E62 slippage (Recommended)\"; trend_donchian ada/avax/sol 4h on bybit_1 \"Resweep first (Recommended)\" -> E69; bybit_2 broker-truth ledger 73d stale \"Yes, spawn a lane (Recommended)\" -> E70.\n[2026-09-25T07:35Z manager] #12875 merged 2026-09-24 (review delivered; decisions recorded on E69 and the gld/donchian rows).",
+  "_seq": 102
+}

@@ -1,0 +1,16 @@
+{
+  "id": "RQ-ID-ALLOCATOR",
+  "title": "Systemic: research-queue ids RQ-YYYYMMDD-NNN collide across concurrent lanes (#14103 vs #14131 vs #14049); no allocator",
+  "phase": "W6",
+  "state": "queued",
+  "owner": "build lane",
+  "lane": null,
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 15,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): observed 3x on 2026-09-29 (002 then 019 taken; VOLSKIP renumbered twice). Needs an allocator or a lane-scoped id range enforced by check_research_queue. Queued for the next free lane slot.",
+  "_seq": 212
+}

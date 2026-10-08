@@ -1,0 +1,18 @@
+{
+  "id": "CA-A15",
+  "title": "Code audit Wave A: remaining small src/ modules",
+  "phase": "CA",
+  "state": "done",
+  "owner": "audit lane",
+  "lane": "session_014SZHZwFb7DiRbfRLBXqdGK",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 40,
+  "spend_usd": 15.23,
+  "tier": 1,
+  "prs": [
+    13199
+  ],
+  "blocked_on": [],
+  "note": "Scope: src/{analysis,backtest,core,data_layer,exchange,news,pipeline,research,sysdyn,utils,config}/**, src/units/{db,dashboards,trading_school,ui}/**, src/strategy_registry.py. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A15.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_014SZHZwFb7DiRbfRLBXqdGK (claude-sonnet-5; r2: r1 session_0156ZEhway6kxqgvmhyd1koK blocked, archived). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A15.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main.",
+  "_seq": 123
+}

@@ -1,0 +1,24 @@
+{
+  "id": "GEOM-B1-HARNESS",
+  "title": "Active geometry: TP-revision levers in the backtest harnesses (--tp-target-r/--tp-extend-r/--tp-approach-frac/--tp-max-extends/--tp-thesis, --tp-retarget-mode) on backtest_trend/pullback/ict_scalp + the sweep/coverage plumbing; unblocks RQ-20261007 geometry units",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane GEOM-B1-HARNESS",
+  "lane": "session_015kekiWATbgN7A6Hy7g7NyF",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 40,
+  "spend_usd": 30.21,
+  "tier": 1,
+  "prs": [
+    17010,
+    17011
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-08T02:35Z manager] #17011 (3/3) MERGED 02:33Z (0735432f3) by the manager, last as planned; #17000 and #17010 already on main. RQ-20261007-001..004 are now queue-visible to the hourly dispatcher (001/003 -> m20-exit-lever-sweep with tp_extend/tp_retarget; 004 -> ict-scalp-exit-sweep tp_revision; 002 half-dispatched, statistic c under PI-20261007-HY7G7NYF-0001). Lane archived, FINAL spend $30.21 (ceiling 40). Follow-through PI-20261007-HY7G7NYF-0002. || [2026-10-08T00:55Z manager] Lane closed its own tiny fix PR #17040 deliberately (00:38Z, 'deliberate close' per its summary) because #17010 already carries the run_date fix with auto-merge armed; #17010 is now the midnight-fix vehicle (pytest-run on dcec287f running since 00:26Z). Lane spend $25.60 running at 00:52Z (ceiling on this row). || [2026-10-08T00:35Z manager] FIX VEHICLE = #17010 (head dcec287f, auto-merge armed): the harness stamps run_date=today into its summary; the golden captured 2026-10-07; the comparison now drops run_date (every other field exact). CI ~40 min; once merged every open PR merges main once more. #17011 head 638793cc (hold, last). || [2026-10-08T00:29Z manager] MAIN RED SINCE 00:00Z: tests/test_tp_geometry_harness.py::test_defaults_reproduce_pre_lever_golden (5 params) compares a full record dict against tests/fixtures/tp_geometry_default_golden.json which embeds run_date 2026-10-07; every PR's pytest-run fails after midnight UTC (seen first on #16994 a03658f2: 5 failed / 21734 passed). Lane woken 00:31Z for a date-independent comparison in a tiny self-land PR; every open PR then needs one more main merge. || [2026-10-07T23:27Z manager] #17000 MERGED 21:25Z (6e9c8db16). #17010/#17011 red on CI runs that merged a transient main; re-run once 23:20Z. || [2026-10-07T20:06Z manager] Lane: three PRs open, none merged. #17000 harness levers (tier-1 self, auto-merge armed, CI queued); #17010 sweep half (tp_extend/tp_retarget cells in m20_fleet_exit_sweep, coverage-matrix columns, ict-scalp-exit-sweep cells tp_revision + result-landing job; stacked on #17000, lane arms auto-merge after #17000 lands); #17011 moves RQ-20261007-001..004 from blocked/ to research/queue/ with dispatch written in -- landing HOLD, MANAGER MERGES LAST (the hourly dispatcher fires queued units on landing; dry run: all four would_dispatch). Findings: RQ-20261007-002 only half-dispatchable (prop EV sim cannot run on the token-free runner) -> PI-20261007-HY7G7NYF-0001; RQ-20261007-003 dispatches 32 explicit legs (empty legs would mean census top-10). The scalp workflow's landing job is unproven until its first dispatch. || [2026-10-07T18:57Z manager] Proposed by lane ACTIVE-GEOMETRY-PLAN (PR #16955, research/queue/PLANNING.md \u00a7 5): every TP-revision research question is blocked on this one Tier-1 harness build (no backtest_*.py extends or re-prices a target). Done when the flags exist (--help lists them), m20-exit-lever-sweep.yml and ict-scalp-exit-sweep.yml accept the lever, and the four blocked geometry units are dispatchable. Distinct from TP-DOCTRINE (the live producer in monitor()).",
+  "observation": {
+    "what": "first dispatcher cycle after 02:33Z dispatches RQ-20261007-001 or -003 (m20-exit-lever-sweep with a tp_extend/tp_retarget lever) and a research_result lands for it",
+    "how_to_check": "grep -n last_dispatched_at research/queue/RQ-20261007-00[134].yaml; ls research/results/RQ-20261007-001 research/results/RQ-20261007-003 research/results/RQ-20261007-004",
+    "due_by": "2026-10-10T00:00Z"
+  },
+  "_seq": 333
+}

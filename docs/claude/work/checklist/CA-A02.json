@@ -1,0 +1,18 @@
+{
+  "id": "CA-A02",
+  "title": "Code audit Wave A: execution core I: pipeline, intents, sizing, costs, gates",
+  "phase": "CA",
+  "state": "done",
+  "owner": "audit lane",
+  "lane": "session_01JjuP8D8Q1oPTvjECiLBBvh",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 80,
+  "spend_usd": 12.61,
+  "tier": 1,
+  "prs": [
+    13199
+  ],
+  "blocked_on": [],
+  "note": "Scope: src/main.py; src/runtime/{pipeline,pipeline_result,intents,intent_multiplexer,arbitration_fanout,conviction,conviction_arbitration,conviction_inputs,conviction_sizing,advisory_sizing,advisory_influence,news_sizing,allocator_corr,allocator_ev,execution_costs,trade_costs,tick_cost,broker_cost_attribution,cash_settlement,strategy_roster,loaded_config,risk_counters,runtime_flags,validation,account_side_filter,portfolio_conflicts,conflict_taxonomy,orders,order_bridge,market_data,market_hours,ib_trading_hours,operator_flatten_intent}.py; the Coordinator.multi_account_execute path wherever it lives (grep) and the effective_dry resolution; src/units/strategies/pairs_executor.py and config/pairs.yaml consumption. Model reason: Opus \u2014 order path / real-money controls, per the manager model table and the operator naming Opus for this lane. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A02.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01JjuP8D8Q1oPTvjECiLBBvh (claude-opus-5-5; fresh). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A02.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main.",
+  "_seq": 110
+}

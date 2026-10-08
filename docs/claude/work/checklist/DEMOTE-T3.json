@@ -1,0 +1,25 @@
+{
+  "phase": "W6",
+  "owner": "lane",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "blocked_on": [
+    {
+      "kind": "operator_decision",
+      "ref": "PI-20260929-AQRK6CL1-0004",
+      "what": "operator approves the exact config/mandates.yaml fires_when/never text and the Stage-0 source-trade floor"
+    }
+  ],
+  "id": "DEMOTE-T3",
+  "title": "Build operator-decided MD-DEMOTE-S2-S1 trigger: last 20 closed trades, strict p10 test on 2 non-overlapping windows (/performance/recent route #14257 + T3 gate #14272)",
+  "state": "done",
+  "lane": "session_01F2Hr7f6xuDQeUtqSurYUHK",
+  "tier": 3,
+  "prs": [
+    14257,
+    14272
+  ],
+  "note": "2026-09-29 ~16:05Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager-local reviews: #14257 SEND BACK (same-second close ordering has no t.id tiebreak, reproduced a -500 trade switching blocks; config-read error collapses to no_portfolio_accounts_declared; 0-trade legs absent; blocks[0] ordering inconsistent) posted as PR comment. #14272 logic sound (140 tests, autoland self-test 39/39); its B1 blocker (decision record not on main) fixed by this register commit. Merge order: #14257, deploy, #14272 after the operator approves the mandate text. 2026-09-29 ~19:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14257 bd7050c (deployed+observed: /performance/recent HTTP 200 17:05Z), #14272 e3207cf (operator approved rule text + 2-trade floor). r4-demotion-gate run 36602829623: 7 of 7 Stage-2 legs abstain_thin, 0 demote. Lane archived.",
+  "_seq": 219
+}

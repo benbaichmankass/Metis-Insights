@@ -1,0 +1,24 @@
+{
+  "id": "JC-SA-05-SCOPES",
+  "title": "Record BRANCH_PROTECTION_TOKEN's real scopes and reconcile the two docs that disagree (operator kept one token)",
+  "phase": "W6",
+  "state": "done",
+  "owner": "SA-SEC after #14180",
+  "lane": null,
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 10,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    14265
+  ],
+  "blocked_on": [
+    {
+      "kind": "work_item",
+      "ref": "SA-SEC",
+      "what": "#14180 must land first; same lane"
+    }
+  ],
+  "note": "2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): operator 13:50Z: 'Leave it as one token, I'm not splitting it' (JC-SA-05 option b). 2026-09-29 ~15:30Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): operator popup, verbatim 'Classic, repo scope'. Docs fix in PR #14265 (SA-SEC lane).",
+  "_seq": 217
+}

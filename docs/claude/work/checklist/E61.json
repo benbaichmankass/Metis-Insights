@@ -1,0 +1,16 @@
+{
+  "id": "E61",
+  "title": "Arm GPU bursts within the $10/month cap (operator-authorized 2026-09-24)",
+  "phase": "E",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01JrouNUK59JKMXMU34WWg1R",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 10,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Merged #12856 (1f1d214). OBSERVED via issue #12860 (status_only, 14:08Z): vars.GPU_BURST_ARMED=1, GPU_PROVIDER=runpod, provider key present, would_launch=true. GPU bursts were ALREADY armed. The ledger preflight enforces the $10/month cap (E54 verified it refuses over-cap). Final spend $2.83 against $10. Needs vars.GPU_BURST_ARMED=1 + GPU_PROVIDER + a provider key (gpu-burst-train.yml:107; runpod_burst.py). Ledger preflight verified refusing over-cap by E54.",
+  "_seq": 96
+}

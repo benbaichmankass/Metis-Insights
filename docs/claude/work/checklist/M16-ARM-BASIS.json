@@ -1,0 +1,18 @@
+{
+  "id": "M16-ARM-BASIS",
+  "title": "Does bybit_1's conviction-sizing arm have any evidential basis after RQ-20260930-601 FAILED? (PI-20261001-APBY4NTV-0001)",
+  "phase": "W8",
+  "state": "done",
+  "owner": "research lane",
+  "lane": "session_01PAxCW84tr1SV8q7FTEG7QN",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 8,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    15586
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-03T16:20Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] #15586 MERGED (3f637047): PI-20261001-APBY4NTV-0001 closed; PI-20261002-7FTEG7QN-0001 filed (bybit_1 conviction-arm retirement, Tier-3, revert written not applied). || 2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; read-and-propose only, the revert diff is not applied.",
+  "_seq": 261
+}

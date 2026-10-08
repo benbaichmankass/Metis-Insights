@@ -1,0 +1,20 @@
+{
+  "id": "P4b",
+  "phase": "W6",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01PyohkPdSE4VrqUd9R6qTdB",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 35,
+  "spend_usd": 23.75,
+  "prs": [
+    13248,
+    13297,
+    13349,
+    13387
+  ],
+  "blocked_on": [],
+  "title": "P4b: DXtrade (Breakout) read parser -- balance/positions/orders",
+  "note": "2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13248 held once by review (case-sensitive username redaction into a PUBLIC run log); fixed (case-insensitive, URLs cut to origin, every printed line redacted), merged f5193fd, running on the live VM at 9b2884c. Lane re-running breakout-login-check to report the parsed balance vs the last journalled breakout_1 balance ($4,724, population: the single most recent prop account_status record, #21, 2026-09-27). Read-only; emit-status stays off. | 2026-09-28 00:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): DONE: parser reads balance/equity, positions AND the orders table on the live terminal. #13297 terminal URL + redact-before-cut, #13349 orders-tab click, #13387 \"current price\" dropped from _POSITION_ONLY (measured headers, #13385). Final read-only check #13405 (run 36362489458): login ok, balance 4724.0, equity 4724.0, positions 0, orders 0 -- orders_from_tables returns None when no table is found and read_orders raises on None, so 0 is a parsed empty table, not a miss. Output leak-free (credentials not printed, URL cut to origin). Lane archived.",
+  "_seq": 165
+}

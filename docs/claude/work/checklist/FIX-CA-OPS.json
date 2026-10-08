@@ -1,0 +1,17 @@
+{
+  "phase": "W6",
+  "spend_usd": 8.66,
+  "blocked_on": [],
+  "owner": "fix lane",
+  "id": "FIX-CA-OPS",
+  "state": "landed_unproven",
+  "lane": "session_01Cx9QwbJtJPJSPFgLnd26Ax",
+  "prs": [
+    13246
+  ],
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 40,
+  "title": "FIX-CA-OPS: FIX-CA-11",
+  "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-11..14, 18, 19 (ops/alerting/security). Tier 2. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): merged dda726d after review (1610 pass; 63/100 new tests fail on main); running at f089c40. Lane archived.",
+  "_seq": 159
+}

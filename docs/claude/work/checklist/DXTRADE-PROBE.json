@@ -1,0 +1,23 @@
+{
+  "id": "DXTRADE-PROBE",
+  "title": "$0 read-only reachability probe from the VM: dx.tradeify247.co (Cloudflare/ASN block?) and /specs (does the DXtrade REST API answer?) \u2014 the precondition for moving tradeify_1 to the REST path",
+  "phase": "W6",
+  "state": "done",
+  "owner": "lane DXTRADE-PROBE",
+  "lane": "session_01GQJBuULrkHyyzmX3Z42edG",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 10,
+  "spend_usd": 1.31,
+  "tier": 1,
+  "prs": [
+    16967
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-07T19:40Z manager] Lane archived 19:39Z; spend $1.31 final. #16967 merged: probe memo \u00a7 4.2 + PI-20260930-WSTCE9FH-0001 closed. || [2026-10-07T18:58Z manager] DONE pending merge: VM egress 200 real login page, no block; /specs 409 JSON; pilot account already exists (#14691). Follow-on row DXTRADE-REST-PILOT. || [2026-10-07T18:37Z manager] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): '$0 reachability probe only (Recommended)'. No account purchase; the trial-account question returns only if the probe passes. Pipeline: PI-20260930-WSTCE9FH-0001.",
+  "observation": {
+    "what": "PR #16967 merges (memo section + PI-20260930-WSTCE9FH-0001 done)",
+    "how_to_check": "gh api repos/benbaichmankass/Metis-Insights/pulls/16967 --jq .merged",
+    "due_by": "2026-10-08T06:00Z"
+  },
+  "_seq": 328
+}

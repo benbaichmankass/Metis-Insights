@@ -1,0 +1,20 @@
+{
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "fix lane",
+  "blocked_on": [],
+  "spend_usd": 21.6,
+  "prs": [
+    13504,
+    13543,
+    13589
+  ],
+  "id": "W6-PROP-FEED",
+  "title": "Breakout step 2: 5-min VM timer running the read-only terminal check with emit-status into the prop journal",
+  "lane": "session_016Np9Ac9hgbbV4g4UnXYjia",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 35,
+  "tier": 2,
+  "note": "2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR DECISION 'Feed now on schedule' (resolves PI-20260927-D9R6QTDB-0002). Opus: logs in to a live prop account on a schedule. Lane must first establish whether a 5-min login kicks the operator's own terminal session, and back off on failed logins; stops and reports if it does. | 2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13504 merged a1b3d383 after independent Opus review (MERGE, no blockers). Observation that closes it: ict-prop-feed.timer listed on the VM, journal shows `session: reused` on most ticks, prop_account_status rows ~5 min apart with source=breakout_login_check, relogins_today low. Follow-up in the same lane (trig_01HDd4TB6GvY4P4PreBqsmWa): relogin ceiling, failed-attempt counting, reset-feed ordering. | 2026-09-28 ~12:15Z: follow-up #13543 (relogin ceiling, fail-closed counter, flushed session lines, reset-feed ordering) merged 1eda6360 after Opus re-review MERGE. Observation still owed. || 2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13589 merged (af559c8b): both feed items closed as observed. Its record collided with a TRIAGE-2 record on the same id and broke pipeline --check on main; manager repair #13627. Two follow-ups stay in the pipeline (PI-20260928-4UNXYJIA-0001 Day RPL parse, -0003 cleanup race). Lane archived.",
+  "_seq": 168
+}

@@ -1,0 +1,29 @@
+{
+  "id": "PROP-TRAIL",
+  "title": "Apply the prop legs' declared chandelier trail by amending the resting SL (operator 2026-10-01 'Build the trail instead')",
+  "phase": "E",
+  "state": "blocked",
+  "owner": "build lane",
+  "lane": "session_01PNFmCa7dgP1ykmsBd5s8kE",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    15316
+  ],
+  "blocked_on": [
+    {
+      "kind": "work_item",
+      "ref": "DIALOG-MEASURE",
+      "what": "operator APPROVED the flip 2026-10-03 (popup); the trail stays inert on the venue until the EDIT_DIALOG_MEASURED flip PR merges and deploys"
+    },
+    {
+      "kind": "work_item",
+      "ref": "PROP-TRAIL-VENV",
+      "what": "pre-arming check: pandas/ccxt must import in the executor venv (--system-site-packages, pip-installs only playwright); verify via executor-dry-run on breakout_1 with no 'trail: step failed (ModuleNotFoundError)' alert"
+    }
+  ],
+  "note": "[2026-10-03T05:45Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR POPUP answer, verbatim: \"Merge and switch on together\". #15316 MERGED (squash 49753acc; CI 5/5 green at 4e1790b6; local test_prop_trail+test_prop_executor 380 passed). The second restore click is removed: a looser SL locks the ticket, with no second modify. Merged; deploy via git-sync NOT yet observed. Until the flip lands, armed steps refuse before any click (one alert per ticket). NEXT: DIALOG-MEASURE lane writes the EDIT_DIALOG_MEASURED flip PR (held for the manager). After deploy: observe the trail.deps line (PROP-TRAIL-VENV) and the first armed step + latch; the manager reviews before any executor-clear-rollout. || #15316 HELD for the manager, carrying the go-live re-review fixes: cycle output + session save before the trail step; decision_bar: forming legs start the trail one bar after the signal bar (harness entry_i+1). Rollout once unblocked: >=1 day read_only, one watched single-step tighten, then live. | [manager wave-2 note, carried over 2026-10-02T02:20Z session_01MM8o5js6TcDFeNAPBY4Ntv] [2026-10-01T22:25Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Lane session_012X4AJaScSxML6HaJLuXpzV closed (handoff, ~$30 of $40). Found a LIVE hazard in existing code: _contain's armed modify_bracket could fill+submit the sidebar order ticket -> fix #15327 (armed modify refuses while EDIT_DIALOG_MEASURED=False; repair falls to verified flatten next cycle), reviewed MERGE-WITH-NOTE, merges when CI green. #15316 (trail) reworked, re-review MERGE-WITH-NOTE but HELD: inert until the dialog is measured; carried by DIALOG-MEASURE session_01PNFmCa7dgP1ykmsBd5s8kE (also: emit cycle output before the trail step, signal_time vs entry_i+1, venv deps). MANAGER DECISION (data-backed): ETH stale_exit_bars=12 is NOT approximated by an SL band; ETH SL+TP-only measured +21.28R vs +10.63R with declared levers, so no evidence the stale exit is needed on the prop bracket. SOL's declared exits are fully covered by the trail. Rollout: >=1 day read_only, one watched single-step tighten, then live. || [2026-10-01T21:23Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR DECISION (popup ~21:23Z), verbatim choice: \"Build the trail instead\" (options were keep-live-and-retest / shadow SOL now / build the trail). SOLUSD stays LIVE on breakout_1 at $75 meanwhile. Evidence: PROP-JOURNAL (PR #15301, PI-20261001-S8DMYMUN-0001): prop bracket is static SL+TP; SL+TP-only re-run on one window ETH +21.28R n=100, SOL -0.49R n=53 vs declared-lever baseline ETH +10.63, SOL +3.69. Mechanism: amend the resting SL by the declared trail/stale lever, tighten-only, via the tested modify path; held PR reviewed by the manager under the go-live rule.",
+  "_seq": 256
+}

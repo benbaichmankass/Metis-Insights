@@ -1,0 +1,16 @@
+{
+  "id": "E57",
+  "title": "Research output is lost at landing: pr-landing-guard R5 refuses every automated research-result / replay-pregate / queue-stamp PR, and nothing notices \u2014 make loss impossible",
+  "phase": "E",
+  "state": "landed_unproven",
+  "owner": "build lane",
+  "lane": "session_01BguwrBtfNXnKmS9hiR4Dv1",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 70,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Merged #12857 (787564b, ~14:40Z), operator-approved at 14:10Z. NOT YET OBSERVED: (a) the first scheduled research-loss-detector run landing docs/claude/work/RESEARCH-LOSS-RECEIPT.json from Actions rather than the local seed; (b) one automation research PR self-landing green under the widened surface. Final spend $16.77 against $70. DISPATCHED 2026-09-24T12:35Z by session_01Ljhs6sFAdWHdMDhJpL5aBP, FRESH. FOUND 2026-09-24 by session_01Ljhs6sFAdWHdMDhJpL5aBP: 11 `research result: unattributed` PRs opened today alone, replay-pregate reports open since 2026-09-19 (#12584), queue-stamp PRs since 09-22, all red on pr-landing-guard R5 because research/results/**, runtime_logs/replay_pregate/** and research/queue/** are outside TIER1_SURFACE (reproduced locally on #12827 with --branch; e35 corpus PRs pass). OPERATOR 2026-09-24, verbatim: \"this is a serious gap that needs to be fully resolved - not only rerunning tests whose results were lost, but ensuring we have a mechanism in place to prevent research from being lost\". This row is the MECHANISM half; E58 is the recovery half. Also open: why are results `unattributed` (not queue-dispatched) and some carry read-state `producer_failed`. PARTIALLY OBSERVED 2026-09-25, one clause is now a defect: (b) confirmed -- PR #12815 self-landed green 2026-09-25T06:51Z under the widened TIER1_SURFACE. (a) BROKEN -- the detector's own first scheduled run (2026-09-25T05:06:35Z, run 36097174392; genuinely found 13 stuck PRs + 15 unlanded result runs) has job conclusion=failure because bash -e aborts before the receipt/alert steps run on a legitimate findings exit code; both alert and receipt-land steps show skipped, docs/claude/work/RESEARCH-LOSS-RECEIPT.json on main is still the PR-merge seed. Filed as PI-20260925-OOFSWEEP-0001 (queued, dispatch_lane). Stays landed_unproven.",
+  "_seq": 91
+}

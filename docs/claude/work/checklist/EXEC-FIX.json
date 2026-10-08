@@ -1,0 +1,20 @@
+{
+  "title": "Order-path fixes: strategy-priority gap + CI guard; prop balance-fetcher on all paths; alpaca short gate",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "fix lane",
+  "lane": "session_01C7mgVNtBDmoVSQSvBNzoVh",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 35,
+  "spend_usd": null,
+  "tier": 3,
+  "prs": [
+    13599,
+    13601,
+    13603
+  ],
+  "blocked_on": [],
+  "note": "2026-09-28 ~12:15Z: operator popups ~11:45Z/12:10Z: \"Fix both + wire guard\", \"Fix it\", \"Build the gate now\". Held PRs; manager merges after independent review. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): state corrected in_flight -> landed_unproven: lane is ARCHIVED (status_bucket COMPLETED) and #13599/#13601/#13603 are on main (git log --grep). Deploy/observation not verified by this session; the lane's own pipeline items carry the observation that closes it.",
+  "id": "EXEC-FIX",
+  "_seq": 177
+}

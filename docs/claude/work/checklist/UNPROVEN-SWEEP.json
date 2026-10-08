@@ -1,0 +1,16 @@
+{
+  "id": "UNPROVEN-SWEEP",
+  "title": "Check every landed_unproven checklist row's closing observation against live data; close, re-scope or kill",
+  "phase": "W8",
+  "state": "in_flight",
+  "owner": "research lane",
+  "lane": "session_01YZ1v25eGAXFHxUgidK1DDx",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 15,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; operator popup verbatim 'Landed-but-unproven sweep'.",
+  "_seq": 263
+}

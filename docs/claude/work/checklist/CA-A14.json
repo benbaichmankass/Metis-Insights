@@ -1,0 +1,18 @@
+{
+  "id": "CA-A14",
+  "title": "Code audit Wave A: GitHub workflows part 2",
+  "phase": "CA",
+  "state": "done",
+  "owner": "audit lane",
+  "lane": "session_01MuqnocKfF4UB8LNqRdrZWZ",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 35,
+  "spend_usd": 8.31,
+  "tier": 1,
+  "prs": [
+    13199
+  ],
+  "blocked_on": [],
+  "note": "Scope: .github/workflows/ files 75\u2013149 in `ls .github/workflows` order (from provision-live-vm.yml to the end). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A14.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01MuqnocKfF4UB8LNqRdrZWZ (claude-sonnet-5; r2: r1 session_01UAbBD9XbS8svuN5hXSdLem blocked, archived). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A14.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main.",
+  "_seq": 122
+}

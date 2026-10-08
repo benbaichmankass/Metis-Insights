@@ -1,0 +1,18 @@
+{
+  "id": "E19",
+  "title": "The vm-diag-snapshot relay is failing \u2014 every session is blind to the live host",
+  "phase": "E",
+  "state": "done",
+  "owner": "build lane",
+  "lane": "session_01SYRbqoX6Zw3v1FCySG4Kvz",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 15,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    12702
+  ],
+  "blocked_on": [],
+  "note": "PR #12702 open (draft, held per operator_asked_to_hold). ROOT CAUSE ESTABLISHED FROM THE ACTUAL FAILED-RUN LOG (35649903349), not the workflow source: this was never a secret problem. The SSH+curl fetch to the VM SUCCEEDED (diag-multi-output.txt got 6 lines, no curl/ssh error) -- the run then died in local Python post-processing: `from scripts.ops.diag_relay_render import render_section` raised `ModuleNotFoundError: No module named 'scripts'` because the job never ran actions/checkout (confirmed absent across this workflow file's entire git history; the import was added 2026-09-13, a45d360, with no checkout ever added). VM_SSH_KEY and DIAG_READ_TOKEN are both fine -- neither absent nor mismatched. Fix: one added actions/checkout step, reproduced+verified locally (import fails from empty cwd, succeeds once cwd = repo root). E17 stays blocked on this until the PR lands and a real diag round-trip is OBSERVED (merged != deployed != observed) -- not yet true. [!] OBSERVED 2026-09-22T06:38:27Z BY THIS LANE (session_01SYRbqoX6Zw3v1FCySG4Kvz) -- THE ROUND-TRIP RETURNED CONTENT AND THE ROW CLOSES ON THAT, NOT ON THE MERGE. MEASURED, locator: diag-request issue #12708, workflow run 35695727461, one batched vm-diag-snapshot run over one ssh session, 3 of 3 paths fetched. `version` -> git_sha f3746abd1 == git_sha_on_disk f3746abd1, restart_pending false, captured_at 2026-09-22T06:38:27.173838+00:00 (so the VM is running the same commit `main` is on). `services` -> 40 units enumerated, ict-trader-live.service / ict-web-api.service / caddy.service / ict-telegram-bot.service all `active`. `log_file?name=arbitration_fanout_soak&lines=30` -> present true, path /data/bot-data/runtime_logs/arbitration_fanout_soak.jsonl, size_bytes 1156308, rows returned. [!] THE POSITIVE CONTROL IS IN THE PULL, not asserted: `present: true` + a non-zero size_bytes + parseable rows is the probe demonstrating it can find a positive, which is what RULE ONE asks for before a quiet result is trusted. The pre-fix failure mode was a ModuleNotFoundError in local post-processing AFTER a successful fetch, so a run that now returns rendered per-path sections IS the thing the fix was for. [!] ESTABLISHED: MERGED (5837dc2, PR #12702) + DEPLOYED (the relay runs on a GitHub runner off `main`, no VM deploy in the path) + OBSERVED (this pull). All three, separately. [!] E17 IS UNBLOCKED and its read was taken in the same pull -- see E17's note; the answer REFUTES the premise E17's chosen fix was selected on.",
+  "_seq": 51
+}

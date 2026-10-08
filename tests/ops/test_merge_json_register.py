@@ -40,6 +40,17 @@ REGISTERS = [
 ]
 
 
+def _register_text(rel):
+    """The LIVE register's bytes. The checklist monolith FILE was deleted at the per-row
+    seed cutover (its rows are one file each now), so for that path the live bytes are
+    what the generator renders from the store -- the exact shape the monolith had."""
+    path = os.path.join(ROOT, rel)
+    if os.path.exists(path):
+        return open(path, encoding="utf-8").read()
+    from src.runtime import checklist_store
+    return checklist_store.render(__import__("pathlib").Path(ROOT))
+
+
 def doc(rows, **hdr):
     h = "".join('  "%s": %s,\n' % (k, json.dumps(v)) for k, v in hdr.items())
     body = ",\n".join('    {"id": "%s", "v": %s}' % (i, json.dumps(v)) for i, v in rows)
@@ -337,7 +348,7 @@ def test_the_docstring_promise_matches_the_behaviour():
 @pytest.mark.parametrize("rel", REGISTERS)
 def test_round_trip_is_byte_identical(rel):
     """Parse -> reassemble must reproduce the LIVE file EXACTLY."""
-    text = open(os.path.join(ROOT, rel), encoding="utf-8").read()
+    text = _register_text(rel)
     assert M.round_trip(text) == text
 
 
@@ -386,8 +397,7 @@ def test_untouched_rows_keep_their_exact_bytes():
 
 
 def test_real_register_merge_produces_valid_json():
-    text = open(os.path.join(ROOT, "docs/claude/work/MANAGER-CHECKLIST.json"),
-                encoding="utf-8").read()
+    text = _register_text("docs/claude/work/MANAGER-CHECKLIST.json")
     bumped = text.replace('"as_of"', '"as_of"', 1)
     out = M.merge(text, bumped, text)
     assert json.loads(out)

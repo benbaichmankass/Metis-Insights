@@ -1,0 +1,17 @@
+{
+  "phase": "W6",
+  "state": "done",
+  "lane": "session_01Wg2RZ3F5NkdfVrnLMc4e9z",
+  "spend_usd": 9.4,
+  "prs": [
+    13195
+  ],
+  "blocked_on": [],
+  "id": "W6-PROP-R2",
+  "title": "Breakout candidate search v2: every DXtrade-tradable symbol x every corpus strategy family, scored with the merged prop_ev_sim",
+  "owner": "research lane",
+  "model": "claude-sonnet-5",
+  "ceiling_usd": 30,
+  "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Candidates ONLY from https://www.breakoutprop.com/symbols/ (operator), DXtrade side (breakout_1 is DXtrade). Re-runs PI-20260927-ODDTM5QY-0003 on merged prop_ev_sim (#13084); multi-seed robustness for xrp (ODDTM5QY-0001). Roster proposal comes to the operator via the manager. Sonnet: research. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13195: zero roster additions; lane archived. Follow-on W6-PROP-R3.",
+  "_seq": 150
+}

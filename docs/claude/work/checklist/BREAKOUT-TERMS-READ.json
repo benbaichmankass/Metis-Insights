@@ -1,0 +1,23 @@
+{
+  "id": "BREAKOUT-TERMS-READ",
+  "title": "First-party read of Breakout Prop's terms on automated access / order placement / login verification, so PI-20261005-9HEP9LYP-0001 and -0003 close with a quote rather than 'unread' while breakout_2 trades live through the phone executor",
+  "phase": "W6",
+  "state": "done",
+  "owner": "lane BREAKOUT-TERMS-READ",
+  "lane": "session_01XeRHhQ913UrZ85p76iqzcj",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 8,
+  "spend_usd": 1.61,
+  "tier": 1,
+  "prs": [
+    17039
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-08T02:35Z manager] #17039 MERGED ~02:28Z (auto-merge). Terms read is on main; the device/IP decision stays a morning item for the operator. || [2026-10-08T00:34Z manager] DONE by the re-dispatched lane: PR #17039 (docs/integrations/breakout-terms-read-2026-10-08.md, auto-merge armed). SCOPE: only the FAQ Center (108 articles) was readable; Terms of Use, Evaluation Agreement, Program Rules and the portal sign-in returned HTTP 403 (Cloudflare challenge, not worked around) -- SILENT means silent in the FAQ. VERDICTS: (a) UI automation SILENT; (b) automated orders SILENT; (c) auto re-login via emailed number-match SILENT; (d) multiple accounts per device/IP PROHIBITED for evaluations ('Sharing account access, or trading multiple accounts from the same household, device, or IP address' -- any one of household/device/IP), absent from the funded-account list; (e) copy trading PROHIBITED across users, own-to-own SILENT, cross-account hedging prohibited. DECISION FOR THE OPERATOR (morning sync): breakout_1 (breached, retiring) and breakout_2 (live) are two evaluations under one household/IP -> accept the risk as on 2026-10-05, or paste the agreements for a full read, or ask Breakout support in writing whether one person may hold two accounts on one household network and whether software may complete the number-match. Pipeline items 9HEP9LYP-0001 (routed; clears on an observed auto re-login) and -0003 (killed 10-05) were correctly left alone. Lane archived 00:34Z; spend $1.61 final (plus $0.77 for the first, repo-less attempt). || [2026-10-08T00:27Z manager] FIRST DISPATCH had no repository attached: it read and graded the terms (its summary: UI automation, order automation and automated re-login are SILENT; multiple accounts on one device/IP and cross-account copy trading are PROHIBITED) but could write nothing; archived, spend $0.77. RE-DISPATCHED 00:27Z with source_url to re-fetch, quote verbatim and write the memo + close the two pipeline items. FLAG FOR THE MORNING SYNC: the multi-account-per-device/IP clause may bear on running breakout_2 on the phone while breakout_1 (retiring) ran from the VM browser executor -- the memo will say exactly what the clause forbids. || [2026-10-07T19:30Z manager] Research/read only: fetch the public terms + FAQ (breakoutprop.com), quote the clauses verbatim with URL + retrieval time into docs/integrations/breakout-terms-read-2026-10-07.md, grade each phone-executor behaviour (screen automation, auto re-login via a dedicated inbox, SOL picker) as permitted / prohibited / silent. No decision: the operator decides; the lane files the exact question if any clause is 'prohibited'. Pipeline items -0001/-0003 then close as answered.",
+  "observation": {
+    "what": "#17039 merged (auto-merge armed) and the operator has decided the device/IP question at the morning sync",
+    "how_to_check": "gh api repos/benbaichmankass/Metis-Insights/pulls/17039 --jq .merged; the decision recorded on this row",
+    "due_by": "2026-10-08T18:00Z"
+  },
+  "_seq": 342
+}
