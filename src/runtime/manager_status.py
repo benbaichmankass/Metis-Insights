@@ -411,7 +411,14 @@ def read_file_commit(
     run = git or _default_git(repo)
     ref = now or datetime.now(timezone.utc)
 
-    out, err = run(["log", "-1", "--format=%H%x09%cI", "--", relpath])
+    # The checklist's last change is the newest commit on the monolith OR (after the
+    # per-row cutover) on any row file, so the Workflow page's freshness stamp is
+    # unchanged by the move.
+    paths = [relpath]
+    if relpath == CHECKLIST_RELPATH:
+        paths.append(CHECKLIST_STORE_RELPATH)
+
+    out, err = run(["log", "-1", "--format=%H%x09%cI", "--", *paths])
     if out is None:
         return FileCommit(FILE_COMMIT_UNKNOWN,
                           note=f"could not read the file log ({err or 'no output'})")
@@ -425,7 +432,7 @@ def read_file_commit(
     age = (max(0.0, (ref - parsed).total_seconds() / 3600.0)
            if parsed is not None else None)
 
-    status, status_err = run(["status", "--porcelain", "--", relpath])
+    status, status_err = run(["status", "--porcelain", "--", *paths])
     dirty: Optional[bool] = None if status is None else bool(status.strip())
 
     return FileCommit(
@@ -441,6 +448,7 @@ def read_file_commit(
 # ═════════════════════════════════════════════════════════════════════════════
 
 CHECKLIST_RELPATH = "docs/claude/work/MANAGER-CHECKLIST.json"
+CHECKLIST_STORE_RELPATH = "docs/claude/work/checklist"
 SESSIONS_RELPATH = "docs/claude/work/SESSIONS.json"
 
 #: Display order for the checklist's own declared `states` vocabulary.
