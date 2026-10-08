@@ -1,4 +1,5 @@
 {
   "tier": 1,
-  "landing": "self"
+  "landing": "self",
+  "why": "Docs only: adds the 'How lane PRs land' subsection to .claude/skills/manager/SKILL.md (landing file, automerge request, merge-slot claim, hold vs self). No code, config, test or order-path change; Tier-1 self-land."
 }
