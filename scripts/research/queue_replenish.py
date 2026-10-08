@@ -405,11 +405,25 @@ def allocate(deficit: int, weights: Dict[str, int], available: Dict[str, int]) -
     return alloc
 
 
+#: Numbers 900-999 of every day are RESERVED for hand-authored units (next_rq_id.py mints
+#: there); this generator mints only 001-899. PI-20261005-RQ-ID-RACE-0001: both used to mint
+#: max+1 from the same counter, and the generator -- which cannot see an open PR -- caught up to
+#: ids a lane had already put on a branch (the 2026-10-05 653..661 collision). Disjoint bands
+#: make that collision impossible rather than unlikely. scripts/ci/check_research_queue_id_bands.py
+#: enforces the split on every unit a PR adds. DECIDED by lane RQ-INFRA 2026-10-07; reverse by
+#: moving this constant and next_rq_id.HAND_FLOOR together.
+HAND_FLOOR = 900
+
+
 def next_ids(units: Dict[str, Dict[str, Any]], day: str, count: int) -> List[str]:
+    """Up to ``count`` ids in the GENERATED band. Returns FEWER when the band is full (the caller
+    zips against it, so the day simply stops minting) -- a full day must not crash the replenisher,
+    because a replenisher that cannot run is a queue that waits on a session."""
     compact = day.replace("-", "")
-    used = [int(m.group(2)) for uid in units if (m := _ID_RE.match(uid)) and m.group(1) == compact]
+    used = [int(m.group(2)) for uid in units
+            if (m := _ID_RE.match(uid)) and m.group(1) == compact and int(m.group(2)) < HAND_FLOOR]
     start = (max(used) if used else 0) + 1
-    return [f"RQ-{compact}-{n:03d}" for n in range(start, start + count)]
+    return [f"RQ-{compact}-{n:03d}" for n in range(start, min(start + count, HAND_FLOOR))]
 
 
 def plan(root: Path, *, day: str, target: int, now: Optional[datetime] = None) -> Dict[str, Any]:

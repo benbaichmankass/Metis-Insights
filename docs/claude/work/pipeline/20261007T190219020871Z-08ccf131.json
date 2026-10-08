@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261007-AVMK2Q5Y-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-TRAIL-PHONE session_01YT5VE5mnD6LfbHaVMK2Q5Y (manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-07",
+    "rerun": "grep -n '\"status\", \"placed\"\\|put(\"status\"' tools/phone-executor/app/src/main/java/com/metis/phoneexec/MainActivity.kt; grep -n '_OPEN_STATUSES' src/prop/prop_monitor_pulse.py"
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "PHONE PATH NEVER JOURNALS A POSITION AS OPEN. READ IN CODE 2026-10-07 at origin/main 142ec79e: MainActivity.execute() posts kind=fill status=placed once the limit is seen in Open orders/Positions, and nothing on the phone path ever posts status open/filled or closed. prop_monitor_pulse.find_open_prop_positions counts only open/filled (_OPEN_STATUSES), so a filled breakout_2 limit is invisible to the pulse, the SL/TP alert, rule distance and prop_report's {kind: amend} (which refuses with 'no OPEN position'). The phone trail (#16959) carries its own resting levels on the ticket so it does not depend on this, but the journal and the risk reads do. NOT measured on the VM: whether any breakout_2 fill row has ever been open. FIX (build): when the phone sees the ticket's position in Positions (entry confirm or an amend's row read), post kind=fill status=open (entry ESTIMATED as the limit price, provenance stated), and a closed report when a seen position disappears; or a server-side reconcile from the phone's rows dump. Tier-2 (order-path journaling)."
+}

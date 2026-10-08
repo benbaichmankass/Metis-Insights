@@ -139,6 +139,16 @@ def _now_iso() -> str:
 
 def read_json(path: Path) -> Tuple[Optional[Any], bool]:
     """Returns (parsed, readable). ``(None, True)`` means genuinely absent."""
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from src.runtime import checklist_store as _ck  # noqa: PLC0415
+    if _ck.is_checklist_path(path):  # rows are the truth once the store is seeded
+        if not _ck.exists(path):
+            return None, True
+        try:
+            return _ck.load_path(path), True
+        except (OSError, ValueError):
+            return None, False
     if not path.is_file():
         return None, True
     try:

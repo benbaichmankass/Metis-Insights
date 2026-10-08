@@ -1,0 +1,86 @@
+id: RQ-20261007-033
+title: Confirmatory re-runs on a DISJOINT window for the four first-pass Stage-0 FAILs of 2026-10-04 (RQ-20260929-101 BNB
+  pullback 2h, -102 BNB squeeze 4h, -103 BNB fade 4h, -107 chop_scalp BTC 15m), as their own rules require (PI-20261004-APBY4NTV-0001
+  residual)
+status: blocked
+cadence: once
+theme: new_strategy_prop
+priority: 3
+kind: experiment
+question: 'After the fetch-window fix (PI-20261004-APBY4NTV-0001; CANDIDATE_PAIRS lengthened to 1095d/730d) all five indeterminate
+  units re-ran on 2026-10-04 and became determinate: 101 FAIL (-20.84 R, n=202), 102 FAIL marginal (-2.35 R, n=133), 103 FAIL
+  (-28.05 R, n=256), 107 FAIL (-13.91 R, n=45), 108 PASS exploratory (+5.44 R, n=94, orb harness FEE-ONLY). Each FAILing unit''s
+  registered rule says ''FAIL re-queues for a confirmatory run, never killed on one pass; two consecutive FAILs are a candidate
+  to retire''. Re-dispatching the same unit reproduces the same window byte-for-byte (RQ-20260929-106 did exactly that), which
+  confirms nothing. On a window DISJOINT from 2023-10-05..2026-10-03 (i.e. ending 2023-10-04), does each harness/symbol cell
+  FAIL again (net_total_r <= 0 with n >= 39), which retires the idea, or PASS, which keeps it open as a regime-dependent result?'
+why_this_matters: None of these cells trades anywhere; money at stake is zero, hence priority 3 and blocked rather than built
+  around. Registering the confirmatory question keeps the four FAILs from being read as kills on one pass, which their own
+  rules forbid.
+power:
+  expected_n: 45
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: 'd=0.45 -> 39 at alpha 0.05 / power 0.8, the floor every one of the four units registered. expected_n=45 is the SMALLEST
+    of the four 2026-10-04 first-pass counts (107: n=45 on a 1095d window; 101/102/103: 202/133/256), and a disjoint window
+    of the same length is expected to yield a similar count per cell; the chop_scalp cell is the one that can land under 39
+    and would grade indeterminate on its own.'
+  feasibility:
+    source: none
+    accrual_basis: Re-runs over history already available from binance-vision; the 2026-10-04 counts are the observed rates.
+      Nothing accrues; blocked on an instrument input, not on data.
+decision_rule:
+  id: RULE-RQ1007-STAGE0-FAIL-CONFIRMATORY-DISJOINT
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: Per cell (pullback BNBUSDT 2h; squeeze BNBUSDT 4h; fade BNBUSDT 4h; chop_scalp BTCUSDT 15m), net_total_r (net
+    of the full cost stack via execution_costs.resolve_cost_policy) and n_trades from the harness's own JSON summary, config-exact
+    as in the parent unit, over a window ending 2023-10-04 and of the parent's length (1095d for the BNB cells, 1095d for
+    chop_scalp).
+  rule: 'Per cell: PASS IF net_total_r > 0 AND n_trades >= 39. FAIL IF net_total_r <= 0 AND n_trades >= 39. indeterminate
+    IF n_trades < 39. Decision mapping: FAIL here (second consecutive FAIL) retires the cell -- the parent unit''s result
+    field is amended with the retirement and no further unit is queued for it; PASS here keeps the cell open as regime-dependent
+    and a third, pre-registered window decides (registered then, not now). 108 (orb) is NOT in this unit: its harness is fee-only
+    and is excluded from any promotion corpus until its cost stack is fixed (CLAUDE.md, D1 block); a re-run on the same harness
+    would not change that.'
+  what_it_does_not_do: Proposes no roster placement for any cell; BNBUSDT has no leg anywhere. Does not touch the orb harness.
+blocked_on:
+- what: 'Neither dispatchable route can run a harness on a chosen window: research-harness-dispatch.yml fetches through scripts/ops/fetch_backtest_corpus.py''s
+    declared CANDIDATE_PAIRS window (fixed per (symbol, timeframe), ending today) and passes no --start/--end; research-script-run.yml
+    runs on a runner with no data/ checkout and no fetch step, so a bare scripts/backtest_<harness>.py --symbol ... --start
+    ... --end ... refuses for lack of data. A window input on research-harness-dispatch.yml (or a fetch-capable scripts/research
+    wrapper) is a Tier-1 tooling change the RESEARCH-FOLLOWUPS lane was scoped not to make (no code).'
+  ref: PI-20261004-APBY4NTV-0001
+  clears_when: research-harness-dispatch.yml accepts a window (start/end or days-and-end) input, or a scripts/research/ wrapper
+    fetches binance-vision candles and runs the named harness with --start/--end; then this unit becomes four dispatches (one
+    per harness) on that route.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 30
+  basis: Four single-symbol harness runs; the 15m chop_scalp cell over 1095d (~105k bars) dominates.
+run:
+  workflow: session-local
+  note: 'Until the blocker clears, the lane that picks this up runs it session-local: for each cell, python3 scripts/ops/fetch_backtest_candles.py
+    --symbol <SYM> --source binance_vision --interval <code> --start-date 2020-10-05 --end-date 2023-10-04 --output data/<SYM>_<tf>.csv
+    ; then python3 scripts/backtest_<harness>.py --symbol <SYM> --timeframe <tf> --start 2020-10-05 --end 2023-10-04 --json
+    <cell>.json --emit-trades <cell>.jsonl (config-exact params as the parent unit''s rule states), landing one research_result.py
+    record per cell under research/results/<this unit>/.'
+  inputs:
+    research_unit: RQ-20261007-033
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 4
+related:
+- PI-20261004-APBY4NTV-0001
+- RQ-20260929-101
+- RQ-20260929-102
+- RQ-20260929-103
+- RQ-20260929-107
+- RQ-20260929-108
+- scripts/ops/fetch_backtest_corpus.py (CANDIDATE_PAIRS)
