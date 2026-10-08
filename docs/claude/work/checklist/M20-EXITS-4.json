@@ -21,7 +21,12 @@
       "archived_at": "2026-10-08T15:55:59Z"
     }
   ],
-  "updated_at": "2026-10-08T15:56:00Z",
+  "updated_at": "2026-10-08T16:03:20Z",
   "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
+  "observation": {
+    "what": "first live ief_pullback_1d exit on alpaca_live driven by trail_decay (stall10 tight2.5, #15593) with the correct close reason",
+    "how_to_check": "diag relay: closed trades for ief_pullback_1d since 2026-10-03, close_reason and trail_decay fields",
+    "due_by": "2026-10-31"
+  },
   "_seq": 265
 }
