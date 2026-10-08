@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "GEOM-B1-HARNESS sweep half: tp_extend / tp_retarget lever columns (opt-in cells) in the M20 fleet sweep, the coverage matrix and the lever-wiring guard; `levers` / `cells` routing and result-landing on the two sweep workflows. Research tooling and CI only: no order path, config, strategy or param change, and no queue unit moves in this PR."
+}
