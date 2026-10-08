@@ -27,12 +27,12 @@ globs, and a row can drift on a commit that only edits `MANAGER-CHECKLIST.json`
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from src.runtime import checklist_store as _ck  # noqa: E402
 from src.runtime.manager_status import (  # noqa: E402
     _declared_vocabulary,
     effective_state,
@@ -124,12 +124,12 @@ def main(argv=None) -> int:
     if a.self_test:
         return _self_test()
 
-    if not CHECKLIST.exists():
+    if not _ck.exists(CHECKLIST):
         print(f"manager-checklist-vocabulary guard: OK — {CHECKLIST} does not "
               "exist (nothing to grade).")
         return 0
     try:
-        data = json.loads(CHECKLIST.read_text(encoding="utf-8"))
+        data = _ck.load_path(CHECKLIST)
     except (OSError, ValueError) as exc:
         print(f"manager-checklist-vocabulary guard: FAIL — could not read/parse "
               f"{CHECKLIST}: {exc}")

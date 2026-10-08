@@ -74,6 +74,7 @@ class MainActivity : Activity() {
     private lateinit var ledger: Ledger
     private var busy = false
     private var lastHbMs = 0L
+    private var lastAcctMs = 0L
     private var lastStatus = ""
     // HOTFIX 2026-10-05 (manual login was being reset by the loop): any touch/key on the screen holds every
     // automatic navigation (reload, re-login) for USER_HOLD_MS; "Pause" holds everything until the page reads
@@ -103,6 +104,7 @@ class MainActivity : Activity() {
         const val APP_URL = "https://app.breakoutprop.com/"
         const val TICK_MS = 30_000L
         const val HEARTBEAT_MS = 120_000L
+        const val ACCT_MS = 300_000L
         const val USER_HOLD_MS = 5 * 60_000L
         const val PAUSE_MAX_MS = 10 * 60_000L
         const val JS_TIMEOUT_MS = 10_000L
@@ -352,7 +354,23 @@ class MainActivity : Activity() {
             for (k in listOf("ready", "probe", "panels", "orderControl", "ticketOpen", "buySell")) state.put(k, tm.optBoolean(k))
             state.put("tabs", tm.optInt("tabs")).put("inputs", tm.optInt("inputs"))
         }
+        if (resumed && st == "logged_in" && now - lastAcctMs >= ACCT_MS) { lastAcctMs = now; state.put("acct", readAccount()) }
         api.heartbeat(lastStatus, state)
+    }
+
+    /** Read the account panel (read-only) and post it as account_status; only on the terminal with no ticket open.
+     *  Returns a short state for the heartbeat: posted / unread / busy. Nothing is posted unless a value was read. */
+    private suspend fun readAccount(): String {
+        val tm = jsObj("__ex.terminal()") ?: return "busy"
+        if (!tm.optBoolean("ready") || tm.optBoolean("ticketOpen")) return "busy"
+        val a = jsObj("__ex.accountPanel()") ?: return "unread"
+        val bal = if (a.isNull("balance")) null else a.optDouble("balance")
+        val eqRead = if (a.isNull("equity")) null else a.optDouble("equity")
+        val pf = if (a.isNull("portfolio")) null else a.optDouble("portfolio")
+        val eq = eqRead ?: pf   // "Portfolio" is the terminal's headline account value; the label is posted so the server records which one
+        if (bal == null && eq == null) return "unread"
+        api.accountStatus(bal, eq, if (eqRead != null) "equity" else "portfolio")
+        return "posted"
     }
 
     /** Where "back to the terminal" goes: the last account terminal seen while logged in, else the host root. */

@@ -40,6 +40,7 @@ import hashlib
 import hmac
 import json
 import logging
+import math
 import os
 import re
 import sqlite3
@@ -275,6 +276,24 @@ def record_report(device: PhoneDevice, body: Dict[str, Any]) -> Dict[str, Any]:
             "form": json.loads(dump_capped(form, 20000)),
             "at": _now().isoformat()})
         return {"ok": n == 1, "kind": "ticket_result", "updated": n}
+    if body.get("kind") == "account_status":
+        # MEASURED off the terminal's account panel (read-only). A value that was not read stays None (absent, never 0);
+        # a report with neither is refused so "we did not look" never lands as a snapshot.
+        clean: dict[str, Any] = {}
+        for k in ("balance", "equity"):
+            v = body.get(k)
+            if v is None:
+                clean[k] = None
+                continue
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v < 0:
+                raise ValueError(f"account_status.{k} invalid")
+            clean[k] = float(v)
+        if clean["balance"] is None and clean["equity"] is None:
+            raise ValueError("account_status needs balance or equity")
+        label = "portfolio" if str(body.get("equity_label") or "") == "portfolio" else "equity"
+        body = {"kind": "account_status", "account_id": device.account_id, "balance": clean["balance"],
+                "equity": clean["equity"], "source": "phone_executor", "provenance": "MEASURED",
+                "equity_label": label}
     from src.prop.prop_report import ingest_report
     res = ingest_report(body)
     tid = body.get("ticket_id")
@@ -476,7 +495,7 @@ def _write_diag(account_id: str, reason: str, controls: Any) -> None:
 # tick path at most every 2 min; only the latest is kept. Keys are a fixed allowlist; values are bools, small
 # ints or scrubbed short strings.
 _HB_KEYS = {"st", "paused", "hold", "host", "onAccount", "path_depth", "ready", "probe", "panels", "orderControl",
-            "ticketOpen", "buySell", "tabs", "inputs", "build", "fg", "jsTimeouts", "pending"}
+            "ticketOpen", "buySell", "tabs", "inputs", "build", "fg", "jsTimeouts", "pending", "acct"}
 
 
 def _write_heartbeat(account_id: str, reason: str, state: Any) -> None:
