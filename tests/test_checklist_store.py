@@ -154,3 +154,15 @@ def test_cli_header_sets_one_top_level_key(tmp_path):
     assert _cli(repo, "header", "updated_by", "session_z") == 0
     assert C.load(repo)["updated_by"] == "session_z"
     assert [r["id"] for r in C.load(repo)["items"]] == [r["id"] for r in _real()["items"]]
+
+
+def test_check_after_the_cutover_reports_the_store_instead_of_crashing(capsys):
+    """`--check` used to read the deleted monolith and die with FileNotFoundError; with the
+    monolith gone it must say the rows are the register and that they are readable."""
+    import importlib
+
+    cl = importlib.import_module("checklist")
+    assert not (REAL / C.MONOLITH).exists(), "the monolith is retired -- this tests the post-cutover path"
+    assert cl.main(["--check"]) == 0
+    out = capsys.readouterr().out
+    assert "monolith retired" in out and "readable" in out
