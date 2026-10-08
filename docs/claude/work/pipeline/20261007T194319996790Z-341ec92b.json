@@ -1,0 +1,15 @@
+{
+  "id": "PI-20261007-APBY4NTV-0005",
+  "state": "queued",
+  "next_action": "dispatch_lane",
+  "due_when": {
+    "kind": "date",
+    "due_date": "2026-10-09"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv 2026-10-07 19:20Z and 19:40Z",
+    "rerun": "for n in $(gh api 'repos/benbaichmankass/Metis-Insights/pulls?state=open&per_page=60' --jq '.[].number'); do sha=$(gh api repos/benbaichmankass/Metis-Insights/pulls/$n --jq .head.sha); c=$(gh api \"repos/benbaichmankass/Metis-Insights/commits/$sha/check-runs?per_page=100\" --jq '[.check_runs[]|select(.name==\"pytest-run\")]|length'); [ \"$c\" = 0 ] && echo \"$n no pytest-run on $sha\"; done  # any line = a PR whose required checks never started"
+  },
+  "what": "REQUIRED CI SOMETIMES NEVER STARTS ON A PR HEAD. MEASURED 2026-10-07: #16974 (head d736c609b) and #16980 (head f11a43fe2) had only push-triggered runs (armed-branch-push-watch, phone-executor-apk) and no pytest-collect / pytest-run / guards check-runs 20+ min after the push, while sibling PRs pushed the same minute got all three; both heads were a second 'landing: hold' fix commit pushed shortly after the PR opened; both PRs were opened by the user token, not by a workflow (so the GITHUB_TOKEN no-trigger rule is NOT the cause). The manager dispatched the three workflows by workflow_dispatch each time. Branch protection would leave such a PR unmergeable forever; the manager's merge watchers reported one of them GREEN on zero pending checks (fixed: a GREEN now requires the three required checks PRESENT). Question for a lane: what is the trigger-side cause (pull_request synchronize dropped? the opened+synchronize concurrency group cancelling and deleting the pending run? a paths filter?) and what mechanical backstop re-dispatches required checks for a PR head that has none after N minutes (schedule-keeper-style, on push to main)."
+}

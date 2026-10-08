@@ -1,0 +1,16 @@
+{
+  "id": "PI-20261007-APBY4NTV-0004",
+  "state": "routed",
+  "routed_to": "checklist row RQ-CADENCE",
+  "next_action": "dispatch_lane",
+  "due_when": {
+    "kind": "date",
+    "due_date": "2026-10-09"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv, measured 2026-10-07 19:35Z off the Actions API",
+    "rerun": "gh api 'repos/benbaichmankass/Metis-Insights/actions/workflows/research-queue-dispatch.yml/runs?created=>'$(date -u -d '-24 hours' +%FT%TZ)'&per_page=100' --jq '[.workflow_runs[]|select(.conclusion!=null)]|length'  # < 20 completed runs in 24 h = still broken"
+  },
+  "what": "RESEARCH QUEUE DOES NOT RUN HOURLY. MEASURED 2026-10-07: research-queue-dispatch had 4 schedule-event runs in the prior 24 h against 24 slots (GitHub drops most hourly slots for this repo: dashboard-edge-watch 4/24, schedule-keeper 7/48); schedule-keeper lists it with stale_hours 26, so a missed slot is re-dispatched only after a day; and every dispatch run waits up to 50 min on 'Land the dispatch stamps on main' holding the research-queue-dispatch concurrency group (16:34Z run: stamp PR #16938 failed_conflict, 'collector lost a run's rows'; the last 6 scheduled runs all failed there). CI queue at the time: 242 queued, 20 in progress (15 pytest-run). The operator's standing requirement (2026-10-07): the research queue keeps running regardless of any session. Routed to RQ-CADENCE; depends on #16948 (RQ-INFRA) landing first."
+}

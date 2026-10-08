@@ -4498,7 +4498,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "[2026-10-06T06:00Z manager] Week ending Wed 2026-10-07 18:00Z: 84% all-models at 2026-10-05 17:50Z; throttle holds (no new main-pool lanes, Fable for extras). [2026-10-01T20:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator screenshot ~20:50Z: weekly 22% all models, Fable 9%, ~27h into the week (resets Wed 18:00Z). Budget to land at 90-95% is ~0.5%/h; measured ~0.67%/h since 16:19Z (19%->22%), slightly hot. Response: wave 2 staggered (2 lanes now, 2 on lane close), per-lane ceilings, Sonnet where not order-path, Fable for reviews. Manager context 538k: operator chose 'Keep going', re-ask at ~70%. || [2026-10-01T16:45Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator-directed manager handoff (docs/claude/work/MANAGER-HANDOFF-2026-10-01.md, PR #15219): the owning manager is now session_01MM8o5js6TcDFeNAPBY4Ntv, replacing session_01HYq6XtfesZ57VyaQrK6CL1. || 2026-09-30 ~19:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR (chat 19:13Z/19:20Z): usage reset; pace for a normal week, not the last day's burn. Target: END THE WEEK AT 90-95% USAGE -- use the capacity, keep 5-10% headroom for end-of-week incidents. Lanes keep working through their items (NOT 'start nothing new'); allocate to the right things so everything moves in tandem. Priority order: live trader pipeline > continuous research (queue always running; a research plan) > prop go-live (Breakout ETH, Tradeify) > the rest. The operator will send usage readings; the manager compares against a linear weekly track and throttles lane count/cadence to it. Closed each week with the measured end-of-week figure. || 2026-09-30 ~19:22Z (manager): OPERATOR SNAPSHOT (screenshot, phone clock 22:16 local = ~19:16Z): weekly All models 2% used, Fable 0%, weekly reset Wed 21:00 local (= 2026-10-07 ~18:00Z, INFERRED from UTC+3); current 5h session 14%. Track: 92.5% over ~7 days = ~13.2%/day (~0.55%/h). Measured: 2% in ~1.3h since the ~18:00Z reset = ~1.6%/h, about 3x track -> throttle: fewer concurrent lanes, lighter models for research/reading, longer manager check-in spacing. Checkpoints: ~13% by 2026-10-01 18:00Z, ~26% by 10-02, ~40% by 10-03, ~53% by 10-04, ~66% by 10-05, ~79% by 10-06, 90-95% at reset. || 2026-10-01 ~02:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Lanes archived 2026-09-30: EGRESS-SCOPE ($51.69), HYRO-STRATS ($47.83). Lanes dispatched: RESEARCH-W7 (sonnet, $60), MGR-SKILL-IDEAS (sonnet, $8; skill edit blocked by auto-mode self-modification check, waiting on the operator). || 2026-10-01 ~06:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR SNAPSHOT ~05:19Z: weekly All models 9%, Fable 0%, session 8%. ~11.3h into the week -> ~0.7%/h, projects ~115-120% at reset if sustained. Operator popup: \"Keep current pace\". Also: weekly research-planning routine reads the repo IDEAS.md copy (operator: \"Repo copy is fine\"); MGR-SKILL-IDEAS skill edit -- operator will click allow."
+      "note": "[2026-10-08T03:22Z manager] 03:17Z 3-hourly check-in: 60 child sessions, 13 not archived; none held on a permission/classifier prompt (the three BLOCKED buckets -- VELOTRADE-QUALDAYS #16976, VELOTRADE-RECON #16978, MANAGER-SKILL-LANDING #16942 -- are need_input on held or refreshed PRs). Merged since 02:12Z: #17015 #16959 #16980 #17011 #16964 #17047 (+auto #17038 #17039 #17056 #17052). Refreshed from main for the catalog fix: #17002 (c36888345) #16942 (dc3ca32f0) #17018 (55fc6a0ca) #17021 (18a222cb7). Lanes re-resolved: #17005 (f831f62c3, APK compiled), #16978 (e0dc4cbfb), #16981 (b05371cd7), #17007 (0e1b360fb), #17017 (e2fece59c), #16974 (d0795b06a). Watcher restarted (bkqzc9wuc). Morning Tier-2 batch unchanged: #17007 #17003 #16976 #16978 #16999; Tier-3: #16981. || [2026-10-08T02:12Z manager] 02:12Z: merged so far tonight #16994 #16987 #16997 #17015 #16959 (+ auto: #17037 #16992 #17009). VM at 1763b675b, restart_pending false. #17036 (register) rebuilt as ONE commit on main after three guards rejected the superseded #16941 landing files it inherited (manager-scope R2 reads commit history, so the files had to leave the history, not just the tree); same manager-surface content, auto-merge still armed. Waiting: #17005 #17017 #17018 #16942 #17038 #17039 #17021 #17043 CI; #16980 #16974 #17007 #17002 lane conflict fixes; #17042 after #17002. || [2026-10-08T01:05Z manager] Midnight golden fix landed via #17010 (30347cf9d, 00:53Z). Manager merged main into 24 open PRs: 21 clean via GitHub update-branch; #16959 #16987 #17007 by taking main's test_tp_geometry_harness.py (their only conflict was a duplicate of the same fix). Real conflicts woken to lanes: #16980 (PROP-TRAIL-PHONE), #17005 (PHONE-GO-TOKEN), #17015->#17017 (REGISTER-TOOLING), #17042 (MOMENTUM-TRAIL-LEVER, unarchived for this one task). #17041 (second duplicate fix) closed as superseded. Overnight merge set once green, in order: #16987 -> #17005 (Tier-3, operator-approved in-lane); #16959 -> #16980 -> APK; #16997 (+executor restart); #16974; #16994; #16964 #17018 #17011 (Tier-1); #17002 (Tier-3 under standing authorization, operator notified 10-07). HELD for the morning sync as a Tier-2 batch (no explicit OK yet): #17007 (+trader/prop-bot restart), #17003, #16976, #16978, #16999; Tier-3 HELD: #16981. || [2026-10-06T06:00Z manager] Week ending Wed 2026-10-07 18:00Z: 84% all-models at 2026-10-05 17:50Z; throttle holds (no new main-pool lanes, Fable for extras). [2026-10-01T20:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator screenshot ~20:50Z: weekly 22% all models, Fable 9%, ~27h into the week (resets Wed 18:00Z). Budget to land at 90-95% is ~0.5%/h; measured ~0.67%/h since 16:19Z (19%->22%), slightly hot. Response: wave 2 staggered (2 lanes now, 2 on lane close), per-lane ceilings, Sonnet where not order-path, Fable for reviews. Manager context 538k: operator chose 'Keep going', re-ask at ~70%. || [2026-10-01T16:45Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator-directed manager handoff (docs/claude/work/MANAGER-HANDOFF-2026-10-01.md, PR #15219): the owning manager is now session_01MM8o5js6TcDFeNAPBY4Ntv, replacing session_01HYq6XtfesZ57VyaQrK6CL1. || 2026-09-30 ~19:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR (chat 19:13Z/19:20Z): usage reset; pace for a normal week, not the last day's burn. Target: END THE WEEK AT 90-95% USAGE -- use the capacity, keep 5-10% headroom for end-of-week incidents. Lanes keep working through their items (NOT 'start nothing new'); allocate to the right things so everything moves in tandem. Priority order: live trader pipeline > continuous research (queue always running; a research plan) > prop go-live (Breakout ETH, Tradeify) > the rest. The operator will send usage readings; the manager compares against a linear weekly track and throttles lane count/cadence to it. Closed each week with the measured end-of-week figure. || 2026-09-30 ~19:22Z (manager): OPERATOR SNAPSHOT (screenshot, phone clock 22:16 local = ~19:16Z): weekly All models 2% used, Fable 0%, weekly reset Wed 21:00 local (= 2026-10-07 ~18:00Z, INFERRED from UTC+3); current 5h session 14%. Track: 92.5% over ~7 days = ~13.2%/day (~0.55%/h). Measured: 2% in ~1.3h since the ~18:00Z reset = ~1.6%/h, about 3x track -> throttle: fewer concurrent lanes, lighter models for research/reading, longer manager check-in spacing. Checkpoints: ~13% by 2026-10-01 18:00Z, ~26% by 10-02, ~40% by 10-03, ~53% by 10-04, ~66% by 10-05, ~79% by 10-06, 90-95% at reset. || 2026-10-01 ~02:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Lanes archived 2026-09-30: EGRESS-SCOPE ($51.69), HYRO-STRATS ($47.83). Lanes dispatched: RESEARCH-W7 (sonnet, $60), MGR-SKILL-IDEAS (sonnet, $8; skill edit blocked by auto-mode self-modification check, waiting on the operator). || 2026-10-01 ~06:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR SNAPSHOT ~05:19Z: weekly All models 9%, Fable 0%, session 8%. ~11.3h into the week -> ~0.7%/h, projects ~115-120% at reset if sustained. Operator popup: \"Keep current pace\". Also: weekly research-planning routine reads the repo IDEAS.md copy (operator: \"Repo copy is fine\"); MGR-SKILL-IDEAS skill edit -- operator will click allow."
     },
     {
       "id": "REGIME-SCOPE",
@@ -4542,16 +4542,23 @@
       "id": "SIGNAL-CATALOG",
       "title": "Catalog of every variable/signal/feature the system reads (strategies, ML heads, regime, macro): source, definition, where used, and live health/quality metrics; plus a recurring research review to expand/optimise it",
       "phase": "W7",
-      "state": "queued",
-      "owner": "unassigned",
-      "lane": null,
-      "model": null,
-      "ceiling_usd": null,
-      "spend_usd": null,
+      "state": "landed_unproven",
+      "owner": "lane SIGNAL-CATALOG",
+      "lane": "session_01JKohsxjzY5pRDh8mpYFo1s",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": 11.4,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        17043
+      ],
       "blocked_on": [],
-      "note": "2026-09-30 ~19:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): SOURCE: operator ideas inbox (idea synced 2026-09-30; its IDEAS.md row lands with the MGR-SKILL-IDEAS PR, which registers the file in docs/DOCUMENT-INDEX.md); the first end-to-end test of the inbox flow, requested by the operator. TRIAGE: a BUILD (the catalog is a maintained artifact) with a research tail. Theme ml_health. PLACED, not chased: queued behind the live pipeline, the prop go-live work and RESEARCH-W7 A0/A/A2 (queue liveness and weights), per PACE-W40. Scope when dispatched: (1) inventory every input the live strategies, ML heads (ml/configs), regime router and macro producers consume, with file:line; (2) per input, record definition, source/feed, freshness, null rate, and where it is used (which legs/models); (3) a committed catalog file plus a guard that fails when a new input appears in code without a catalog entry; (4) hand the research-planning session a standing 'catalog review' item: which signals are unused, redundant or unmeasured, and candidate additions, each becoming a registered unit. Sonnet, ceiling ~$25."
+      "note": "[2026-10-08T02:42Z manager] Guard GREEN on main again: the one-line catalog entry for trend_donchian's src.runtime.tp_revision rode in with #16980 (048822347); check_signal_catalog.py on main tip = 0 problems (lane and manager both verified locally; Actions run on 048822347 in progress). Lane archived, FINAL spend $11.40. Next: triage the 20 review questions in docs/reference/signal-catalog-review.md into research/queue/ units (manager allocates ids) -- a daytime task. || [2026-10-08T02:35Z manager] #17043 MERGED 01:53Z (ad777b888). Guards on main RED since then: check_signal_catalog.py FAIL F2 trend_donchian reads uncatalogued runtime_imports ['src.runtime.tp_revision'] (import added by #16966/#16994 before the guard landed). Lane woken 02:29Z to land the one-line catalog fix (PROP-TRAIL-PHONE's port in c1c19dbf is the reference). Spend $11.00 running at 02:30Z. || [2026-10-08T02:03Z manager] Lane reports PR #17043 armed (auto-merge): docs/reference/signal-catalog.yaml 333 inputs (strategy 72, ML 105, regime/macro 156) + 15 strategy modules + 76 ML models, each with definition/source/file:line/timeframe/freshness/used_by/health; signal-catalog-review.md with 20 research questions (5 unused, 3 redundant, 7 unmeasured, 5 candidate additions; no queue units written); guard signal-catalog-guard + 7 tests. Health = metric-exists, no live values. Spend ~$6 est (lane's figure, not metered). Manager archives after merge and reads the 20 questions into the research queue (next unit of work for the operator's cross-signal ask). || [2026-10-08T00:24Z manager] FIRST DISPATCH DEAD: the session was created without the repository attached (session_context had no sources; add_repo push access denied) and did no work ($0.13). Archived; RE-DISPATCHED 00:24Z with source_url set explicitly. Lesson for the manager skill: pass source_url on every create_session. || [2026-10-07T20:24Z manager] DISPATCHING NOW (operator asked for its status 2026-10-07 ~20:20Z; it had sat queued since 2026-09-30 with no lane). Scope unchanged from the 09-30 triage: inventory every input with file:line; definition/source/freshness/null-rate/where-used per input; committed catalog file + a guard that fails on an uncatalogued input; a standing 'catalog review' research item. Lane id filled after create_session. || 2026-09-30 ~19:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): SOURCE: operator ideas inbox (idea synced 2026-09-30; its IDEAS.md row lands with the MGR-SKILL-IDEAS PR, which registers the file in docs/DOCUMENT-INDEX.md); the first end-to-end test of the inbox flow, requested by the operator. TRIAGE: a BUILD (the catalog is a maintained artifact) with a research tail. Theme ml_health. PLACED, not chased: queued behind the live pipeline, the prop go-live work and RESEARCH-W7 A0/A/A2 (queue liveness and weights), per PACE-W40. Scope when dispatched: (1) inventory every input the live strategies, ML heads (ml/configs), regime router and macro producers consume, with file:line; (2) per input, record definition, source/feed, freshness, null rate, and where it is used (which legs/models); (3) a committed catalog file plus a guard that fails when a new input appears in code without a catalog entry; (4) hand the research-planning session a standing 'catalog review' item: which signals are unused, redundant or unmeasured, and candidate additions, each becoming a registered unit. Sonnet, ceiling ~$25.",
+      "observation": {
+        "what": "#17043 merged; the 20 review questions triaged into research/queue/ units or killed with a reason",
+        "how_to_check": "git log --oneline -1 -- docs/reference/signal-catalog.yaml; grep -c 'RQ-2026' docs/reference/signal-catalog-review.md",
+        "due_by": "2026-10-10T00:00Z"
+      }
     },
     {
       "id": "PROP-GOLIVE-PREAPPROVAL",
@@ -4584,7 +4591,7 @@
         15101
       ],
       "blocked_on": [],
-      "note": "[2026-10-06T06:00Z manager] Active path is PHONE-EXEC-1B (breakout_2 via phone): #16687 terminal-gate fix merged, operator installing APK run 37418392280, then dry test via #16688. [2026-10-01T16:45Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator-directed manager handoff (docs/claude/work/MANAGER-HANDOFF-2026-10-01.md, PR #15219): the owning manager is now session_01MM8o5js6TcDFeNAPBY4Ntv, replacing session_01HYq6XtfesZ57VyaQrK6CL1. || 2026-09-30 ~21:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR PRE-APPROVAL (popup ~21:00Z, answer verbatim: \"Approve both, as written (Recommended)\"). Milestone-gated go-live for both prop accounts; each step proceeds ONLY when its criteria are met. ALWAYS: independent review MERGE-OK + green CI + deploy observed before the next step; every click run on a funded terminal ONCE, no retries; STOP and wait for the operator on: an executor latch, any unexpected click or unintended order, a review BLOCK whose fix is not clear-cut, any change to caps/sizing or a strategy outside the approved roster; an auto-mode classifier denial is never worked around; caps and sizing stay as in config and the PRs. BREAKOUT (breakout_1, live) add ETHUSD: B1 merge #14885 after re-review, deploy observed (tick on new sha, halted null). B2 one ETH symbol-switch-dry: all guards, quote read, ETH selected+verified, SOL restored+verified, zero order controls, next tick clean. B3 price_step from quote decimals, only if unambiguous. B4 one ETH round-trip-dry: form filled, all fields read back, never submitted, next tick clean. B5 PR enabling ETHUSD with measured specs: review, CI, merge, deploy observed -> real ETH tickets automated; $75/ticket cap unchanged. TRADEIFY (tradeify_1, $10k eval) dry -> live: T1 merge B #14672 and F1 #14756 after review. T2 build+review+merge the rule guards (leverage caps; daily floor prior close -3% reset 22:00 UTC; PI-BHYHMK2D-0001/-BHYHMK2E-0001) and the price-band check (PI-KMYJ5XC7-0003, both accounts). T3 deploy observed; read-only login check on tradeify_1 passes; feed on, rows appear. T4 per symbol ETH/SOL/XRP: specs measured, one symbol-switch-dry, one round-trip-dry; a symbol that fails stays disabled. T5 executor dry mode, at least one full ticket cycle observed end to end, zero errors. T6 C #14673 after review: merge, PROP_EXECUTOR_MODE_TRADEIFY_1 -> live via the system action, first live tick observed. Roster: the planned B3 book (trend_donchian_eth_prop, trend_donchian_sol_prop, ict_scalp_xrp_15m) at 0.5% risk. Notify the operator at each go-live (what changed, evidence, merged/deployed/observed, revert). Expected overnight: Breakout ETH possibly live; Tradeify likely to T5 (guards not yet built). || 2026-10-01 ~02:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Progress overnight. BREAKOUT: B1 done (#14885 merged d75ea912 after two independent reviews; one-click gate on the live switch, watchlist-scoped row scan and quote_raw, guarded restore). B2 blocked by the system-actions allowlist missing symbol-switch-dry: fix #14947 (CI green, conflicted with main; lane merging main). ETH lane was stuck 00:45-02:12Z on a create_trigger permission prompt (operator-only); manager interrupted it and redirected its reports to PR comments. Gates landed for both accounts: price-band check #14908 (93365993, deployed 22:04Z, not yet observed on a live ticket) + band_ok log #14925 (385befe3, deployed). TRADEIFY: F1 #14756 merged d87cdc1a, B #14672 merged 24266cb0 (both after independent review BLOCK + fixes: default_prop_account falls back to the single live account; failed ticket match leaves the fill unlinked). T2 guards #14910 next (needs slot claim), then T3/T4/T5. Nothing new is live yet. || 2026-10-01 ~06:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): BREAKOUT ETH: B1 done (#14885). #14947 merged 847034b3. B2 PASSED (#14999 run 36807550409: SOL->ETH->SOL, 2 clicks, next tick clean). B3 price_step 0.01 MEASURED (quote decimals). #15002 merged 28a287ac (dry round trip no longer gated on enabled_venue_symbols; armed paths still refuse ETHUSD; independent review MERGE). B4 PASSED (#15021 run 36813539419: form_verified, never submitted; min_lots 0.01 MEASURED). STOP: terminal left linked to ETHUSD; one SOLUSD symbol-switch-dry (#15022) clicked but the link did not move. Read-only link-state-dump #15034 merged 35d9a81d, run #15046: ticket hypothesis ruled out, watchlist table had 0 rows -> cause not measured. Live SOL impact: next SOL ticket's switch likely refuses -> place-by-hand alert; no wrong-symbol order possible; account flat. OPERATOR 06:13Z (popup, verbatim): \"We need to fix this - there's no way that we are unable to switch between symbols, this is a very simple functionality\" -> no by-hand fallback; ETH lane builds a robust select_linked_symbol (row wait, polled verify, <=3 in-routine attempts, toolbar symbol_input fallback), ONE dispatch after deploy. B5 held until SOLUSD re-linked and verified. #15020 (restore+verify after dry round trip) under review. TRADEIFY: #14910 T2 merged 61a06af9; #15035 T2 nits merged 8368eb4a (touches execute.py, Tier-3 path; data-backed correctness fix, operator notified). T3 DONE (login #14993, feed timer #14995, snapshots every 5 min). T4 BLOCKED: instrument-info-dry #15033 refused '0 Symbol/Bid/Ask tables' -- Tradeify's watchlist DOM differs; #15048 (click-free watchlist_dump) under review; resolver fix follows. C #14673 held. || 2026-10-01 ~07:25Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR DIRECTIVE, chat ~06:17Z (verbatim): \"No, the lane should keep retrying until it succeeds - there's no reason for me to specifically authorize each test run, I just want us to figure this out already and get the account going live\". This SUPERSEDES the 'every click run on a funded terminal ONCE, no retries' clause above for dry/diagnostic runs (symbol-switch-dry, link-state-dump, instrument-info-dry, read-only dumps, round-trip-dry) on BOTH breakout_1 and tradeify_1: lanes iterate without a per-run go. Safety limits that still bind: no submit and no order-ticket control in dry runs; one-click must read OFF before every click; STOP on an executor latch, an unintended order/position, or an unrecognised dialog; keep login.lock; every code change is a Tier-2 hold PR with an independent review before merge. Live enables (B5, Tradeify C) still go through review + merge + first-tick observation. Progress: #15070 (robust symbol switch) review BLOCK \u2014 toolbar fallback could click a Positions/Orders row; fix pending. #15075 (Tradeify table_column_* resolver) under review. #14777 applied (row 6131 closed; lane archived). #15008 merged 5ba448d4. || 2026-10-01 ~11:25Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR GO-LIVE RULE, chat ~10:50Z (verbatim): \"Not everything has to be 100% completely finished. The question is, do we have the capability to execute the trades? If the answer is yes, we should go live. And if there are other bugs that need to be fixed, then we can continue working on it after it goes live. But if we're, like if we're holding back the going live because of mistakes that might happen, but probably won't, then that's like not a good reason to, for it to not go live. We should go live anyway, and we can monitor and keep working on it once it's already live.\" Applied: #15070 (robust symbol switch, ticket-Symbol-field primary route) MERGED 1fc6aecb after operator popup \"Merge now, fix after (Recommended)\" with 4 Fable-review follow-ups open (pre-existing role=grid rows / button-scoped leaves; variant (b) when the empty watchlist table is absent; canonical slash compare; restore field when a pick is unverified) -> follow-up PR, not blocking. OPERATOR, chat ~11:00Z: ONE-CLICK IS NOT A GATE -- it only arms instant-trade controls (chart quick Buy/Sell, Bid/Ask cells), which the ticket flow never clicks; every one-click refusal becomes an informational reading + one alert (follow-up PR); exclusion of quick-trade bar / Bid-Ask cells stays. Merged today: #15020 (dry round trip restores link, exit 3 on failure), #15034 (link-state dump), #15048 (Tradeify watchlist_dump), #15075 (table_column resolver), #15101 (slash names ETH/USD->ETHUSD). Next: ETH lane re-links SOLUSD (symbol-switch-dry, iterate freely) then opens B5; Tradeify lane drives T4/T5 to proof of correct execution then C (#14673)."
+      "note": "[2026-10-08T00:29Z manager] OVERNIGHT: main went red at 00:00Z (date-embedded golden from #17000); fix PR pending from GEOM-B1-HARNESS; all CI-pending PRs will need another main merge after it lands. The manager is batching that wake. || [2026-10-07T23:27Z manager] POST-RESET 23:17Z: the manager's own turn died on the 5-hour limit ~21:15Z and resumed 23:17Z; ten PRs went red on CI runs that merged a transient main between 20:25Z and 21:15Z (main itself passes the failing test and guard at its tip) -> failed jobs re-run once each; 8 green PRs merged in order; 6 green-but-conflicting PRs sent back to their lanes for a main merge. One consolidated watcher now covers every open lane PR. || [2026-10-07T21:57Z manager] OPERATOR (verbatim, 2026-10-07 ~21:55Z, screenshot: current session 96% used, resets in 2 h 06 min; weekly all-models 26%, Fable 41%): 'It looks like we're about to hit the 5 hour limit so let's throttle down until the reset. In any case I'm going to bed, so everything should be on auto mode and anything needing should wait till morning. Let's keep pushing what we can over night, and make sure to pace yourself.' MANAGER POSTURE until the reset (~00:00Z): no new lane dispatches; merge green held PRs in the recorded order; no register note per event (batched); no popups -- decisions collect for the morning sync; post-reset self check-in armed (send_later, ~140 min) to re-wake any lane killed by the limit and resume the queued register rows only. || [2026-10-07T18:37Z] breakout_1 retired by operator decision (popup: 'Dead: clear its roster, retire the row'); the Breakout go-live path is breakout_2 (live since 2026-10-06, PHONE-EXEC-1B landed_unproven). || [2026-10-06T06:00Z manager] Active path is PHONE-EXEC-1B (breakout_2 via phone): #16687 terminal-gate fix merged, operator installing APK run 37418392280, then dry test via #16688. [2026-10-01T16:45Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator-directed manager handoff (docs/claude/work/MANAGER-HANDOFF-2026-10-01.md, PR #15219): the owning manager is now session_01MM8o5js6TcDFeNAPBY4Ntv, replacing session_01HYq6XtfesZ57VyaQrK6CL1. || 2026-09-30 ~21:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR PRE-APPROVAL (popup ~21:00Z, answer verbatim: \"Approve both, as written (Recommended)\"). Milestone-gated go-live for both prop accounts; each step proceeds ONLY when its criteria are met. ALWAYS: independent review MERGE-OK + green CI + deploy observed before the next step; every click run on a funded terminal ONCE, no retries; STOP and wait for the operator on: an executor latch, any unexpected click or unintended order, a review BLOCK whose fix is not clear-cut, any change to caps/sizing or a strategy outside the approved roster; an auto-mode classifier denial is never worked around; caps and sizing stay as in config and the PRs. BREAKOUT (breakout_1, live) add ETHUSD: B1 merge #14885 after re-review, deploy observed (tick on new sha, halted null). B2 one ETH symbol-switch-dry: all guards, quote read, ETH selected+verified, SOL restored+verified, zero order controls, next tick clean. B3 price_step from quote decimals, only if unambiguous. B4 one ETH round-trip-dry: form filled, all fields read back, never submitted, next tick clean. B5 PR enabling ETHUSD with measured specs: review, CI, merge, deploy observed -> real ETH tickets automated; $75/ticket cap unchanged. TRADEIFY (tradeify_1, $10k eval) dry -> live: T1 merge B #14672 and F1 #14756 after review. T2 build+review+merge the rule guards (leverage caps; daily floor prior close -3% reset 22:00 UTC; PI-BHYHMK2D-0001/-BHYHMK2E-0001) and the price-band check (PI-KMYJ5XC7-0003, both accounts). T3 deploy observed; read-only login check on tradeify_1 passes; feed on, rows appear. T4 per symbol ETH/SOL/XRP: specs measured, one symbol-switch-dry, one round-trip-dry; a symbol that fails stays disabled. T5 executor dry mode, at least one full ticket cycle observed end to end, zero errors. T6 C #14673 after review: merge, PROP_EXECUTOR_MODE_TRADEIFY_1 -> live via the system action, first live tick observed. Roster: the planned B3 book (trend_donchian_eth_prop, trend_donchian_sol_prop, ict_scalp_xrp_15m) at 0.5% risk. Notify the operator at each go-live (what changed, evidence, merged/deployed/observed, revert). Expected overnight: Breakout ETH possibly live; Tradeify likely to T5 (guards not yet built). || 2026-10-01 ~02:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Progress overnight. BREAKOUT: B1 done (#14885 merged d75ea912 after two independent reviews; one-click gate on the live switch, watchlist-scoped row scan and quote_raw, guarded restore). B2 blocked by the system-actions allowlist missing symbol-switch-dry: fix #14947 (CI green, conflicted with main; lane merging main). ETH lane was stuck 00:45-02:12Z on a create_trigger permission prompt (operator-only); manager interrupted it and redirected its reports to PR comments. Gates landed for both accounts: price-band check #14908 (93365993, deployed 22:04Z, not yet observed on a live ticket) + band_ok log #14925 (385befe3, deployed). TRADEIFY: F1 #14756 merged d87cdc1a, B #14672 merged 24266cb0 (both after independent review BLOCK + fixes: default_prop_account falls back to the single live account; failed ticket match leaves the fill unlinked). T2 guards #14910 next (needs slot claim), then T3/T4/T5. Nothing new is live yet. || 2026-10-01 ~06:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): BREAKOUT ETH: B1 done (#14885). #14947 merged 847034b3. B2 PASSED (#14999 run 36807550409: SOL->ETH->SOL, 2 clicks, next tick clean). B3 price_step 0.01 MEASURED (quote decimals). #15002 merged 28a287ac (dry round trip no longer gated on enabled_venue_symbols; armed paths still refuse ETHUSD; independent review MERGE). B4 PASSED (#15021 run 36813539419: form_verified, never submitted; min_lots 0.01 MEASURED). STOP: terminal left linked to ETHUSD; one SOLUSD symbol-switch-dry (#15022) clicked but the link did not move. Read-only link-state-dump #15034 merged 35d9a81d, run #15046: ticket hypothesis ruled out, watchlist table had 0 rows -> cause not measured. Live SOL impact: next SOL ticket's switch likely refuses -> place-by-hand alert; no wrong-symbol order possible; account flat. OPERATOR 06:13Z (popup, verbatim): \"We need to fix this - there's no way that we are unable to switch between symbols, this is a very simple functionality\" -> no by-hand fallback; ETH lane builds a robust select_linked_symbol (row wait, polled verify, <=3 in-routine attempts, toolbar symbol_input fallback), ONE dispatch after deploy. B5 held until SOLUSD re-linked and verified. #15020 (restore+verify after dry round trip) under review. TRADEIFY: #14910 T2 merged 61a06af9; #15035 T2 nits merged 8368eb4a (touches execute.py, Tier-3 path; data-backed correctness fix, operator notified). T3 DONE (login #14993, feed timer #14995, snapshots every 5 min). T4 BLOCKED: instrument-info-dry #15033 refused '0 Symbol/Bid/Ask tables' -- Tradeify's watchlist DOM differs; #15048 (click-free watchlist_dump) under review; resolver fix follows. C #14673 held. || 2026-10-01 ~07:25Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR DIRECTIVE, chat ~06:17Z (verbatim): \"No, the lane should keep retrying until it succeeds - there's no reason for me to specifically authorize each test run, I just want us to figure this out already and get the account going live\". This SUPERSEDES the 'every click run on a funded terminal ONCE, no retries' clause above for dry/diagnostic runs (symbol-switch-dry, link-state-dump, instrument-info-dry, read-only dumps, round-trip-dry) on BOTH breakout_1 and tradeify_1: lanes iterate without a per-run go. Safety limits that still bind: no submit and no order-ticket control in dry runs; one-click must read OFF before every click; STOP on an executor latch, an unintended order/position, or an unrecognised dialog; keep login.lock; every code change is a Tier-2 hold PR with an independent review before merge. Live enables (B5, Tradeify C) still go through review + merge + first-tick observation. Progress: #15070 (robust symbol switch) review BLOCK \u2014 toolbar fallback could click a Positions/Orders row; fix pending. #15075 (Tradeify table_column_* resolver) under review. #14777 applied (row 6131 closed; lane archived). #15008 merged 5ba448d4. || 2026-10-01 ~11:25Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR GO-LIVE RULE, chat ~10:50Z (verbatim): \"Not everything has to be 100% completely finished. The question is, do we have the capability to execute the trades? If the answer is yes, we should go live. And if there are other bugs that need to be fixed, then we can continue working on it after it goes live. But if we're, like if we're holding back the going live because of mistakes that might happen, but probably won't, then that's like not a good reason to, for it to not go live. We should go live anyway, and we can monitor and keep working on it once it's already live.\" Applied: #15070 (robust symbol switch, ticket-Symbol-field primary route) MERGED 1fc6aecb after operator popup \"Merge now, fix after (Recommended)\" with 4 Fable-review follow-ups open (pre-existing role=grid rows / button-scoped leaves; variant (b) when the empty watchlist table is absent; canonical slash compare; restore field when a pick is unverified) -> follow-up PR, not blocking. OPERATOR, chat ~11:00Z: ONE-CLICK IS NOT A GATE -- it only arms instant-trade controls (chart quick Buy/Sell, Bid/Ask cells), which the ticket flow never clicks; every one-click refusal becomes an informational reading + one alert (follow-up PR); exclusion of quick-trade bar / Bid-Ask cells stays. Merged today: #15020 (dry round trip restores link, exit 3 on failure), #15034 (link-state dump), #15048 (Tradeify watchlist_dump), #15075 (table_column resolver), #15101 (slash names ETH/USD->ETHUSD). Next: ETH lane re-links SOLUSD (symbol-switch-dry, iterate freely) then opens B5; Tradeify lane drives T4/T5 to proof of correct execution then C (#14673)."
     },
     {
       "id": "DIALOG-MEASURE",
@@ -4959,7 +4966,7 @@
       "lane": "session_01FuWi5xUmKJf6ps9HEp9LyP",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 15,
-      "spend_usd": null,
+      "spend_usd": 30.98,
       "tier": 1,
       "prs": [
         16215,
@@ -5395,18 +5402,18 @@
       "id": "PROP-ROSTER-EXPAND",
       "title": "Add prop-roster legs so each prop book cannot breach an inactivity rule and its pass probability rises (tradeify_1 first, then velotrade_1)",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "owner": "lane PROP-ROSTER-EXPAND",
       "lane": "session_01WkDasLkAvbbEyVxjsgzg1x",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 25,
-      "spend_usd": null,
+      "spend_usd": 9.66,
       "tier": 3,
       "prs": [
         16624
       ],
       "blocked_on": [],
-      "note": "[2026-10-05T17:58Z manager] Research answered: no book passes P>=0.70; ETH+SOL 0.5% is INACTIVITY_SAFE_IMPROVEMENT (Tradeify P 0.372 vs 0.284, EV +$179 vs +$58); control: negative-edge leg LOWERS EV, so the gain is not generic. #16624 has a merge conflict, lane resolving. tradeify_1 SOL re-add: manager decision pending. || [2026-10-05T11:12Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR (verbatim): 'we also need to prioritize adding more strategies to make sure we can stay within active trading restrictions'. Priority 1 prop. MEASURED by the manager: the Tradeify 1-Step inactivity rule is a breach after 30 consecutive days with no trade; Velotrade needs one trade >=60s per 30 days plus 5 qualifying days; Breakout has no minimum. Over the 730d backtest (n=355 entries) the single ETH leg's max gap between entries is 7.5d (median 1.7d, 0 gaps >=14d), so inactivity is not the binding constraint in backtest. The binding problems are single-leg concentration and pass probability (no crypto leg clears the Tradeify bar alone, RQ-20261005-801..810). Lane scope: inventory Stage-0-pass legs on firm-tradeable symbols; register a book-level rule (max-gap, P(pass)/EV per life, daily-loss correlation) BEFORE running; run on 730d; propose a roster diff per account. It absorbs PI-20261005-MG7BGR46-0002 and files a live prop-inactivity alert as a pipeline item. The roster add is Tier-3: the manager decides it under the standing data-backed authorization, only on a committed record clearing the pre-registered rule."
+      "note": "[2026-10-07T18:26Z manager, 3h check-in] DONE. Lane archived 2026-10-05 18:34Z ($9.66 final): #16624 merged (registered rules, candidate evidence, book-search results). The tradeify_1 decision it waited on was taken 2026-10-06: SOL back on tradeify_1 (#16647, deployed 18:42Z). Row had stayed in_flight -- corrected. || [2026-10-05T17:58Z manager] Research answered: no book passes P>=0.70; ETH+SOL 0.5% is INACTIVITY_SAFE_IMPROVEMENT (Tradeify P 0.372 vs 0.284, EV +$179 vs +$58); control: negative-edge leg LOWERS EV, so the gain is not generic. #16624 has a merge conflict, lane resolving. tradeify_1 SOL re-add: manager decision pending. || [2026-10-05T11:12Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR (verbatim): 'we also need to prioritize adding more strategies to make sure we can stay within active trading restrictions'. Priority 1 prop. MEASURED by the manager: the Tradeify 1-Step inactivity rule is a breach after 30 consecutive days with no trade; Velotrade needs one trade >=60s per 30 days plus 5 qualifying days; Breakout has no minimum. Over the 730d backtest (n=355 entries) the single ETH leg's max gap between entries is 7.5d (median 1.7d, 0 gaps >=14d), so inactivity is not the binding constraint in backtest. The binding problems are single-leg concentration and pass probability (no crypto leg clears the Tradeify bar alone, RQ-20261005-801..810). Lane scope: inventory Stage-0-pass legs on firm-tradeable symbols; register a book-level rule (max-gap, P(pass)/EV per life, daily-loss correlation) BEFORE running; run on 730d; propose a roster diff per account. It absorbs PI-20261005-MG7BGR46-0002 and files a live prop-inactivity alert as a pipeline item. The roster add is Tier-3: the manager decides it under the standing data-backed authorization, only on a committed record clearing the pre-registered rule."
     },
     {
       "id": "PHONE-EXEC-1B",
@@ -5448,7 +5455,7 @@
       "id": "VELOTRADE-API-EXEC",
       "title": "DXtrade REST API executor for velotrade_1 + one approved 0.01 ETH live round trip",
       "phase": "W6",
-      "state": "blocked",
+      "state": "landed_unproven",
       "owner": "lane VELOTRADE-API-EXEC",
       "lane": "session_01CbWE56MbSskgGNZrm27cBW",
       "model": "claude-opus-5-5",
@@ -5466,7 +5473,12 @@
           "what": "approve the velotrade-api-roundtrip system-action (classifier denied it in the lane)"
         }
       ],
-      "note": "[2026-10-06T00:20Z manager] Round-trip PR #16660 held (Tier 2); dispatch denied by classifier, awaiting operator approval in lane session. [2026-10-05T17:58Z manager] OPERATOR popup ~14:48Z: \"Build it + pre-approve test\". #16636 merged 432a92c9 (adapter, dry by default; positionBased=true so IF-THEN bracket). Next: roundtrip system-action PR, one 0.01 ETHUSD round trip with flatten-on-mismatch stop rule. velotrade_1 stays dry_run, empty roster."
+      "note": "[2026-10-07T18:15Z manager] LANDED_UNPROVEN, not done: live since 2026-10-06 10:18Z (observed tick), but the FIRST live signal (01:59Z) was not placed and every later signal is suppressed -- see row VELOTRADE-TICKET. The 1% sizing is observed (risk_usd 50.0 on the ticket). || [2026-10-06T00:20Z manager] Round-trip PR #16660 held (Tier 2); dispatch denied by classifier, awaiting operator approval in lane session. [2026-10-05T17:58Z manager] OPERATOR popup ~14:48Z: \"Build it + pre-approve test\". #16636 merged 432a92c9 (adapter, dry by default; positionBased=true so IF-THEN bracket). Next: roundtrip system-action PR, one 0.01 ETHUSD round trip with flatten-on-mismatch stop rule. velotrade_1 stays dry_run, empty roster.",
+      "observation": {
+        "what": "first live velotrade_1 ticket placed by the REST executor (bracket on the venue), read back, then trailed; risk_usd ~50",
+        "how_to_check": "GET /api/bot/prop/tickets?account_id=velotrade_1 (status placed/filled, not suppressed/expiry_prompted) + balance movement on /api/bot/prop/status",
+        "due_by": "2026-10-09T18:00Z"
+      }
     },
     {
       "id": "PHONE-BG",
@@ -5496,60 +5508,999 @@
       "id": "RQ-FIX",
       "title": "Research queue: results discarded (no PyYAML on the result runner) + hourly double-fire from the stamp race",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "lane RQ-FIX",
-      "lane": "session_01MZC82v4c5CnXkZ1vpYtx8e",
+      "lane": "session_01WDrcQFx7E9o11H71Y2h2VZ",
       "model": "claude-fable-5-1",
       "ceiling_usd": 15,
-      "spend_usd": null,
+      "spend_usd": 23.38,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        16791,
+        16960,
+        16975
+      ],
       "blocked_on": [],
-      "note": "[2026-10-06T13:05Z manager] Found while surveying the 41 prop units for the operator's 'push prop roster research' ask. PI-20261006-APBY4NTV-0010 has the measurements (8 of 358 result rows discarded across 6 units; 005 and 659 each fired twice). The double-fire is a consequence of my own #16736 (hourly cadence); the yaml bug predates it (#16388). Closes when a fresh harness result carries a real verdict and two consecutive cycles fire nothing twice."
+      "note": "[2026-10-07T20:59Z manager] Lane RQ-RESULTS closed out and archived; spend $23.38 final (Fable). All three PRs merged (#16791, #16975, #16960). Step 5 still unobserved: run 37678623741's Grade-and-dispatch completed ~20:4xZ, now at 'Land the liveness receipt'; closes when its log + one more cycle show no double fire and one post-18:54Z harness result carries a real verdict (observation on this row). Open: PI-20261007-71Y2H2VZ-0001 (SLV fade PASS unpriceable until re-dispatch, due 10-10). || [2026-10-07T20:49Z manager] #16960 MERGED 20:48Z (cffffba38): Breakout-Turbo fit units RQ-20261007-010..013 (ADA/DOGE pullback 1h, DOGE squeeze 1h, LINK pullback 1h at 0.5%) on main for the runner. || [2026-10-07T20:48Z manager] Lane step-5 check-in 20:42Z: nothing observable -- the hand-dispatched cycle 37678623741 has waited for a runner since 20:01Z (100+ runs queued, 20 in progress); the pre-fix group holder failed at 'Land the liveness receipt' after 68 min; research-queue-grade 37675695549 still landing dispositions. Manager told the lane to close out now with step 5 'not yet observable: runner backlog'; the observation moves to the manager's check-ins + RQ-CADENCE's 00:00Z readout. #16960 green and clean -> manager merging. || [2026-10-07T19:59Z manager] #16975 MERGED 19:50Z (lane self-landed): 48 re-graded result rows on main; the next hourly grade cycle marks RQ-20261006-005..032. Step-5 observation (two consecutive cycles, no double fire, a real verdict) cannot start until a dispatch cycle runs: the 17:20/18:20/19:20Z slots were all skipped by GitHub (see RQ-CADENCE); manager told the lane to dispatch one cycle by hand (queues behind run 37670042103). Lane check-in 20:40Z. || [2026-10-07T19:13Z manager] #16975 regrade: 56 discarded rows, 48 appended (8 already re-graded by #16791); results guard 337 files / 472 records / 0 problems; next hourly grade cycle marks RQ-20261006-005..032. NEW FAIL: 032 pullback USO 1h (-6.72 R, n=74). #16960 renumbered 010-013 (d349ce223). || [2026-10-07T19:05Z manager] #16791 MERGED 18:54Z (pyyaml on the result job; opt-in --check-open-stamp-prs; idempotence). #16975 (regrade, 48 rows) self-landing. Two-cycle no-double-fire observation armed for 20:40Z. #16960 renumbered again to 010-013 (its 007-010 overlapped pairs' 005-009). || [2026-10-07T18:57Z manager] #16791 fixed (c88755e5: opt-in --check-open-stamp-prs; ruff) and auto-merging; #16960 (prop-bar fits for the 4 crypto PASS legs on the Breakout ruleset + committed Stage-0 trades artifacts) held for me; its ids collide with #16955 -> renumbering. Verdict table confirmed by the regrade dry run. SLV fade (031) unpriceable until the fade emitter fix lands (PI-20261007-71Y2H2VZ-0001). || [2026-10-07T18:15Z manager] First lane (session_01MZC82v4c5CnXkZ1vpYtx8e, Fable, $12.40 final) pushed branch claude/rq-fix-queue-verdicts (477521ee8: pyyaml on the result job, dispatcher idempotence, regrade tool, tests) and hit the weekly limit before landing it; PR #16791 is RED (pytest-run + guards). Re-dispatched as lane RQ-RESULTS (Fable, $20): fix #16791 CI, run the regrade over EVERY discarded row (MEASURED 45 of 54 results since 2026-10-06 13:00Z are wiring_only; 17 units fired 2-3x), seed prop-bar units for the 5 PASS legs. || [2026-10-06T13:05Z manager] Found while surveying the 41 prop units for the operator's 'push prop roster research' ask. PI-20261006-APBY4NTV-0010 has the measurements (8 of 358 result rows discarded across 6 units; 005 and 659 each fired twice). The double-fire is a consequence of my own #16736 (hourly cadence); the yaml bug predates it (#16388). Closes when a fresh harness result carries a real verdict and two consecutive cycles fire nothing twice.",
+      "observation": {
+        "what": "first post-fix research-queue-dispatch cycle completes: units fired, no double fire across two consecutive cycles, and one fresh harness result on main carries a PASS/FAIL/indeterminate verdict",
+        "how_to_check": "gh api repos/benbaichmankass/Metis-Insights/actions/runs/37678623741 --jq '.status,.conclusion'; then the next run's log; git log origin/main -- research/results | head",
+        "due_by": "2026-10-08T06:00Z"
+      }
     },
     {
       "id": "PAIRS-STOCKTAKE",
-      "title": "Pairs strategies stocktake: inventory, live-ready verdict, prop feasibility per venue (operator 2026-10-06 ~08:15Z)",
+      "title": "Pairs strategies stocktake: ladder stage + evidence per leg, which is live-ready under MD-PROMOTE-S1-S2, which is prop-feasible per venue",
       "phase": "W6",
       "state": "landed_unproven",
       "owner": "lane PAIRS-STOCKTAKE",
       "lane": "session_011BUSVxr9kPZvkNn6TXSaL6",
       "model": "claude-fable-5-1",
       "ceiling_usd": 20,
-      "spend_usd": null,
+      "spend_usd": 70.11,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        16964
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07 lane] Records only. VERDICT: nothing live-ready -- no configured pair has a Stage-0 evidence record (E37), no Gate-1 cost-fidelity cell exists for a pairs leg, and the sleeve is not a rostered leg so MD-PROMOTE-S1-S2 cannot evaluate it; nothing prop-feasible -- no 2-leg prop order path exists on tradeify_1 / breakout_2 / velotrade_1 (pairs_executor builds a Bybit client only; the prop bridge is one ticket per leg), and the BTC-quote pairs' BTC leg sizes to ~$1-2 notional at $25-$50 flat risk (unlisted on two venues, below velotrade's 0.001 lot). Memo + table: docs/research/pairs-stocktake-2026-10-07.md. DATA TASKS REGISTERED: RQ-20261007-005..008 (Stage-0 at the CONFIGURED params, net of full cost stack, via scripts/research/pairs_configured_stage0.py + research-script-run.yml, auto-graded; dispatcher dry run: would_dispatch), blocked/RQ-20261007-009 (prop fit, blocked on a PASS ledger). GUARD FIX in the same PR: check_roster_promotion_evidence.py now resolves the PER-PAIR account_id the executor honours (a per-pair `account_id: bybit_2` line was invisible to it). FILED: PI-20261007-N6TXSAL6-0001 (no Gate-1 pairs cell), -0002 (leg-close asymmetry 145/141, 153/152 + 80 reconciler closes), -0003 (pairs soak alarm). Only operator preference left: Velotrade Terms 8.2 'arbitrage' ban -- for the next sync, not a popup.",
+      "note": "[2026-10-08T02:48Z manager] #16964 MERGED 02:46Z (b0c29a109) by the manager (Tier-1 hold: new research-queue registrations RQ-20261007-005..008 now dispatchable; blocked/009 promotes on a PASS ledger). Lane archived; FINAL spend $70.11 against ceiling $20 -- OVER CEILING, and the session ran on claude-fable-5-1, which IS the model this row names (dispatched on the Fable pool deliberately); the 3.5x overrun is the finding, not the model. (Correction 02:52Z: an earlier version of this note wrongly said the row named Sonnet.) The overrun was not caught mid-flight because the lane's work was already landed_unproven on a held PR by the time its running total was read. Stale safety-net trigger trig_01Q7yszDCdfRKc1Xh73u2Rrr deleted. || [2026-10-07T23:27Z manager] #16964 green but conflicts with main; lane woken 23:29Z. || [2026-10-07T19:42Z manager] Lane confirms renumber 005-009 on head 7547c3930 (all cross-refs, 91 tests, dispatcher dry-run would_dispatch 005-008); RQ-20260922-011 blocked_on HARNESS-AUDIT-FIXES. Manager merges #16964 on green, then archives. || [2026-10-07T18:58Z manager] VERDICT: nothing live-ready, nothing prop-feasible -- both data/build gaps: pairs_sol_eth and pairs_bnb_btc have NO Stage-0 record and no Gate-1 cost cell; no 2-leg prop order path on any venue; BTC/ETH legs floor at venue lot sizes at $25 risk. Units registered (renumbered to 005-009 after the id collision with #16955/#16960). Guard fix: check_roster_promotion_evidence.py now reads per-pair account_id (E36's premise stale). For the sync: Velotrade Terms 8.2 bans 'arbitrage' -- venue question, nothing blocks today. PR #16964 held; manager lands. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0004. Operator 2026-10-06 ~08:15Z verbatim: 'where do we stand on all of the pairs strategies? Is anything there ready to go live, and is anything there feasible for a prop account?'. Report + any queue units it needs. Fable, auto. || [lane row from #16964, merged 02:5xZ] [2026-10-07 lane] Records only. VERDICT: nothing live-ready -- no configured pair has a Stage-0 evidence record (E37), no Gate-1 cost-fidelity cell exists for a pairs leg, and the sleeve is not a rostered leg so MD-PROMOTE-S1-S2 cannot evaluate it; nothing prop-feasible -- no 2-leg prop order path exists on tradeify_1 / breakout_2 / velotrade_1 (pairs_executor builds a Bybit client only; the prop bridge is one ticket per leg), and the BTC-quote pairs' BTC leg sizes to ~$1-2 notional at $25-$50 flat risk (unlisted on two venues, below velotrade's 0.001 lot). Memo + table: docs/research/pairs-stocktake-2026-10-07.md. DATA TASKS REGISTERED: RQ-20261007-005..008 (Stage-0 at the CONFIGURED params, net of full cost stack, via scripts/research/pairs_configured_stage0.py + research-script-run.yml, auto-graded; dispatcher dry run: would_dispatch), blocked/RQ-20261007-009 (prop fit, blocked on a PASS ledger). GUARD FIX in the same PR: check_roster_promotion_evidence.py now resolves the PER-PAIR account_id the executor honours (a per-pair `account_id: bybit_2` line was invisible to it). FILED: PI-20261007-N6TXSAL6-0001 (no Gate-1 pairs cell), -0002 (leg-close asymmetry 145/141, 153/152 + 80 reconciler closes), -0003 (pairs soak alarm). Only operator preference left: Velotrade Terms 8.2 'arbitrage' ban -- for the next sync, not a popup.",
       "observation": {
-        "what": "The four RQ-20261007-005..008 units have dispatched and landed measured records (the data the verdict table is missing), and the manager has read the table",
-        "how_to_check": "ls research/results/RQ-20261007-00{5,6,7,8}/ ; grep -n '^status:' research/queue/RQ-20261007-00{5,6,7,8}.yaml",
-        "due_by": "2026-10-10T18:00Z"
+        "what": "first dispatcher cycle after 02:46Z dispatches one of RQ-20261007-005..008 and a research_result lands for it",
+        "how_to_check": "grep -n last_dispatched_at research/queue/RQ-20261007-00[5-8].yaml; ls research/results/RQ-20261007-005 research/results/RQ-20261007-006 2>/dev/null",
+        "due_by": "2026-10-10T00:00Z"
       }
     },
     {
       "id": "PROP-TRAIL-PHONE",
-      "title": "Give the phone-executed prop account (breakout_2) the chandelier trail its Stage-0 record assumed: server plans, phone amends on the terminal",
-      "phase": "E",
-      "state": "blocked",
-      "owner": "build lane",
+      "title": "Mid-trade trail for the PHONE-executed prop account (breakout_2): compute the trail plan server-side, amend SL/TP through the phone",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane PROP-TRAIL-PHONE",
       "lane": "session_01YT5VE5mnD6LfbHaVMK2Q5Y",
       "model": "claude-opus-5-5",
       "ceiling_usd": 45,
-      "spend_usd": null,
+      "spend_usd": 25.62,
       "tier": 2,
       "prs": [
         16959,
-        16980
+        16980,
+        16988
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T02:42Z manager] #16980 (phone half) MERGED 02:34Z (048822347) after the branch APK compiled at c37b532e (run 37716819748) and c1c19dbf added only the catalog line. Both halves on main; server half deployed (VM 1763b675b). Main APK run 37718551780 (048822347) queued at 02:34Z = the morning install candidate unless #17005 lands first and supersedes it. Lane archived, FINAL spend $25.62 (ceiling on row). Observation unchanged: first live breakout_2 position gets one trail amend (meta.phone_trail.amend.status == amended) -- needs the new APK installed. || [2026-10-08T02:35Z manager] #16980 head c1c19dbf: lane merged main again (MainActivity vs #16987) and PORTED the signal-catalog fix line (signal-catalog-guard is red on main since #17043 landed after #16966's tp_revision import; SIGNAL-CATALOG lane woken 02:29Z to land the one-line fix on main). APK compiled at c37b532e (run 37716819748); c1c19dbf adds only the catalog line, so that APK is the one to install once #16980 merges. || [2026-10-08T02:12Z manager] #16959 (server half) MERGED 02:05Z (1763b675b) and DEPLOYED (VM git_sha 1763b675b 02:07Z). Inert until an APK posts accepts:[amend]. #16980 (phone half) is green incl. the branch APK compile (run 37711756407) but DIRTY against main after #16987 landed (MainActivity, exec_check.js, DESIGN doc); lane woken 02:07Z to merge main; manager merges on green, then the post-merge main APK is the one to install. || [2026-10-07T23:27Z manager] #16959 green but conflicts with main (#16966 touched prop_trail); lane woken 23:29Z; #16980 follows. || [2026-10-07T20:00Z manager] OPERATOR OK (verbatim, 2026-10-07 ~20:00Z): 'Ok on the tier 2 items' -- covers the six groups put to the operator at 19:4xZ: #16959 then #16980 (phone trail amends). Merge order kept; APK after. || [2026-10-07T19:42Z manager] Lane reports BUILT, not merged: #16959 server (phone_trail.py plans one amend per closed bar per placed breakout_2 ticket; inert until an APK posts accepts:[amend]) and #16980 phone (executeAmend; Kotlin compiled only by the branch APK run) both HELD Tier-2 for the operator's OK; #16988 self-lands the row/pipeline. Merge order 16959 -> 16980 -> APK. Observation: first live breakout_2 position receives one amend with meta.phone_trail.amend.status == amended. New finding filed by the lane: PI-20261007-AVMK2Q5Y-0001 (phone fills never journaled 'open'). || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-KX6ZKFNA-0002. MEASURED 2026-10-06: run_trail_step is called only from the dxtrade/REST executor tick; phone_executor.py and breakout_ticket.py have no trail/modify call, so breakout_2's ETH/SOL legs trade a static bracket while their Stage-0 record assumed a chandelier trail (trail_mult 3.5, tp_r 6, stale_exit_bars 12). velotrade_1's REST trail IS active since 2026-10-06 (the item text predates that). Opus (live order path), default mode.",
+      "observation": {
+        "what": "first live breakout_2 position receives one trail amend",
+        "how_to_check": "GET /api/bot/prop/tickets?account_id=breakout_2 -> meta.phone_trail.amend.status == 'amended' on a placed ticket",
+        "due_by": "2026-10-21T00:00Z"
+      }
+    },
+    {
+      "id": "ARMED-GATE",
+      "title": "Phone executor: delete the device-local ARMED switch; live submit decided only by the server (accounts.yaml mode + strategies.yaml execution)",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane ARMED-GATE",
+      "lane": "session_01KzcqmCjLJv1CShwiCnBDrB",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": {
+        "what": "the installed APK shows no ARMED button and a phone-dry-test on breakout_2 reports dry_fill_ok 'SERVER verified (dry token ...)'",
+        "how_to_check": "operator screenshot/confirmation after installing main's post-0023adf86 APK; GET /api/bot/prop/tickets?account_id=breakout_2 newest test ticket meta.phone.go",
+        "due_by": "2026-10-10T00:00Z"
+      },
+      "tier": 3,
+      "prs": [
+        17005
       ],
       "blocked_on": [
         {
-          "kind": "work_item",
-          "ref": "MANAGER-MERGE",
-          "what": "#16959 (server) and #16980 (app) are Tier-2 HELD for the manager; then deploy (git-sync) + build/install the APK from phone-executor-apk on the merged head"
+          "kind": "operator_decision",
+          "ref": "session_01KzcqmCjLJv1CShwiCnBDrB",
+          "what": "Claude Code's security classifier refused the MainActivity.kt edit that removes the ARMED switch ('security weaken'); only a human can approve inside the lane session"
         }
       ],
-      "note": "[2026-10-07 lane session_01YT5VE5mnD6LfbHaVMK2Q5Y] BUILT, not merged. Pipeline PI-20261006-KX6ZKFNA-0002 (routed here). #16959: src/prop/phone_trail.py reuses prop_trail.plan_trail once per closed bar per placed ticket; ONE amend slot in prop_tickets.meta.phone_trail; served only to an app posting accepts:[amend]; mismatch/human_moved/2nd refusal/unreported claim lock + ping, never retried; request_tp_amend for TP-DOCTRINE. #16980: executeAmend (unique Positions row, resting stop must match else human_moved, one edit control never a close, one dialog, fields by label, read back, dry=cancel, live=one save then terminal re-read). UNMEASURED: Breakout's position edit UI was never captured; the first amend either passes or refuses with the dump. landed_unproven observation (after merge+deploy+install): the first live breakout_2 position receives one amend with meta.phone_trail.amend.status=='amended'. Related gap filed: PI-20261007-AVMK2Q5Y-0001 (phone fills never journaled open)."
+      "note": "[2026-10-08T03:47Z manager] #17005 MERGED 03:45Z (0023adf86) by the manager under the operator's in-lane Tier-3 approval (2026-10-07). On the merged tree armed() has 0 references; the phone submits live iff the server claim says submit=='live' and the ticket is not a test; the amend path (from #16980) follows the same rule (the lane found and fixed a latent compile error there). Branch APK compiled on f831f62c3 (run 37720485585). Main APK build on 0023adf86 = the morning install. Deployed: server side rides git-sync (next tick); phone side when the operator installs. || [2026-10-07T20:51Z manager] #17005 main-merged by the PHONE-GO-TOKEN lane (head a7601128, merge commit): design doc SOL-PICKER stays 7.13, ARMED-GATE renumbered 7.14 with cross-refs; MainActivity/exec.js auto-merged; armed() 0 references; exec_check all pass, pytest -k phone 30 pass. Watcher re-armed with the required-check dispatch fallback; manager merges on green (operator-approved Tier-3). Kotlin compile: the branch's APK run sits pending behind main's queued build (shared group until #16991 lands). || [2026-10-07T19:48Z manager] PR #17005 opened by the manager from claude/armed-gate (claude-pr-automerge run 37671277465 sat queued 40+ min); marked ready; tier-3 hold, merge on green as the operator-approved Tier-3. Lane archived 19:47Z, spend $3.90 final (Opus, default mode after the operator's in-lane approval). || [2026-10-07T19:42Z manager] UNBLOCKED: the operator took the lane off auto mode and approved the edits in-session (operator popup answer 2026-10-07: 'I'll approve it inside the lane'). Branch claude/armed-gate pushed (head eeb65103): ARMED button, Store.ARMED and armed() removed; the phone submits live iff claim submit=='live' && !meta.test. Landing tier 3 hold quoting the operator decision. PR not yet opened: claude-pr-automerge run 37671277465 queued since 19:01Z. Manager merges on green (operator-approved Tier-3), then the APK after it carries the change. || [2026-10-07T18:37Z] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): 'I'll approve it inside the lane (Recommended)' \u2014 the operator clears the classifier prompt in session_01KzcqmCjLJv1CShwiCnBDrB; the lane then opens the PR + APK. || [2026-10-07T18:30Z manager] BLOCKED at 18:25Z on the classifier prompt (needs_action: 'operator approval to override security weaken classification on MainActivity.kt edit'). Surfaced to the operator with the session id; not cleared by the manager (manager skill: a blocked lane is surfaced, never cleared). || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0002. Operator 2026-10-06 ~07:50Z verbatim: 'not have the feature on the app where I need to arm it manually ... extra gates ... less safe'. Third gate contrary to CLAUDE.md 'There is no third gate'. Opus (live submit path), default mode. Test tickets stay always-dry; PROP_PHONE_MODE off/dry stays the server kill switch. APK build on merge; the operator installs once together with SOL-PICKER/PHONE-SCREENSHOTS.",
+      "observation": {
+        "what": "#17005 merged, a main APK carrying it installed, and one phone-dry-test shows the live path gated only by the server claim (no ARMED state in the heartbeat)",
+        "how_to_check": "GET /api/bot/prop/status (phone heartbeat fields) after the install; phone-dry-test issue result",
+        "due_by": "2026-10-09T18:00Z"
+      }
+    },
+    {
+      "id": "SOL-PICKER",
+      "title": "Phone executor: drive the terminal's 'Select market' chip so breakout_2's SOL leg can trade when the terminal shows ETH",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane SOL-PICKER",
+      "lane": "session_01Pinmhx9oym7vJRoPddeVeu",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 30,
+      "spend_usd": 5.69,
+      "tier": 2,
+      "prs": [
+        16944
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T19:40Z manager] Lane archived 19:39Z; spend $5.69 final (Opus). #16944 merged. Proof = one phone-dry-test with symbol SOL on the next APK (issue: action phone-dry-test / account breakout_2 / symbol SOL) reads dry_fill_ok with the SOL market selected; the manager dispatches it after the operator installs. The lane also opened #16985 (APK concurrency) in parallel with APK-BUILD-CONCURRENCY's #16991 -- manager reconciles. || [2026-10-07T18:55Z manager] MERGED #16944 b593448b (Select-market chip route: exactly one row or watchlist fallback/refuse; chip-vs-submit-label check). Proof after the operator installs the main APK: phone-dry-test SOLUSDT with the terminal on ETH -> dry_filled with SOL on the submit label; the lane dispatches it on my word. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0007. MEASURED (PHONE-EXEC-1B close-out): the real picker is the 'Select market' chip (role=button, aria 'Select market'); exec.js only works when the terminal already shows the ticket's symbol. Safe failure today (symbol verified on the submit label -> refuse), but a missed trade. DONE = a SOL phone-dry-test (system-action, issue-dispatched) dry_fills with the terminal starting on ETH. Opus (order path), default mode.",
+      "observation": {
+        "what": "SOL phone-dry-test dry_fills with the terminal starting on ETH",
+        "how_to_check": "GET /api/bot/prop/tickets?account_id=breakout_2 newest phone-test symbol SOLUSDT status dry_filled",
+        "due_by": "2026-10-09T18:00Z"
+      }
+    },
+    {
+      "id": "PHONE-SCREENSHOTS",
+      "title": "Phone executor: screenshots blank (FLAG_SECURE on the whole window) + the one-off claim 502",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane PHONE-SCREENSHOTS",
+      "lane": "session_01FMJ8hcTGUi1r3NPSCwvvdz",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": 2.39,
+      "tier": 1,
+      "prs": [
+        16945
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T19:40Z manager] Lane archived 19:38Z; spend $2.39 final. #16945 merged; proof = the operator's screenshot of the app no longer blacks out on the next APK (FLAG_SECURE scoped) -- manager reads it from the operator. || [2026-10-07T18:55Z manager] MERGED #16945 b2cc9777 (FLAG_SECURE only on credential screens, fail-closed until logged_in; claim 5xx backoff, no double-claim). 502 root cause NOT confirmed by the lane. On the phone only with the next APK install. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0006. Scope FLAG_SECURE to credential surfaces only (login page, credential dialog) so the terminal can be screenshotted; root-cause the 502 on /phone/claim seen 2026-10-06 10:26Z. Background robustness already landed (#16764). Sonnet, auto.",
+      "observation": {
+        "what": "operator screenshots the trading terminal (not black) with the APK built from main (run 37669999484 or later)",
+        "how_to_check": "operator report; phone_heartbeat st logged_in",
+        "due_by": "2026-10-09T18:00Z"
+      }
+    },
+    {
+      "id": "ACTIVE-GEOMETRY-PLAN",
+      "title": "Active geometry (all accounts): measure SL vs TP amends per leg since 2026-09-01, then turn the operator's framing into ranked research units and build rows",
+      "phase": "W6",
+      "state": "done",
+      "owner": "lane ACTIVE-GEOMETRY-PLAN",
+      "lane": "session_017GnSZfLoVVFF5isxUzgfme",
+      "model": "claude-fable-5-1",
+      "ceiling_usd": 20,
+      "spend_usd": 15.94,
+      "tier": 1,
+      "prs": [
+        16955
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T19:40Z manager] Lane archived 19:34Z; spend $15.94 final (Fable). Next pickup named by the lane: GEOM-B1-HARNESS (a build; needs its own row when chosen). || [2026-10-07T19:36Z manager] #16955 MERGED 19:34Z (9eba43908): RQ-20261007-001..004 under research/queue/blocked/ + PLANNING.md + exit-refinement skill note. Docs/queue only: merged == done for the plan; the units run when unblocked. Archive the lane. || [2026-10-07T18:57Z manager] PR #16955 held (new queue units cannot self-land by design); the manager lands. Units RQ-20261007-001..004 COLLIDE with #16960's ids -> RQ-RESULTS renumbers its own; #16955 lands first. Plan accepted: rows GEOM-B1-HARNESS + GEOM-CENSUS written. The 6R-vs-doctrine question is a data task (RQ-20261007-002 costed-null branch), not a popup. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0003. Operator 2026-10-06: 'turning active management into active geometry ... TPs never seem to be moving ... for all the accounts'. ACTIVE-GEOMETRY-SCAN measured SL moved on 126/734 trades, TP on 0. This lane produces the plan: queue units (rule before run) + proposed build rows, ranked by money at stake, consistent with the TP doctrine. Fable (analysis, cheap to verify), auto."
+    },
+    {
+      "id": "EXIT-PARITY-RQ",
+      "title": "Declared exit levers that cannot fire live (prop close-type levers; xrp_pullback_2h trail_decay arm 4.49 > tp_r 3): register Stage-0 re-runs without them and report what survives",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane EXIT-PARITY-RQ",
+      "lane": "session_01Xz8wBZvFn1cmrjJF32kqbY",
+      "model": "claude-fable-5-1",
+      "ceiling_usd": 20,
+      "spend_usd": 21.08,
+      "tier": 1,
+      "prs": [
+        16970
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T00:24Z manager] Lane archived; spend $21.08 final. || [2026-10-07T23:27Z manager] #16970 MERGED (4c5ebb458) during the pause: RQ-20261007-020/021 on main. || [2026-10-07T19:30Z manager] Renumbered on the lane branch by the manager (lane closed): units + comms records RQ-20261007-001/-002 -> -020/-021, head 7b2404a6d; queue guards OK locally. Merge on green. || [2026-10-07T19:13Z manager] PR #16970 held (new units). Its RQ-20261007-001/-002 COLLIDE with the 001-004 allocation to #16955 -> manager assigns 020-021; renumber before merge. MEASURED locally after rule registration: (a) trend_donchian_eth_prop stale_exit WITH +13.02 R vs WITHOUT +12.84 R over 730d (dR +0.18 R, 2/4 folds) -> FAIL/live_without_lever: the close verb is NOT worth building; (b) xrp_pullback_2h decay at 4.49 == no decay, byte-identical (+14.67 R, 122 trades); every reachable arm worse (-3.6 to -17.6 R) -> FAIL/no_reachable_lever_beats_removed. Tier-3 proposals -> row EXIT-LEVER-STRIP. Also PI-20261007-JF32KQBY-0001 (_PB_LEVER_FLAG does not forward --trail-decay-*: 9 pullback records grade approximate for a wiring reason). || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-KX6ZKFNA-0001, PI-20261006-KX6ZKFNA-0004. Research-planning lane: write the queue units (rule registered before run, full cost stack) that re-measure each affected leg WITHOUT the unexecutable lever (prop legs: stale_exit_bars/giveback on paths with no close op; xrp_pullback_2h: a reachable arm or none), so the live book and its evidence match. Any param change is Tier-3 and comes back as a proposal with the record. Fable, auto.",
+      "observation": {
+        "what": "#16970 lands (renumbered 020-021) and the runner's E5 records for both units land",
+        "how_to_check": "ls research/results/RQ-20261007-020 research/results/RQ-20261007-021",
+        "due_by": "2026-10-10T18:00Z"
+      }
+    },
+    {
+      "id": "TRAIL-OBSERVABILITY",
+      "title": "Diag: expose per-account modify_rollout.json and trail_state.json (prop trail latch + replay) read-only",
+      "phase": "W6",
+      "state": "done",
+      "owner": "lane TRAIL-OBSERVABILITY",
+      "lane": "session_01RhuwEhfTiPHfhET5rLDaSX",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 8,
+      "spend_usd": 2.15,
+      "tier": 1,
+      "prs": [
+        16943
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T19:08Z] Correction: the pipeline item has a second half (pulse field) -> row TRAIL-PAUSE-PULSE; this row stays done for the read surface. || [2026-10-07T19:05Z manager] DONE. MERGED #16943 (~18:52Z). DEPLOYED: the 8 diag names resolve on the live API at 19:00Z. OBSERVED: prop_trail_latch_tradeify_1 present:false (no modify_rollout.json -> trail NOT paused); prop_trail_state_tradeify_1 present:true, {} (no per-ticket entries). Caveat: shows nothing is latched, not that a step ran. Lane archived. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-KX6ZKFNA-0003. Add the two files per prop account to diag._LOG_FILES (no secrets: prices, ticket ids, timestamps). Tier-1. Sonnet, auto."
+    },
+    {
+      "id": "MANAGER-SKILL-LANDING",
+      "title": "Record the lane-landing rule in the manager skill: Tier-1 lanes self-land when the classifier allows; when refused they report in one line and the manager lands",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane MANAGER-SKILL-LANDING",
+      "lane": "session_01B1fGwYEXcE5edSy8mDW1UQ",
+      "model": "claude-haiku-4-5-20251001",
+      "ceiling_usd": 5,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        16942
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T02:03Z manager] #16942 guards RED on pr-landing: landing/automerge files named manager-skill-landing-1007 while the slug is manager-skill-landing-2026-10-07, and `why` was empty (R3). Manager renamed both files and wrote the why (b3fd20953); auto-merge armed. || [2026-10-07T18:55Z manager] PR #16942 auto-merging. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-KX6ZKFNA-0005. Manager decision 2026-10-07 18:20Z (closes PI-20261006-KX6ZKFNA-0005): no permissions.allow change; the existing practice is the rule. One paragraph in .claude/skills/manager/SKILL.md \u00a7 Spawning, plus the canonical-doc coherence guard green. Haiku, auto."
+    },
+    {
+      "id": "TP-DOCTRINE",
+      "title": "TP doctrine build B1: strategy monitor() returns {tp: ...} revisions and the prop path passes TP to modify_bracket -- real-money and prop legs first",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane TP-DOCTRINE",
+      "lane": "session_01L7PCKQsoCfajEsDHGfHnom",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 50,
+      "spend_usd": 23.15,
+      "tier": 3,
+      "prs": [
+        16966,
+        16994,
+        16996
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T02:12Z manager] #16994 DEPLOYED: VM git_sha 1763b675b (02:07Z) contains d5649b799 and git-sync restarted the trader on the HEAD advance. Still inert (no tp_revision declaration). || [2026-10-08T02:03Z manager] #16994 MERGED 01:44Z (d5649b799) under the operator's 'Ok on the tier 2 items'; lane also self-landed #16996 (prop gap record). Lane archived, FINAL spend $23.15. Merged yes; deployed NO (trader restart batched with the next Tier-2 deploy); observed NO. Inert by config: no leg declares tp_revision; tp-doctrine-guard reads 0/52 routings compliant until declarations land (Tier-3, after RQ-20261007-080). || [2026-10-07T23:27Z manager] #16966 MERGED 23:21Z (9501bb565): B1 mechanism on main (inert: no leg declares tp_revision). #16994 retargeted to main but CONFLICTS (its branch carries the pre-squash B1 commits); lane woken 23:32Z to merge main; manager merges on green. Deploy = trader restart batched with the next Tier-2 deploy; nothing trades differently until a rule is declared (Tier-3, after RQ-20261007-080 runs). || [2026-10-07T20:02Z manager] #16994's base is the #16966 branch (claude/tp-doctrine-b1-mechanism), so it gets no main-scoped CI until retargeted: after #16966 merges, PATCH base=main, then the required checks run (watcher dispatches them if GitHub does not). || [2026-10-07T20:00Z manager] OPERATOR OK (verbatim, 2026-10-07 ~20:00Z): 'Ok on the tier 2 items' -- covers the six groups put to the operator at 19:4xZ: #16966 then #16994 (B1 mechanism + first rule/unit; inert by config). Merge order kept; the Tier-3 declaration stays separate. || [2026-10-07T19:58Z manager] Lane: B1 BUILT, two PRs held. #16966 (1/2) mechanism: src/runtime/tp_revision.py (verdict {tp, tp_reason}, merge_verdict, plan_tp_revision with through-price refusal + venue-cap clamp), tp_reason through interpret_verdict/order_monitor, prop_trail TP-only amend step for adapters with TP_AMEND_SUPPORTED (dxtrade_api True; browser False), guard now requires produced AND consumed. #16994 (2/2, stacked on 16966): rule donchian_measured_move in trend_donchian.monitor(), backtest_trend --tp-revision lever, research unit RQ-20261007-080 (4 money legs; dispatchable only after merge). Guard counts identical before/after (52/0/26/52, findings []); NOTHING trades differently on merge (no leg declares tp_revision) -> Tier-2 by path (order-path code, inert by config), added to the operator's Tier-2 OK list; the Tier-3 act is the later declaration after RQ-080 runs. Still blocked: browser adapter has no measured TP rollout step (breakout_1/tradeify_1); breakout_2 needs PROP-TRAIL-PHONE to call plan_tp_revision. 1041 tests pass on the lane's selection. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-5FUGHVX8-0001. Operator directive 2026-10-06 (canonical in ARCHITECTURE-CANONICAL \u00a7 TP doctrine; guard check_tp_doctrine.py). MEASURED at 233c9c28: 0 of 52 routings compliant; tp_revision FAIL 52/52 (no monitor() ever returns a tp verdict; prop path passes TP=None). Build the revision mechanism (B1) behind the existing exit-refinement pipeline; the sentinel fixes are research (RQ-20261006-060/061 queued). Strategy logic = Tier-3: PR held, manager/operator merge. Opus, default mode. || [2026-10-07T18:33Z] The 2026-10-06 TP-DOCTRINE lane (session_01ED511AxTFsssBE5FUGhvX8, #16739 canonical section + guard) archived, $24.50 final; this row now tracks build B1.",
+      "observation": {
+        "what": "B1 mechanism deployed (VM /api/diag/version contains d5649b799) and the first tp_revision declaration lands on a leg",
+        "how_to_check": "scripts/ops/diag_fetch.sh version | grep d5649b799; python3 scripts/ci/check_tp_doctrine.py",
+        "due_by": "2026-10-15T00:00Z"
+      }
+    },
+    {
+      "id": "ARB-RESEARCH",
+      "title": "Relative-value / arbitrage strategy families: feasibility table on our feeds, order paths and venue rules, plus registered queue units for the feasible ones",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane ARB-RESEARCH",
+      "lane": "session_01Aeyqvqf9sajCVDx9Ufef4u",
+      "model": "claude-fable-5-1",
+      "ceiling_usd": 20,
+      "spend_usd": 22.95,
+      "tier": 1,
+      "prs": [
+        16972
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T00:24Z manager] Lane archived; spend $22.95 final. || [2026-10-07T23:27Z manager] #16972 MERGED 23:21Z (1dc5e384b): RQ-20261007-014..019 on main. Lane to archive. || [2026-10-07T19:42Z manager] Lane confirms renumber 014-019 on head 4a4aa3610 (collision-checked against 001-013; grep 0 stale). Manager merges #16972 on green, then archives. || [2026-10-07T19:02Z manager] VERDICT TABLE (docs/research/relative-value-families-2026-10-07.md): FEASIBLE-NOW Stage 0: pairs/ratio-z-score spread MR (harness-dispatch pairs arm; Bybit Stage 1 via config/pairs.yaml Tier-3; Alpaca needs an order path; ETF short borrow unmodelled) and dollar-neutral ETF baskets (xsec). NEEDS-A-FEED: funding carry (Bybit funding 403 from runners; Binance Vision fundingRate archive answers; fetcher arm missing), perp-spot basis, volatility spreads. NOT-FOR-US: cross-venue arb (one API venue; all props ban cross-account hedging; 60 s tick), triangular/FX cross-rate, index/ETF-vs-underlying, SPY/MES basis. Units: 4 queue + 2 blocked (renumbered to 014-019 after the fourth id collision today). New items to route: PI-20261007-X9UFEF4U-0001 (BUILD fundingRate fetcher + basis verdict, due 10-14), -0002 (RQ-20260922-011 blocker cleared, owner PAIRS-STOCKTAKE, due 10-10), -0003 (harness_dispatch_result cannot grade xsec gate block, due 10-14). PI-20261006-APBY4NTV-0005 done. PR held; manager lands after the renumber. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0005. Operator 2026-10-06 ~08:20Z verbatim: 'other complex strategies (not just based on predicting movement, but arbitraging symbols, spreads, etc)'. Fable, auto.",
+      "observation": {
+        "what": "PR #16972 lands (family table memo + units renumbered 014-019); the three new pipeline items routed",
+        "how_to_check": "git ls-tree origin/main research/queue | grep -c RQ-20261007-01[4-7]",
+        "due_by": "2026-10-09T18:00Z"
+      }
+    },
+    {
+      "id": "PROP-STRATEGY-SEARCH",
+      "title": "Strategy search for faster prop passes (+10%/month target, <=6 months): scope and register the next research batch across all tradeable instruments",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane PROP-STRATEGY-SEARCH",
+      "lane": "session_017LifR4MR2duWpfZkggkTAg",
+      "model": "claude-fable-5-1",
+      "ceiling_usd": 25,
+      "spend_usd": 23.26,
+      "tier": 1,
+      "prs": [
+        16965
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T19:53Z manager] #16965 MERGED 19:52Z (885549f54): 41 units RQ-20261007-201..241 on main; the runner now owns them (gate unit 201 first). Lane archived 19:53Z; spend $23.26 final (Fable). || [2026-10-07T19:03Z manager] BATCH 2 = 41 units RQ-20261007-201..241 (2xx block, no collision): 14 Velotrade pace fits p1 (trend_donchian 1h ZEC/UNI/LINK/FIL/XRP/ADA/HYPE/SUI; ict_scalp 15m HYPE/AAVE/ONDO/SUI/ZEC/DOGE -- the P2r2 cells net-positive in both halves never fitted at the operator's risk), 9 prop-BOOK composition units p1 (trend6 / fast6 / mixed6 x velotrade/tradeify/breakout_turbo at 0.5/0.75/1.0% per leg; PACE CANDIDATE = p_breach<=0.05 and days_to_pass p50<=60d), 16 breadth Stage-0 cells p2 (pullback/squeeze 1h-2h on ZEC/UNI/FIL/SUI/HYPE/AVAX/TRX/AAVE/DOGE/LINK), 2 new pace families blocked (ORB session-range with time stop; squeeze with time stop; fixing backtest_orb.py's cost stack is the cheaper path, PI-20261007-ZKGGKTAG-0001/-0002). Deviation: 10 CANDIDATE_PAIRS lines in fetch_backtest_corpus.py (required by the corpus test; same as batch 1). PR #16965 held; manager lands. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0001. Operator 2026-10-06 ~07:15Z. EVIDENCE from batch 1 (RQ-20261006-005..031, Stage-0 net of cost): 5 PASS all at 1h (ADA/DOGE/LINK pullback, DOGE squeeze, SLV fade); 17 FAIL incl. every 15m/5m leg (BTC 15m fade -1820R/4214 trades) -- the cost stack kills the fast timeframes with these harnesses; chop scalps underpowered. Pace, not risk, binds (velotrade median ~220d to +10%). The next batch should buy pace via breadth and higher-frequency 1h-4h signals, new families, and the prop-bar fit, not via 5m bars. Fable, auto.",
+      "observation": {
+        "what": "PR #16965 lands AND RQ-20261007-201 (the gate: first p2_breakout_symbol_screen run on a GH runner) produces a measured record, releasing 202-223",
+        "how_to_check": "ls research/results/RQ-20261007-201/ on main; dispatcher receipt; a producer_failed there = tooling task",
+        "due_by": "2026-10-10T18:00Z"
+      }
+    },
+    {
+      "id": "PROP-SILENCE-ALERTS",
+      "title": "Prop inactivity alert (operator priority 1, 2026-10-05) + phone-dead alert: ping when a prop account goes N days without a fill or the phone heartbeat stops while breakout_2 is live",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane PROP-SILENCE-ALERTS",
+      "lane": "session_01Fhry4ikKEvC4LNBqESw7m2",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 20,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        16950,
+        17003
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T20:46Z manager] #17003 guards RED on soak-contract-guard ('declared values match their source' x2, 'governance docs carry no unresolved merge conflict' = a conflict marker on the branch); lane woken 20:49Z; watcher waits for the fix push. || [2026-10-07T19:58Z manager] DEPLOYED (VM /api/diag/version git_sha c4487fb0d >= merge b90cbe1c6 at 19:38Z; runs inside the hourly ict-work-digest.timer -> work_digest_now.py), first run with the new code = the ~20:00Z digest. Live-data check found a bug in the merged code: skipped/placed fill rows reset the idle clock (tradeify_1 has them) -> fix PR #17003 held; manager merges on green (alerting/observability path, no order path). Live read after fix: tradeify_1 idle ok 2.6d, phone heartbeat ok 2 min, velotrade_1/breakout_2 unknown (0 fills; gap PI-20261007-BQESW7M2-0002: no-fill accounts never alarm). Observation PI-20261007-BQESW7M2-0001. || [2026-10-07T19:30Z manager] #16950 MERGED 19:46Z (squash). Merged != deployed: attention_watch.py/prop_silence.py run from a workflow or VM cron per the lane's PR body; the lane's row carries the deploy/observe steps. Archive the lane once it reports. || [2026-10-07T19:05Z manager] PR #16950 held Tier-2: prop_idle_{tradeify_1,velotrade_1,breakout_2} (warn 14d / urgent 21d; null != 0) + phone_hb_breakout_2 (>10 min while live -> urgent) as probes in the hourly attention block. Caveat: hourly carrier => up to ~1h phone-dead latency; no fill on record reads unknown. Manager merges, then observes the first digest probes. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-XJSGZG1X-0001, PI-20261005-YUVCGTMJ-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+      "observation": {
+        "what": "attention_watch_receipt after the 20:00Z digest lists prop_idle_{tradeify_1,velotrade_1,breakout_2} + phone_hb_breakout_2 as ok/unknown; plus one deliberate closed-app test fires the dead-phone ping",
+        "how_to_check": "read the latest attention_watch_receipt via the diag relay; PI-20261007-BQESW7M2-0001",
+        "due_by": "2026-10-08T18:00Z"
+      }
+    },
+    {
+      "id": "PHONE-GO-TOKEN",
+      "title": "Phone executor: server-side read-back / go-token before a live submit (design 3.4) -- a second, independent check of the filled form",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane PHONE-GO-TOKEN",
+      "lane": "session_01GwGBXfse86d27eHXvzCnvS",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 30,
+      "spend_usd": 21.85,
+      "tier": 2,
+      "prs": [
+        16987
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T03:47Z manager] Lane archived, FINAL spend $21.85 (it also carried #17005's three conflict resolutions tonight). || [2026-10-08T02:12Z manager] #16987 DEPLOYED and OBSERVED: VM /api/diag/version git_sha 1763b675b (02:07Z, restart_pending false; git-sync restarted ict-web-api on the HEAD advance) and POST /api/bot/prop/phone/verify without a device token answers 401 (404 = not deployed). Phone side inert until the operator installs the APK from main's post-#17005 build. #17005 head f58e6e0f (two clean main merges by the lane; armed() has 0 references; 46 phone tests + exec_check pass); CI pending; manager merges on green (Tier-3, operator-approved in-lane 2026-10-07). || [2026-10-08T02:03Z manager] #16987 MERGED 01:53Z (d0bc39005), Tier-2 per operator OK. Deploy pending (lane asked what restarts it); then phone-dry-test on breakout_2 expects dry_fill_ok 'SERVER verified (dry token...)'. Lane re-woken 01:55Z to re-resolve #17005's MainActivity hunk against the new main. || [2026-10-07T23:27Z manager] #16987 green but conflicts with main after #16962 landed; order flipped (#16987 before #17005 since #17005 is red on a transient main); lane woken 23:28Z to merge main. || [2026-10-07T20:40Z manager] Lane fixed the tier-policy coverage test (121/121 -> 123/123, commit 35e6ca75; head afac4f8e; 68 tests pass). Composition with ARMED-GATE #17005 checked by a trial merge: one MainActivity hunk conflicts (dry_filled report lines; take #16987's side, no armed()); #17005's design-doc 7.13 conflicts with main (SOL-PICKER). MERGE ORDER: #17005 first (operator-approved Tier-3), then #16987 merges main and resolves the hunk. Lane asked to resolve #17005's doc conflict on the armed-gate branch since that lane is archived. Kotlin compile for both still unproven (branch APK runs evicted/queued). || [2026-10-07T20:29Z manager] #16987 pytest-run RED on b373b83b9: tests assert the api-tier-policy coverage line (doc claims 121/121, code now 123/123 after the two new phone routes) -- doc restatement needed (`python3 scripts/check_api_tier_policy.py --list`). Lane woken 20:31Z to fix root cause and compose with ARMED-GATE (#17005). Merges on green under the operator's Tier-2 OK. || [2026-10-07T20:00Z manager] OPERATOR OK (verbatim, 2026-10-07 ~20:00Z): 'Ok on the tier 2 items' -- covers the six groups put to the operator at 19:4xZ: #16987 go-token. Merge on green + web-api restart + APK + one dry test. || [2026-10-07T19:13Z manager] PR #16987 held Tier-2: POST /phone/verify (server re-checks read-back vs ticket + instrument steps; ONE 30 s token bound to ticket_id + read-back hash; test/dry/kill-switch -> dry token) + POST /phone/go (one-shot redeem; replay/expiry/changed form/dry/no-longer-live -> go:false + ping); the app clicks LIVE only on go:true. After merge: web-api restart, APK, one phone-dry-test (pass = dry_fill_ok reads SERVER verified, dry token, go=false). Must adapt the live line if ARMED-GATE lands first. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-YUVCGTMJ-0003. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+      "observation": {
+        "what": "one phone-dry-test on breakout_2 with the post-#17005 APK: dry_fill_ok event reads 'SERVER verified (dry token, go=false ...)' and the ticket's meta.phone.go shows used:true, mode:dry",
+        "how_to_check": "GET /api/bot/prop/tickets?account_id=breakout_2 -> newest test ticket meta.phone.go; executor event dry_fill_ok text",
+        "due_by": "2026-10-10T00:00Z"
+      }
+    },
+    {
+      "id": "PHONE-BALANCE-READ",
+      "title": "Phone executor reads the terminal's account panel and posts account_status (balance/equity) for breakout_2; room sizing becomes possible (Tier-3 flip proposed, not applied)",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane PHONE-BALANCE-READ",
+      "lane": "session_01PZMASvu7ertVZeHdx56jrf",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": 2.84,
+      "tier": 2,
+      "prs": [
+        16962
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T21:11Z manager] #16962 MERGED 21:10Z (0ff7938ac): phone reads the account panel and posts kind=account_status. Merged != observed: needs the next main APK installed (a second build follows the overnight phone merges). The Tier-3 sizing flip (flat -> room, RQ-20261005-851/852) stays a proposal until a non-null balance is seen and matches the terminal. Lane archived 21:11Z, spend $2.84 final. || [2026-10-07T19:30Z manager] #16962 dirty after #16944 landed on the same files; lane woken 19:25Z to merge origin/main (trigger trig_01MVEXpMk3K7cv3KWEGy6NZC). || [2026-10-07T18:58Z manager] PR #16962 held Tier-2: accountPanel() label-anchored read (null unless exactly one match), kind=account_status every 5 min on the terminal with no ticket open, server stores unread as NULL, MEASURED. Real DOM labels NOT established (only 'Portfolio #,###.## USD' known): if Balance/Equity absent, balance NULL and equity = Portfolio tagged equity_label=portfolio -- operator compares to the terminal. Tier-3 room-sizing flip proposed only after a non-null balance matches the terminal. Manager merges; then one APK install covers SOL + screenshots + balance. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-YUVCGTMJ-0002. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+      "observation": {
+        "what": "after the operator installs the next main APK, /api/bot/prop/status?account_id=breakout_2 shows status_freshness ok with a non-null balance that matches the terminal",
+        "how_to_check": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_2' | python3 -c \"import json,sys;d=json.load(sys.stdin);print(d['status_freshness'], d['status'] and d['status'].get('balance'))\"",
+        "due_by": "2026-10-09T18:00Z"
+      }
+    },
+    {
+      "id": "PROP-PER-LEG-SIZING",
+      "title": "Per-leg prop risk: breakout_2's pre-registered fits pick $25 for ETH and $50 for SOL but risk is per account -- build per-leg support and propose the config (Tier-3, held)",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane PROP-PER-LEG-SIZING",
+      "lane": "session_01FG9ybJ2kGjQXfg7rE3NpDs",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": 2.48,
+      "tier": 3,
+      "prs": [
+        16958
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T20:14Z manager] #16958 MERGED 20:12Z (699f4b118): mechanism only (sizing.flat.per_leg_risk_usd, fail-closed, unset = unchanged; breakout_1 golden byte-identical). NO per-leg config applied anywhere: the breakout_2 ETH $25 / SOL $50 proposal stays HELD because RQ-20261005-853/854 are indeterminate (P(net>0) < 0.7) and the velotrade/tradeify records are book-level at uniform risk. Data task if wanted: a prop_ev_grid run with a mixed-risk arm. Deploy = the executors pick it up on their next tick after ict-git-sync; no restart needed for a sizing read path. Lane archived 20:14Z, spend $2.48 final. || [2026-10-07T18:57Z manager] PR #16958 held: opt-in sizing.flat.per_leg_risk_usd, fail-closed, unset = unchanged. Lane's own recommendation HOLD the breakout_2 $25/$50 proposal: RQ-20261005-853/854 are indeterminate (P(net>0) < 0.7). ACCEPTED: mechanism merges on green; no per-leg config change on any prop account now. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-YUVCGTMJ-0006. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+      "observation": {
+        "what": "next breakout_2/velotrade_1/tradeify_1 tickets still size at the account risk_pct (no per_leg_risk_usd declared) and the journal meta.sizing shows no override; the executor timers run the new code without a load-time error",
+        "how_to_check": "GET /api/bot/prop/tickets?account_id=breakout_2 -> risk_usd 25 on the next ticket; executor journal via diag: no ValueError at ruleset load",
+        "due_by": "2026-10-10T18:00Z"
+      }
+    },
+    {
+      "id": "VELOTRADE-RECON",
+      "title": "dxtrade_api adapter: read_trade_history so velotrade_1 close reconciliation reads the venue instead of falling back",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane VELOTRADE-RECON",
+      "lane": "session_01DZSAXAAYAWhKdcWpbhwthS",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 20,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        16978
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T19:05Z manager] PR #16978 held Tier-2: DXtradeApiAdapter.read_trade_history (GET orders/history -> Trade History row shape) + read-only system-action velotrade-trade-history-read. Live read not yet possible (action not on main). After merge: dispatch the action once; parsed_rows must show the 2026-10-06 ~10:18Z ETHUSD 0.01 BUY+SELL; pnl never fabricated. PI-20261007-WPBHWTHS-0001. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261006-ZRM27CBW-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+    },
+    {
+      "id": "VELOTRADE-QUALDAYS",
+      "title": "velotrade_1 evaluation rules the executor does not track: qualifying-day counter (>= 0.8% of initial balance), minimum trading days, the rules' effective dates",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane VELOTRADE-QUALDAYS",
+      "lane": "session_01VdUmHTU3XjyH6mnEZL5Jfv",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 20,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        16976
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T23:27Z manager] #16976 green but conflicts with main (register file); lane woken 23:28Z to drop its register edit and merge main. || [2026-10-07T20:14Z manager] #16976 at 2/3 required checks; watcher re-armed. Tracking-only (qualifying-day counter on rule_distance/ack line, ruleset effective dates), no order path -> manager merges on green as observability; executor picks it up on the next tick. NOTE the PR edits docs/claude/work/MANAGER-CHECKLIST.json (lane wrote the register) -> expect a row-wise reconcile against #16941. || [2026-10-07T19:05Z manager] PR #16976 held Tier-2: src/prop/qualifying_days.py, qualifying_days on rule_distance, ack-line suffix, rule_effective_dates in the ruleset. Threshold $40/day (0.8% x $5k), 5 days required. Verified on fixtures only; live standing unknown until deployed. Not built: digest prop line, payout scheduler, overexposure cap. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-KQIWJZWX-0002. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+    },
+    {
+      "id": "MIRROR-LEGACY-SHORTS",
+      "title": "alpaca_portfolio (Stage-2 mirror) holds two legacy shorts alpaca_live does not (TLT 738 et al.): mirror equality is the demotion signal, so resolve them (Tier-2 close proposal)",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane MIRROR-LEGACY-SHORTS",
+      "lane": "session_01FBnP34nkWQZrBTHTvXgdYJ",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": 4.65,
+      "tier": 2,
+      "prs": [
+        16951
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T20:27Z manager] DEPLOYED without a restart: the VM tree carries 9d78d3f4 and the live API already served the new code (lane: git-sync restarted ict-web-api after the merge). OBSERVED 20:00Z: /api/bot/performance/recent mirror.excludedTradeIds=[4195, 5912], exclusionsReadState=ok. Still unproven: the mirror-orphan-watch run 37678777586 (dispatched 20:00Z) queued behind the runner backlog; the lane's local run on live positions at 18:34Z found exactly the two shorts. Pipeline record carries the observation (due 10-14). Lane archived 20:27Z; spend $4.65 final. NOTE for #16974/#16987: if ict-git-sync restarts ict-web-api on pull, no separate web-api restart is needed -- verify on /api/diag/version restart_pending before dispatching one. || [2026-10-07T19:55Z manager] #16951 MERGED 19:54Z (9d78d3f49), implementing the operator's 2026-10-05 decision 'Let them run, exclude': trades 5912/4195 dropped from the Gate-2 mirror window via config/mirror_window_exclusions.yaml, r4_demotion_gate refuses on an unreadable list, daily mirror-orphan-watch workflow. Merged != deployed: the performance router needs a web-api restart (batch with #16974); the gate and the watch run from main on GitHub. Lane woken to deploy + observe. || [2026-10-07T18:57Z manager] PR #16951 held Tier-2: alpaca_portfolio IEF short 152 (trade 4195, +661.96) and TLT short 738 (trade 5912, +3131.51), both stop-protected; alpaca_live none. No closes (operator 2026-10-05 decision cited by the lane); PR excludes both from the Gate-2 window + daily mirror-orphan watch. Manager merges on green. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-J4SFBKU9-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+      "observation": {
+        "what": "mirror-orphan-watch run 37678777586 (or the 15:40Z daily cron) concludes reporting exactly IEF 4195 + TLT 5912",
+        "how_to_check": "gh api repos/benbaichmankass/Metis-Insights/actions/runs/37678777586 --jq '.status,.conclusion'; then its job summary",
+        "due_by": "2026-10-08T18:00Z"
+      }
+    },
+    {
+      "id": "EXIT-PARITY-CHECK",
+      "title": "Four Tier-3 exit-lever candidates that passed Stage 0 on 2026-10-04 get the exit-refinement live-parity check, then a Tier-3 declare-or-kill proposal each",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane EXIT-PARITY-CHECK",
+      "lane": "session_0112fGb4EsirPgfhqtS5tKFo",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": 5.94,
+      "tier": 1,
+      "prs": [
+        16971
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T00:24Z manager] Lane archived; spend $5.94 final. || [2026-10-07T23:27Z manager] #16971 MERGED 23:24Z (491a8b0d0): RQ-20261007-904 queued; 3 kills recorded. Lane to archive. || [2026-10-07T19:42Z manager] DONE by the lane, PR #16971 held (new unit RQ-20261007-904): xrp_4h trail4 parity FAILED (sweep never forwarded side_filter=short; fixed + test; evidence withdrawn; short-only re-run = RQ-20261007-904, readout PI-20261007-ITYCHECK-0001 due 10-14); scha vt_hot90_t2 KILLED (effective 0/6); spy decay_stall6_t2 KILLED (effective 2/6); squeeze vt_cold10_t1.8 KILLED (no trail_vol code). No Tier-3 proposal; strategies.yaml untouched. Follow-up PI-20261007-ITYCHECK-0002 (sol_pullback_2h same defect) due 10-21. Manager merges #16971 on green, then archives. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-UQ9JJPRQ-0004. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+      "observation": {
+        "what": "#16971 merged and RQ-20261007-904 dispatched by the runner",
+        "how_to_check": "ls research/results/RQ-20261007-904 || grep -n result research/queue/RQ-20261007-904.yaml",
+        "due_by": "2026-10-14T18:00Z"
+      }
+    },
+    {
+      "id": "RESEARCH-FOLLOWUPS",
+      "title": "Write the research units the NEEDS-DATA and follow-through items ask for (ada_pullback_2h tune-before-demote, ief vol_trail partitions, GLD/GDX confirmatory, xrp_4h record refresh, underpowered prop-fit regeneration, indeterminate 101-108 re-sizing, thin prop pool n>=88, VELOTRADE-FIT follow-through, trend_donchian_1h evidence build)",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane RESEARCH-FOLLOWUPS",
+      "lane": "session_014K2a33t9kVxxK9cjt6J2s9",
+      "model": "claude-fable-5-1",
+      "ceiling_usd": 25,
+      "spend_usd": 29.63,
+      "tier": 1,
+      "prs": [
+        16984
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T23:27Z manager] #16984 MERGED 23:24Z (68b460cae): RQ-20261007-022..033 on main. || [2026-10-07T19:57Z manager] Lane archived; spend $29.63 final (Fable). Its last head is d8e4a8e1 (CI pending); landing by the manager. || [2026-10-07T19:56Z manager] Renumbered 022-033 on head ef82483b (#16984; grep 0 stale ids; decision-rule guard 0 failures; pipeline --check rc 0; 91 tests). Manager lands on green; lane archived. Observation: #16984 merged and the 5 dispatchable units (024, 026-029) fire on the runner. || [2026-10-07T19:42Z manager] Lane finished: PR #16984 held (12 new units) BUT its ids RQ-20261007-001..012 collide with 001-004 (#16955, merged), 005-009 (#16964), 010-013 (#16960). Manager allocation 022-033; lane woken 19:43Z to renumber (trig_011fcdmyt3B6GpJ9dcQrJwjd). Content: 5 dispatchable (003 ief vt sweep; 005-008 Tradeify re-price n>=132), 4 session-local (debt class PI-20261006-LCEVL8D5-0002), 3 blocked. APBY4NTV-0001 closed done by the lane. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-P24XMV4V-0001, PI-20261004-P24XMV4V-0002, PI-20261004-P24XMV4V-0003, PI-20261004-P24XMV4V-0004, PI-20261004-UQ9JJPRQ-0001, PI-20261004-UQ9JJPRQ-0002, PI-20261004-APBY4NTV-0001, PI-20261005-XJSGZG1X-0002, PI-20261006-1BPXEUJR-0001, PI-20261005-OAKGATE1-0002. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+      "observation": {
+        "what": "#16984 merged; RQ-20261007-024 and 026..029 dispatched by the runner",
+        "how_to_check": "ls research/results/ | grep -E 'RQ-20261007-02[4-9]'",
+        "due_by": "2026-10-10T18:00Z"
+      }
+    },
+    {
+      "id": "RQ-INFRA",
+      "title": "Research-queue infrastructure gaps: prop_ev_sim P(pass by 30/90/180d); harness-dispatch runs trend/ict_scalp/vwap at short timeframes; stranded automation PRs on cancelled CI; needs_review surfaces on a non-session cadence; session-debt measure; RQ id minting race",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane RQ-INFRA",
+      "lane": "session_01AkBwsnKEM8iz4BeP1ghUHC",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 30,
+      "spend_usd": 22.98,
+      "tier": 1,
+      "prs": [
+        16948,
+        16953,
+        16957,
+        16961,
+        16968,
+        16982,
+        16986,
+        16993
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T00:30Z manager] Lane closed out and archived; spend $22.98 final. 8 PRs merged, none deployed/observed; not done by the lane (filed PI-20261007-EP1GHUHC-0001/-0002, due 10-09): vwap wrapper, dukascopy, the 9 session-debt units, 9 undated automation PRs, the stamp-PR close list (#16938 held back). || [2026-10-07T23:27Z manager] #16982 (sweeper grader) MERGED 23:24Z (07db35be2); #16968 (id bands + guard) MERGED 23:24Z (90eca9908): lanes now mint ids from the generated band; manual allocation ends. || [2026-10-07T20:41Z manager] #16993 MERGED ~20:16Z (pipeline records EP1GHUHC-0001/0002 on main). #16968 (id bands + guard) converted by the lane to landing hold: main now classifies scripts/research/queue_replenish.py as landing machinery (R12), so it is the manager's to land, like #16982. Both watched; merge on green. After #16968 lands the lanes mint ids from the generated band themselves and the manager stops allocating. || [2026-10-07T20:18Z manager] Lane update: MERGED #16961 (trend+ict_scalp dispatch cells), #16986 (session-debt number in the work report, 20:12Z; closes when the 05:30Z work report carries a 'Session debt' section, measured 9). #16968 (id bands + guard) had pytest-run RED on two of the lane's own misses (guard lacked _dirty_tree.warn(); an old-numbering test), fixed and re-pushed, auto-merge armed. #16993 4/6 green. #16982 (sweeper grader) held for the manager, guards green, pytest running -> watcher merges on green. || [2026-10-07T19:42Z manager] Lane final for this pass: MERGED #16957 (p_pass_by_days, 19:21Z), #16953 (needs_review digest line, ~19:30Z), #16948 (by manager 19:34Z). HELD for manager: #16982 sweeper grader (dry run on 21 automation PRs: undated 16->9, refresh 3). Auto-merge armed: #16961 #16968 #16986 #16993. Not done: vwap dispatch, dukascopy cells, 9 session-debt units, 9 undated automation PRs. Do-not-close: #16938 (sole stamp for RQ-20261006-032), #16883/#16927. || [2026-10-07T19:36Z manager] #16948 MERGED 19:34Z (c4487fb0d): stamps replayed onto the main tip (no more stamp PRs stacked on receipt commits). Merged != observed: the first post-merge dispatch run must land its stamps without a 50-min wait; RQ-CADENCE (lane session_012KH4r5ZxKMvciL1dHH3Lcm) reads it. 16953/16957/16961/16968 still self-landing. || [2026-10-07T19:13Z manager] Self-landing: #16953 needs_review digest line (42 units), #16957 p_pass_by_days, #16961 trend+ict_scalp short-TF cells (vwap not: hardcoded symbol), #16968 RQ id bands (generated 001-899, hand 900-999) + guard. Debris: 7 superseded stamp PRs closed by the manager 19:11Z (#16656 #16810 #16823 #16838 #16850 #16900 #16938); #16790 #16883 #16927 kept; #11912/#13133 deferred. #16950 also edits attention_watch.py: the second to land may need a main merge. || [2026-10-07T18:55Z manager] ROOT CAUSE of stranded stamps: the dispatcher stacks the stamp commit on its receipt commit; the stamp PR conflicts with main and gets NO pull_request runs. PR #16948 (commit-to-main replays onto main's tip; test) held: landing machinery, the manager lands. Added: stale-automation-sweep runs 110-119 failing; ~16 superseded stamp PRs -> lane lists, manager closes. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261006-TPQQDKFF-0001, PI-20261006-TPQQDKFF-0002, PI-20261006-LCEVL8D5-0001, PI-20261006-LCEVL8D5-0002, PI-20261006-LCEVL8D5-0003, PI-20261005-RQ-ID-RACE-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+      "observation": {
+        "what": "the next research-queue-dispatch run opens a stamp PR with commits=1 that gets CI and merges (proves #16948); the 05:30Z work report carries a 'Session debt' section (#16986); the hourly digest carries a 'need a read' line (#16953)",
+        "how_to_check": "gh api repos/benbaichmankass/Metis-Insights/pulls?head=benbaichmankass:automation/research-queue-stamp-* ; PI-20261007-EP1GHUHC-0001/-0002",
+        "due_by": "2026-10-09T18:00Z"
+      }
+    },
+    {
+      "id": "API-COLLAPSED-STATES",
+      "title": "Read paths that collapse could-not-look into error/empty: Hourly Snapshot 'API ERROR' on browser-prop accounts; alpaca_open_orders omits held bracket legs; order-packages/trades-closed `since` parsing returns [] silently",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane API-COLLAPSED-STATES",
+      "lane": "session_01LTcc4ccHr2rcL85zFjcTnR",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": 5.71,
+      "tier": 1,
+      "prs": [
+        16963
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T00:24Z manager] Lane archived; spend $5.71 final. || [2026-10-07T23:27Z manager] #16963 MERGED 23:21Z (6b57aab9e). Observation: next Hourly Snapshot renders prop accounts from executor status, not 'API ERROR'. Lane to archive. || [2026-10-07T18:58Z manager] PR #16963 held (src diff): hourly read_state per account; alpaca held legs + held_legs_state; ?since= filter_state/422. ib_live 'API ERROR' = NOT a fault (dry_run, read path never dials the gateway). NEW: PI-20261007-5ZFJCTNR-0001 ib_paper could_not_look + watchdog inactive + stale ict-prop-executor.service failed -> row IB-GATEWAY-DOWN. Close the 4 items after the next Hourly Snapshot reads correctly post-deploy. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-APBY4NTV-0002, PI-20261005-APBY4NTV-0002, PI-20261005-MWOP8C4X-0002, PI-20261005-MWOP8C4X-0003. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+      "observation": {
+        "what": "the first Hourly Snapshot after #16963 (6b57aab9e) is deployed renders the browser-prop accounts from executor status instead of 'API ERROR', and /api/bot/orders/open?account_id=alpaca_live lists held bracket legs with held_legs_state",
+        "how_to_check": "scripts/ops/diag_fetch.sh version | grep 6b57aab9e; latest Hourly Snapshot ping text (comms/) has no 'API ERROR' line for breakout_2/tradeify_1; GET /api/bot/orders/open?account_id=alpaca_live -> held_legs_state present",
+        "due_by": "2026-10-10T00:00Z"
+      }
+    },
+    {
+      "id": "REGISTER-TOOLING",
+      "title": "Register tooling: pipeline update stale-snapshot guard; checklist JSON-array merge conflicts; the lapse-wave re-dating rule; the soak-contract trap on new records; the bybit_coverage_soak binding read; the flaky prop_risk_manager test",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane REGISTER-TOOLING",
+      "lane": "session_012xSAmZaaxVR3W8bFoai4zM",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 45,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        16973,
+        16974,
+        16989,
+        17013,
+        17015,
+        17017
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T02:12Z manager] #17015 MERGED 02:03Z (fc60d3e90) and DEPLOYED (VM git_sha 1763b675b). #17017 retargeted to main by the manager and refreshed by the lane (head b17f3e19f; 8 checklist_store tests pass). #16974 green but 405 on merge: conflicts on docs/api-tier-policy.md only; lane woken 02:12Z. Landing order now #16974 -> #17017; seed PR after #17036. || [2026-10-07T23:27Z manager] #17013 (b1) MERGED 23:24Z (253af2399): readers on the loader; manager to verify /api/diag/version restart_pending + Workflow page shape. #17015 may self-land now. || [2026-10-07T21:04Z manager] #17017 (d) up: scripts/ops/checklist.py add|set|note|archive-lane|header (atomic row files, vocabulary-checked, updated_at/by on the row, header untouched) + recipe in CLAUDE.md / canonical rules / manager SKILL / work README (wording gated on the store existing). Stack #17013 -> #17015 -> #17017, all hold until the one below lands. Seed PR waits for #16941 + claude/mgr-dispatch-20261007b + the three on main; the manager tells the lane when. || [2026-10-07T20:53Z manager] #17015 (b2 + c') up, stacked on #17013: checklist_store.load_at(repo, ref); history/text readers migrated (scope, routing-age, attention_watch, soak-contract, register-ids, claim-basis, soak-doctrine, work_digest, read_file_commit); checklist-readers-guard (AST: any .py naming the monolith must use the loader or be allowlisted). Rehearsed with 302 rows seeded + monolith deleted: Workflow API 200/302 items, guards OK, 353 tests. DECISIONS: (a) #17015 may self-land once #17013 is on main (R8 verified, Tier-1 read path); (b) b1's deploy counts as a web-api restart event -- the manager verifies restart_pending on /api/diag/version after #17013 lands; (c) SEQUENCE: #16941 lands FIRST, then the lane seeds from main and deletes the monolith in one PR (row ages restart at the seed commit, accepted). To let #16941's CI settle, the manager now writes register notes on branch claude/mgr-dispatch-20261007b (stacked on #16941's head) and opens its PR after #16941 merges. Next from the lane: (d) the write CLI + doc updates. || [2026-10-07T20:34Z manager] #17013 (step b1) held for the manager (R12: edits scripts/ops/session_registry.py): loader core in src/runtime/checklist_store.py; every reader path-aware (monolith today, rows after cutover) incl. GET /api/bot/work/checklist; test proves identical data with the monolith present, seeded, or deleted. DECISION (manager): end state = NO committed monolith; (c') guard that nothing reads the monolith path directly; cutover PR = seed + delete + a write CLI (scripts/ops/checklist.py add|set|note|archive-lane) that replaces the manager's ad-hoc edits, with every doc reference updated; per-row git history replaces the monolith's; seed from main at merge time with #16941 landed first (or from the manager branch head, manager's call when the lane is ready). || [2026-10-07T20:28Z manager] #16989 MERGED 20:23Z: scripts/ops/checklist.py (per-row loader/generator/seed/check + tests). Merged only -- no rows seeded, no reader migrated; the monolith stays the file of record and the manager keeps editing it. Lane now on step (b): readers + the two history guards onto the loader. #16974 still the manager's to land (watcher). || [2026-10-07T20:00Z manager] OPERATOR OK (verbatim, 2026-10-07 ~20:00Z): 'Ok on the tier 2 items' -- covers the six groups put to the operator at 19:4xZ: #16974 diag log aggregate. Merge on green + web-api restart (batched with #16951's). || [2026-10-07T19:46Z manager] #16974 conflict resolved by the lane (head 842ffbb5, merge commit; 47 tests pass); #16973 guards failed on ruff E702/E741 -> fixed 8b6597a8, CI re-running, auto-merge armed; #16989 (checklist loader step a) auto-merge armed. || [2026-10-07T19:30Z manager] #16974: the PR's push webhook never produced the three required runs (only armed-branch-push-watch on d736c609b); manager dispatched pytest-collect/pytest-run/guards via workflow_dispatch 19:20Z. Watcher lesson: a GREEN needs the three required checks PRESENT, not just zero pending. || [2026-10-07T19:05Z manager] PR #16973 (stale-snapshot guard via based_on; --redate + guard; soak-contract trap fix; flaky test root-caused = empty fallback DB) auto-merging. PR #16974 (/api/diag/log_aggregate) held Tier-2; manager lands + web-api restart. Per-row checklist store APPROVED (ceiling -> $45): loader+generator -> migrate readers -> equality guard -> manager switches. bybit_coverage_soak binding claim unreproduced on the live tail (annotate/not_apply). || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-4GA8WQPA-0002, PI-20261004-4GA8WQPA-0003, PI-20261004-APBY4NTV-0003, PI-20261005-4GA8WQPA-0002, PI-20261005-WFBREDQP-0001, PI-20261005-WFBREDQP-0002, PI-20261005-KQIWJZWX-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+    },
+    {
+      "id": "HARNESS-AUDIT-FIXES",
+      "title": "Research-harness audit defects (CA-B04): stale-JSON reuse in sweeps, wrong Engle-Granger critical value, in-sample leaks -- fix with tests; research validity, pairs first",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane HARNESS-AUDIT-FIXES",
+      "lane": "session_019vKPsvXoNhVaJT1f8ainK1",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 20,
+      "spend_usd": 6.08,
+      "tier": 1,
+      "prs": [
+        16952
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T00:24Z manager] Lane archived; spend $6.08 final. || [2026-10-07T18:55Z manager] PR #16952 auto-merging (EG 2-var crit + pre-OOS vector fit; run_fresh for 4 sweeps; ict_scalp WF grade; pair_funding_drag hard-fail; session_gating OOS holdout). Blast radius 0 landed rows; pairs verdicts stand. Re-run list on PI-20260927-ZGQPHR3D-0002..0010. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-IRWQEEXT-0004. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+      "observation": {
+        "what": "#16952 is on main and the first sweep re-run listed on PI-20260927-ZGQPHR3D-0002..0010 completes with run_fresh (no stale-JSON reuse) and the corrected Engle-Granger critical value",
+        "how_to_check": "git log --oneline -1 origin/main -- scripts/research/ | grep -i 'harness\\|EG\\|run_fresh'; grep -l 'run_fresh' research/results/*/*.jsonl | head -1; python3 scripts/ops/pipeline.py --show PI-20260927-ZGQPHR3D-0002",
+        "due_by": "2026-10-14T00:00Z"
+      }
+    },
+    {
+      "id": "TRADEIFY-OWNERSHIP-NOTE",
+      "title": "Tradeify 247 bot-ownership exposure: keep a written sole-ownership statement + how to produce the commit history, ready for a source-files or payout-interview demand",
+      "phase": "W6",
+      "state": "done",
+      "owner": "lane TRADEIFY-OWNERSHIP-NOTE",
+      "lane": "session_01BwCfskE3ZscdutzLC3MtVD",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 6,
+      "spend_usd": 2.05,
+      "tier": 1,
+      "prs": [
+        16956
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T19:40Z manager] Lane archived 19:39Z; spend $2.05 final. #16956 merged. Operator follow-up still open: git author-name mapping for the ~100 commits by an unidentified author (raise at the next sync). || [2026-10-07T18:55Z manager] PR #16956 auto-merging. Flag for the operator: git author-name mapping (~100 commits by an unidentified author). || [2026-10-07T18:37Z manager] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): 'Ownership note ready, nothing else (Recommended)'. Doc-only. Pipeline: PI-20261004-OZ9AAZSV-0003."
+    },
+    {
+      "id": "DXTRADE-PROBE",
+      "title": "$0 read-only reachability probe from the VM: dx.tradeify247.co (Cloudflare/ASN block?) and /specs (does the DXtrade REST API answer?) \u2014 the precondition for moving tradeify_1 to the REST path",
+      "phase": "W6",
+      "state": "done",
+      "owner": "lane DXTRADE-PROBE",
+      "lane": "session_01GQJBuULrkHyyzmX3Z42edG",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 10,
+      "spend_usd": 1.31,
+      "tier": 1,
+      "prs": [
+        16967
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T19:40Z manager] Lane archived 19:39Z; spend $1.31 final. #16967 merged: probe memo \u00a7 4.2 + PI-20260930-WSTCE9FH-0001 closed. || [2026-10-07T18:58Z manager] DONE pending merge: VM egress 200 real login page, no block; /specs 409 JSON; pilot account already exists (#14691). Follow-on row DXTRADE-REST-PILOT. || [2026-10-07T18:37Z manager] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): '$0 reachability probe only (Recommended)'. No account purchase; the trial-account question returns only if the probe passes. Pipeline: PI-20260930-WSTCE9FH-0001.",
+      "observation": {
+        "what": "PR #16967 merges (memo section + PI-20260930-WSTCE9FH-0001 done)",
+        "how_to_check": "gh api repos/benbaichmankass/Metis-Insights/pulls/16967 --jq .merged",
+        "due_by": "2026-10-08T06:00Z"
+      }
+    },
+    {
+      "id": "BREAKOUT1-RETIRE",
+      "title": "breakout_1 evaluation breached ($4,698 < $4,700 static floor since 2026-10-04): clear its roster, stop its executor timer, retire the account from live surfaces; breakout_2 is the Breakout account",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane BREAKOUT1-RETIRE",
+      "lane": "session_01Y2J2YaVPogBoJCqx748tfe",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 10,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [
+        16981
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T23:27Z manager] #16981 green but conflicts with main (accounts/prop_platforms moved); lane woken 23:28Z. || [2026-10-07T19:13Z manager] PR #16981 held Tier-3 (operator-approved): roster -> []. After merge: executor-disable-timer for breakout_1 (issue #16251 cancelled by the one-pending limit; timer state UNKNOWN). Follow-ups: feed-disable-timer refuses breakout_1 (script); prop.py _DEFAULT_ACCOUNT breakout_1 -> breakout_2. || [2026-10-07T18:37Z manager] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): 'Dead: clear its roster, retire the row (Recommended)'. Tier-3 roster change on a dry_run account, operator-approved in the popup: PR held; the manager merges. Pipeline: PI-20261007-APBY4NTV-0002."
+    },
+    {
+      "id": "HIBERNATION-SKILL",
+      "title": "Manager skill: how to hibernate the work before a usage-limit outage and pick it up after (operator ask 2026-10-07)",
+      "phase": "W6",
+      "state": "done",
+      "owner": "lane HIBERNATION-SKILL",
+      "lane": "session_018paujgDwqD1DxKFy1tnWwN",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 8,
+      "spend_usd": 0.86,
+      "tier": 1,
+      "prs": [
+        16954
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T19:40Z manager] Lane archived 19:39Z; spend $0.86 final. #16954 merged 19:30Z: manager SKILL.md \u00a7 'Hibernating before a usage-limit outage' on main. || [2026-10-07T18:55Z manager] PR #16954 auto-merging; may need a main merge after #16942. || [2026-10-07T18:41Z manager] Operator, verbatim: \"you did a good job of 'hibernating' the work ahead of the usage limit outage, so I want us to add to the manager skill instructions for how to prepare for that properly.\" Doc-only; written from the measured 2026-10-06/07 sequence (what worked: auto-merge armed, lanes told to self-land, pick-up reminder, routines paused; what broke: lanes died at the limit unlanded, queue ran but produced nothing, stranded register commits). Row written after dispatch (manager slip, corrected)."
+    },
+    {
+      "id": "PHONE-DRYTEST-ACTION",
+      "title": "phone-dry-test Tier-1 system-action: an always-dry phone test ticket by labelled issue, no config PR",
+      "phase": "W6",
+      "state": "done",
+      "owner": "lane PHONE-DRYTEST-ACTION",
+      "lane": "session_01JoHUxdN7RXftfnD7uEUQgp",
+      "model": "claude-fable-5-1",
+      "ceiling_usd": 10,
+      "spend_usd": 10.19,
+      "tier": 1,
+      "prs": [
+        16782
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T19:40Z manager] Lane archived 19:38Z; spend $10.19 final (Fable; its last turn died on the weekly limit after the action had merged and passed). || [2026-10-07T18:15Z manager] DONE. MERGED #16782 (2026-10-06 14:01Z). OBSERVED 2026-10-07: issue #16939 (18:10Z) -> ticket phone-test-72f5bfc0942e -> the backgrounded, armed phone came forward and dry_filled at 18:11:22Z (ETH limit/buy, TP/SL read back, submit not pressed). ~1 min from issue to ticket vs ~37 min on the config-PR path. Row created late: the lane was dispatched 2026-10-06 12:30Z on the operator's ask without a row (manager error, corrected). Lane died at the weekly limit before its own proof dispatch; spend $10.19 final. PI-20261006-APBY4NTV-0009 -> done."
+    },
+    {
+      "id": "VELOTRADE-TICKET",
+      "title": "velotrade_1: an unplaced ticket past valid_until (expiry_prompted) blocks every later signal on a REST-executed account",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane VELOTRADE-TICKET",
+      "lane": "session_01BbBqjBgks6BVLgjoHnSxdJ",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 40,
+      "spend_usd": 10.43,
+      "tier": 2,
+      "prs": [
+        16947,
+        16977,
+        17009
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T02:03Z manager] #17009 (closing-observation record) was RED on two guards: pr-landing R11 (files named velotrade-ticket-observe but the branch slug is chore-velotrade-ticket-observe) and the new soak-contract-guard (#16973: PI-20261007-JOHNSXDJ-0003 had no definition of done). Manager renamed the landing files and added observation {what, how_to_check, due_by 2026-10-10} (b737e8d0a); auto-merge stays armed. || [2026-10-07T20:11Z manager] DEPLOYED (lane): VM tree 9dd129024 contains f42ddf9a1 (diag /version 19:54Z); trader restart via system-action issue #17008 (restart-bot-service, directive sentence in the body): stopped/started 19:56:38Z, ict-trader-live active, first 5 min 2 pre-existing ERRORs (pybit recv_window, IB peer-closed also seen before the restart), 0 tracebacks, 0 prop_expiry_prompt lines; open positions identical pre/post on every account. Executor tick 19:53:10Z already on code_sha 9dd129024. #16977 merged 19:56Z. Observation filed as PI-20261007-JOHNSXDJ-0003 via PR #17009 (self-landing) because the manager's PI-20261007-APBY4NTV-0001 is on the unmerged register branch, not main. Lane archived 20:10Z; spend $10.43 final (Opus). || [2026-10-07T20:02Z manager] #16977 MERGED 20:01Z (0fcba3dc7) under the operator's Tier-2 OK: system-action prop-ticket-expire (dry-run default; apply = backup + one guarded UPDATE). Runs through system-actions.yml on GitHub -> no VM restart needed; verify = one dry-run issue against velotrade_1 once the lane finishes the #16947 deploy. || [2026-10-07T20:00Z manager] OPERATOR OK (verbatim, 2026-10-07 ~20:00Z): 'Ok on the tier 2 items' -- covers the six groups put to the operator at 19:4xZ: #16977 prop-ticket-expire action. Merge on green, verify the action's dry-run default. || [2026-10-07T19:51Z manager] #16947 MERGED 19:50Z (f42ddf9a1): REST accounts skip the expiry prompt; an unattempted expiry posts the terminal skipped report with its last verdict. Merged != deployed: needs a live-trader restart (prompter) + the next executor timer tick; lane woken 19:54Z to deploy (trader-restart system-action, authorised under the operator's 2026-10-07 directive) and verify, then name the observation. #16977 still held for the operator's Tier-2 OK. || [2026-10-07T19:13Z manager] PR #16977 held Tier-2: system-action prop-ticket-expire (dry-run default; apply = backup + ONE guarded UPDATE expiry_prompted / emitted-past-validity -> expired; refuses non-REST accounts, tickets with fills, wrong account). JOHNSXDJ-0001 measured: signal 01:59:24Z, band 2664.72-2679.28, first tick bid 2615.72 (-2.11%); hypothesis: entry = prior 2h bar close (signal 36 s before the 02:00Z close). Stuck ticket cleared by the operator's Telegram X (status expired 19:08Z). || [2026-10-07T18:55Z manager] FACT 1: band_wait on all 12 ticks 02:03-02:58Z (bid 2608.97-2618.41 vs short entry 2672.0), never attempted. PR #16947 held Tier-2 (expiry prompter leaves REST accounts to the executor; expired unplaced -> terminal skipped with last verdict); I merge on green + restart the trader. Stuck ticket: operator taps the Telegram \u274c (asked) or self-clears 2026-10-08 02:59Z. Follow-up: allowlisted prop-ticket-expire. Findings PI-20261007-JOHNSXDJ-0001 (stale-at-emission, 2.1% from market) / -0002. || [2026-10-07T18:15Z manager] MEASURED on /api/bot/prop/tickets: first live signal 01:59:22Z (trend_donchian_eth_prop ETH SHORT, entry 2672, risk_usd 50.0 = the 1% sizing OBSERVED) was never placed; status expiry_prompted after valid_until 02:59Z; the 02:01, 03:02, 10:08 and 11:01Z re-tickets were all 'reticket suppressed -- outstanding_ticket:expiry_prompted'. Balance 4999.97 unchanged; executor alive (status posted 18:08Z). The manual bridge's expiry_prompted state waits for a human report; the REST path has none, so the account cannot trade until the ticket is terminal. Opus (live order path), default mode. Fix = terminal state for unplaced-expired tickets on REST accounts + unblock the stuck ticket in tier.",
+      "observation": {
+        "what": "next velotrade_1 ticket that expires unplaced reaches status skipped with reason 'expired unplaced; ...', never expiry_prompted, no Telegram prompt, and the next same-key signal tickets",
+        "how_to_check": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/tickets?account_id=velotrade_1' | python3 -c \"import json,sys;[print(t['ticket_id'],t['status'],(t.get('reason') or '')[:60]) for t in json.load(sys.stdin)['tickets'][:8]]\"; pipeline PI-20261007-JOHNSXDJ-0003",
+        "due_by": "2026-10-10T18:00Z"
+      }
+    },
+    {
+      "id": "GEOM-B1-HARNESS",
+      "title": "Active geometry: TP-revision levers in the backtest harnesses (--tp-target-r/--tp-extend-r/--tp-approach-frac/--tp-max-extends/--tp-thesis, --tp-retarget-mode) on backtest_trend/pullback/ict_scalp + the sweep/coverage plumbing; unblocks RQ-20261007 geometry units",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane GEOM-B1-HARNESS",
+      "lane": "session_015kekiWATbgN7A6Hy7g7NyF",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 40,
+      "spend_usd": 30.21,
+      "tier": 1,
+      "prs": [
+        17010,
+        17011
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T02:35Z manager] #17011 (3/3) MERGED 02:33Z (0735432f3) by the manager, last as planned; #17000 and #17010 already on main. RQ-20261007-001..004 are now queue-visible to the hourly dispatcher (001/003 -> m20-exit-lever-sweep with tp_extend/tp_retarget; 004 -> ict-scalp-exit-sweep tp_revision; 002 half-dispatched, statistic c under PI-20261007-HY7G7NYF-0001). Lane archived, FINAL spend $30.21 (ceiling 40). Follow-through PI-20261007-HY7G7NYF-0002. || [2026-10-08T00:55Z manager] Lane closed its own tiny fix PR #17040 deliberately (00:38Z, 'deliberate close' per its summary) because #17010 already carries the run_date fix with auto-merge armed; #17010 is now the midnight-fix vehicle (pytest-run on dcec287f running since 00:26Z). Lane spend $25.60 running at 00:52Z (ceiling on this row). || [2026-10-08T00:35Z manager] FIX VEHICLE = #17010 (head dcec287f, auto-merge armed): the harness stamps run_date=today into its summary; the golden captured 2026-10-07; the comparison now drops run_date (every other field exact). CI ~40 min; once merged every open PR merges main once more. #17011 head 638793cc (hold, last). || [2026-10-08T00:29Z manager] MAIN RED SINCE 00:00Z: tests/test_tp_geometry_harness.py::test_defaults_reproduce_pre_lever_golden (5 params) compares a full record dict against tests/fixtures/tp_geometry_default_golden.json which embeds run_date 2026-10-07; every PR's pytest-run fails after midnight UTC (seen first on #16994 a03658f2: 5 failed / 21734 passed). Lane woken 00:31Z for a date-independent comparison in a tiny self-land PR; every open PR then needs one more main merge. || [2026-10-07T23:27Z manager] #17000 MERGED 21:25Z (6e9c8db16). #17010/#17011 red on CI runs that merged a transient main; re-run once 23:20Z. || [2026-10-07T20:06Z manager] Lane: three PRs open, none merged. #17000 harness levers (tier-1 self, auto-merge armed, CI queued); #17010 sweep half (tp_extend/tp_retarget cells in m20_fleet_exit_sweep, coverage-matrix columns, ict-scalp-exit-sweep cells tp_revision + result-landing job; stacked on #17000, lane arms auto-merge after #17000 lands); #17011 moves RQ-20261007-001..004 from blocked/ to research/queue/ with dispatch written in -- landing HOLD, MANAGER MERGES LAST (the hourly dispatcher fires queued units on landing; dry run: all four would_dispatch). Findings: RQ-20261007-002 only half-dispatchable (prop EV sim cannot run on the token-free runner) -> PI-20261007-HY7G7NYF-0001; RQ-20261007-003 dispatches 32 explicit legs (empty legs would mean census top-10). The scalp workflow's landing job is unproven until its first dispatch. || [2026-10-07T18:57Z manager] Proposed by lane ACTIVE-GEOMETRY-PLAN (PR #16955, research/queue/PLANNING.md \u00a7 5): every TP-revision research question is blocked on this one Tier-1 harness build (no backtest_*.py extends or re-prices a target). Done when the flags exist (--help lists them), m20-exit-lever-sweep.yml and ict-scalp-exit-sweep.yml accept the lever, and the four blocked geometry units are dispatchable. Distinct from TP-DOCTRINE (the live producer in monitor()).",
+      "observation": {
+        "what": "first dispatcher cycle after 02:33Z dispatches RQ-20261007-001 or -003 (m20-exit-lever-sweep with a tp_extend/tp_retarget lever) and a research_result lands for it",
+        "how_to_check": "grep -n last_dispatched_at research/queue/RQ-20261007-00[134].yaml; ls research/results/RQ-20261007-001 research/results/RQ-20261007-003 research/results/RQ-20261007-004",
+        "due_by": "2026-10-10T00:00Z"
+      }
+    },
+    {
+      "id": "GEOM-CENSUS",
+      "title": "Active geometry: commit the SL-vs-TP amend census as a script with a weekly pipeline rerun, so 'TP never moves' stays a measured number",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane GEOM-CENSUS",
+      "lane": "session_019nL2fabQkHnqwZAKggtxPm",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 10,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        16992
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T19:42Z manager] Lane done: PR #16992 auto-merge armed. Baseline (closed since 09-01): SL amended real_money 4/32, mirror 16/52, paper 111/664; TP amended 0 everywhere; prop read_state no_closed_rows. Weekly re-run PI-20261007-AKGGTXPM-0001. Archive after merge. || [2026-10-07T18:57Z manager] Proposed by ACTIVE-GEOMETRY-PLAN. MEASURED 2026-10-07 (closed trades since 2026-09-01 with a package; amend = order_packages.sl/tp vs entry-time level > 0.05%): real money 4 SL / 0 TP of 32; mirror 16/0 of 52; paper 111/0 of 668; fleet 131/0 of 748; prop 0 closed rows. scripts/research/geometry_amend_census.py reproducing PLANNING.md \u00a7 5 from the diag surface + a pipeline row with weekly due_when.",
+      "observation": {
+        "what": "#16992 merged; first weekly census re-run lands",
+        "how_to_check": "python3 scripts/research/geometry_amend_census.py",
+        "due_by": "2026-10-14T18:00Z"
+      }
+    },
+    {
+      "id": "DXTRADE-REST-PILOT",
+      "title": "Does the DXtrade REST API work for the existing Tradeify 247 pilot account (login verified #14691)? Read-only login + account read from the VM; the precondition for moving tradeify_1 off the browser executor",
+      "phase": "W6",
+      "state": "done",
+      "owner": "lane DXTRADE-REST-PILOT",
+      "lane": "session_01Bjq43AVyaQ2LPKof8H8P28",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": 1.82,
+      "tier": 2,
+      "prs": [
+        16990
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T00:24Z manager] Lane archived; spend $1.82 final. || [2026-10-07T23:27Z manager] #16990 MERGED (fcb49a625). Lane to archive. || [2026-10-07T19:42Z manager] Lane done: PR #16990 (memo, auto-merge armed). NOTHING MEASURED: no allowlisted action can run the REST adapter against Tradeify (velotrade-api-probe hardcodes the Velotrade host + env prefix; breakout-login-check refuses dxtrade_api; egress probe GET-only). Proposal 7.2 = add a fixed --account velotrade_1|tradeify_1 choice to scripts/prop/velotrade_api_probe.py + its action script + a system-actions.yml input (Tier-1 code), then dispatch for tradeify_1 (Tier-2, $0 read-only) -> new row DXTRADE-PROBE-ACCOUNT. 7.3 (move tradeify_1 to dxtrade_api) stays a HELD proposal until the probe shows login + positionBased + ETH/SOL/XRP. Pipeline PI-20261007-OF8H8P28-0001. Archive after merge. || [2026-10-07T18:58Z manager] DXTRADE-PROBE (2026-10-07): dx.tradeify247.co reachable from the VM (200, no 1005/challenge), /specs 409 DXtrade JSON; the probe had already run 2026-09-30 and a pilot account was bought and its login verified (#14691) -- the manager's 'approve a $0 probe' popup was stale on that point. NOT established: whether the REST API answers for the pilot account. That is this row. Credentials: the pilot's, already on the VM per #14691 -- never ask the operator to paste; use the existing executor credential path."
+    },
+    {
+      "id": "IB-GATEWAY-DOWN",
+      "title": "ib_paper (mode live) could_not_look: IB gateway not answering, ict-ib-gateway-watchdog.timer inactive; stale non-templated ict-prop-executor.service 'failed'",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane IB-GATEWAY-DOWN",
+      "lane": "session_01Bg2wzXPMGYwcCunv5RaMyi",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-08T03:47Z manager] Lane answer 03:33Z: the ib-gateway container on the gateway VM is RESTART-CHURNING, not down -- IBC full logins in pairs 5 min apart with ~20 min between pairs (19:55/20:00/20:17/20:22 10-07; 02:52/02:57/03:19/03:24 10-08), every login completing with no 2FA prompt. Each restart drops the trader's IB clients, so ib_paper reads could_not_look while they log back in (03:25Z: clients 9017/497 connected, 498 connect_failed at 03:19:32). WHO restarts it is NOT established (watchdog cooldown pattern vs docker restart policy vs IBC auto-restart); needs docker inspect + watchdog/reset timer state on the gateway VM, which no allowlisted action reads. Next: Tier-1 read-only gateway-forensics action PR (hold; manager merges), then one read; no Tier-2 action proposed yet. The earlier 'watchdog timer inactive' read was the TRADER VM, where that timer is designed not to run. || [2026-10-08T03:22Z manager] 03:17Z check-in: the gateway-logs run 37671437938 (issue #16983) COMPLETED/success hours ago while the lane still read it as queued; lane woken 03:19Z to read it and finish (Tier-1 fix PR or a named Tier-2 action for the morning). || [2026-10-07T19:42Z manager] Lane blocked on the Actions queue: gateway-logs issue #16983 run 37671437938 queued without a runner since 19:02Z; no cause yet. Verified by the lane: the watchdog timer is designed to run on the gateway VM only (so 'inactive' on the trader VM is not evidence); ict-prop-executor.service is breakout_1's deliberate non-templated unit (not stale). No change made. Manager: nothing to unstick (hosted-runner cap 20, saturated by lane PR CI); lane continues when the run gets a runner. || [2026-10-07T18:58Z manager] Found by API-COLLAPSED-STATES (relay 2026-10-07 18:43Z; PI-20261007-5ZFJCTNR-0001): ib_paper's gateway read is could_not_look and its watchdog timer is inactive, so the IB paper book is not trading and nothing alarms; a leftover non-templated ict-prop-executor.service reads failed beside the templated per-account units. Tier-2 (timers/services) via the allowlisted system-actions; verify post-state through the relay."
+    },
+    {
+      "id": "TRAIL-PAUSE-PULSE",
+      "title": "Prop trail: announce a pause -- 'trail_paused_since' on the executor's prop_monitor_pulse (second half of PI-20261006-KX6ZKFNA-0003)",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane TRAIL-PAUSE-PULSE",
+      "lane": "session_01K1zKHNpwA8rSKY2uXP71d9",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 6,
+      "spend_usd": 9.6,
+      "tier": 2,
+      "prs": [
+        16997,
+        17047
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T03:47Z manager] Lane FINAL spend $9.60. || [2026-10-08T03:22Z manager] Lane's close-out record PR #17047 (Tier-1 hold) MERGED 03:19Z (bc2a52ca7): PI-20261006-KX6ZKFNA-0003 now states merged-not-observed and names the closing observation. Lane archived (spend recorded on the next batch). || [2026-10-08T02:12Z manager] #16997 DEPLOYED (VM git_sha 1763b675b contains 4cbfb1db1; the executor is a timer-driven oneshot, so the next tick runs the new code with no restart). Observation pending the next executor tick. || [2026-10-08T02:03Z manager] #16997 MERGED 01:53Z (4cbfb1db1), Tier-2 per operator OK. Deploy = executor restart, pending (manager locating the restart path: no executor restart action in the allowlist; checking what git-sync restarts). || [2026-10-07T20:46Z manager] #16997 guards RED on ruff-lint only (CI runs the pinned ruff, so a real finding in the PR's files); lane woken 20:49Z; watcher waits for the fix push. || [2026-10-07T20:00Z manager] OPERATOR OK (verbatim, 2026-10-07 ~20:00Z): 'Ok on the tier 2 items' -- covers the six groups put to the operator at 19:4xZ: #16997 trail-pause pulse. Merge on green + executor restart. || [2026-10-07T19:42Z manager] Lane: PR #16997 Tier-2 held (executor tick emits a pulse each tick with trail_paused_since null|ISO|'unknown' + trail_paused_ticks; attention-watch probe prop_trail_paused_<account> urgent at >=2 paused ticks). Needs the operator's Tier-2 OK + executor restart after merge. || [2026-10-07T19:08Z manager] The read surface landed (#16943, TRAIL-OBSERVABILITY done); this is the announce half: the executor's existing prop_monitor_pulse carries trail_paused_since (null when not paused) so the digest/attention block can alarm on a latched trail instead of someone having to read the file.",
+      "observation": {
+        "what": "executor pulse carries trail_paused_since/trail_paused_ticks on the live VM",
+        "how_to_check": "GET /api/bot/prop/status?account_id=breakout_2 -> pulse fields present (null|ISO|'unknown'), attention-watch probe prop_trail_paused_breakout_2 registered",
+        "due_by": "2026-10-10T00:00Z"
+      }
+    },
+    {
+      "id": "APK-BUILD-CONCURRENCY",
+      "title": "phone-executor-apk.yml: queued builds on main cancel each other (concurrency group keeps one pending run) under today's 216-deep CI queue; key the group by sha + add workflow_dispatch",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane APK-BUILD-CONCURRENCY",
+      "lane": "session_012NfUEpxQQhi1eUNSFWXrhU",
+      "model": "claude-haiku-4-5-20251001",
+      "ceiling_usd": 4,
+      "spend_usd": 3.05,
+      "tier": 1,
+      "prs": [
+        16991,
+        17037
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T03:22Z manager] DONE: #16991 (per-sha workflow group + job-level signing group) and #17037 (Playwright timeout-minutes) both merged. Lane archived, FINAL spend $3.05. Observation: main APK runs no longer evict each other -- run 37718551780 (048822347) queued at 02:34Z is the first test. || [2026-10-07T23:27Z manager] #16991 MERGED (68201d433) during the manager's usage pause: per-sha workflow group + job-level signing group on main. || [2026-10-07T21:08Z manager] MAIN APK BUILT: run 37682642241 completed success 21:07Z; artifact phone-executor-1b-apk (2.35 MB) https://github.com/benbaichmankass/Metis-Insights/actions/runs/37682642241/artifacts/11512081209 (main at 11c5e4bd6: SOL picker #16944 + screenshots #16945; NOT yet: balance read #16962, go-token #16987, ARMED-gate #17005, trail amends #16980). Morning: operator installs, then the manager files one phone-dry-test issue with symbol SOL (SOL-PICKER proof) and reads the screenshot result (PHONE-SCREENSHOTS proof). || [2026-10-07T20:32Z manager] Main APK dispatch 37681456666 (20:22Z) was CANCELLED again at 20:30Z: with cancel-in-progress false the group holder was branch run 37671482417 (claude/phone-go-token, QUEUED for a runner since 19:02Z) and the single pending slot went to each newer branch push (velotrade-recon 20:29Z -- branches that merely merge main also match the tools/phone-executor path filter). Manager cancelled both branch runs (their branches rebuild on their next push) and dispatched main at 20:31Z -> run 37682642241 is QUEUED (holds the group, cannot be evicted). Watcher prints the artifact. #16991 CI: pytest-run in progress. || [2026-10-07T20:25Z manager] #16991 CI still queued after 70 min (Actions queue 291 deep, 12 pytest-run in progress). Manager dispatched phone-executor-apk on main directly at 20:22Z (run 37681456666, SOL picker + screenshots already on main); it may still be evicted by a branch push before #16991 lands; watcher bydsslu5s prints the artifact link. || [2026-10-07T19:42Z manager] #16985 (SOL-PICKER's parallel fix) closed by the manager as superseded; lane asked (trig_014YkHnLUWXxhYcjd9BDUSfg) to carry its Playwright timeout-minutes: 10 into a follow-up PR after #16991 merges. Watcher bygp1737y reports the main APK artifact once #16991 lands. || [2026-10-07T19:30Z manager] PR #16991 (workflow-level group per ref+sha, job-level signing group keeps serialisation) ready, auto-merge armed, CI queued (queue depth 242). After merge: re-run phone-executor-apk.yml on main once #16962 lands too. || [2026-10-07T19:14Z] Re-run 37671256306 attempt 2 cancelled again at 19:10:57Z: the group phone-executor-apk-signing is CONSTANT across branches, so a lane's PR push touching tools/phone-executor (PHONE-GO-TOKEN run 37671482417 at ~19:09Z) evicts the pending main build. No main build can survive until the per-commit group lands. || [2026-10-07T19:12Z manager] MEASURED: main APK runs 37669454650 (18:46), 37669999484 (18:51), 37671256306 (19:00) all 'cancelled' with NO jobs started; cancel-in-progress is false but group phone-executor-apk-signing keeps only the latest PENDING run, and each phone-app merge to main (#16945, #16944, ...) cancelled the previous queued build; 216 runs queued repo-wide at 19:10Z. No cancel-queued-runs issue since 07:08Z. The operator has no artifact to install. Re-run of 37671256306 (attempt 2) pending meanwhile.",
+      "observation": {
+        "what": "two consecutive main pushes touching tools/phone-executor/ both produce a completed APK run (neither cancelled)",
+        "how_to_check": "gh api repos/benbaichmankass/Metis-Insights/actions/workflows/phone-executor-apk.yml/runs?branch=main&per_page=5 -> conclusions",
+        "due_by": "2026-10-10T00:00Z"
+      }
+    },
+    {
+      "id": "EXIT-LEVER-STRIP",
+      "title": "Strip two exit levers that measurably cannot fire live: stale_exit_* on trend_donchian_eth_prop (+0.18 R / 730d; prop paths have no close op) and trail_decay_* on xrp_pullback_2h (dead arm 4.49 > tp_r 3.0, byte-identical to none); records re-run so declared == executable",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane EXIT-LEVER-STRIP",
+      "lane": "session_01NFqSy4cyVpVmpzzyChikrK",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": 2.14,
+      "tier": 3,
+      "prs": [
+        17002
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T20:07Z manager] Lane done: PR #17002 body carries the three WITH/WITHOUT pairs (positive control stated), the window-vs-lever attribution and the KX6ZKFNA-0001/-0004 closure records; head 53afaf310, CI queued. Lane archived 20:06Z, spend $2.14 final. Manager merges on green (watcher). || [2026-10-07T20:04Z manager] Pinned A/B (lane, committed 365d window 2025-09-26..2026-09-26, builder harness + cost stack): WITH +13.6082 R/n169 (reproduces the committed record exactly = positive control) vs WITHOUT +12.8653 R/n165, delta +0.74 R; advanced window (2025-10-07..2026-10-06): WITH +7.5950/n168 vs WITHOUT +9.3243/n163, delta -1.73 R; 730d ablation +0.18 R. The 13.61 -> 9.32 record move is mostly the window (-6.0 R), the lever +1.7 R on it. DECISION (manager, Tier-3 under the standing data-backed authorization): accept the strip -- the lever's effect is sign-unstable across windows and inside the 2.0 R materiality bar, and the prop path cannot fire it, so the executable leg is the WITHOUT arm regardless; the strip makes the record describe the leg that trades. Lane finishing the PR body (trig 20:01Z); manager merges on green and notifies the operator. || [2026-10-07T19:46Z manager] PR #17002 open (tier-3 hold): removes stale_exit_bars/stale_exit_below_r on trend_donchian_eth_prop and trail_decay_arm_r/tight_mult on xrp_pullback_2h; 1214 tests pass; TP-doctrine baseline unchanged (52). HOLD EXTENDED by the manager: the lane's record re-run moved eth_prop 13.61 R (n=169) -> 9.32 R (n=163) on a window that also advanced ~9 days (not an isolated A/B); lane asked (trig 19:48Z) to re-run WITH/WITHOUT on the same pinned window and stop if the delta differs from +0.18 R by > 0.5 R. Merge only after that. || [2026-10-07T19:30Z manager] Evidence paths are now comms/research/RQ-20261007-020 and -021 (renumbered from 001/002). || [2026-10-07T19:13Z manager] DATA-BACKED TIER-3 under the operator's standing authorization (2026-09-27: decide, ship, verify, then notify). Evidence: EXIT-PARITY-RQ local runs after rule registration on 5fd0163ca (comms/research/RQ-20261007-001 and -002/local-5fd0163ca/verdict.json on PR #16970): (a) eth_prop stale exit dR +0.18 R over 730d, 2/4 folds; (b) xrp decay dead and every reachable arm worse. Risk removed, none added: both are tightening-only levers that do not fire. Revert = restore the lines. Mirrors move with the live legs (tests require equality). Operator notified in the status update.",
+      "observation": {
+        "what": "#17002 merged; the next trader restart runs with the four lines gone; tp-doctrine guard baseline still 52; KX6ZKFNA-0001/-0004 closed",
+        "how_to_check": "git show origin/main:config/strategies.yaml | grep -c -E 'stale_exit_bars|trail_decay_arm_r'  (expect fewer than before); python3 scripts/ops/pipeline.py --check",
+        "due_by": "2026-10-09T18:00Z"
+      }
+    },
+    {
+      "id": "PROP-FLOW-SEPARATION",
+      "title": "Prop ticket flow per executor type (operator 2026-10-07): expiry without a logged fill = not placed and the opportunity stays live; REST/phone prop accounts never enter the Telegram prompt/report states",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane PROP-FLOW-SEPARATION",
+      "lane": "session_01QhZ61suEMNrBnDGq8XWqDR",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        17007
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-07T23:27Z manager] #17007 green but conflicts with main; lane woken 23:29Z. || [2026-10-07T20:44Z manager] Lane: tradeify_1 = MACHINE flow ('browser'): diag shows ict-prop-executor@tradeify_1.timer active, every tick mode live through 2026-10-06 18:23Z. Classification now explicit and tested: prop_platforms.yaml accounts.<id>.ticket_flow (browser|manual) for browser-terminal accounts (tradeify_1 browser, breakout_1 manual); REST always rest, phone_accounts always phone; test fails on any breakout-type account without a declared flow. Head e2634ba81 (main merged), 2201 tests pass (one known main-red docstring test), guards 102/0. Merge on green under the operator's Tier-2 OK; deploy = trader + prop bot restart. SIDE FINDING -> row TRADEIFY-FEED-TRIP. || [2026-10-07T20:17Z manager] PR #17007 open (Tier-2 hold, main merged in after #16947). State table: rest = executor 'skipped expired unplaced' then trader CAS emitted->expired at valid_until+30min; phone = never-claimed -> expired at +30min, claimed blocks; manual = one 'recorded as NOT placed' notice + single 'I did place it' button, then expired. STALE_PROMPT_GRACE retired; no keyboard/expiry/invalidation prompts for rest/phone; all taps CAS. 477 tests, guards 102/0. Deploy = restart live trader + prop bot (operator Tier-2 OK covers the directive's implementation). OPEN POINT decided by the manager 20:17Z: the class boundary is 'does a machine executor place the tickets' -- tradeify_1 goes in the machine flow if its executor is live (lane verifying from the VM); 'manual' only for accounts with no executor (breakout_1, retiring). Filed by the lane: PI-20261007-QHZ61SUE-0001 (observation), -0002 (docstring test already red on main). || [2026-10-07T19:46Z manager] Lane's state-machine reading (ARCHITECTURE-CANONICAL \u00a7 'Prop ticket flow -- one state machine per executor type', branch claude/prop-flow-separation, carries #16947): executor type from prop_platforms.yaml (rest=velotrade_1, phone=breakout_2, manual=rest incl. tradeify_1); expiry with no fill = terminal 'expired' on every path and never blocks (STALE_PROMPT_GRACE retired; trader sweep CAS emitted->expired after valid_until+30min for rest/phone); rest/phone get no Telegram prompt states and propexp taps are refused; manual gets ONE notice with a single 'I did place it' button and late fills reconcile by explicit ticket_id paste in any status. Manager read it against the operator's words 19:46Z: consistent (the OPPORTUNITY stays alive via re-ticketing; the ticket row itself ends). Code PR follows; #16947 merges first. || [2026-10-07T19:16Z manager] OPERATOR, verbatim: \"In general, if a ticket expires and I haven't logged a trade, the system should assume that the trade wasnt placed and the ticket should be kept alive. And the prop accounts should have their own separate flow that isn't contaminated by the telegram channels activity.\" PI-20261007-APBY4NTV-0003 carries the design reading. Opus (live ticket state machine on both prop accounts), auto mode; PR held Tier-2; manager merges and notifies. Builds on #16947 / #16977 (VELOTRADE-TICKET) rather than replacing them.",
+      "observation": {
+        "what": "after deploy, the stuck prop-manual-4fa7266cfcf0 is swept to expired on the first tick; the next velotrade_1 or breakout_2 ticket that expires unplaced ends 'expired' with no Telegram prompt and does not block the following signal; manual accounts get one 'recorded as NOT placed' notice with a single 'I did place it' button",
+        "how_to_check": "GET /api/bot/prop/tickets?account_id=velotrade_1 and breakout_2 (statuses); pipeline PI-20261007-QHZ61SUE-0001",
+        "due_by": "2026-10-14T18:00Z"
+      }
+    },
+    {
+      "id": "RQ-CADENCE",
+      "title": "Make research-queue-dispatch run hourly in WALL-CLOCK terms: MEASURED 2026-10-07 only 4 schedule fires in 24 h (GitHub drops ~4 in 5 hourly slots for this repo; dashboard-edge-watch 4/24, schedule-keeper 7/48), the keeper covers it only at a 26 h stale window, and each run holds the `research-queue-dispatch` concurrency group up to 50 min waiting for a stamp PR to merge through a saturated CI queue (20 concurrent jobs, 15 of them pytest-run)",
+      "phase": "W6",
+      "state": "done",
+      "owner": "lane RQ-CADENCE",
+      "lane": "session_012KH4r5ZxKMvciL1dHH3Lcm",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 20,
+      "spend_usd": 3.04,
+      "tier": 1,
+      "prs": [
+        17004
+      ],
+      "blocked_on": [
+        16948
+      ],
+      "note": "[2026-10-08T00:32Z manager] OBSERVED: #17004 merged 21:15Z; dispatch cycles started 20:51, 21:54, 22:52, 23:57 (plus a deduped 22:01 schedule no-op) -- hourly in wall-clock terms; the dispatch job now takes ~1.5 min and frees the concurrency group in minutes; the CI wait moved into the lock-free land job (63 min on the 22:53 run) and no longer blocks the next slot. The three-consecutive-hours criterion is met (21:54/22:52/23:57). REMAINING RED (pre-existing, not this row's): every dispatch run still ends 'failure' at 'Fail the job if the collector lost a run's rows' (collect_runner_results.py) although fire/stamp/receipt land -> row RQ-COLLECTOR. Lane archived 00:32Z; spend $3.04 final. || [2026-10-07T19:48Z manager] Lane report: PR #17004 ready, squash auto-merge armed, CI queued. Change: research-queue-dispatch split into a minutes-long dispatch job (holds the concurrency group) + a land job without the group doing the 3 verified commit-to-main landings; schedule_keeper stale_hours 26->3 for it; hourly self-tests. Lane finding: the keeper dispatches on slot age, not stale_hours -- cadence was bounded by runs holding the group 60-130 min through merge waits. Spend ~$2 running. Archive after merge; observation 2026-10-08T00:00Z. || [2026-10-07T19:30Z manager] ONE QUESTION: how does the dispatcher fire about once an hour regardless of GitHub cron delivery and of the stamp-landing wait? Candidates for the lane to measure, not assume: (a) drop research-queue-dispatch's keeper stale window from 26 h to ~1.5 h so every push to main re-dispatches a missed slot (keeper already runs on push); (b) after #16948 (stamps replayed onto the main tip) the 50-min wait should vanish; verify on the first post-merge run; (c) decouple the liveness-receipt/stamp landing from the dispatch run so the concurrency group frees in minutes. Tier-1 (workflows + scripts/ops). DONE = three consecutive hours each with a completed dispatch run (schedule OR keeper OR push), measured off the Actions API, and the stale alarm window documented.",
+      "observation": {
+        "what": "three consecutive hours each with a completed research-queue-dispatch run after #17004 merges",
+        "how_to_check": "gh api 'repos/benbaichmankass/Metis-Insights/actions/workflows/research-queue-dispatch.yml/runs?per_page=30' --jq '.workflow_runs[]|\"\\(.created_at) \\(.status) \\(.conclusion) \\(.event)\"'",
+        "due_by": "2026-10-08T00:00Z"
+      }
+    },
+    {
+      "id": "BREAKOUT-TERMS-READ",
+      "title": "First-party read of Breakout Prop's terms on automated access / order placement / login verification, so PI-20261005-9HEP9LYP-0001 and -0003 close with a quote rather than 'unread' while breakout_2 trades live through the phone executor",
+      "phase": "W6",
+      "state": "done",
+      "owner": "lane BREAKOUT-TERMS-READ",
+      "lane": "session_01XeRHhQ913UrZ85p76iqzcj",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 8,
+      "spend_usd": 1.61,
+      "tier": 1,
+      "prs": [
+        17039
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T02:35Z manager] #17039 MERGED ~02:28Z (auto-merge). Terms read is on main; the device/IP decision stays a morning item for the operator. || [2026-10-08T00:34Z manager] DONE by the re-dispatched lane: PR #17039 (docs/integrations/breakout-terms-read-2026-10-08.md, auto-merge armed). SCOPE: only the FAQ Center (108 articles) was readable; Terms of Use, Evaluation Agreement, Program Rules and the portal sign-in returned HTTP 403 (Cloudflare challenge, not worked around) -- SILENT means silent in the FAQ. VERDICTS: (a) UI automation SILENT; (b) automated orders SILENT; (c) auto re-login via emailed number-match SILENT; (d) multiple accounts per device/IP PROHIBITED for evaluations ('Sharing account access, or trading multiple accounts from the same household, device, or IP address' -- any one of household/device/IP), absent from the funded-account list; (e) copy trading PROHIBITED across users, own-to-own SILENT, cross-account hedging prohibited. DECISION FOR THE OPERATOR (morning sync): breakout_1 (breached, retiring) and breakout_2 (live) are two evaluations under one household/IP -> accept the risk as on 2026-10-05, or paste the agreements for a full read, or ask Breakout support in writing whether one person may hold two accounts on one household network and whether software may complete the number-match. Pipeline items 9HEP9LYP-0001 (routed; clears on an observed auto re-login) and -0003 (killed 10-05) were correctly left alone. Lane archived 00:34Z; spend $1.61 final (plus $0.77 for the first, repo-less attempt). || [2026-10-08T00:27Z manager] FIRST DISPATCH had no repository attached: it read and graded the terms (its summary: UI automation, order automation and automated re-login are SILENT; multiple accounts on one device/IP and cross-account copy trading are PROHIBITED) but could write nothing; archived, spend $0.77. RE-DISPATCHED 00:27Z with source_url to re-fetch, quote verbatim and write the memo + close the two pipeline items. FLAG FOR THE MORNING SYNC: the multi-account-per-device/IP clause may bear on running breakout_2 on the phone while breakout_1 (retiring) ran from the VM browser executor -- the memo will say exactly what the clause forbids. || [2026-10-07T19:30Z manager] Research/read only: fetch the public terms + FAQ (breakoutprop.com), quote the clauses verbatim with URL + retrieval time into docs/integrations/breakout-terms-read-2026-10-07.md, grade each phone-executor behaviour (screen automation, auto re-login via a dedicated inbox, SOL picker) as permitted / prohibited / silent. No decision: the operator decides; the lane files the exact question if any clause is 'prohibited'. Pipeline items -0001/-0003 then close as answered.",
+      "observation": {
+        "what": "#17039 merged (auto-merge armed) and the operator has decided the device/IP question at the morning sync",
+        "how_to_check": "gh api repos/benbaichmankass/Metis-Insights/pulls/17039 --jq .merged; the decision recorded on this row",
+        "due_by": "2026-10-08T18:00Z"
+      }
+    },
+    {
+      "id": "DXTRADE-PROBE-ACCOUNT",
+      "title": "Make the DXtrade REST reachability probe account-selectable (velotrade_1 | tradeify_1) so the $0 Tradeify probe the operator approved can actually run through the system-actions allowlist (memo 7.2 of DXTRADE-REST-PILOT, PR #16990)",
+      "phase": "W6",
+      "state": "done",
+      "owner": "lane DXTRADE-PROBE-ACCOUNT",
+      "lane": "session_013hoQQE92KjrGuyMtyyAyB5",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 10,
+      "spend_usd": 1.73,
+      "tier": 1,
+      "prs": [
+        17038
+      ],
+      "blocked_on": [
+        16990
+      ],
+      "note": "[2026-10-08T02:35Z manager] #17038 MERGED 02:25Z (e401b907c) \u2014 by github-actions[bot], NOT the manager, despite the hold declaration, the deleted request file and GitHub auto-merge being disabled at 01:35Z. Content is Tier-1 and was on the merge list, so no harm; the relay behaviour is filed as PI-20261008-APBY4NTV-0003 (root-cause the land sweep). Next: Tier-2 issue `velotrade-api-probe / account_id: tradeify_1` for the $0 Tradeify reachability probe \u2014 dispatched in the morning with the other Tier-2 items, since a probe against the prop broker is 'anything needing [a decision] waits till morning'. || [2026-10-08T02:03Z manager] #17038 guards were RED for a pre-existing reason (pr-landing R5: declares Tier-1 self-land but touches scripts/prop/velotrade_api_probe.py, outside the guard's Tier-1 surface). Manager (lane archived) switched the declaration to landing: hold (hold_reason unvouchable_paths), removed the automerge request, disabled GitHub auto-merge (eb1f11a01); manager merges by hand on green. || [2026-10-08T00:31Z manager] Re-dispatched lane done in 8 min: PR #17038 armed (account_id choice reused on the issue body; resolver accepts platform dxtrade or dxtrade_api since tradeify_1 is still 'dxtrade'; env-absent is its own read_state). After merge the manager files: action: velotrade-api-probe / account_id: tradeify_1 / reason: DXTRADE-PROBE-ACCOUNT $0 reachability probe for Tradeify pilot (operator 2026-10-07). Lane archived 00:31Z; spend $1.73 final. || [2026-10-08T00:24Z manager] FIRST DISPATCH DEAD: the session was created without the repository attached (session_context had no sources; add_repo push access denied) and did no work ($0.13). Archived; RE-DISPATCHED 00:24Z with source_url set explicitly. Lesson for the manager skill: pass source_url on every create_session. || [2026-10-07T19:42Z manager] Operator decision 2026-10-07 (popup): DXtrade = '$0 reachability probe only'. Tier-1 code: scripts/prop/velotrade_api_probe.py gets a fixed-choice --account (host + env-var prefix resolved from config/accounts.yaml / the account's platform block, never free text), the action script + system-actions.yml input follow; refuses any account whose platform is not dxtrade_api; prints only reachability/login/instrument-shape booleans, never balances or ids. Self-land. Then the manager dispatches the probe issue for tradeify_1 (Tier-2 read-only) and reads the result into 7.3.",
+      "observation": {
+        "what": "#17038 merged; the manager files the Tier-2 issue (action: velotrade-api-probe / account_id: tradeify_1) and the run's summary JSON shows reachable/login_ok/account_model or read_state env_absent",
+        "how_to_check": "the system-actions run's 'summary:' line on the issue",
+        "due_by": "2026-10-09T18:00Z"
+      }
+    },
+    {
+      "id": "CROSS-SIGNAL-RESEARCH",
+      "title": "Cross-family strategy research (operator idea 2026-10-07): entry from one signal family (e.g. a market-structure signal) with the stop/exit driven by a DIFFERENT family (e.g. a momentum-conditioned stop instead of a price-distance stop) -- which crossings are testable in the current harnesses, and registered Stage-0 units for the feasible ones",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane CROSS-SIGNAL-RESEARCH",
+      "lane": "session_01FRPsG9ZsFVMoYE9ARzoHV6",
+      "model": "claude-fable-5-1",
+      "ceiling_usd": 25,
+      "spend_usd": 14.91,
+      "tier": 1,
+      "prs": [
+        17018
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-08T02:03Z manager] #17018 guards RED on soak-contract-guard (new since #16973): PI-20261007-9ARZOHV6-0001 lacked a definition of done. Manager added observation {results 040/041 landed + section-6 readout written, due 2026-10-21} (bab14ff0e). Merge on green (Tier-1). || [2026-10-07T20:54Z manager] Lane done: PR #17018 held (new hand-written units). Matrix 28 cells: 12 harness-ready / 9 need-a-lever / 7 infeasible (memo docs/research/cross-signal-exits-2026-10-07.md). Units: 040 confirm the TWICE-passed ada_pullback_2h x vol_trail vt_hot90_t2.5 cell (unshipped; PASS -> Tier-3 declare proposal for the bybit trio); 041 generalisation control on xrp_2h / eth_4h / xrp_4h; 042-044 blocked (ADX-conditioned trail, momentum-keyed time stop, pullback trend-flip exit: lever exists, no dispatch cell). KEY FINDING: every live stop is price-path; the harness-ready crossings are already swept fleet-wide (mostly honest negatives) and re-swept monthly; the operator's literal idea (a stop that reads momentum) has NO harness lever -> lever specs in memo \u00a7 4: momentum_trail (--trail-adx-below / --trail-adx-falling-bars / --trail-adx-tight-mult), momentum_stale, flip_exit. -> build row MOMENTUM-TRAIL-LEVER. Lane archived 20:55Z; spend $14.91 final (Fable). || [2026-10-07T20:24Z manager] OPERATOR (2026-10-07, paraphrased from voice): 'build a research unit around mixed strategies: a strategy based on one type of market structure with, say, a stop loss correlated to momentum instead of price movement; see if different ways of crossing how we look at the signals provide a sustainable edge.' Research lane on the Fable budget. Deliverables: (1) a feasibility matrix entry-family x exit-family over what the harnesses expose today (exit_lever_ablation / e3 joint lever sweep / m20 exit levers / e35 bracket geometry; ADX-gated and Chandelier trails already exist in fade_breakout_4h) marking each cell harness-ready / needs-a-lever / infeasible; (2) for harness-ready cells, registered Stage-0 units with rule BEFORE run, full cost stack, n floor, on live or prop-eligible legs first (new_strategy_prop weight 6); (3) for the one or two most promising needs-a-lever cells, the exact harness lever spec as a build row proposal (not built by this lane); (4) a short design memo. No config change; no strategy edits; ids allocated by the manager: RQ-20261007-040..059 (hand-written band once #16968 lands: use 9xx only if told).",
+      "observation": {
+        "what": "#17018 merged and research/results/RQ-20261007-040/*.jsonl lands with read_state measured (the twice-passed ada_pullback_2h x vol_trail cell confirmed or refuted)",
+        "how_to_check": "ls research/results/RQ-20261007-040/; pipeline PI-20261007-9ARZOHV6-0001",
+        "due_by": "2026-10-21T18:00Z"
+      }
+    },
+    {
+      "id": "TRADEIFY-FEED-TRIP",
+      "title": "tradeify_1 (live prop, $10k eval) has placed NOTHING since 2026-10-06 18:27:45Z: its executor feed is TRIPPED rc=4 (feasibility stop: challenge/CAPTCHA/2FA/login rejected/login timeout/no creds) and is never retried -- every tick since exits before the executor runs; status snapshot stale since 18:21Z; 4 tickets suppressed/expired today",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane TRADEIFY-FEED-TRIP",
+      "lane": "session_01SnkD6HKaDafuixx2yoQe7a",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-07T20:44Z manager] FOUND by lane PROP-FLOW-SEPARATION reading the diag relay (not by any alert: PROP-SILENCE-ALERTS reads tradeify_1 idle 'ok 2.6d' because the silence probe keys on fills, not on the trip). ONE QUESTION for the lane: what tripped the tradeify_1 feed at 2026-10-06 18:27:45Z (exact journal lines around rc=4), does the credential/terminal still log in (breakout-login-check for tradeify_1, read-only), and what clears it -- an allowlisted feed-enable / executor restart (Tier-2, held for the manager) or a human step at the broker (CAPTCHA/2FA/new password: say exactly what the operator must do, per the before-asking-the-operator skill). Also: why a feasibility stop never retries and never pages after N hours (a tripped live account should alarm) -> file the gap. Nothing is to be re-armed without the manager."
+    },
+    {
+      "id": "MOMENTUM-TRAIL-LEVER",
+      "title": "Build the harness levers the operator's cross-signal idea needs (CROSS-SIGNAL-RESEARCH memo \u00a7 4): momentum_trail (--trail-adx-below / --trail-adx-falling-bars / --trail-adx-tight-mult via src/research/trail_levers.effective_trail_mult + cells_for + workflow levers input) and momentum_stale (--momentum-stale-bars / --momentum-stale-adx-below), defaults = today's behaviour proven by golden, so units RQ-20261007-042/043 become dispatchable",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane MOMENTUM-TRAIL-LEVER",
+      "lane": "session_01XEz7xGy2Uzh45sQYWyPLfN",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 20,
+      "spend_usd": 6.97,
+      "tier": 1,
+      "prs": [
+        17042
+      ],
+      "blocked_on": [
+        17018
+      ],
+      "note": "[2026-10-08T02:35Z manager] #17042 is green on all three required checks (7dd213cb) but dirty against main (exit-lever-map.json, backtest_trend.py from #16994); waits for #17002 to land so one resolution covers both. || [2026-10-08T02:03Z manager] Unarchived once (01:01Z) to merge main into #17042 (head 7dd213cb); lane RETRACTED its 'test_set_leverage_preflight fails on main' claim (its sandbox lacked pybit/ccxt). Re-archived; FINAL spend $6.97. #17042 is DIRTY again after #16994 landed (docs/research/exit-lever-map.json, scripts/backtest_trend.py) and #17002 touches the same area, so its next main merge waits until #17002 lands (one resolution instead of two). || [2026-10-08T00:55Z manager] Lane archived; FINAL spend $6.04 (replaces the '~$5' running read). Manager re-ran the lane's claimed 'tests/test_set_leverage_preflight 4 fail on main' on main tip cbd50a930: 4 passed, not reproduced. #17042 held until main is green (midnight golden). || [2026-10-08T00:49Z manager] Lane done: PR #17042 HELD (landing machinery: src/research/trail_levers.py + m20 template are Tier-2-by-name; manager lands). Levers: momentum_trail (--trail-adx-below / --trail-adx-falling-bars / --trail-adx-tight-mult, AND semantics) + momentum_stale (--momentum-stale-bars / --momentum-stale-adx-below) on backtest_trend + pullback via shared effective_trail_mult; golden over 14 arms captured pre-change, byte-identical (also on pristine main). 042/043 dispatch edits in the PR body (manager lands that move like #17011). GAP: the stale-SWAP base arm for 043(b) is not emitted (lever-off arm pinned to shipped_* cells) -> needs a build row later. Lane archived; spend ~$5. || [2026-10-07T20:54Z manager] Operator idea 2026-10-07 (stop correlated to momentum instead of price). Harness tooling only (scripts/research, src/research, research/templates + the m20 exit-lever workflow's levers input); no strategy or config change; golden test proves every existing arm byte-identical with the new flags unset; then move 042/043 from blocked/ to the queue with dispatch written in (manager lands that part, like GEOM-B1's #17011). flip_exit is out of scope unless trivial.",
+      "observation": {
+        "what": "#17042 merged, then RQ-20261007-042/043 moved from blocked/ into the queue with the dispatch edits from the PR body and dispatched by the runner",
+        "how_to_check": "ls research/queue/RQ-20261007-042.yaml research/queue/RQ-20261007-043.yaml; ls research/results | grep -E 'RQ-20261007-04[23]'",
+        "due_by": "2026-10-12T18:00Z"
+      }
+    },
+    {
+      "id": "RQ-COLLECTOR",
+      "title": "research-queue-dispatch reads 'failure' on every cycle because collect_runner_results.py reports 'lost a run's rows' (pre-existing; seen on every run since at least 16:34Z 2026-10-07) -- find the lost-rows cause, make the collector honest (lost vs could-not-list vs nothing-to-collect), and stop a healthy cycle from paging red",
+      "phase": "W6",
+      "state": "queued",
+      "owner": "lane RQ-COLLECTOR",
+      "lane": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-08T00:32Z manager] Found by RQ-CADENCE while proving the hourly cadence (dispatch now ~1.5 min, land lock-free). ONE QUESTION: which runs' rows does the collector think it lost, why, and what is the correct verdict? Read scripts/ops/collect_runner_results.py + the 'Collect the runner's results since the last cycle' step logs of runs 37678623741 / the 22:52Z and 23:57Z cycles; distinguish lost (a harness run produced rows that never landed) from could-not-list (API) from nothing-to-collect; fix the verdict and, if rows really are lost, the landing path; a cycle whose fire/stamp/receipt landed must read success. Tier-1 (scripts/ops + workflow step), self-land. Dispatch after the midnight golden fix lands (every PR is red until then)."
     }
   ]
 }

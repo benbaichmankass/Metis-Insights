@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "due_date": "2026-10-08",
+    "kind": "date"
+  },
+  "id": "PI-20261006-TPQQDKFF-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane RQ-PROP-SEED (manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-06, PR #16713",
+    "rerun": "grep -n 'options:' -A12 .github/workflows/research-harness-dispatch.yml | grep -c 'trend\\|ict_scalp\\|vwap'  # 0 = gap still open"
+  },
+  "related": [
+    "PI-20261006-APBY4NTV-0001",
+    "PI-20261006-TPQQDKFF-0001"
+  ],
+  "state": "routed",
+  "what": "The automated research runner cannot run shorter-timeframe Stage-0 cells for the trend / ict_scalp / vwap harness families: research-harness-dispatch.yml's `harness` choice list is the ten E7 harnesses (chop_scalp, fade, fvg_range, orb, pullback, squeeze, funding_carry, pairs, xsec_momentum, vol_target); scripts/backtest_trend.py, scripts/backtest_ict_scalp.py and src/backtest/run_backtest_vwap.py have no workflow route and write no <out_dir>/verdict.json, so a research-script-run.yml command would land producer_failed. MEASURED 2026-10-06 while seeding PI-20261006-APBY4NTV-0001 slice 1 (PR #16713): 0 of the 29 new harness cells could target those three families, which are the families the current prop book (trend_donchian) and the only 15m prop evidence (ict_scalp_*_15m) come from. Same workflow also installs no dukascopy-python, so XAUUSD / FX cells cannot fetch on a GH runner (yfinance 15m caps at 60 d). BUILD (Tier-1 tooling): add trend/ict_scalp/vwap to the dispatch workflow's case list + harness_dispatch_result mapping (they already accept --symbol/--timeframe/--json), and pip install dukascopy-python in the fetch step. Unblocks the next slice of the operator's faster-prop search.",
+  "routed_to": "checklist row RQ-INFRA"
+}

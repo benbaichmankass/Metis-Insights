@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-06",
+    "kind": "date"
+  },
+  "id": "PI-20261005-APBY4NTV-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv lane check-in 2026-10-05T00:17Z",
+    "rerun": "list_sessions(mine=true): count non-archived lanes with status_bucket BLOCKED whose updated_at is more than 1h before now and for which the manager transcript shows no wake event"
+  },
+  "state": "done",
+  "what": "LANE WAKE CONTRACT FAILS ON BLOCK. The manager's 3-hourly backup check-in (trig_01YVnQGrgSG56ZYGibquLUUW) fired 2026-10-05 00:17Z and found 2 of 5 live lanes BLOCKED since ~21:2xZ with NO wake-up ever reaching the manager: MANDATE-S1-CUT session_012tsLa1ugTpjgNvCFMSLXPD (post_turn_summary 'safety block on mandate grant write; awaiting manager confirmation', 21:33Z) and RESEARCH-RUN session_01VrUrxiBdxqP5XwUQ9JjprQ ('awaiting operator budget confirm + merge gates', 21:24Z). A third lane, BACKLOG-BURNDOWN-2, sat idle 23:36Z-00:18Z after its PRs merged. Population: 5 non-archived lanes, read via list_sessions + post_turn_summary. The backup half worked as designed; the primary half (lane pings the manager on finish or block) did not when a lane ended a turn BLOCKED, e.g. after a classifier denial or while awaiting an answer. Fix shape: the manager SKILL's required dispatch block must say a lane fires its wake trigger on ANY turn end that needs the manager (blocked, needs-decision, done), not only on completion. Add a check-in rule: any lane whose status_bucket is BLOCKED gets answered at that check-in. Consider a 1h cadence while any lane is BLOCKED.",
+  "terminal_reason": "The 3-hourly check-in routine (trig_01YVnQGrgSG56ZYGibquLUUW) now reads status_bucket BLOCKED explicitly and messages the operator at once with the lane's session id and the refused action; first applied 2026-10-07 18:28Z to lane ARMED-GATE."
+}

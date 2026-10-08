@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261008-APBY4NTV-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv, overnight 2026-10-08 (PR #17038, lane DXTRADE-PROBE-ACCOUNT)",
+    "rerun": "gh api repos/benbaichmankass/Metis-Insights/issues/17038/timeline --jq '.[]|select(.event==\"merged\" or .event==\"auto_merge_disabled\")|\"\\(.event) \\(.actor.login) \\(.created_at)\"' ; git show eb1f11a01 --stat -- .github/ ; grep -n 'pulls.merge' .github/workflows/claude-pr-automerge.yml"
+  },
+  "state": "queued",
+  "what": "AUTOMERGE RELAY MERGED A PR WHOSE OWN DECLARATION SAID HOLD. #17038 (claude/dxtrade-probe-account): at 01:35Z the manager switched .github/pr-landing/dxtrade-probe-account.json to landing: hold (hold_reason unvouchable_paths, pr-landing R5), DELETED .github/pr-automerge-requests/dxtrade-probe-account.txt in the same commit (eb1f11a01) and disabled GitHub auto-merge (timeline: auto_merge_disabled 01:35:59Z). At 02:25:11Z github-actions[bot] merged it anyway (timeline: merged), with no auto_merge_enabled event in between and no claude-pr-automerge run on that branch after 01:35Z (runs 02:13-02:21Z were on other branches), so the merge came from the relay's land step (pulls.merge, claude-pr-automerge.yml ~line 646) sweeping a PR whose request file was absent at head and whose declaration read hold. Tier-1 content, no harm this time; the gate '2b. THE LANDING GATE - never arm a PR whose own declaration says hold' did not hold for the SWEEP path. Lane task (Tier-1 self-land): root-cause which run merged it (search run logs for 17038), make the land sweep re-read the head's declaration + request file before pulls.merge, add a self-test."
+}

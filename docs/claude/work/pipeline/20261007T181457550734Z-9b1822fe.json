@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "kind": "date",
+    "due_date": "2026-10-08"
+  },
+  "id": "PI-20261007-APBY4NTV-0001",
+  "next_action": "dispatch_lane",
+  "state": "routed",
+  "routed_to": "checklist row VELOTRADE-TICKET (lane session_01BbBqjBgks6BVLgjoHnSxdJ)",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv, post-reset survey 2026-10-07 18:10Z",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/tickets?account_id=velotrade_1' | python3 -c \"import json,sys;[print(t['ticket_id'],t['created_at'][:16],t['status'],t.get('message','')[:80]) for t in json.load(sys.stdin)['tickets'][:6]]\""
+  },
+  "what": "VELOTRADE_1 CANNOT TRADE: its first live signal (2026-10-07 01:59Z, ETH short, risk $50) was never placed by the REST executor and went expiry_prompted at 02:59Z; the manual bridge then suppressed the 02:01, 03:02, 10:08 and 11:01Z re-tickets as 'outstanding_ticket:expiry_prompted'. That state waits for a human report, which a REST-executed account never gets. Two facts to establish (executor journal: band_wait/blind/refused for 4fa7266cfcf0?) and one fix (terminal state for unplaced-expired tickets on REST accounts; unblock the stuck ticket in tier). DONE = the next ETH/SOL signal on velotrade_1 reaches status placed/filled, and an expired unplaced ticket no longer suppresses re-tickets on REST accounts (test)."
+}

@@ -1,0 +1,16 @@
+{
+  "id": "PI-20261008-APBY4NTV-0002",
+  "state": "routed",
+  "routed_to": "checklist row RQ-COLLECTOR",
+  "next_action": "dispatch_lane",
+  "due_when": {
+    "kind": "date",
+    "due_date": "2026-10-09"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "lane RQ-CADENCE session_012KH4r5ZxKMvciL1dHH3Lcm report 2026-10-08 00:30Z, filed by manager session_01MM8o5js6TcDFeNAPBY4Ntv",
+    "rerun": "gh api 'repos/benbaichmankass/Metis-Insights/actions/workflows/research-queue-dispatch.yml/runs?per_page=5' --jq '.workflow_runs[]|\"\\(.created_at) \\(.conclusion)\"'  # every cycle reading failure while stamps land = still open"
+  },
+  "what": "EVERY research-queue-dispatch cycle reads FAILURE although fire/stamp/receipt land: the dispatch job's last step 'Fail the job if the collector lost a run's rows' trips on collect_runner_results.py's verdict on every run (pre-existing before #17004; seen 16:34Z, 20:51, 21:54, 22:52, 23:57 on 2026-10-07/08). A healthy cycle paging red trains everyone to ignore the alarm (the same failure class as the hourly snapshot's 'API ERROR'). Routed to RQ-COLLECTOR: lost vs could-not-list vs nothing-to-collect, fixed verdict, landing path if rows are really lost."
+}
