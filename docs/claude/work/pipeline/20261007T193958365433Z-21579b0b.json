@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-14",
+    "kind": "date"
+  },
+  "id": "PI-20261007-BQESW7M2-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-SILENCE-ALERTS session_01Fhry4ikKEvC4LNBqESw7m2",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/prop/fills?account_id=velotrade_1&limit=50'  # count=0 for velotrade_1 and breakout_2 on 2026-10-07 => prop_idle_* reads unknown forever"
+  },
+  "state": "queued",
+  "what": "GAP in prop_idle alert: an account with NO traded fill on record (velotrade_1, breakout_2 today; both mode live) reads unknown and never alarms, although 'live but never traded' is exactly the inactivity breach. Give the idle clock an anchor for that case (go-live date from the set-account-mode record, or first emitted ticket) in scripts/ops/prop_silence.py::probe_prop_idle, keeping unknown for a read that could not be made. Also fixed in the follow-up PR: skipped/placed rows were counted as fills."
+}

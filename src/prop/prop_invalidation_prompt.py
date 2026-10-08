@@ -192,8 +192,23 @@ def find_tickets_to_check(
     except Exception as exc:  # noqa: BLE001 — never break the trader loop
         logger.warning("prop_invalidation_prompt: list_tickets failed: %s", exc)
         return []
+    # A machine-executed (REST, phone, browser) account's ticket is never warned about here:
+    # its executor checks the entry band itself, and flipping the ticket to
+    # `invalidated_prompted` would pull it out of that executor's intake
+    # (operator directive 2026-10-07: "the prop accounts should have their own
+    # separate flow that isn't contaminated by the telegram channels activity").
+    # An unreadable platform file reads every account as manual.
+    try:
+        from src.prop.platform import MACHINE_FLOWS, ticket_flows
+
+        machine = {a for a, f in ticket_flows().items() if f in MACHINE_FLOWS}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("prop_invalidation_prompt: platform read failed: %s", exc)
+        machine = set()
     out: List[Dict[str, Any]] = []
     for t in tickets:
+        if str(t.get("account_id") or "") in machine:
+            continue
         # Needs at least one bracket to be invalidatable.
         if not (t.get("sl") or t.get("tp")):
             continue

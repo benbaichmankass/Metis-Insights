@@ -95,13 +95,21 @@ def parse_ts(v: Any) -> datetime | None:
     return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
 
 
+#: Statuses that mean a position really traded. ``skipped`` (ticket expired
+#: unsubmitted), ``placed`` (resting, unfilled), ``refused``, ``dry_filled`` and
+#: ``mismatch_flattened`` are NOT activity. Measured 2026-10-07 on tradeify_1: a
+#: ``skipped`` row from 2026-10-05 would otherwise have reset the idle clock.
+TRADED_STATUSES = ("open", "closed", "filled")
+
+
 def last_fill_time(fills: list[dict]) -> datetime | None:
-    """Newest TRADE instant among the fills: max of opened_at / closed_at, and
+    """Newest TRADE instant among real fills: max of opened_at / closed_at, and
     created_at only for a row carrying neither (``reported_at`` is rewritten on
-    every re-report, so it is not a trade time)."""
+    every re-report, so it is not a trade time). Rows whose status is not in
+    ``TRADED_STATUSES`` are ignored."""
     best = None
     for f in fills:
-        if not isinstance(f, dict):
+        if not isinstance(f, dict) or str(f.get("status") or "closed") not in TRADED_STATUSES:
             continue
         ts = [parse_ts(f.get("opened_at")), parse_ts(f.get("closed_at"))]
         ts = [t for t in ts if t]
@@ -129,8 +137,8 @@ def probe_prop_idle(account: str, now: datetime, fetch: Fetch = api_get) -> dict
     fills = data.get("fills") or []
     last = last_fill_time(fills)
     if last is None:
-        return _probe(UNKNOWN, f"{account}: no fill on record ({len(fills)} rows read) — "
-                               f"idle clock has no anchor")
+        return _probe(UNKNOWN, f"{account}: no traded fill on record ({len(fills)} rows read, "
+                               f"none open/closed/filled) — idle clock has no anchor")
     days = max(0.0, (now - last).total_seconds() / 86400)
     msg = f"{account}: last fill {last.date()} — {days:.1f} d ago"
     if days >= IDLE_URGENT_DAYS:

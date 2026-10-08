@@ -47,6 +47,7 @@
 accounts:
   breakout_1:
     platform: dxtrade
+    ticket_flow: manual          # no live executor: a human places its tickets (§ "Prop ticket flow")
     # login_url: the dxtrade default, https://wss.breakoutprop.com/ (above).
     # Env-var NAMES (never values) holding the login. They reach the VM .env
     # via .github/workflows/sync-vm-secrets.yml as optional secrets.
@@ -136,6 +137,11 @@ accounts:
   # Error 1005. NOT measured: a login, the post-login DOM, symbol names, lots.
   tradeify_1:
     platform: dxtrade
+    # Ticket flow (docs/ARCHITECTURE-CANONICAL.md § "Prop ticket flow"): its browser
+    # executor places the tickets (MEASURED 2026-10-06: env_mode live on every
+    # ict-prop-executor@tradeify_1 tick until the 18:27Z feed trip), so it is a
+    # machine flow: no Telegram prompt states, expiry = terminal `expired`.
+    ticket_flow: browser
     login_url: https://dx.tradeify247.co/
     username_env: TRADEIFY_DX_USERNAME
     password_env: TRADEIFY_DX_PASSWORD
