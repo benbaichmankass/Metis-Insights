@@ -183,6 +183,29 @@ def grade(*, found: bool, parse_ok: bool, landing, autoland_ok=None) -> dict:
     }
 
 
+def grade_premerge(*, pr_open: bool, head_unchanged: bool, request_present: bool,
+                   found: bool, parse_ok: bool, landing) -> dict:
+    """Pure. The LAST gate, run immediately before `pulls.merge`.
+
+    #17038 (2026-10-08): the arm-time gate passed, then the declaration was
+    switched to `hold`, the request file deleted and auto-merge disabled — and
+    `github-actions[bot]` still merged at 02:25:11Z, because the poll-then-merge
+    fallback merged on the state it read at ARM time and never looked again.
+    Every input here is re-read from the PR's CURRENT head by the caller;
+    a read that failed is passed as the refusing value, never the passing one.
+    """
+    if not pr_open:
+        return {"merge": False, "why": "the PR is no longer open"}
+    if not head_unchanged:
+        return {"merge": False, "why": "the head moved since arming; a new push re-arms"}
+    if not request_present:
+        return {"merge": False, "why": "the arming request file is gone at the current head"}
+    verdict = grade(found=found, parse_ok=parse_ok, landing=landing)
+    if not verdict["arm"] or verdict["state"] not in (SELF, ABSENT):
+        return {"merge": False, "why": f"landing gate at merge time: {verdict['state']}"}
+    return {"merge": True, "why": f"re-read at the current head: {verdict['state']}, request present"}
+
+
 # ─────────────────────────── self-test ────────────────────────────────────────
 def _self_test(quiet: bool = False):
     fails = []
@@ -266,6 +289,19 @@ def _self_test(quiet: bool = False):
     check("all seven states are reachable, so none is decorative",
           reached == set(ALL_STATES))
 
+    _ok = dict(pr_open=True, head_unchanged=True, request_present=True,
+               found=True, parse_ok=True, landing="self")
+    check("premerge: self + request + open + same head merges",
+          grade_premerge(**_ok)["merge"] is True)
+    check("premerge: the #17038 shape (hold now) refuses",
+          grade_premerge(**{**_ok, "landing": "hold"})["merge"] is False)
+    check("premerge: request file deleted refuses",
+          grade_premerge(**{**_ok, "request_present": False})["merge"] is False)
+    check("premerge: closed PR / moved head / unreadable declaration refuse",
+          not grade_premerge(**{**_ok, "pr_open": False})["merge"]
+          and not grade_premerge(**{**_ok, "head_unchanged": False})["merge"]
+          and not grade_premerge(**{**_ok, "parse_ok": False})["merge"])
+
     if not quiet:
         print(f"\nautomerge-landing-gate self-test: "
               f"{'PASS' if not fails else 'FAIL'} ({len(fails)} failure(s))")
@@ -279,11 +315,25 @@ def main(argv=None) -> int:
     ap.add_argument("--input", help="JSON file: {found, parse_ok, landing}. "
                                     "Default: read stdin.")
     ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--premerge", action="store_true",
+                    help="grade the last-moment pre-merge re-read instead of the arm-time gate")
     args = ap.parse_args(argv)
 
     if args.self_test:
         ok, _ = _self_test()
         return 0 if ok else 1
+
+    if args.premerge:
+        try:
+            p = json.loads(open(args.input, encoding="utf-8").read() if args.input else sys.stdin.read())
+            v = grade_premerge(
+                pr_open=p.get("pr_open") is True, head_unchanged=p.get("head_unchanged") is True,
+                request_present=p.get("request_present") is True, found=bool(p.get("found")),
+                parse_ok=bool(p.get("parse_ok")), landing=p.get("landing"))
+        except Exception as exc:
+            v = {"merge": False, "why": f"premerge input unreadable ({exc})"}
+        print(json.dumps(v, indent=2))
+        return 0 if v["merge"] else 3
 
     raw = open(args.input, encoding="utf-8").read() if args.input else sys.stdin.read()
     try:
