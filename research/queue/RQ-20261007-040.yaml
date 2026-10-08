@@ -3,7 +3,7 @@ title: >-
   Cross-signal exit, CONFIRMATION: does the volatility-conditioned trail (vt_hot90_t2.5)
   that cleared the m20 gate on ada_pullback_2h on 2026-09-29 clear it again on a fresh
   window, config-exact at live parity? (CROSS-SIGNAL-RESEARCH, operator idea 2026-10-07)
-status: queued
+status: done
 cadence: once
 theme: live_strategy
 priority: 1
@@ -117,8 +117,6 @@ lands:
   store: research/results/
   assert_field: read_state
   min_rows: 1
-grading:
-  auto: true
 related:
 - RQ-20260928-019
 - research/results/RQ-20260928-019/36505251734.jsonl
@@ -127,3 +125,13 @@ related:
 - docs/research/cross-signal-exits-2026-10-07.md
 - RQ-20261007-041
 last_dispatched_at: '2026-10-08T04:59:40+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-RQ1007-040-ADA-VOLTRAIL-CONFIRM
+  evidence:
+  - research/results/RQ-20261007-040/37729696957.jsonl
+  graded_at: '2026-10-08'
+  grader: scripts/research/queue_grade.py
+  reason: 1 row(s), all measured, all pass
+  rows: 1
+  verdict: pass
