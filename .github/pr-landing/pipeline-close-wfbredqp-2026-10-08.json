@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records only. Closes PI-20261005-WFBREDQP-0002 with the log_aggregate result (observed live after #16974 deployed) and files PI-20261008-BFOAI4ZM-0002 for the bybit_1 mixed-global_mode finding. Two new record files under docs/claude/work/pipeline/; no code, config or runtime change."
+}
