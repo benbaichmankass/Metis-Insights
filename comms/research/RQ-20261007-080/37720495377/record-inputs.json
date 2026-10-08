@@ -1,0 +1,17 @@
+{
+  "artifact_locator": "comms/research/RQ-20261007-080/37720495377/ (run-manifest.json + verdict.json + logs/)",
+  "artifact_store": "comms/research/RQ-20261007-080/37720495377",
+  "decision_rule_id": "RULE-RQ1007-080-MEASURED-MOVE-TP-REVISION",
+  "decision_rule_registered_at": "2026-10-07",
+  "measurement_file": "",
+  "min_rows": "1",
+  "n": "null",
+  "note": "producer_failed: cmd 0 exit=1 log=comms/research/RQ-20261007-080/37720495377/logs/cmd-0.log. Outputs (if any) are under comms/research/RQ-20261007-080/37720495377/ on main.",
+  "population": "RQ-20261007-080: the declared command did not complete \u2014 NEVER MEASURED",
+  "power_state": "cleared",
+  "read_state": "producer_failed",
+  "records_file": "",
+  "research_unit": "RQ-20261007-080",
+  "tool": "python3 scripts/research/tp_revision_sweep.py",
+  "verdict": "not_applicable"
+}

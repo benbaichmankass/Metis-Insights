@@ -1,0 +1,34 @@
+{
+  "unit": "RQ-20261007-080",
+  "run_id": "37720495377",
+  "commit_sha": "089305d7fb9f6078252cb4912d2ec6dc869eaa24",
+  "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/37720495377",
+  "timeout_minutes": 120,
+  "commands": [
+    {
+      "index": 0,
+      "argv": [
+        "python3",
+        "scripts/research/tp_revision_sweep.py",
+        "--data-dir",
+        "data/rq-20261007-080",
+        "--fetch",
+        "1830",
+        "--leg",
+        "trend_donchian_eth_4h",
+        "--leg",
+        "trend_donchian_xrp_4h",
+        "--leg",
+        "trend_donchian_eth_prop",
+        "--leg",
+        "trend_donchian_sol_prop",
+        "--out",
+        "comms/research/RQ-20261007-080/37720495377"
+      ],
+      "log": "comms/research/RQ-20261007-080/37720495377/logs/cmd-0.log",
+      "exit_code": 1,
+      "seconds": 0.9
+    }
+  ],
+  "all_ok": false
+}
