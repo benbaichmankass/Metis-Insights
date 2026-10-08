@@ -304,6 +304,7 @@ uniqueness-weighted**. That is stricter than the plain harnesses in §1.
 | Scan the universe for pairs | `scripts/research/pairs_universe_scan.py` |
 | $-and-lots realism | `scripts/research/pairs_dollar_lots.py` |
 | Perp-funding drag | `scripts/research/pair_funding_drag.py` |
+| **Stage-0 of ONE configured pair at its `config/pairs.yaml` params, net of fee+slippage+per-leg funding, graded by a pre-registered rule and landing a sim-compatible per-pair-trade ledger** (PASS iff net_total_r > 0 and n >= 39; `--fetch` pulls both legs through `scripts/ops/fetch_backtest_corpus.py`; the `research-script-run.yml` command behind RQ-20261007-005..008) | `scripts/research/pairs_configured_stage0.py` -> `comms/research/<unit>/<run_id>/{result.json,trades.jsonl,verdict.json}` |
 | Maker-fee economics | `scripts/research/maker_economics.py` |
 
 ## 8. Macro / value / events
