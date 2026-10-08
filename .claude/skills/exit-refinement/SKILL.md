@@ -216,13 +216,45 @@ Canonical text: [`docs/ARCHITECTURE-CANONICAL.md`](../../../docs/ARCHITECTURE-CA
   `docs/research/ml2-predictive-bracket-2026-09-06.md`, whose verdict was that
   a per-leg MFE quantile is the answer and a conditional model is not), and a
   TP-revision lever (extend when price nears the target while the thesis holds,
-  § E3.6 point 4). *Extend the target* has no harness lever and no monitor
-  producer today — building both is a prerequisite, not a sweep result.
+  § E3.6 point 4). **The harness lever exists (GEOM-B1-HARNESS, 2026-10-07)**;
+  the monitor producer does not (BUILD B1, lane TP-DOCTRINE) — so a passing cell
+  is evidence, not yet a declarable lever.
+- **Measuring a target that moves.** `tp_extend` / `tp_retarget` are lever
+  columns in the coverage matrix and cells in `m20_fleet_exit_sweep` — OPT-IN,
+  present only when `levers` names them (`levers: tp_extend` / `tp_retarget` on
+  `m20-exit-lever-sweep.yml`; `cells: tp_revision` on `ict-scalp-exit-sweep.yml`).
+  The harness flags are `--tp-target-r`, `--tp-extend-r`, `--tp-approach-frac`,
+  `--tp-max-extends`, `--tp-thesis {native,always,unknown}`,
+  `--tp-retarget-mode {atr_rescale,stall_pull_in}` and `--tp-report`
+  (`scripts/research/tp_geometry.py`; the decision is
+  `target_expectation.evaluate_extension`, imported). Read each cell's
+  `tp_cal_cell_*` beside `tp_cal_base_*` in the corpus row BEFORE its P&L
+  deltas — a cell that clears the gate while worsening calibration is "P&L
+  without prediction" and does not pass. `--tp-thesis unknown` is the negative
+  control and must equal the no-extension run. Revisions bind on the next bar
+  and never rescue a trade that already filled at the old target.
 - **A `tp` verdict is graded calibration-first** (§ E3.6's falsifier): does the
   stated expectation match where trades actually exit, before P&L.
 - Flipping a leg's target or shipping a producer stays Tier-3; the ratchet
   baseline in the guard may only shrink, and adding a line for a real-money or
   prop routing is the operator's act.
+
+**Active geometry (operator, 2026-10-06, PI-20261006-APBY4NTV-0003).** The
+milestone is not "exit refinement" and not "brackets": BOTH legs of the bracket
+are managed state through the trade's life, for every account class (live,
+paper, mirror, prop), conditioned on regime, volatility, time-in-trade and the
+strategy's own thesis. MEASURED 2026-10-07 on the live journal (closed trades
+since 2026-09-01): the SL was amended on 131 of 752, the TP on 0 of 748 — the
+fleet manages one leg. Consequences for this pipeline: (1) P1's evidence read
+reports the TP-amend count beside the SL-amend count per leg (the rerun is in
+`research/queue/PLANNING.md` § 5); (2) P2's lever families gain a REVISION
+family — extend-on-thesis and retarget (ATR-rescale, stall pull-in) — which has
+no harness lever today; the pre-registered questions are
+`research/queue/blocked/RQ-20261007-001..004` and the build that unblocks them is
+checklist row GEOM-B1-HARNESS; (3) every NEW strategy answers the geometry
+question at wiring time — where the move is expected to run out, what revises
+that prediction, and what thesis condition extends it — or its coverage row is
+`pending`, whatever its lever columns read.
 
 ## Hard rules
 

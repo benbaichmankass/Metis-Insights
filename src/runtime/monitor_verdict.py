@@ -86,6 +86,10 @@ class VerdictDecision:
     next_tp: Optional[float] = None
     sl: Optional[float] = None
     tp: Optional[float] = None
+    #: The prediction behind a ``tp`` move (TP doctrine; the verdict's
+    #: ``tp_reason`` key, see ``src/runtime/tp_revision.py``). Carried only
+    #: when ``tp`` survives the meaningful-change filter.
+    tp_reason: Optional[str] = None
     #: Set exactly when ``kind == KIND_NONE`` — never a bare "no".
     rejection: Optional[str] = None
 
@@ -169,7 +173,8 @@ def interpret_verdict(verdict: Any, *,
             close_qty_pct=1.0 if close_qty_pct is not None else None,
         )
 
-    # Modification — sl / tp, INDEPENDENTLY (never elif). Other keys ignored.
+    # Modification — sl / tp, INDEPENDENTLY (never elif). Other keys ignored,
+    # except ``tp_reason``, which annotates a surviving ``tp`` (never acts).
     updates: Dict[str, float] = {}
     for key in ("sl", "tp"):
         if key in verdict:
@@ -191,5 +196,7 @@ def interpret_verdict(verdict: Any, *,
     if not updates:
         return _none("no_meaningful_change")
 
+    tp_reason = verdict.get("tp_reason") if "tp" in updates else None
     return VerdictDecision(kind=KIND_MODIFY, sl=updates.get("sl"),
-                           tp=updates.get("tp"))
+                           tp=updates.get("tp"),
+                           tp_reason=str(tp_reason) if tp_reason else None)

@@ -58,6 +58,7 @@ from src.research.trail_levers import (  # noqa: E402  (the ONE trail-lever rule
 # collide with the top-level `research/` (queue) directory on the path.
 sys.path.insert(0, str(_REPO_ROOT / "scripts" / "research"))  # noqa: E402
 from regime_weight import soft_regime_weight, soft_weight_armed  # noqa: E402
+import tp_geometry as _tpg  # noqa: E402  (GEOM-B1: a take-profit that moves; every lever off by default)
 # The ONE definition of (r_to_stop, r_to_target, rr_from_here) — imported from
 # the LIVE telemetry module that computes it on the trader, so the `rr_floor`
 # lever below measures the same quantity production records rather than a second
@@ -115,6 +116,12 @@ class Trade:
     # these two fields are reporting/diagnostic, not a second source of truth.
     adx_at_entry: Optional[float] = None
     regime_weight: float = 1.0
+    # GEOM-B1 TP geometry (scripts/research/tp_geometry.py). All None unless a
+    # --tp-* lever is armed, so a default run's Trade rows are unchanged.
+    final_target_r: Optional[float] = None
+    n_extends: Optional[int] = None
+    n_retargets: Optional[int] = None
+    tp_exit_r: Optional[float] = None
 
 
 def _load_candles(path: str) -> pd.DataFrame:
@@ -289,6 +296,7 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  trail_vol_below_pctl: float = 0.0,
                  trail_vol_tight_mult: float = 0.0,
                  be_floor_r: float = 0.0,
+                 tp_geometry: Optional[_tpg.TPGeometrySpec] = None,
                  trades_out: Optional[List["Trade"]] = None,
                  vol_pctl_override: Optional[Sequence[float]] = None,
                  entry_override: Optional[Dict[int, Dict[str, Any]]] = None,
@@ -345,6 +353,10 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
     byte-identical to a levers-unset run.
     """
     df = df.reset_index(drop=True)
+    tp_geom = tp_geometry or _tpg.TPGeometrySpec()
+    _refused = _tpg.refusal(tp_geom, has_target=tp_cap_pct > 0.0)
+    if _refused:
+        raise ValueError(_refused)
     df["atr"] = _atr(df, atr_period)
     # Channel from the PRIOR N bars only (shift(1)) — no lookahead. Same
     # construction as the live strategy and the fade mirror.
@@ -665,6 +677,17 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                 tp_price = max(_anc * (1.0 - tp_cap_pct), _anc - tp_r * risk)
         # Distance of the live TP in R — the measurement that says whether the
         # clamp binds on THIS leg's own frame instead of an assumed ATR%.
+        # GEOM-B1: a finite entry-time target and/or a target that moves
+        # (scripts/research/tp_geometry.py). Skipped entirely at default, so the
+        # legacy `tp_price` above is untouched.
+        _tpt = None
+        if tp_geom.armed:
+            tp_price = _tpg.entry_target(
+                tp_geom, anchor=_anc, risk=risk, is_long=(direction == "long"),
+                tp_cap_pct=tp_cap_pct, legacy_tp=tp_price)
+            _tpt = _tpg.TPTracker(
+                tp_geom, anchor=_anc, sl=sl, risk=risk, is_long=(direction == "long"),
+                tp_cap_pct=tp_cap_pct, target=tp_price, atr0=atr)
         if tp_price is not None:
             _tp_r_effective.append(abs(tp_price - entry) / risk)
         ext = entry
@@ -760,6 +783,28 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                 # tightening direction here, mirroring the ratchet above.
                 if be_floor_r > 0.0 and mfe >= be_floor_r:
                     trail = min(trail, entry)
+            # GEOM-B1 target revision (off unless --tp-extend-r / --tp-retarget-mode).
+            # On the bar's CLOSE, after its own stop/target test; the revised level
+            # binds from the NEXT bar. NOT a levered exit: it only moves tp_price.
+            # Native thesis = the Donchian continuation test, as REGISTERED in
+            # RQ-20261007-001/-002: "the channel extreme has moved further in the
+            # trade direction since the approach bar". At the approach bar itself
+            # nothing has moved yet, so the first approach can never extend --
+            # a conservative, literal reading, not an oversight.
+            if _tpt is not None and tp_geom.revises:
+                def _donchian_thesis(_ab, _j=j, _long=(direction == "long")):
+                    if _ab is None:
+                        return None
+                    _now = df["dc_hi" if _long else "dc_lo"].iloc[_j]
+                    _then = df["dc_hi" if _long else "dc_lo"].iloc[_ab]
+                    if pd.isna(_now) or pd.isna(_then):
+                        return None
+                    return (float(_now) > float(_then)) if _long else (float(_now) < float(_then))
+                _tpt.on_bar_close(close=float(df["close"].iloc[j]), ext=ext,
+                                  bars_since_peak=j - peak_j,
+                                  atr_now=float(df["atr"].iloc[j]),
+                                  thesis_fn=_donchian_thesis, bar_index=j)
+                tp_price = _tpt.target
             # M20 giveback-stop lever (0 = off, byte-identical): once the trade has
             # SEEN >= giveback_min_mfe_r R of open profit, exit at CLOSE when it has
             # handed back >= giveback_r R from that peak. An R-based profit lock,
@@ -837,6 +882,7 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
             exit_price = float(df["close"].iloc[exit_idx])
         r = ((exit_price - entry) / risk if direction == "long"
              else (entry - exit_price) / risk)
+        _tp_exit_r = r      # raw price R, before bank / regime weighting (calibration)
         # M20 bank lever: a filled rung realises `bank_frac` of the position at
         # +bank_at_r; the remainder realises the exit R. No-op when bank_frac is 0.
         if banked:
@@ -863,7 +909,10 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
             exit_time=df["timestamp"].iloc[exit_idx], exit_price=exit_price,
             outcome=exit_reason, r_multiple=round(r, 4), mfe_r=round(mfe, 3),
             confidence=confidence, adx_at_entry=adx_at_entry,
-            regime_weight=round(regime_weight, 4)))
+            regime_weight=round(regime_weight, 4),
+            **({} if _tpt is None else dict(
+                final_target_r=_tpt.final_target_r, n_extends=_tpt.n_extends,
+                n_retargets=_tpt.n_retargets, tp_exit_r=round(_tp_exit_r, 4)))))
         next_idx = exit_idx + 1 + cooldown_bars
         i = next_idx
     if trades_out is not None:
@@ -933,7 +982,8 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                     "cost_funding_r": round(cb["funding_r"], 5),
                     "funding_windows": round(cb["funding_windows"], 3),
                     "confidence": t.confidence, "adx_at_entry": t.adx_at_entry,
-                    "regime_weight": t.regime_weight}, default=str) + "\n")
+                    "regime_weight": t.regime_weight,
+                    **(_tpg_row(t) if tp_geom.armed else {})}, default=str) + "\n")
     params: Dict[str, Any] = {"donchian": donchian, "atr_stop_mult": atr_stop_mult,
                               "trail_mult": trail_mult, "min_confidence": min_confidence}
     if adx_min is not None:
@@ -967,6 +1017,7 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         params["rr_floor"] = rr_floor
     if be_floor_r > 0.0:
         params["be_floor_r"] = be_floor_r
+    params.update(tp_geom.params())
     if confirm_bars:
         params["confirm_bars"] = confirm_bars
     if skip_hour_set:
@@ -984,10 +1035,20 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         params["trail_vol_below_pctl"] = trail_vol_below_pctl
         params["trail_vol_tight_mult"] = trail_vol_tight_mult
         params["vol_pctl_window"] = vol_pctl_window
-    return _summarize(trades, df, timeframe=timeframe, symbol=symbol, params=params,
-                      tp_r_effective=_tp_r_effective,
-                      rr_min_per_trade=_rr_min_per_trade,
-                      rr_floor_state=rr_floor_state)
+    _summary = _summarize(trades, df, timeframe=timeframe, symbol=symbol, params=params,
+                          tp_r_effective=_tp_r_effective,
+                          rr_min_per_trade=_rr_min_per_trade,
+                          rr_floor_state=rr_floor_state)
+    if tp_geom.armed:
+        _summary["tp_geometry"] = _tpg.summarize_geometry([
+            {**_tpg_row(t), "outcome": t.outcome} for t in trades])
+    return _summary
+
+
+def _tpg_row(t: "Trade") -> Dict[str, Any]:
+    """The TP-geometry fields of one trade (only emitted when a lever is armed)."""
+    return {"final_target_r": t.final_target_r, "n_extends": t.n_extends,
+            "n_retargets": t.n_retargets, "exit_r": t.tp_exit_r}
 
 
 def _fee_only_r(t: Trade) -> float:
@@ -1317,6 +1378,7 @@ def main(argv: List[str]) -> int:
                    help="The leg's declared tp_r sentinel (default 50R). Only "
                         "consulted when --tp-cap-pct > 0; the cap is what "
                         "normally binds.")
+    _tpg.add_cli_flags(p)
     p.add_argument("--giveback-min-mfe-r", type=float, default=0.0,
                    help="M20 giveback-stop: arm once peak open profit reaches "
                         "this many R (0=off, byte-identical).")
@@ -1437,6 +1499,15 @@ def main(argv: List[str]) -> int:
               "lever cannot fire and the run would report a zero delta that is "
               "NOT a measurement of it.", file=sys.stderr)
         return 2
+    try:
+        args.tp_geometry = _tpg.spec_from_args(args)
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+    _tpg_refusal = _tpg.refusal(args.tp_geometry, has_target=args.tp_cap_pct > 0.0)
+    if _tpg_refusal:
+        print(f"ERROR: {_tpg_refusal}", file=sys.stderr)
+        return 2
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
     # Mandatory venue-aware cost policy: unset flags resolve to the venue-aware
     # defaults (funding is perp-only → 0 for non-perps); an explicit value
@@ -1487,7 +1558,8 @@ def main(argv: List[str]) -> int:
                      vol_pctl_window=args.vol_pctl_window,
                      trail_vol_above_pctl=args.trail_vol_above_pctl,
                      trail_vol_below_pctl=args.trail_vol_below_pctl,
-                     trail_vol_tight_mult=args.trail_vol_tight_mult)
+                     trail_vol_tight_mult=args.trail_vol_tight_mult,
+                     tp_geometry=args.tp_geometry)
     decision_kw: Dict[str, Any] = {}
     if args.decision_bar == "forming":
         if not args.klines_1m_dir:
