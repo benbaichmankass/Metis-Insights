@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane PROP-CANCEL-FIX dispatch from Manager Session 2026-10-08 (session_01Uq7MrjPQDRWqbhCjwuMava): 'Open the PR, mark it ready, then STOP and wake the manager to merge.' Tier-2 order-path change approved by the operator directive relayed in that dispatch (~16:22Z: 'the system needs to be a fully autonomous pipeline').",
+  "why": "Order-path fix on the prop executor's cancel control: ROW_ACTION_JS gains an anchored icon-reference match (measured on tradeify_1, run 37810774267) while keeping exactly-one-row / exactly-one-control, and an exhausted expiry cancel keeps retrying the guarded cancel each cycle so the stale resting ETHUSD limit (prop-manual-e6badec7ae10) is cancelled by the executor itself after merge. No strategy, sizing or risk change."
+}

@@ -1,0 +1,18 @@
+{
+  "id": "PROP-CANCEL-FIX",
+  "title": "Executor cancel of a resting order on tradeify_1 (text-less icon cancel control)",
+  "phase": "P",
+  "state": "in_flight",
+  "owner": "lane PROP-CANCEL-FIX",
+  "lane": "session_0111iCRx78JcxgbmQzf5WJKf",
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Manager Session 2026-10-08 (session_01Uq7MrjPQDRWqbhCjwuMava) dispatch; operator ~16:22Z 'the system needs to be a fully autonomous pipeline'. Ticket prop-manual-e6badec7ae10 (LIMIT sell ETHUSD 0.82 @ 2471.31, valid_until 16:26:53Z) rested past expiry: the expiry cancel failed 'rows=1, controls=0'. MEASURED (system-action run 37810774267, issue #17157, 16:42Z): the orders row's cancel is a text-less <button class='button button-icon grid-orders_control'> drawing <use xlink:href='#icon-close-order'>, beside a modify button drawing '#icon-replace-context'. FIX: ROW_ACTION_JS also matches an ANCHORED icon reference (^#?icon-(close|cancel)-order$) inside a pressable only, still exactly 1 row by Order ID and exactly 1 control; the row is hovered and re-read first. Executor: an exhausted expiry cancel keeps trying the guarded cancel quietly every cycle (alerts stay hourly), so a fixed matcher cancels it without a human. CLOSES WHEN: the journal of ict-prop-executor@tradeify_1 shows a cancel_expired_resting result clicked=true for the stale order, then orders 0 and the ticket reported skipped/expired.",
+  "updated_at": "2026-10-08T16:59:54Z",
+  "updated_by": "session_0111iCRx78JcxgbmQzf5WJKf",
+  "_seq": 360
+}

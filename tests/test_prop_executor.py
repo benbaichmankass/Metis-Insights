@@ -3295,10 +3295,9 @@ def test_a_failed_cancel_is_not_recorded_as_requested_and_retries_then_gives_up_
         alerts.append(res.alerts)
         row = ledger.latest()["prop-manual-aaa"]
         assert not row.get("cancel_requested")
-        if k < pe.CANCEL_EXPIRED_MAX_ATTEMPTS:
-            assert [c[0] for c in ad.calls] == ["cancel_order"]
-        else:
-            assert ad.calls == []  # exhausted: no more clicks
+        # exhausted: the guarded cancel is still TRIED every cycle (PROP-CANCEL-FIX),
+        # quietly -- a refused row action clicks nothing
+        assert [c[0] for c in ad.calls] == ["cancel_order"]
     assert all(any("retrying" in a for a in al) for al in alerts[:pe.CANCEL_EXPIRED_MAX_ATTEMPTS - 1])
     assert any("STILL RESTING" in a for a in alerts[pe.CANCEL_EXPIRED_MAX_ATTEMPTS - 1])
     assert not any(a for a in alerts[pe.CANCEL_EXPIRED_MAX_ATTEMPTS:])  # one alert at exhaustion
@@ -3379,7 +3378,7 @@ def test_a_clicked_cancel_whose_order_is_still_there_is_a_failed_attempt_and_ret
     n_ex, al_ex = alerts[pe.CANCEL_EXPIRED_MAX_ATTEMPTS - 1]
     assert n_ex == 0 and any("STILL RESTING" in a for a in al_ex)
     assert ledger.latest()["prop-manual-aaa"]["cancel_exhausted"] is True
-    assert alerts[-1] == (0, [])  # 5 min later: no click, and no re-alert yet
+    assert alerts[-1] == (1, [])  # 5 min later: the guarded cancel retried quietly, no re-alert yet
     assert not any(p.get("status") == "skipped" for p in api.posts)
 
 
@@ -3387,12 +3386,45 @@ def test_an_exhausted_cancel_re_alerts_hourly_while_the_order_rests(env):
     ledger, state = env
     ledger.record("t1", "placed", spec=SPEC, valid_until=(NOW - timedelta(hours=2)).isoformat(),
                   cancel_attempts=3, cancel_exhausted=True, exhausted_alert_at=(NOW - timedelta(minutes=30)).isoformat())
-    ad, api = FakeAdapter(orders=[_o()]), FakeApi([])
+    ad, api = _FailingCancel(orders=[_o()]), FakeApi([])
     r1 = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state, now=NOW)
     assert not any("STILL RESTING" in a for a in r1.alerts)
     r2 = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
                       now=NOW + timedelta(minutes=31))
     assert any("STILL RESTING" in a for a in r2.alerts)
+    assert [c[0] for c in ad.calls] == ["cancel_order", "cancel_order"]  # tried quietly each cycle
+    assert ledger.latest()["t1"]["cancel_exhausted"] is True
+
+
+def test_an_exhausted_cancel_is_retried_and_a_fixed_matcher_cancels_without_a_human(env):
+    # PROP-CANCEL-FIX 2026-10-08: tradeify_1's first live expiry cancel spent
+    # its 3 attempts on a matcher blind to the row's icon control. Once the
+    # matcher is fixed, the NEXT cycle must cancel it, then the normal path
+    # confirms it gone and reports the ticket terminal.
+    ledger, state = env
+    ledger.record("t1", "placed", spec=SPEC, valid_until=(NOW - timedelta(hours=1)).isoformat(),
+                  cancel_attempts=3, cancel_exhausted=True, exhausted_alert_at=(NOW - timedelta(minutes=5)).isoformat())
+    ad, api = FakeAdapter(orders=[_o()]), FakeApi([])
+    r1 = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state, now=NOW)
+    assert [(c[0], c[2]) for c in ad.calls] == [("cancel_order", True)]
+    row = ledger.latest()["t1"]
+    assert row["cancel_requested"] and row["cancel_exhausted"] is True
+    assert not any("STILL RESTING" in a for a in r1.alerts)
+    ad.orders = []
+    for k in (1, 2):
+        pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                     now=NOW + timedelta(minutes=5 * k))
+    skipped = [p for p in api.posts if p.get("status") == "skipped"]
+    assert skipped and skipped[0]["reason"].startswith("expired")
+    assert ledger.state("t1") == "skipped"
+
+
+def test_an_exhausted_cancel_never_retries_with_a_position_open_on_the_symbol(env):
+    ledger, state = env
+    ledger.record("t1", "placed", spec=SPEC, valid_until=(NOW - timedelta(hours=1)).isoformat(),
+                  cancel_attempts=3, cancel_exhausted=True, exhausted_alert_at=NOW.isoformat())
+    ad = FakeAdapter(orders=[_o()], positions=[_p(quantity=0.2)])
+    pe.run_cycle(adapter=ad, page=None, api=FakeApi([]), cfg=cfg(), mode="live", ledger=ledger, state=state, now=NOW)
     assert not any(c[0] == "cancel_order" for c in ad.calls)
 
 
@@ -4601,3 +4633,106 @@ def test_rest_account_expired_unattempted_ticket_reports_terminal_with_its_verdi
     res = _band_cycle(ad, api, env, 8)
     assert len([p for p in api.posts if p.get("status") == "skipped"]) == 1
     assert [a for a in res.alerts if "NOT PLACED" in a] == []
+
+
+# ── PROP-CANCEL-FIX (2026-10-08): the orders row's TEXT-LESS icon cancel ──
+# MEASURED on tradeify_1 by system-action run 37810774267 (issue #17157):
+# the Orders grid is a header table + a body table of 16 columns, and the
+# working order's row holds two <button class="button button-icon
+# grid-orders_control"> with no text / title / aria-label: index 0 draws
+# #icon-replace-context (modify), index 1 #icon-close-order (cancel). The
+# old matcher read "rows=1, controls=0" on it and the expiry cancel stranded
+# a live ETHUSD limit past its valid_until.
+
+ORDERS_HEADERS = ["Sts", "Status", "Symbol", "Side", "Size", "Price", "Type", "Stop loss", "Take profit",
+                  "Current Price", "Date and Time Modified", "Order Expiration", "Order ID", "Fill Price", "", ""]
+_MODIFY_BTN = ('<button data-button-index="0" class="button button-icon grid-orders_control" data-test-id="1" '
+               'onclick="window.__modify=1"><svg class="icon "><use xlink:href="#icon-replace-context"></use></svg></button>')
+_CANCEL_BTN = ('<button data-button-index="1" class="button button-icon grid-orders_control" data-test-id="2" '
+               'onclick="window.__cancelled=(window.__cancelled||[]).concat([this.closest(\'tr\').dataset.oid])">'
+               '<svg class="icon "><use xlink:href="#icon-close-order"></use></svg></button>')
+
+
+def _orders_page(rows, controls=_MODIFY_BTN + _CANCEL_BTN, extra="", style=""):
+    head = "<table><thead><tr>" + "".join(f"<th>{h}</th>" for h in ORDERS_HEADERS) + "</tr></thead><tbody></tbody></table>"
+    trs = "".join(
+        f"<tr data-oid='{oid}'><td></td><td>Working</td><td>ETH/USD</td><td>SELL</td><td>0.82</td><td>2,471.310</td>"
+        f"<td>Limit</td><td>2,532.158</td><td>2,226.650</td><td>2,430.340</td><td>08/10/26 15:28</td><td></td>"
+        f"<td>{oid}</td><td>—</td><td>{controls}</td><td></td></tr>" for oid in rows)
+    panel = f'<div class="panel"><div data-active="true">Orders</div>{head}<table><tbody>{trs}</tbody></table></div>'
+    return (TICKET_PAGE % "").replace("</body>", f"<style>{style}</style>{extra}{panel}</body>")
+
+
+def _pressed(p):
+    return {"modify": p.evaluate("window.__modify || null"), "cancelled": p.evaluate("window.__cancelled || null")}
+
+
+def test_cancel_order_finds_the_measured_text_less_close_order_icon(tpage):
+    p = tpage(html=_orders_page(["18912998"]))
+    a = DXtradeAdapter(timeout_ms=3_000)
+    order = WorkingOrder(symbol="ETHUSD", order_id="18912998")
+    r = a.cancel_order(p, order)
+    assert r["ok"] is True and r["clicked"] is False, r                       # disarmed by default
+    assert p.evaluate("document.querySelector('[data-metis-row-action]').dataset.buttonIndex") == "1"
+    assert _pressed(p) == {"modify": None, "cancelled": None}
+    r = a.cancel_order(p, order, arm=True)
+    assert r["ok"] is True and r["clicked"] is True, r
+    assert _pressed(p) == {"modify": None, "cancelled": ["18912998"]}         # the cancel, never the modify
+
+
+def test_cancel_order_finds_an_icon_shown_only_on_row_hover(tpage):
+    css = ".grid-orders_control{display:none} tr:hover .grid-orders_control{display:inline-block}"
+    p = tpage(html=_orders_page(["18912998"], style=css))
+    r = DXtradeAdapter(timeout_ms=3_000).cancel_order(p, WorkingOrder(symbol="ETHUSD", order_id="18912998"), arm=True)
+    assert r["clicked"] is True, r
+    assert _pressed(p)["cancelled"] == ["18912998"]
+
+
+def test_cancel_order_keys_on_the_order_id_row_only(tpage):
+    p = tpage(html=_orders_page(["18912997", "18912998", "18912999"]))
+    r = DXtradeAdapter(timeout_ms=3_000).cancel_order(p, WorkingOrder(symbol="ETHUSD", order_id="18912998"), arm=True)
+    assert r["clicked"] is True, r
+    assert _pressed(p) == {"modify": None, "cancelled": ["18912998"]}
+    r = DXtradeAdapter(timeout_ms=3_000).cancel_order(p, WorkingOrder(symbol="ETHUSD", order_id="1891299"), arm=True)
+    assert r["ok"] is False and "rows=0" in r["why"]                         # a prefix is not the id
+
+
+@pytest.mark.parametrize("controls, why", [
+    # two cancel-looking icons in the one row: ambiguous, refused
+    (_CANCEL_BTN + _CANCEL_BTN, "controls=2"),
+    # a QUALIFIED close (close-ALL orders) is not the anchored icon: nothing matches
+    (_MODIFY_BTN + _CANCEL_BTN.replace("#icon-close-order", "#icon-close-all-orders"), "controls=0"),
+    (_MODIFY_BTN + _CANCEL_BTN.replace("#icon-close-order", "#icon-close-order-all"), "controls=0"),
+    # the icon drawn by a NON-pressable (a status glyph), not a button
+    (_MODIFY_BTN + '<span><svg><use xlink:href="#icon-close-order"></use></svg></span>', "controls=0"),
+    # the icon NAME carried only as a class is not an icon reference
+    (_MODIFY_BTN + '<button class="icon-close-order" onclick="window.__cancelled=[1]"></button>', "controls=0"),
+    # the modify alone
+    (_MODIFY_BTN, "controls=0"),
+])
+def test_cancel_order_planted_wrong_or_ambiguous_buttons_are_refused(tpage, controls, why):
+    p = tpage(html=_orders_page(["18912998"], controls=controls))
+    r = DXtradeAdapter(timeout_ms=3_000).cancel_order(p, WorkingOrder(symbol="ETHUSD", order_id="18912998"), arm=True)
+    assert r["ok"] is False and r["clicked"] is False and why in r["why"], r
+    assert _pressed(p) == {"modify": None, "cancelled": None}
+    assert p.evaluate("document.querySelector('[data-metis-row-action]')") is None
+
+
+def test_cancel_order_never_counts_a_close_order_icon_outside_the_row(tpage):
+    # a chart overlay drawing the same icon beside a canvas, outside the table
+    overlay = ('<div class="chart"><canvas width="300" height="200"></canvas>'
+               '<button style="position:absolute;left:50px;top:50px" onclick="window.__modify=9">'
+               '<svg><use xlink:href="#icon-close-order"></use></svg></button></div>')
+    p = tpage(html=_orders_page(["18912998"], controls=_MODIFY_BTN, extra=overlay))
+    r = DXtradeAdapter(timeout_ms=3_000).cancel_order(p, WorkingOrder(symbol="ETHUSD", order_id="18912998"), arm=True)
+    assert r["ok"] is False and "controls=0" in r["why"], r
+    assert _pressed(p) == {"modify": None, "cancelled": None}
+
+
+def test_positions_row_action_ignores_the_orders_icon_pattern(tpage):
+    # icon_re is opt-in per call: the old text matcher's callers see no icon match
+    p = tpage(html=_orders_page(["18912998"]))
+    r = DXtradeAdapter(timeout_ms=3_000)._row_action(p, "orders", "Order ID", "18912998",
+                                                      r"^(cancel|cancel order|×|✕|x|remove)$", True)
+    assert r["ok"] is False and "controls=0" in r["why"]
+    assert _pressed(p) == {"modify": None, "cancelled": None}

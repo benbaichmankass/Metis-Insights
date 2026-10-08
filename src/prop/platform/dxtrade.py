@@ -2621,10 +2621,23 @@ POST_SUBMIT_JS = r"""
 # that control data-metis-row-action. Never clicks.
 ROW_ACTION_JS = r"""
 (args) => {
-  const [kind, keyCol, key, actionPat] = args;
+  const [kind, keyCol, key, actionPat, iconPat] = args;
 """ + _PAIRED_TABLES_HELPER_JS + r"""
   const norm = s => s.replace(/\s+/g, ' ').trim().toLowerCase();
   document.querySelectorAll('[data-metis-row-action]').forEach(e => e.removeAttribute('data-metis-row-action'));
+  document.querySelectorAll('[data-metis-action-row]').forEach(e => e.removeAttribute('data-metis-action-row'));
+  // A text-less icon button names itself only by the icon it draws
+  // (MEASURED tradeify_1 2026-10-08, PROP-CANCEL-FIX, run 37810774267: the
+  // Orders row holds two <button class="button button-icon
+  // grid-orders_control"> with no text / title / aria-label, one drawing
+  // <use xlink:href="#icon-replace-context"> (modify), the other
+  // "#icon-close-order" (cancel)). iconPat is ANCHORED and is tested against
+  // each icon reference INSIDE a pressable (button / role=button) only --
+  // never against a class, never against a non-pressable.
+  const icon = iconPat ? new RegExp(iconPat, 'i') : null;
+  const iconRefs = b => [...b.querySelectorAll('use, svg, [data-icon]')].flatMap(u =>
+    ['xlink:href', 'href', 'data-icon'].map(a => (u.getAttribute(a) || '').trim()).filter(Boolean));
+  const iconHit = b => !!icon && b.matches('button, [role=button]') && iconRefs(b).some(r => icon.test(r));
   const want = kind === 'orders' ? /^(order id|sts)$/ : /^(position volume|position id|open price|avg fill price|open p&l|fill price)$/;
   const act = new RegExp(actionPat, 'i');
   let rows = [], ctl = [], why = null;
@@ -2640,8 +2653,10 @@ ROW_ACTION_JS = r"""
   }
   if (rows.length === 1) {
     const row = rows[0];
+    row.setAttribute('data-metis-action-row', '1');
     ctl = [...row.querySelectorAll('button, [role=button], [title], [aria-label]')].filter(b =>
-      act.test(txt(b)) || act.test(b.getAttribute('aria-label') || '') || act.test(b.getAttribute('title') || ''));
+      act.test(txt(b)) || act.test(b.getAttribute('aria-label') || '') || act.test(b.getAttribute('title') || '')
+      || iconHit(b));
     // The chart draws the position and its legs as overlays with their own
     // x controls (close / cancel a leg): a row control must be INSIDE this
     // row of the positions table, boxed within it, and nowhere near a
@@ -8179,33 +8194,63 @@ class DXtradeAdapter(PropPlatformAdapter):
         return False
 
     def _row_action(self, page: Any, kind: str, key_col: str, key: str,
-                    action_re: str, arm: bool) -> Dict[str, Any]:
+                    action_re: str, arm: bool, icon_re: Optional[str] = None) -> Dict[str, Any]:
         """Find exactly one row of the orders/positions table whose ``key_col``
         cell equals ``key`` and exactly one control in it matching
-        ``action_re``; click it only when ``arm``."""
+        ``action_re`` (its text / aria-label / title) or, for a text-less
+        icon button, ``icon_re`` (an anchored pattern over the icon it draws);
+        click it only when ``arm``. The row is HOVERED and re-read before
+        the decision, since a terminal may render or show row controls only
+        under the pointer (a hover is not a click)."""
+        args = [kind, key_col, key, action_re, icon_re]
         try:
-            got = page.evaluate(ROW_ACTION_JS, [kind, key_col, key, action_re]) or {}
+            got = page.evaluate(ROW_ACTION_JS, args) or {}
+            if got.get("rows") == 1:
+                try:
+                    page.hover("[data-metis-action-row]", timeout=3_000)
+                    page.wait_for_timeout(300)
+                    got = page.evaluate(ROW_ACTION_JS, args) or {}
+                except Exception:
+                    pass  # the un-hovered read stands
         except Exception as exc:
             return {"ok": False, "clicked": False, "why": f"probe failed ({type(exc).__name__})"}
         if got.get("rows") != 1 or got.get("controls") != 1:
-            return {"ok": False, "clicked": False,
-                    "why": f"need exactly 1 row and 1 control (rows={got.get('rows')}, controls={got.get('controls')})"}
+            why = f"need exactly 1 row and 1 control (rows={got.get('rows')}, controls={got.get('controls')})"
+            if got.get("why"):
+                why += f": {got.get('why')}"
+            return {"ok": False, "clicked": False, "why": why}
         if not arm:
             return {"ok": True, "clicked": False, "why": "disarmed: stopped before the click"}
         try:
             page.click("[data-metis-row-action]", timeout=5_000)
         except Exception as exc:
             return {"ok": True, "clicked": True, "why": f"click raised {type(exc).__name__}; outcome unknown"}
-        self._confirm_dialog(page)
-        return {"ok": True, "clicked": True, "why": "clicked"}
+        confirmed = self._confirm_dialog(page)
+        why = "clicked" + ("; confirm dialog pressed" if confirmed else "")
+        try:
+            # A dialog still open after the click is reported, never pressed
+            # further: the next cycle's re-read decides whether it took.
+            left = page.evaluate("() => [...document.querySelectorAll('[role=dialog], [role=alertdialog]')]"
+                                 ".filter(d => d.offsetWidth || d.offsetHeight).flatMap(d => [...d.querySelectorAll("
+                                 "'button, [role=button]')].map(b => (b.innerText || b.getAttribute('aria-label') || '')"
+                                 ".trim().slice(0, 30)))") or []
+            if left:
+                why += f"; a dialog is still open (buttons {left[:6]})"
+        except Exception:
+            pass
+        return {"ok": True, "clicked": True, "why": why}
 
     def cancel_order(self, page: Any, order: WorkingOrder, *, arm: bool = False) -> Dict[str, Any]:
         """Cancel ONE working order, identified by its terminal Order ID."""
         if not order or not order.order_id:
             return {"ok": False, "clicked": False, "why": "no order_id: refusing to guess which row"}
         self._show_tab(page, "tab_orders")
+        # icon_re: tradeify_1's cancel is a text-less button drawing
+        # #icon-close-order (MEASURED 2026-10-08, PROP-CANCEL-FIX); the row's
+        # other button draws #icon-replace-context (modify) and never matches.
         return self._row_action(page, "orders", "Order ID", str(order.order_id),
-                                r"^(cancel|cancel order|×|✕|x|remove)$", arm)
+                                r"^(cancel|cancel order|×|✕|x|remove)$", arm,
+                                icon_re=r"^#?icon-(close|cancel)-order$")
 
     def flatten(self, page: Any, symbol: Optional[str] = None, *, arm: bool = False,
                 side: Optional[str] = None, quantity: Optional[float] = None,

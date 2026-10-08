@@ -1,0 +1,6 @@
+{
+  "held_by": "session_0111iCRx78JcxgbmQzf5WJKf",
+  "branch": "claude/prop-cancel-fix",
+  "claimed_at": "2026-10-08T17:00:01Z",
+  "purpose": "PROP-CANCEL-FIX: executor cancel of a resting tradeify_1 order"
+}
