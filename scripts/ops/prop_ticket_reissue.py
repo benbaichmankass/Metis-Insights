@@ -59,6 +59,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
@@ -304,8 +305,15 @@ def main(argv: list | None = None, *, guard: GuardCheck | None = None,
     a = ap.parse_args(argv)
 
     # The reticket guard and the sizing reads open the journal through the
-    # canonical resolver; pin it to the DB this action was given.
-    os.environ["TRADE_JOURNAL_DB"] = str(Path(a.db).resolve())
+    # canonical resolver; pin it to the DB this action was given, and restore
+    # the caller's value after (an in-process caller, e.g. a test, must not
+    # inherit it).
+    with mock.patch.dict(os.environ, {"TRADE_JOURNAL_DB": str(Path(a.db).resolve())}):
+        return _run(a, guard=guard, rebuild=rebuild)
+
+
+def _run(a: argparse.Namespace, *, guard: GuardCheck | None,
+         rebuild: Callable[..., tuple[dict[str, Any] | None, str]] | None) -> int:
     now = _parse_ts(a.now) if a.now else datetime.now(timezone.utc)
     conn = sqlite3.connect(f"file:{a.db}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
