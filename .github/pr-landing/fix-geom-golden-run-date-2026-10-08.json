@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "main is red for every PR since UTC midnight: tests/test_tp_geometry_harness.py::test_defaults_reproduce_pre_lever_golden compares the harness's wall-clock run_date (golden captured 2026-10-07). Drops run_date from the comparison; every other summary field and all rows are still compared. Test-only."
+}
