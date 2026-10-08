@@ -459,6 +459,24 @@ class TestLoader:
 
 
 class TestCoordinatorRouting:
+    @pytest.fixture(autouse=True)
+    def _isolated_journal(self, tmp_path, monkeypatch):
+        """Pin the trade journal to a tmp DB WITH its schema.
+
+        PI-20261005-KQIWJZWX-0001, root cause: with no TRADE_JOURNAL_DB the
+        resolver falls back to <repo>/trade_journal.db. When that file does not
+        exist `_has_open_position` returns False, but something inside
+        `multi_account_execute` creates it EMPTY mid-call; the next lookup then
+        finds a file with no `trades` table, reads "could not look" (None) and
+        refuses the bybit_1 leg, so `trade_id` is None. The test passed whenever
+        an earlier run had left a schema'd file behind -- hence "failed once,
+        right after a fresh checkout". Reproduced by deleting the file."""
+        from src.units.db.database import Database
+
+        db = tmp_path / "trade_journal.db"
+        Database(str(db))  # creates the schema
+        monkeypatch.setenv("TRADE_JOURNAL_DB", str(db))
+
     def test_skip_reason_in_error_field(self, accounts_yaml, monkeypatch):
         from src.core.coordinator import Coordinator
         # _YAML_BODY uses BYBIT_API_KEY_1 / PROP_API_KEY_1.
