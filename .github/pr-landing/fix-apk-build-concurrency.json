@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "GitHub Actions workflow fix (.github/workflows/phone-executor-apk.yml) — per-commit concurrency change with job-level serialization safety. This is a Tier-1 CI/workflow change that affects only tooling, not live runtime behavior."
+}
