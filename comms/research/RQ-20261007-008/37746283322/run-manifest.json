@@ -1,0 +1,25 @@
+{
+  "unit": "RQ-20261007-008",
+  "run_id": "37746283322",
+  "commit_sha": "06ebdb8838c8335dfb268ec5d450631a2381d68e",
+  "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/37746283322",
+  "timeout_minutes": 60,
+  "commands": [
+    {
+      "index": 0,
+      "argv": [
+        "python3",
+        "scripts/research/pairs_configured_stage0.py",
+        "--pair",
+        "pairs_eth_btc",
+        "--fetch",
+        "--out",
+        "comms/research/RQ-20261007-008/37746283322"
+      ],
+      "log": "comms/research/RQ-20261007-008/37746283322/logs/cmd-0.log",
+      "exit_code": 0,
+      "seconds": 17.5
+    }
+  ],
+  "all_ok": true
+}

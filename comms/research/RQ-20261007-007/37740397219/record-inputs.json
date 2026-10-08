@@ -1,0 +1,17 @@
+{
+  "artifact_locator": "comms/research/RQ-20261007-007/37740397219/ (run-manifest.json + verdict.json + logs/)",
+  "artifact_store": "comms/research/RQ-20261007-007/37740397219",
+  "decision_rule_id": "RULE-RQ1007-007-SOL-BTC-CONFIGURED-STAGE0",
+  "decision_rule_registered_at": "2026-10-07",
+  "measurement_file": "comms/research/RQ-20261007-007/37740397219/measurement.json",
+  "min_rows": "1",
+  "n": "286",
+  "note": "PASS: net_total_r +92.6354 R over n=286 (floor 39); fee-only arm 92.6972 R reported, not graded. Ledger: trades.jsonl beside this file (entry_time/exit_time/net_r per pair trade).",
+  "population": "pairs_sol_btc: 286 pair trades, SOLUSDT/BTCUSDT 1h at the configured params {'lookback': 15, 'entry_z': 2.0, 'exit_z': 0.5, 'stop_z': 2.0, 'max_hold_bars': 20, 'hedge_beta': 'rolling'}, 2026-04-11 00:00:00+00:00 -> 2026-10-06 23:00:00+00:00, net of fee+slippage+funding per leg",
+  "power_state": "accruing",
+  "read_state": "measured",
+  "records_file": "comms/research/RQ-20261007-007/37740397219/records.jsonl",
+  "research_unit": "RQ-20261007-007",
+  "tool": "python3 scripts/research/pairs_configured_stage0.py",
+  "verdict": "pass"
+}

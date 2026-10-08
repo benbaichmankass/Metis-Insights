@@ -1,0 +1,264 @@
+{
+  "tool": "scripts/research/prop_ev_grid.py",
+  "sim": "scripts/research/prop_ev_sim.py",
+  "mode": "path",
+  "common": [
+    "--ruleset",
+    "config/prop_rulesets/breakout_turbo_1step.yaml",
+    "--costs",
+    "breakout",
+    "--lev-cap",
+    "pullback_link_1h=5",
+    "--no-hedge",
+    "--swap-model",
+    "prorated",
+    "--funded-start",
+    "fresh"
+  ],
+  "arms": {
+    "A": [
+      "--sizing",
+      "balance",
+      "--risk-pct",
+      "0.005"
+    ]
+  },
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "grade": "pass_all_seeds",
+  "overall": "all",
+  "legs": {
+    "pullback_link_1h": {
+      "trades_file": "comms/strategy_evidence/runs/2026-10-07-stage0-prop/pullback_link_1h__trades.jsonl",
+      "resolved_by": "pinned by --leg",
+      "n_trades": 400
+    }
+  },
+  "cells": [
+    {
+      "leg": "pullback_link_1h",
+      "arm": "A",
+      "seed": 1,
+      "exit_code": 0,
+      "seconds": 575.1,
+      "argv": [
+        "scripts/research/prop_ev_sim.py",
+        "--trades",
+        "pullback_link_1h=comms/strategy_evidence/runs/2026-10-07-stage0-prop/pullback_link_1h__trades.jsonl",
+        "--ruleset",
+        "config/prop_rulesets/breakout_turbo_1step.yaml",
+        "--costs",
+        "breakout",
+        "--lev-cap",
+        "pullback_link_1h=5",
+        "--no-hedge",
+        "--swap-model",
+        "prorated",
+        "--funded-start",
+        "fresh",
+        "--sizing",
+        "balance",
+        "--risk-pct",
+        "0.005",
+        "--seed",
+        "1",
+        "--out",
+        "/home/runner/work/Metis-Insights/Metis-Insights/comms/research/RQ-20261007-013/37752842552/sims/pullback_link_1h__A__seed1.json"
+      ],
+      "out": "comms/research/RQ-20261007-013/37752842552/sims/pullback_link_1h__A__seed1.json",
+      "stats": {
+        "ev": 23.76,
+        "ev_se": 1.94,
+        "p_net_positive": 0.194,
+        "p_alive_at_horizon": 0.005,
+        "p_pass_by_days": {
+          "30": 0.0,
+          "90": 0.0675,
+          "180": 0.1918
+        },
+        "rule_v2_verdict": "indeterminate"
+      }
+    },
+    {
+      "leg": "pullback_link_1h",
+      "arm": "A",
+      "seed": 2,
+      "exit_code": 0,
+      "seconds": 552.6,
+      "argv": [
+        "scripts/research/prop_ev_sim.py",
+        "--trades",
+        "pullback_link_1h=comms/strategy_evidence/runs/2026-10-07-stage0-prop/pullback_link_1h__trades.jsonl",
+        "--ruleset",
+        "config/prop_rulesets/breakout_turbo_1step.yaml",
+        "--costs",
+        "breakout",
+        "--lev-cap",
+        "pullback_link_1h=5",
+        "--no-hedge",
+        "--swap-model",
+        "prorated",
+        "--funded-start",
+        "fresh",
+        "--sizing",
+        "balance",
+        "--risk-pct",
+        "0.005",
+        "--seed",
+        "2",
+        "--out",
+        "/home/runner/work/Metis-Insights/Metis-Insights/comms/research/RQ-20261007-013/37752842552/sims/pullback_link_1h__A__seed2.json"
+      ],
+      "out": "comms/research/RQ-20261007-013/37752842552/sims/pullback_link_1h__A__seed2.json",
+      "stats": {
+        "ev": 25.9,
+        "ev_se": 2.04,
+        "p_net_positive": 0.196,
+        "p_alive_at_horizon": 0.005,
+        "p_pass_by_days": {
+          "30": 0.0,
+          "90": 0.0688,
+          "180": 0.1955
+        },
+        "rule_v2_verdict": "indeterminate"
+      }
+    },
+    {
+      "leg": "pullback_link_1h",
+      "arm": "A",
+      "seed": 3,
+      "exit_code": 0,
+      "seconds": 571.0,
+      "argv": [
+        "scripts/research/prop_ev_sim.py",
+        "--trades",
+        "pullback_link_1h=comms/strategy_evidence/runs/2026-10-07-stage0-prop/pullback_link_1h__trades.jsonl",
+        "--ruleset",
+        "config/prop_rulesets/breakout_turbo_1step.yaml",
+        "--costs",
+        "breakout",
+        "--lev-cap",
+        "pullback_link_1h=5",
+        "--no-hedge",
+        "--swap-model",
+        "prorated",
+        "--funded-start",
+        "fresh",
+        "--sizing",
+        "balance",
+        "--risk-pct",
+        "0.005",
+        "--seed",
+        "3",
+        "--out",
+        "/home/runner/work/Metis-Insights/Metis-Insights/comms/research/RQ-20261007-013/37752842552/sims/pullback_link_1h__A__seed3.json"
+      ],
+      "out": "comms/research/RQ-20261007-013/37752842552/sims/pullback_link_1h__A__seed3.json",
+      "stats": {
+        "ev": 25.38,
+        "ev_se": 1.94,
+        "p_net_positive": 0.2003,
+        "p_alive_at_horizon": 0.0073,
+        "p_pass_by_days": {
+          "30": 0.0,
+          "90": 0.0757,
+          "180": 0.206
+        },
+        "rule_v2_verdict": "indeterminate"
+      }
+    },
+    {
+      "leg": "pullback_link_1h",
+      "arm": "A",
+      "seed": 4,
+      "exit_code": 0,
+      "seconds": 572.7,
+      "argv": [
+        "scripts/research/prop_ev_sim.py",
+        "--trades",
+        "pullback_link_1h=comms/strategy_evidence/runs/2026-10-07-stage0-prop/pullback_link_1h__trades.jsonl",
+        "--ruleset",
+        "config/prop_rulesets/breakout_turbo_1step.yaml",
+        "--costs",
+        "breakout",
+        "--lev-cap",
+        "pullback_link_1h=5",
+        "--no-hedge",
+        "--swap-model",
+        "prorated",
+        "--funded-start",
+        "fresh",
+        "--sizing",
+        "balance",
+        "--risk-pct",
+        "0.005",
+        "--seed",
+        "4",
+        "--out",
+        "/home/runner/work/Metis-Insights/Metis-Insights/comms/research/RQ-20261007-013/37752842552/sims/pullback_link_1h__A__seed4.json"
+      ],
+      "out": "comms/research/RQ-20261007-013/37752842552/sims/pullback_link_1h__A__seed4.json",
+      "stats": {
+        "ev": 26.82,
+        "ev_se": 2.01,
+        "p_net_positive": 0.2,
+        "p_alive_at_horizon": 0.007,
+        "p_pass_by_days": {
+          "30": 0.0,
+          "90": 0.0658,
+          "180": 0.193
+        },
+        "rule_v2_verdict": "indeterminate"
+      }
+    },
+    {
+      "leg": "pullback_link_1h",
+      "arm": "A",
+      "seed": 5,
+      "exit_code": 0,
+      "seconds": 300.4,
+      "argv": [
+        "scripts/research/prop_ev_sim.py",
+        "--trades",
+        "pullback_link_1h=comms/strategy_evidence/runs/2026-10-07-stage0-prop/pullback_link_1h__trades.jsonl",
+        "--ruleset",
+        "config/prop_rulesets/breakout_turbo_1step.yaml",
+        "--costs",
+        "breakout",
+        "--lev-cap",
+        "pullback_link_1h=5",
+        "--no-hedge",
+        "--swap-model",
+        "prorated",
+        "--funded-start",
+        "fresh",
+        "--sizing",
+        "balance",
+        "--risk-pct",
+        "0.005",
+        "--seed",
+        "5",
+        "--out",
+        "/home/runner/work/Metis-Insights/Metis-Insights/comms/research/RQ-20261007-013/37752842552/sims/pullback_link_1h__A__seed5.json"
+      ],
+      "out": "comms/research/RQ-20261007-013/37752842552/sims/pullback_link_1h__A__seed5.json",
+      "stats": {
+        "ev": 29.45,
+        "ev_se": 2.12,
+        "p_net_positive": 0.208,
+        "p_alive_at_horizon": 0.0053,
+        "p_pass_by_days": {
+          "30": 0.0,
+          "90": 0.0742,
+          "180": 0.2032
+        },
+        "rule_v2_verdict": "indeterminate"
+      }
+    }
+  ]
+}
