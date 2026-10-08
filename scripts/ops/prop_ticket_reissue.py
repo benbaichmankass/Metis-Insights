@@ -59,6 +59,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
@@ -304,20 +305,11 @@ def main(argv: list | None = None, *, guard: GuardCheck | None = None,
     a = ap.parse_args(argv)
 
     # The reticket guard and the sizing reads open the journal through the
-    # canonical resolver; pin it to the DB this action was given, and put the
-    # caller's value back after (an in-process caller -- the tests -- must not
+    # canonical resolver; pin it to the DB this action was given, and restore
+    # the caller's value after (an in-process caller, e.g. a test, must not
     # inherit it).
-    from src.utils.paths import _ENV_TRADE_JOURNAL_DB as key
-
-    prior = os.environ.get(key)
-    os.environ[key] = str(Path(a.db).resolve())
-    try:
+    with mock.patch.dict(os.environ, {"TRADE_JOURNAL_DB": str(Path(a.db).resolve())}):
         return _run(a, guard=guard, rebuild=rebuild)
-    finally:
-        if prior is None:
-            os.environ.pop(key, None)
-        else:
-            os.environ[key] = prior
 
 
 def _run(a: argparse.Namespace, *, guard: GuardCheck | None,
