@@ -3,7 +3,7 @@ title: >-
   Active geometry, real money: does a thesis-conditioned TP EXTENSION (target placed
   at a calibrated finite R, pushed out while the Donchian/pullback thesis holds) beat
   bybit_2's trail-only exits on its four legs?
-status: blocked
+status: queued
 cadence: once
 kind: experiment
 theme: live_strategy
@@ -116,33 +116,21 @@ routing:
     job and fetches candles on the free lane; 16 cells x 4 legs at the measured ~6 min
     per 199-cell e35 leg is well under the ceiling. Estimate, not a measurement.
 
-blocked_on:
-  - what: >-
-      No harness implements a target extension. scripts/backtest_trend.py and
-      scripts/backtest_pullback.py expose --tp-r (fixed at entry), --tp-cap-pct and
-      --timeout-bars only (argparse read 2026-10-07); scripts/research/m20_fleet_exit_sweep.py's
-      lever columns are stale_stop / giveback_stop / trail_geometry / trail_decay /
-      vol_trail, and docs/research/exit-refinement-coverage.json has no revision
-      column. E3.6 point 1 (docs/design/exit-mechanism-construction-PROCESS.md): "extend
-      the target has no implementation anywhere in the harness or the live monitor".
-    ref: PI-20261006-5FUGHVX8-0001 (BUILD B1, harness half) -- proposed checklist row GEOM-B1-HARNESS in the ACTIVE-GEOMETRY-PLAN lane report, 2026-10-07
-    clears_when: >-
-      `python3 scripts/backtest_trend.py --help` and `python3 scripts/backtest_pullback.py --help`
-      list --tp-target-r / --tp-extend-r / --tp-approach-frac / --tp-max-extends /
-      --tp-thesis, the extension is decided by src.runtime.target_expectation.evaluate_extension
-      (imported), the emitted trades carry final_target_r and n_extends, AND
-      .github/workflows/m20-exit-lever-sweep.yml accepts `tp_extend` in its `levers`
-      input with a `tp_extend` column added to docs/research/exit-refinement-coverage.json.
-      Then: move this file to research/queue/, set status queued, set
-      run.workflow: m20-exit-lever-sweep.yml with inputs {legs: "trend_donchian_eth_4h,trend_donchian_xrp_4h,xrp_pullback_2h,ada_pullback_2h",
-      levers: tp_extend, tp_cap_pct: '0.099', split_mode: oos-trades, research_unit: RQ-20261007-001}.
-
 run:
-  workflow: null
+  workflow: m20-exit-lever-sweep.yml
+  inputs:
+    legs: trend_donchian_eth_4h,trend_donchian_xrp_4h,xrp_pullback_2h,ada_pullback_2h
+    levers: tp_extend
+    tp_cap_pct: '0.099'
+    split_mode: oos-trades
+    research_unit: RQ-20261007-001
   note: >-
-    Null until the harness lever lands (blocked_on). The intended dispatch is written in
-    clears_when so the unblocking PR needs no re-derivation.
-
+    Unblocked 2026-10-07 by GEOM-B1-HARNESS: the --tp-* flags exist on backtest_trend /
+    backtest_pullback (scripts/research/tp_geometry.py; the decision half is
+    target_expectation.evaluate_extension, imported), and m20_fleet_exit_sweep emits the
+    tp_extend cells ONLY when `levers` names them (opt-in). Each cell record carries
+    `tp_cal_cell_*` / `tp_cal_base_*` (the calibration share beside the --tp-report base)
+    in the corpus row, so statistic (a) is read from the landed rows, not re-derived.
 lands:
   store: research/results/
   assert_field: read_state
