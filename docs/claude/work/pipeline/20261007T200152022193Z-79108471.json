@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261007-HY7G7NYF-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane GEOM-B1-HARNESS session_015kekiWATbgN7A6Hy7g7NyF, 2026-10-07; PRs #17000 #17010 #17011",
+    "rerun": "gh api repos/benbaichmankass/Metis-Insights/pulls/17000 --jq .merged; gh api repos/benbaichmankass/Metis-Insights/pulls/17010 --jq .merged; ls research/results/RQ-20261007-004 2>/dev/null"
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "GEOM-B1-HARNESS FOLLOW-THROUGH: (1) after #17000 merges, merge main into claude/geom-b1-sweep-lever (#17010) so its diff drops the stacked pr-landing file (R12), then arm auto-merge on #17010; (2) after #17010 merges, the manager merges #17011 (landing=hold) which queues RQ-20261007-001..004; (3) the research_result job added to ict-scalp-exit-sweep.yml is UNPROVEN until its first dispatch (RQ-20261007-004): confirm research/results/RQ-20261007-004/ holds 7 records; (4) once the first tp_extend/tp_retarget corpus row lands in docs/research/m20-sweep-corpus.jsonl, delete the two TEMPORARY tp_* entries in CORPUS_EXEMPT_LEVERS (scripts/ci/check_matrix_corpus_agreement.py) and stamp the new matrix cells' tp_geometry, lowering _unstamped_ceiling. Merged/deployed/observed: none established as of filing."
+}

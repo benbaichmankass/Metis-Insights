@@ -95,6 +95,12 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+_REPO = Path(__file__).resolve().parents[2]
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
+
+from src.runtime import checklist_store as _ck  # noqa: E402
+
 CHECKLIST = "docs/claude/work/MANAGER-CHECKLIST.json"
 OUT = Path("docs/claude/work/CHECKLIST-ROUTING-AGE.json")
 
@@ -330,7 +336,7 @@ def history_is_usable(repo: Path) -> tuple:
             + (" and the clone is SHALLOW" if shallow else "")
             + " — every derived age would be an under-estimate. Run "
               "`git fetch --unshallow` (or checkout with fetch-depth: 0).")
-    out2, err2 = _run(["git", "-C", str(repo), "log", "--format=%H", "--", CHECKLIST])
+    out2, err2 = _run(["git", "-C", str(repo), "log", "--format=%H", "--", CHECKLIST, str(_ck.STORE)])
     if out2 is None:
         return False, f"git log failed: {err2}"
     n = len([ln for ln in out2.splitlines() if ln.strip()])
@@ -342,7 +348,7 @@ def history_is_usable(repo: Path) -> tuple:
 
 def _revisions(repo: Path) -> list:
     out, err = _run(["git", "-C", str(repo), "log", "--format=%H|%aI", "--reverse",
-                     "--", CHECKLIST])
+                     "--", CHECKLIST, str(_ck.STORE)])
     if out is None:
         return []
     revs = []
@@ -366,13 +372,13 @@ def unrouted_since(repo: Path, revs: list) -> dict:
     """
     since: dict = {}
     for sha, when in revs:
-        blob, _ = _run(["git", "-C", str(repo), "show", f"{sha}:{CHECKLIST}"])
-        if blob is None:
+        try:  # the monolith before the per-row cutover, row files after
+            doc = _ck.load_at(repo, sha)
+        except (ValueError, TypeError, OSError):
             continue
-        try:
-            items = (json.loads(blob) or {}).get("items") or []
-        except (ValueError, TypeError):
+        if doc is None:
             continue
+        items = doc.get("items") or []
         seen = set()
         for row in items:
             ident = row.get("id")
@@ -422,7 +428,7 @@ def build(repo: Path, *, now: datetime | None = None,
     already = set(previous.get("reported_ids") or [])
 
     try:
-        checklist = json.loads((repo / CHECKLIST).read_text(encoding="utf-8"))
+        checklist = _ck.load_path(repo / CHECKLIST)
         items = checklist.get("items") or []
     except (OSError, ValueError, TypeError) as exc:
         return _envelope(now, HIST_COULD_NOT_READ,
