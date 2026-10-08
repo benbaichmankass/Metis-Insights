@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Evidence: comms/research/RQ-20261007-001/local-5fd0163ca/verdict.json and comms/research/RQ-20261007-002/local-5fd0163ca/verdict.json (PR #16970). Data-backed Tier-3 under the 2026-09-27 standing authorization; manager merges and notifies the operator.",
+  "why": "EXIT-LEVER-STRIP: make declared == executable. Removes stale_exit_bars/stale_exit_below_r from trend_donchian_eth_prop (+0.18 R over 730d, 2/4 folds: not worth a close verb the prop paths cannot execute) and trail_decay_arm_r/trail_decay_tight_mult from xrp_pullback_2h (unreachable under tp_r 3.0; shipped == removed byte-identical). Re-runs the trend_donchian_eth_prop Stage-0 record without the lever. Closes PI-20261006-KX6ZKFNA-0001 and -0004."
+}

@@ -1343,9 +1343,14 @@ strategies:
                             # tp_r is a real geometry change, Tier-3; the measured
                             # answer was DO NOT TIGHTEN.
     min_confidence: 0.60
-    stale_exit_bars: 12          # M20 exit-lever sweep 2026-08-10 (Tier-3, operator-approved):
-    stale_exit_below_r: 0.0      # stale12_lt0R (IS +1.26R / OOS +5.43R, maxDD -4.18 / -4.88)
-    trail_decay_stall_bars: 10   # + decay_stall10_t1.8 (IS +1.37R / OOS +7.28R, maxDD -3.89 / -7.15).
+    # stale_exit_bars: 12 / stale_exit_below_r: 0.0 REMOVED 2026-10-07 (Tier-3, data-backed standing
+    #   authorization 2026-09-27; lane EXIT-LEVER-STRIP, findings PI-20261006-KX6ZKFNA-0001).
+    #   Declared a close-type lever the prop paths cannot execute. Measured WITH vs WITHOUT over 730d
+    #   (rule registered before the run): +13.0223 R / 355 trades / maxDD 13.03 vs +12.8408 R / 348 /
+    #   13.57 -> dR +0.18 R, 2 of 4 fold wins, inside the 2.0 R bar: not worth a close verb.
+    #   Evidence: comms/research/RQ-20261007-001/local-5fd0163ca/verdict.json (PR #16970).
+    #   ROLLBACK: re-add `stale_exit_bars: 12` + `stale_exit_below_r: 0.0` above `trail_decay_stall_bars`.
+    trail_decay_stall_bars: 10   # decay_stall10_t1.8 (M20 sweep 2026-08-10: IS +1.37R / OOS +7.28R, maxDD -3.89 / -7.15).
     trail_decay_tight_mult: 1.8  # Both cleared Path A on both windows + the yearly folds. UPDATED
                                  # 2026-08-13: this comment previously read "this leg is
                                  # `execution: shadow`, so these change NO money today — the validated
@@ -1360,7 +1365,7 @@ strategies:
                                  # base (IS +1.26R / OOS +5.43R), not on the 1h majors' base.
                                  # The tight mult is 1.8 not 2.5 because this leg's base trail is 3.5
                                  # (swap-robust), not 5.0 — the cell is leg-scaled, not copied.
-                                 # ROLLBACK: delete these four lines.
+                                 # ROLLBACK: delete the three remaining lines (stale pair removed 2026-10-07, see above).
     trail_decay_arm_r: 2.99      # [DECIDED] operator 2026-09-26, #13015; deployed #13020; reversal = delete the line
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
@@ -2919,8 +2924,12 @@ strategies:
     # trail is for. beats_baseline TRUE, train/OOS-consistent TRUE over 13,212 XRPUSDT 2h
     # bars (net-of-cost 7.5bps, --oos-start 2026-01-01). ROLLBACK: set back to 5.0.
     trail_mult: 6.0
-    trail_decay_arm_r: 4.49   # M20 P4.4 p80 cell (p80 arm, wf 5/6; sweep 2026-07-13)
-    trail_decay_tight_mult: 2.5
+    # trail_decay_arm_r: 4.49 / trail_decay_tight_mult: 2.5 REMOVED 2026-10-07 (Tier-3, data-backed standing
+    #   authorization 2026-09-27; lane EXIT-LEVER-STRIP, finding PI-20261006-KX6ZKFNA-0004). With tp_r 3.0 the
+    #   4.49R arm is unreachable: shipped == removed, byte-identical (+14.6686 R, 122 trades); every
+    #   reachable arm (1.0/1.5/2.0/2.5) is worse by 3.6-17.6 R with <= 1 fold win.
+    #   Evidence: comms/research/RQ-20261007-002/local-5fd0163ca/verdict.json (PR #16970).
+    #   ROLLBACK: restore `trail_decay_arm_r: 4.49` + `trail_decay_tight_mult: 2.5` under `trail_mult`.
     # tp_r 50.0 -> 3.0 (Tier-3, operator-approved 2026-08-23). The 50 was a FAR
     # SENTINEL meaning "no real target, the trail is the exit" — so the placed TP was
     # set by the venue's 9.9% ceiling, not by the strategy (13/14 open packages,
