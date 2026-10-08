@@ -47,7 +47,6 @@
 
 [Unit]
 Description=Trigger ict-exchange-fills-pull hourly (broker truth inside the 6h close-resolution window)
-Requires=ict-exchange-fills-pull.service
 
 [Timer]
 OnCalendar=*-*-* *:20:00

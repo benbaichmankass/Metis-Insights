@@ -15,7 +15,6 @@
 
 [Unit]
 Description=Trigger ict-prop-executor every 5 minutes (breakout_1)
-Requires=ict-prop-executor.service
 
 [Timer]
 OnCalendar=*-*-* *:04/5:00

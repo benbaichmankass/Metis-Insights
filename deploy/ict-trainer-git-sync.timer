@@ -7,7 +7,6 @@
 
 [Unit]
 Description=Trigger ict-trainer-git-sync every 15 minutes
-Requires=ict-trainer-git-sync.service
 
 [Timer]
 OnBootSec=3min

@@ -7,10 +7,9 @@ deploy-time timer restart on the gateway VM bounced the IB Gateway (MEASURED
 second as the timer's Stopping/Started lines; only the 06:05 run was the
 schedule). IB-GATEWAY-DOWN.
 
-The gateway pair is forbidden outright. Every other timer that still carries the
-line is listed in KNOWN_OFFENDERS: a ratchet, so no NEW timer can add it and the
-list can only shrink. Each remaining entry runs its service once at timer
-(re)start, which is harmless for a probe or a pull and is its own call to remove.
+The gateway pair is forbidden outright. KNOWN_OFFENDERS is a ratchet that is now
+empty (TIMER-REQUIRES removed the line from every remaining timer): no timer may
+add it back, and an entry may only be added with a stated reason.
 """
 
 import re
@@ -21,27 +20,7 @@ FORBIDDEN = {
     "deploy/ict-ib-gateway-reset.timer",
     "deploy/ict-ib-gateway-watchdog.timer",
 }
-KNOWN_OFFENDERS = {
-    "deploy/ict-alpaca-fills-pull.timer",
-    "deploy/ict-exchange-fills-pull.timer",
-    "deploy/ict-exchange-funding-pull.timer",
-    "deploy/ict-git-sync.timer",
-    "deploy/ict-health-snapshot.timer",
-    "deploy/ict-heartbeat.timer",
-    "deploy/ict-hourly-snapshot.timer",
-    "deploy/ict-ib-executions-pull.timer",
-    "deploy/ict-insights-generator-strategies.timer",
-    "deploy/ict-insights-generator.timer",
-    "deploy/ict-liveness-watchdog.timer",
-    "deploy/ict-mes-ibkr-pull.timer",
-    "deploy/ict-prop-feed.timer",
-    "deploy/ict-research-results-gate.timer",
-    "deploy/ict-trainer-git-sync.timer",
-    "deploy/ict-web-api-watchdog.timer",
-    "deploy/ict-work-digest.timer",
-    "deploy/ict-work-report.timer",
-    "deploy/opt-in/ict-prop-executor.timer",
-}
+KNOWN_OFFENDERS: set[str] = set()
 
 
 def _section(text: str, name: str) -> str:

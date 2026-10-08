@@ -1,0 +1,17 @@
+{
+  "based_on": "20261008T094108369845Z-f0cc823b.json",
+  "due_when": {
+    "due_date": "2026-10-21",
+    "kind": "date"
+  },
+  "id": "PI-20261008-APBY4NTV-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane IB-GATEWAY-DOWN session_01Bg2wzXPMGYwcCunv5RaMyi, fix #17105; manager session_01MM8o5js6TcDFeNAPBY4Ntv",
+    "rerun": "grep -l '^Requires=' deploy/*.timer; sed -n '/KNOWN_OFFENDERS/,/]/p' tests/ops/test_timer_no_requires_on_service.py"
+  },
+  "state": "done",
+  "terminal_reason": "Fixed by PR #17160 (TIMER-REQUIRES): Requires=<own service> removed from all 19 timers (18 in deploy/, 1 in deploy/opt-in/), KNOWN_OFFENDERS emptied. Closed on the PR carrying the fix per manager instruction; merged != deployed != observed, the manager verifies post-state.",
+  "what": "19 OTHER deploy/*.timer units declare Requires=<the service they trigger> in [Unit] (pinned as KNOWN_OFFENDERS in tests/ops/test_timer_no_requires_on_service.py by #17105). Each therefore runs its service once whenever a deploy restarts the timer, off its schedule. The gateway pair was harmful (docker restart of ib-gateway on every merge) and is fixed; the 19 on the trader box were read as harmless pulls/probes but NOT verified unit by unit. Eng backlog, by capacity: verify each, remove the line where the off-cadence run is unwanted, shrink the ratchet list. Also unread: which step of the deploy path restarts timers."
+}

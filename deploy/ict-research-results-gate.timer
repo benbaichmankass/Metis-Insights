@@ -8,7 +8,6 @@
 
 [Unit]
 Description=Trigger ict-research-results-gate daily
-Requires=ict-research-results-gate.service
 
 [Timer]
 # Once a day, a few minutes past the top of the hour, with a spread so it does

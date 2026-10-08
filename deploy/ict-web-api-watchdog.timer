@@ -12,7 +12,6 @@
 
 [Unit]
 Description=ICT Web-API Watchdog — fires every 2 min
-Requires=ict-web-api-watchdog.service
 
 [Timer]
 OnBootSec=2min

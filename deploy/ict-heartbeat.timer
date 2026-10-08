@@ -7,7 +7,6 @@
 
 [Unit]
 Description=Daily ICT Trading Bot Heartbeat (13:00 UTC)
-Requires=ict-heartbeat.service
 
 [Timer]
 OnCalendar=*-*-* 13:00:00 UTC
