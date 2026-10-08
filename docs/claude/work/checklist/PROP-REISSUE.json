@@ -6,13 +6,15 @@
   "owner": "lane",
   "lane": "PROP-REISSUE",
   "model": null,
-  "ceiling_usd": null,
-  "spend_usd": null,
+  "ceiling_usd": 15,
+  "spend_usd": 6,
   "tier": 2,
-  "prs": [],
+  "prs": [
+    17156
+  ],
   "blocked_on": [],
   "note": "Operator 2026-10-08 ~16:12Z 'Build a re-issue path'. Ceiling $15. Root cause filed in the pipeline (supersede/cancel-replace, Tier-3 proposal).",
-  "updated_at": "2026-10-08T16:16:29Z",
+  "updated_at": "2026-10-08T16:21:38Z",
   "updated_by": "session_01PypkHTEV3byEps3qruJSYR",
   "_seq": 360
 }
