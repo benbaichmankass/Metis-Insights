@@ -216,8 +216,23 @@ Canonical text: [`docs/ARCHITECTURE-CANONICAL.md`](../../../docs/ARCHITECTURE-CA
   `docs/research/ml2-predictive-bracket-2026-09-06.md`, whose verdict was that
   a per-leg MFE quantile is the answer and a conditional model is not), and a
   TP-revision lever (extend when price nears the target while the thesis holds,
-  § E3.6 point 4). *Extend the target* has no harness lever and no monitor
-  producer today — building both is a prerequisite, not a sweep result.
+  § E3.6 point 4). **The harness lever exists (GEOM-B1-HARNESS, 2026-10-07)**;
+  the monitor producer does not (BUILD B1, lane TP-DOCTRINE) — so a passing cell
+  is evidence, not yet a declarable lever.
+- **Measuring a target that moves.** `tp_extend` / `tp_retarget` are lever
+  columns in the coverage matrix and cells in `m20_fleet_exit_sweep` — OPT-IN,
+  present only when `levers` names them (`levers: tp_extend` / `tp_retarget` on
+  `m20-exit-lever-sweep.yml`; `cells: tp_revision` on `ict-scalp-exit-sweep.yml`).
+  The harness flags are `--tp-target-r`, `--tp-extend-r`, `--tp-approach-frac`,
+  `--tp-max-extends`, `--tp-thesis {native,always,unknown}`,
+  `--tp-retarget-mode {atr_rescale,stall_pull_in}` and `--tp-report`
+  (`scripts/research/tp_geometry.py`; the decision is
+  `target_expectation.evaluate_extension`, imported). Read each cell's
+  `tp_cal_cell_*` beside `tp_cal_base_*` in the corpus row BEFORE its P&L
+  deltas — a cell that clears the gate while worsening calibration is "P&L
+  without prediction" and does not pass. `--tp-thesis unknown` is the negative
+  control and must equal the no-extension run. Revisions bind on the next bar
+  and never rescue a trade that already filled at the old target.
 - **A `tp` verdict is graded calibration-first** (§ E3.6's falsifier): does the
   stated expectation match where trades actually exit, before P&L.
 - Flipping a leg's target or shipping a producer stays Tier-3; the ratchet
