@@ -1,0 +1,18 @@
+{
+  "id": "ML-STAGE-DECISIONS",
+  "title": "Apply operator ML stage decisions of 2026-10-08 (MES baselines retire + 15m twin demote; audit baseline soft-off; prop-mission awaiting_source)",
+  "phase": null,
+  "state": "queued",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 3,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-08T06:55Z manager] Operator popups 06:35Z verbatim: MES \"Retire baselines, keep 5m only\"; audit \"Soft-off\"; prop-mission not retired (see PROP-MISSION-MODEL). Applied by the Sun 10-11 ML-review lane as one held Tier-3 PR.",
+  "updated_at": "2026-10-08T06:54:19Z",
+  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "_seq": 349
+}
