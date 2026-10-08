@@ -265,11 +265,16 @@ def find_accrual_gated_verdicts(
 
 def _load_backlog_ids() -> Set[str]:
     ids: Set[str] = set()
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from src.runtime import checklist_store as _ck  # noqa: PLC0415
     for path in BACKLOGS:
-        if not path.exists():
+        is_ck = _ck.is_checklist_path(path)  # monolith, or per-row store once cut over
+        if not (_ck.exists(path) if is_ck else path.exists()):
             continue
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
+            data = (_ck.load_path(path) if is_ck
+                    else json.loads(path.read_text(encoding="utf-8")))
         except (OSError, ValueError):
             continue
         rows = data.get("items") if isinstance(data, dict) else data

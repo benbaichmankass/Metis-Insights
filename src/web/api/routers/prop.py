@@ -228,27 +228,41 @@ async def _json_body(request: Request) -> dict[str, Any]:
     return body
 
 
+def _accepts(raw: Any) -> tuple:
+    """The app's declared capabilities (``["amend"]``); anything else is ignored."""
+    items = raw if isinstance(raw, list) else str(raw or "").split(",")
+    return tuple(sorted({str(x).strip().lower() for x in items} & {"amend"}))
+
+
 @router.post("/phone/claim")
-async def phone_claim(authorization: str | None = Header(default=None)) -> dict[str, Any]:
-    """Atomically claim the next valid ticket for the device's account (or none)."""
+async def phone_claim(request: Request,
+                      authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """Atomically claim the next valid ticket for the device's account (or none). An app that
+    posts ``{"accepts": ["amend"]}`` may also receive a trail amend (PROP-TRAIL-PHONE)."""
     from src.prop import phone_executor as pe
     dev = _phone_device(authorization)
+    try:
+        body = await request.json()
+    except (ValueError, TypeError):
+        body = {}
+    accepts = _accepts(body.get("accepts") if isinstance(body, dict) else None)
     expired = await asyncio.to_thread(pe.expire_stale_claims, dev.account_id)
     if expired:
         await asyncio.to_thread(pe.alert_expired, dev.account_id, expired)
-    ticket = await asyncio.to_thread(pe.claim_next, dev)
+    ticket = await asyncio.to_thread(pe.claim_next, dev, None, accepts)
     return {"ok": True, "account_id": dev.account_id, "ticket": ticket,
             "kill_switch": pe.kill_switch(dev.account_id),
             "config": pe.phone_config(dev.account_id)}
 
 
 @router.get("/phone/pending")
-async def phone_pending(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+async def phone_pending(accepts: str = "",
+                        authorization: str | None = Header(default=None)) -> dict[str, Any]:
     """READ-ONLY: how many tickets are waiting for the device's account. Claims nothing; the backgrounded app
     polls this and brings itself to the front before it claims (PI-20261006-APBY4NTV-0006)."""
     from src.prop import phone_executor as pe
     dev = _phone_device(authorization)
-    return {"ok": True, "pending": await asyncio.to_thread(pe.pending_count, dev)}
+    return {"ok": True, "pending": await asyncio.to_thread(pe.pending_count, dev, None, _accepts(accepts))}
 
 
 @router.post("/phone/report")
@@ -262,6 +276,29 @@ async def phone_report(request: Request,
         return await asyncio.to_thread(pe.record_report, dev, body)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/phone/verify")
+async def phone_verify(request: Request,
+                       authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """Server-side read-back (design 3.4): re-verify the filled form against the ticket and the venue steps;
+    answer with ONE go-token per ticket (``mode`` live only when the account is live now and the ticket is not
+    a test), or ``ok: false`` + reasons (pinged)."""
+    from src.prop import phone_executor as pe
+    dev = _phone_device(authorization)
+    body = await _json_body(request)
+    return await asyncio.to_thread(pe.verify_readback, dev, body)
+
+
+@router.post("/phone/go")
+async def phone_go(request: Request,
+                   authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """Redeem the ticket's go-token right before the click: ``go: true`` only for an unused, unexpired LIVE
+    token bound to the same read-back hash. One redeem per token; a replay is refused."""
+    from src.prop import phone_executor as pe
+    dev = _phone_device(authorization)
+    body = await _json_body(request)
+    return await asyncio.to_thread(pe.redeem_go_token, dev, body)
 
 
 @router.post("/phone/event")

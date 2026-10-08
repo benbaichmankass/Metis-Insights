@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -152,6 +153,13 @@ def main(argv=None) -> int:
         return _self_test()
 
     path = Path(a.path)
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from src.runtime import checklist_store as _ck  # noqa: PLC0415
+    if _ck.seeded(path):
+        print("checklist-fill-missing-state: the per-row store is seeded next to this path; "
+              "this one-off tool edits the MONOLITH only. Use scripts/ops/checklist.py.")
+        return 2
     raw = path.read_text(encoding="utf-8")
     doc = json.loads(raw)
     fillable, skipped = plan(doc)
