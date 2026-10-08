@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261008-ULTSLAND-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane RESEARCH-RESULTS-LAND 2026-10-08; PR #17085 guards red",
+    "rerun": "gh api repos/benbaichmankass/Metis-Insights/pulls/17085 --jq .mergeable_state; guards job log grep 'research-results-guard: R3'"
+  },
+  "state": "queued",
+  "what": "Research-result PR #17085 (RQ-20261007-004) cannot land: guards job fails research-results-guard R3 because the PR stores 7 research/results/RQ-20261007-004/measurements/*.verdicts.json (whole-file JSON; store allows only .jsonl + README.md; check at scripts/ci/check_research_results*.py:88). Producer: scripts/research/m27/ict_scalp_exit_sweep.py:405 writes verdicts.json under research/results. update-branch does not help; auto-merge is already requested. Fix producer/lander to write those under comms/research/ (or fold into the .jsonl), then re-land RQ-004. Also: batch PRs #17126/#17057/#17035 died as add/add duplicates of results already on main (per-run and batch landers double-landing the same run) - check the batch lander skips result files already on main."
+}
