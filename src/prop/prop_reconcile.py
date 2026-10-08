@@ -524,6 +524,12 @@ def compute_open_risk(account_id: str) -> Dict[str, Any]:
     }
 
 
+def _qualifying_days(account_id: str) -> Dict[str, Any]:
+    from src.prop import qualifying_days
+
+    return qualifying_days.compute(account_id)
+
+
 def compute_rule_distance(
     account_id: str, status: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -741,6 +747,9 @@ def compute_rule_distance(
         "after_open_risk_state": after_state,
         "distance_to_dd_floor_after_open_risk_usd": dd_after,
         "distance_to_daily_loss_after_open_risk_usd": daily_after,
+        # Evaluation-rule standing (Velotrade qualifying days); state
+        # `not_declared` for rulesets with no such gate. See qualifying_days.py.
+        "qualifying_days": _qualifying_days(account_id),
         "status_present": bool(status),
         "status_age_hours": age_hours,
         "status_freshness": freshness,
