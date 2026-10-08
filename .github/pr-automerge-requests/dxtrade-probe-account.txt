@@ -1,0 +1,1 @@
+auto-merge: DXTRADE-PROBE-ACCOUNT fixed account choice on the read-only DXtrade REST probe (Tier 1, lane DXTRADE-PROBE-ACCOUNT)

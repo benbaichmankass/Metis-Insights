@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "DXTRADE-PROBE-ACCOUNT: read-only DXtrade REST probe gains a fixed --account {velotrade_1,tradeify_1} choice (host + env prefix resolved from prop_platforms.yaml, hosts pinned in code), an env_absent read_state, and a booleans-only summary line; system-actions velotrade-api-probe takes the same fixed choice. No order path: _call still refuses everything but GET, POST /login, POST /logout. The probe is not dispatched for tradeify_1 by this PR (separate Tier-2)."
+}
