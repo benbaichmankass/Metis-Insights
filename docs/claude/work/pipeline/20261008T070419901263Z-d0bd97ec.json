@@ -1,0 +1,21 @@
+{
+  "based_on": "20261008T000301823217Z-1df0085a.json",
+  "due_when": {
+    "due_date": "2026-10-10",
+    "kind": "date"
+  },
+  "id": "PI-20261004-APBY4NTV-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv 2026-10-04 (CI-AUTOMERGE report on #16494)",
+    "rerun": "git log --oneline --since=7.days -- docs/claude/work/MANAGER-CHECKLIST.json | wc -l; then count open claude/* PRs whose diff touches that file and whose GitHub mergeable_state is dirty"
+  },
+  "redate": {
+    "observation": "Re-read 2026-10-08 against main: step (b1) loader+pure-data readers MERGED (#17013); (b2)+(c') history readers + checklist-readers-guard OPEN #17015 (held, unvouchable_paths); write CLI + docs OPEN #17017; seed+delete cutover NOT done (waits on #16941 and the stack). Conflict problem not yet removed: the monolith is still the committed register.",
+    "observed_at": "2026-10-08"
+  },
+  "state": "done",
+  "terminal_reason": "Built, merged, deployed AND observed. The single shared MANAGER-CHECKLIST.json (the cause of GitHub-side conflicts) is replaced by one file per row under docs/claude/work/checklist/. Chain: loader+generator #16989, readers b1 #17013, readers b2 + readers guard #17015, write CLI + docs #17017, history guards, seed cutover #17073 (merge d62f06bec, 2026-10-08T06:53Z; re-seeded twice on main after #17069 and #16981 modified the monolith). OBSERVED live 2026-10-08T07:03Z: /api/diag/version git_sha_on_disk d12db459c, an ancestor-descendant of d62f06bec (git merge-base --is-ancestor true) with MANAGER-CHECKLIST.json absent at that commit; GET /api/bot/work/checklist -> 200, present=True, readState=read, 348 items whose ids equal the pre-merge store ids, workingTreeDirty False, freshness.warnings empty, summary keys intact; GET /api/bot/work/brief -> 200 present=True. NOT yet observed: the manager's first scripts/ops/checklist.py add|set|note write landing on main, and the conflict rate on concurrent row edits (the original MEASURE: 20 of 41 commits appended a row). Re-run origin.rerun after a day of manager writes to compare. Follow-ups filed separately: PI-20261008-BFOAI4ZM-0001 (four guards still declare the deleted file as a subject).",
+  "what": "MANAGER-CHECKLIST.json is a single shared JSON array, so any PR that appends or edits a row conflicts on GitHub whenever main appends one. GitHub has no jsonregister merge driver; that driver exists only in a clone's local .git/config, which hides the conflict locally. MEASURED 2026-10-04: #16494 conflicted twice and #16500 once, both on this file only (CI-AUTOMERGE lane simulated GitHub's merge without the driver). Structural for every lane told to add its row in its first PR. Fix shape: one file per row (as docs/claude/work/pipeline/ already is), or a GitHub-side merge path. A build, not a doc edit."
+}
