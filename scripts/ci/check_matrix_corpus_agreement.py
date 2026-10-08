@@ -140,6 +140,24 @@ BLOCKED_ACK = re.compile(
 # is a new column shipping with no evidence store, which is precisely the state
 # these three were in before anyone measured it.
 CORPUS_EXEMPT_LEVERS: dict[str, str] = {
+    # GEOM-B1 (2026-10-07). NOT a structural exemption -- the fleet sweep DOES emit
+    # these (m20_fleet_exit_sweep.cells_for, opt-in via `--levers`), so the corpus
+    # can speak to them in principle. They are exempt only because NO SWEEP HAS RUN
+    # YET: every live cell in both columns is `pending` / `blocked:no_harness_levers`
+    # and there is no verdict to disagree with. REMOVE THESE TWO ENTRIES when the
+    # first RQ-20261007-001/-003/-004 rows land in m20-sweep-corpus.jsonl -- from
+    # that day an exemption would hide a real disagreement, which is the failure
+    # this table exists to make visible.
+    "tp_extend": (
+        "no sweep has run yet (GEOM-B1-HARNESS landed the lever 2026-10-07); every "
+        "cell is pending/blocked, so there is no verdict to check. Exemption is "
+        "TEMPORARY: delete it when the first tp_extend corpus row lands."
+    ),
+    "tp_retarget": (
+        "no sweep has run yet (GEOM-B1-HARNESS landed the lever 2026-10-07); every "
+        "cell is pending/blocked, so there is no verdict to check. Exemption is "
+        "TEMPORARY: delete it when the first tp_retarget corpus row lands."
+    ),
     "bracket_geometry": (
         "NOT A LEVER — it is the ENTRY BRACKET TRIPLE (tp_at_r x atr_stop_mult x "
         "timeout_bars), added as a DIMENSION 2026-08-20. The corpus this guard "
