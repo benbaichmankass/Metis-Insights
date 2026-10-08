@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane RQ-RESULTS (checklist row RQ-FIX / PI-20261006-APBY4NTV-0010, step 2): scripts/research/regrade_wiring_only_results.py --write on main after #16791 landed the tool. 48 corrected result rows APPENDED under research/results/ (same run_id, same measurement, read_state measured, the unit's own pre-registered rule applied; originals untouched); 8 rows were already re-graded by #16791. 56 discarded rows found in total: 44+3 get a mechanical verdict (pass/fail/indeterminate), 9 stay wiring_only with the true reason (their roster-walkforward rule names an OOS statistic the harness does not measure; PI-20261006-1VPYTX8E-0001). research/results/** is on the Tier-1 surface (E57); research-results-guard validates every record (files=337 records=472 problems=0 locally). No config, src, deploy or order path."
+}

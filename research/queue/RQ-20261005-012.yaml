@@ -64,3 +64,15 @@ generated:
     symbol: MHG
     timeframe: 1d
 last_dispatched_at: '2026-10-07T14:12:55+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-TPL-ROSTER-WALKFORWARD-NET-OF-COST
+  evidence:
+  - research/results/RQ-20261005-012/37634854684.jsonl
+  - research/results/RQ-20261005-012/37643678140.jsonl
+  graded_at: '2026-10-07'
+  grader: scripts/research/queue_grade.py
+  needs_review: true
+  reason: 'verdicts not unanimous-mechanical: [''wiring_only'']'
+  rows: 4
+  verdict: null

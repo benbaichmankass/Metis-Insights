@@ -72,20 +72,29 @@ def test_the_runner_lands_nothing_itself_and_holds_no_pat():
 
 
 def test_the_dispatcher_lands_the_batch_once_per_cycle_and_asserts_it():
+    """Collect + grade stay in `dispatch`; the batch landing and its per-record
+    assertion moved to the `land` job (RQ-CADENCE 2026-10-07) so the dispatch
+    concurrency group frees in minutes. `land` needs `dispatch`, so the order
+    collect -> land -> assert still holds, and the count crosses as an output."""
     wf = yaml.safe_load((REPO / ".github/workflows/research-queue-dispatch.yml").read_text())
     steps = wf["jobs"]["dispatch"]["steps"]
     names = [s.get("name", "") for s in steps]
     i_collect = next(i for i, n in enumerate(names) if n.startswith("Collect the runner"))
-    i_batch = next(i for i, n in enumerate(names) if n.startswith("Land the batch"))
-    i_assert = next(i for i, n in enumerate(names) if n.startswith("Assert every batched"))
     i_grade = names.index("Grade and dispatch")
-    assert i_collect < i_batch < i_assert < i_grade
-    batch = steps[i_batch]
+    assert i_collect < i_grade
+    assert "collect_runner_results.py" in steps[i_collect]["run"]
+    assert "--max-research-inflight 3" in steps[i_grade]["run"] and "--max-repo-queued 10" in steps[i_grade]["run"]
+    assert "collect_count" in wf["jobs"]["dispatch"]["outputs"]
+    lsteps = wf["jobs"]["land"]["steps"]
+    lnames = [s.get("name", "") for s in lsteps]
+    i_batch = next(i for i, n in enumerate(lnames) if n.startswith("Land the batch"))
+    i_assert = next(i for i, n in enumerate(lnames) if n.startswith("Assert every batched"))
+    assert i_batch < i_assert
+    batch = lsteps[i_batch]
     assert batch["uses"] == "./.github/actions/commit-to-main"
     assert str(batch["with"]["verify-merged"]).lower() == "true"
     assert batch["with"]["paths"] == "comms/research research/results"
-    assert "collect_runner_results.py" in steps[i_collect]["run"]
-    assert "--max-research-inflight 3" in steps[i_grade]["run"] and "--max-repo-queued 10" in steps[i_grade]["run"]
+    assert "needs.dispatch.outputs.collect_count" in batch["if"]
 
 
 def test_record_inputs_cover_every_emit_field():

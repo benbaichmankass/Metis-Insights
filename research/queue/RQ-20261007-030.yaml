@@ -1,0 +1,74 @@
+id: RQ-20261007-030
+title: 'Prop candidate pool: 1095-day evidence records for trend_donchian_eth_4h (n=85 at 730d) and trend_donchian_sol_4h
+  (n=75 at 730d), both just under the 88 admission floor (PI-20261005-XJSGZG1X-0002)'
+status: queued
+cadence: once
+theme: new_strategy_prop
+priority: 2
+kind: experiment
+question: 'Lane PROP-ROSTER-EXPAND (RQ-20261005-901, RULE-RQ1005-PROPEXPAND-ADMIT: faithful AND n >= 88) rebuilt both legs
+  at 730d: comms/strategy_evidence/runs/2026-10-05-730d-expand/trend_donchian_eth_4h.json n=85, net_r_oos +27.10, 3/4 folds,
+  faithful; trend_donchian_sol_4h.json n=75, net_r_oos +27.81, 3/4 folds, faithful. Both are ''could not answer'' on the floor
+  alone, and n is bounded by --days, not the calendar (42.5 and 37.5 trades/yr). On a 1095-day window, does each leg''s config-exact
+  record, net of the full cost stack, reach n >= 88 with expectancy > 0 and a fold majority, so it can be ADMITTED to the
+  prop candidate pool and the book searches (RQ-20261005-902/813 shape) re-run with it?'
+why_this_matters: Prop first (operator 2026-10-05). The admitted pool for Tradeify/Velotrade/Breakout books is three legs;
+  XRP has none. Two faithful +27 R legs sitting 3 and 13 trades under the floor is a window-length artefact, not a verdict.
+power:
+  expected_n: 112
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: 'd=0.3 -> ~88 at alpha 0.05 / power 0.8, the prop admission floor (RQ-20260928-011/-012). expected_n=112 is the SMALLER
+    committed 730d count (sol_4h n=75, wc -l of its __trades.jsonl on 2026-10-07) scaled to 1095d (75 x 1.5 = 112); eth_4h
+    scales to 128. Per-leg: a leg under 88 at 1095d grades UNDERPOWERED on its own, the other leg still decides.'
+  feasibility:
+    source: none
+    accrual_basis: Fresh 1095d harness runs; the committed 365d and 730d records are the observed rates. Nothing accrues.
+decision_rule:
+  id: RULE-RQ1007-ETH-SOL-4H-ADMIT-1095D
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: 'Per leg, the record scripts/ops/build_strategy_evidence.py writes at --days 1095 --folds 4 (config-exact per
+    config/strategies.yaml; fees 7.5 bps roundtrip + slippage 3.0 bps roundtrip + funding 1.0 bps per 8h window (the committed
+    record''s cost_stack; execution_costs.resolve_cost_policy venue defaults)): fidelity, omitted_levers, n_trades_oos, expectancy_r_oos,
+    net_r_oos, folds_positive/folds.'
+  rule: 'Per leg. ADMIT (PASS) IF fidelity == faithful AND n_trades_oos >= 88 AND expectancy_r_oos > 0 AND folds_positive
+    >= 3 of 4: the leg enters the prop candidate pool and a follow-on book unit (prop_book_search over the admitted pool,
+    the RQ-20261005-902/813 shape) is registered at that time, not by this unit. FAIL IF n_trades_oos >= 88 AND (expectancy_r_oos
+    <= 0 OR folds_positive < 3): the leg is excluded from the pool on a powered window; no roster change (neither leg is on
+    a prop roster). UNDERPOWERED (indeterminate) IF n_trades_oos < 88 at 1095d: re-run once at --days 1460; still under 88
+    -> the rate bounds it, record the bound on the pipeline row and stop extending the window. fidelity != faithful -> indeterminate,
+    name the omitted lever. The 88 floor is RULE-RQ1005-PROPEXPAND-ADMIT''s and is not lowered.'
+  what_it_does_not_do: 'Does not touch any roster or config; admission to a candidate POOL is not a roster placement. Does
+    not address the four ''approximate'' legs the pipeline row also names (xrp_pullback_2h, trend_donchian_eth, eth_pullback_2h,
+    trend_donchian_sol): their omitted levers (exit-head, trail_decay params) need the harness to model them, which is code
+    and out of this unit''s scope.'
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.5
+  est_minutes: 15
+  basis: Two trend harness runs over ~6,570 4h bars each with 4 folds; ESTIMATED from bar count; the 730d pair's wall time in lane PROP-ROSTER-EXPAND was not recorded.
+run:
+  workflow: session-local
+  note: 'SESSION-LOCAL (precedent RQ-20261005-901; scripts/ops/build_strategy_evidence.py is outside research-script-run.yml''s
+    allowlist and lands under comms/strategy_evidence/). Command: python3 scripts/ops/build_strategy_evidence.py --strategy
+    trend_donchian_eth_4h --strategy trend_donchian_sol_4h --days 1095 --folds 4 --workdir comms/strategy_evidence/runs/2026-10-07-1095d
+    ; commit the workdir and the replaced canonical records (measured -> measured overwrite); land one research_result.py
+    record per leg under research/results/<this unit>/.'
+  inputs:
+    research_unit: RQ-20261007-030
+lands:
+  store: comms/strategy_evidence/
+  assert_field: coverage_state
+  min_rows: 2
+related:
+- PI-20261005-XJSGZG1X-0002
+- RQ-20261005-901
+- RQ-20261005-902
+- RQ-20261005-903
+- comms/strategy_evidence/runs/2026-10-05-730d-expand/trend_donchian_eth_4h.json
+- comms/strategy_evidence/runs/2026-10-05-730d-expand/trend_donchian_sol_4h.json

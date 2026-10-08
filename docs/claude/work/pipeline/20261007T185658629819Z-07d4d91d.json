@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "due_date": "2026-10-13",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ZGQPHR3D-0007",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-13",
+    "how_to_check": "git log origin/main --oneline -- <the script named in this item> shows the fix; python3 -m pytest the test file named in this item passes",
+    "what": "PR claude/harness-audit-fixes (#16952) merged to main and its guards green; fix for this finding present on main"
+  },
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-validate-robustness-stale-json-reuse",
+    "rerun": "read docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl and re-check the finding AUD-20260927-CA-B04-validate-robustness-stale-json-reuse against current scripts/research/validate_robustness.py:49"
+  },
+  "state": "queued",
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('RESEARCH (re-pointed from RESEARCH (BACKLOG-BURNDOWN-2 2026-'); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "CA-B04 audit finding (high): scripts/research/validate_robustness.py:49 — run() executes a backtest harness subprocess and reads net_total_r etc. back from a fixed OUT/{tag}.json path, feeding both the fee-sensitivity table and the 3-fold robustness tabl || HARNESS-AUDIT-FIXES 2026-10-07: FIXED on branch claude/harness-audit-fixes (run_fresh, as for validate_corr). BLAST RADIUS: no record under research/results or comms/strategy_evidence names validate_robustness.py; cited only by docs/research/overnight-strategy-research-2026-06-01.md (fee-sensitivity + 3-fold tables). Wrong ONLY IF a run failed; unmeasurable now. MUST RE-RUN to rely on it."
+}
