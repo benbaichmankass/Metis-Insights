@@ -144,4 +144,4 @@ related:
   - 'docs/research/mi307-offline-mfe-2026-09-18.json (uncapped MFE distribution + reach-rates per leg; the calibration basis above)'
   - 'RQ-20261006-060 (the entry-time finite target for the eth_4h sentinel; this unit is its revision half)'
   - 'src/runtime/target_expectation.py (evaluate_extension: the pure decision half, used as-is)'
-last_dispatched_at: null
+last_dispatched_at: '2026-10-08T03:51:53+00:00'
