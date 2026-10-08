@@ -8194,7 +8194,8 @@ class DXtradeAdapter(PropPlatformAdapter):
         return False
 
     def _row_action(self, page: Any, kind: str, key_col: str, key: str,
-                    action_re: str, arm: bool, icon_re: Optional[str] = None) -> Dict[str, Any]:
+                    action_re: str, arm: bool, icon_re: Optional[str] = None,
+                    confirm_re: Optional[str] = None) -> Dict[str, Any]:
         """Find exactly one row of the orders/positions table whose ``key_col``
         cell equals ``key`` and exactly one control in it matching
         ``action_re`` (its text / aria-label / title) or, for a text-less
@@ -8222,11 +8223,47 @@ class DXtradeAdapter(PropPlatformAdapter):
         if not arm:
             return {"ok": True, "clicked": False, "why": "disarmed: stopped before the click"}
         try:
+            page.evaluate(POST_SUBMIT_JS, ["tag"])
+        except Exception:
+            pass
+        try:
             page.click("[data-metis-row-action]", timeout=5_000)
         except Exception as exc:
             return {"ok": True, "clicked": True, "why": f"click raised {type(exc).__name__}; outcome unknown"}
-        confirmed = self._confirm_dialog(page)
-        why = "clicked" + ("; confirm dialog pressed" if confirmed else "")
+        # What the click PRODUCED (PROP-CANCEL-FIX 2026-10-08: on tradeify_1
+        # the measured cancel icon was clicked at 18:13Z and 18:18Z, no
+        # role=dialog was left open, and the order was still there on the next
+        # read). Every button that appeared, the overlay holding them, and
+        # whether the row is still there, are returned so the journal says
+        # what the terminal showed (digit runs of 5+ masked).
+        appeared: Dict[str, Any] = {}
+        pressed = None
+        try:
+            page.wait_for_timeout(1_000)
+            appeared = page.evaluate(POST_SUBMIT_JS, ["diff"]) or {}
+            new = [b for b in (appeared.get("new_buttons") or []) if not b.get("disabled")]
+            hits = [b for b in new if confirm_re and re.match(confirm_re, str(b.get("text") or "").strip(), re.I)]
+            # Press a confirmation ONLY when the overlay that appeared says
+            # "cancel" and exactly one of its new buttons is an anchored
+            # confirm label; anything else is reported, never pressed.
+            if confirm_re and len(hits) == 1 and re.search(r"\bcancel", str(appeared.get("overlay_text") or ""), re.I):
+                page.click(f"[data-metis-new=\"{hits[0]['i']}\"]", timeout=5_000)
+                pressed = hits[0].get("text")
+                page.wait_for_timeout(1_000)
+        except Exception as exc:
+            appeared = {**appeared, "error": type(exc).__name__}
+        confirmed = bool(pressed) or self._confirm_dialog(page)
+        why = "clicked" + (f"; confirm pressed ({pressed})" if pressed else "; confirm dialog pressed" if confirmed else "")
+        try:
+            after = page.evaluate(ROW_ACTION_JS, args) or {}
+            why += f"; row still present={after.get('rows') == 1}"
+        except Exception:
+            pass
+        if appeared.get("new_buttons") or appeared.get("overlay_text"):
+            why += (f"; appeared buttons={[b.get('text') for b in appeared.get('new_buttons') or []][:6]}"
+                    f" overlay={str(appeared.get('overlay_text') or '')[:200]!r}")
+        else:
+            why += "; nothing new appeared"
         try:
             # A dialog still open after the click is reported, never pressed
             # further: the next cycle's re-read decides whether it took.
@@ -8250,7 +8287,8 @@ class DXtradeAdapter(PropPlatformAdapter):
         # other button draws #icon-replace-context (modify) and never matches.
         return self._row_action(page, "orders", "Order ID", str(order.order_id),
                                 r"^(cancel|cancel order|×|✕|x|remove)$", arm,
-                                icon_re=r"^#?icon-(close|cancel)-order$")
+                                icon_re=r"^#?icon-(close|cancel)-order$",
+                                confirm_re=r"^(confirm|ok|yes|yes, cancel|cancel order|yes, cancel order)$")
 
     def flatten(self, page: Any, symbol: Optional[str] = None, *, arm: bool = False,
                 side: Optional[str] = None, quantity: Optional[float] = None,

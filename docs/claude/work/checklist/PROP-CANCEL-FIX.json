@@ -2,17 +2,20 @@
   "id": "PROP-CANCEL-FIX",
   "title": "Executor cancel of a resting order on tradeify_1 (text-less icon cancel control)",
   "phase": "P",
-  "state": "in_flight",
+  "state": "done",
   "owner": "lane PROP-CANCEL-FIX",
-  "lane": "session_0111iCRx78JcxgbmQzf5WJKf",
+  "lane": null,
   "model": null,
   "ceiling_usd": null,
-  "spend_usd": null,
+  "spend_usd": 9.28,
   "tier": 2,
-  "prs": [],
+  "prs": [
+    17158,
+    17167
+  ],
   "blocked_on": [],
-  "note": "Manager Session 2026-10-08 (session_01Uq7MrjPQDRWqbhCjwuMava) dispatch; operator ~16:22Z 'the system needs to be a fully autonomous pipeline'. Ticket prop-manual-e6badec7ae10 (LIMIT sell ETHUSD 0.82 @ 2471.31, valid_until 16:26:53Z) rested past expiry: the expiry cancel failed 'rows=1, controls=0'. MEASURED (system-action run 37810774267, issue #17157, 16:42Z): the orders row's cancel is a text-less <button class='button button-icon grid-orders_control'> drawing <use xlink:href='#icon-close-order'>, beside a modify button drawing '#icon-replace-context'. FIX: ROW_ACTION_JS also matches an ANCHORED icon reference (^#?icon-(close|cancel)-order$) inside a pressable only, still exactly 1 row by Order ID and exactly 1 control; the row is hovered and re-read first. Executor: an exhausted expiry cancel keeps trying the guarded cancel quietly every cycle (alerts stay hourly), so a fixed matcher cancels it without a human. CLOSES WHEN: the journal of ict-prop-executor@tradeify_1 shows a cancel_expired_resting result clicked=true for the stale order, then orders 0 and the ticket reported skipped/expired. [2026-10-08T19:10Z manager session_01Uq7MrjPQDRWqbhCjwuMava] Round 1 #17158 merged de98a262 + deployed (code 179e4d551): cycles 18:13-18:33Z click #icon-close-order on order 18912998 (clicked=true) but the order still rests (positions 0, orders 1). Round 2 #17167 in CI.",
-  "updated_at": "2026-10-08T19:10:09Z",
+  "note": "Manager Session 2026-10-08 (session_01Uq7MrjPQDRWqbhCjwuMava) dispatch; operator ~16:22Z 'the system needs to be a fully autonomous pipeline'. Ticket prop-manual-e6badec7ae10 (LIMIT sell ETHUSD 0.82 @ 2471.31, valid_until 16:26:53Z) rested past expiry: the expiry cancel failed 'rows=1, controls=0'. MEASURED (system-action run 37810774267, issue #17157, 16:42Z): the orders row's cancel is a text-less <button class='button button-icon grid-orders_control'> drawing <use xlink:href='#icon-close-order'>, beside a modify button drawing '#icon-replace-context'. FIX: ROW_ACTION_JS also matches an ANCHORED icon reference (^#?icon-(close|cancel)-order$) inside a pressable only, still exactly 1 row by Order ID and exactly 1 control; the row is hovered and re-read first. Executor: an exhausted expiry cancel keeps trying the guarded cancel quietly every cycle (alerts stay hourly), so a fixed matcher cancels it without a human. CLOSES WHEN: the journal of ict-prop-executor@tradeify_1 shows a cancel_expired_resting result clicked=true for the stale order, then orders 0 and the ticket reported skipped/expired. [!] ROUND 1 MERGED (#17158, 18:05Z) AND DEPLOYED, NOT YET EFFECTIVE. OBSERVED in the ict-prop-executor@tradeify_1 journal: cycles at 18:13Z and 18:18Z ran code_sha 179e4d551, located the ONE #icon-close-order control on order 18912998 and clicked it (ok=true, clicked=true, why 'clicked', no role=dialog left open), yet every following read shows orders 1. So the matcher half works; the click does not cancel. ROUND 2 (this PR): the click's PRODUCT is captured (new buttons, the overlay holding them, whether the row is still there) into the action's why, and a confirmation is pressed ONLY when the overlay says 'cancel' and exactly one new enabled button is an anchored confirm label (confirm|ok|yes|yes, cancel|cancel order|yes, cancel order). The exhausted-retry path re-clicks every 5 min, so the first cycle on round-2 code either cancels or names what the terminal showed. [2026-10-08T21:05Z manager session_01Uq7MrjPQDRWqbhCjwuMava] DONE, observed: round 2 #17167 (3d2514bb) deployed; at 19:23:36Z the executor clicked #icon-close-order, pressed the 'Cancel Order' confirm (overlay 'Cancel ETH/USD Sell Limit Order ... Duration GTC'), row gone; 19:28Z and 19:33Z cycles read positions 0 / orders 0, alerts 0; ticket prop-manual-e6badec7ae10 -> skipped. Lane session_0111iCRx78JcxgbmQzf5WJKf $9.28 final (archived). Note: the venue had the order as GTC, so it would never have expired on Tradeify alone.",
+  "updated_at": "2026-10-08T21:22:41Z",
   "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
   "_seq": 360
 }
