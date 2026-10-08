@@ -1,1 +1,0 @@
-auto-merge: slug rule doc + R11 message

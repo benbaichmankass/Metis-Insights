@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "OPS-SMALL-FIXES item 2: README states the slug rule; R11 message prints the exact expected filename."
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Edits scripts/ci/check_pr_landing.py (R11 message only) plus README; manager merges.",
+  "why": "OPS-SMALL-FIXES item 2: README states the slug rule; R11 prints the exact expected filename."
 }
