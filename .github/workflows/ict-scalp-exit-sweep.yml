@@ -37,9 +37,33 @@ on:
   workflow_dispatch:
     inputs:
       cells:
-        description: "Matrix lever to sweep (e.g. exit_ladder). Empty = all cells."
+        description: "Matrix lever(s) to sweep, CSV (e.g. exit_ladder). Empty = the legacy cells. GEOM-B1: `tp_revision` (= tp_extend + tp_retarget, a take-profit that MOVES, on the live tp_at_r bracket) or either one alone; these cells are OPT-IN and exist only when named here."
         required: false
         default: 'exit_ladder'
+      # ⚠️ THESE FOUR EXIST SO THE QUEUE CAN FIRE THIS WORKFLOW AND SO ITS RESULT
+      # LANDS. `scripts/research/dispatch_queue.py` REFUSES an `accruing` unit that
+      # does not declare `run.inputs.research_unit`, and `gh workflow run -f
+      # <input-the-workflow-never-declared>` ERRORS -- the same reason
+      # m20-exit-lever-sweep.yml declares them. Until 2026-10-07 this workflow's
+      # only output was a PR comment and an expiring artifact, so no queue unit
+      # could satisfy a `lands:` clause on it. A run with `research_unit` empty is
+      # NOT queue-dispatched and behaves exactly as before (comment only).
+      research_unit:
+        description: "Queue unit id that dispatched this run (RQ-...). Empty = NOT queue-dispatched: the verdict is posted as a PR comment only, no result is landed."
+        required: false
+        default: ""
+      power_state:
+        description: "That unit's computed R4 power verdict, supplied by the dispatcher. `accruing` means its numbers must never be read as a test result."
+        required: false
+        default: ""
+      decision_rule_id:
+        description: "The unit's pre-registered decision rule id (e.g. RULE-RQ1007-004-SCALP-TARGET-REVISION). Required to LAND a result."
+        required: false
+        default: ""
+      decision_rule_registered_at:
+        description: "When that rule was registered (ISO date). Required to LAND a result."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -120,6 +144,16 @@ jobs:
           echo "---VERDICTS_JSON---"
           cat "out/${SYM}_${TF}/verdicts.json" >> verdicts_raw.json || true
 
+      # The per-leg verdicts, kept for the `research_result` job below (and for a
+      # reader: an expiring artifact is not the record, the landed result is).
+      - name: Upload this leg's verdicts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scalp-sweep-${{ matrix.leg.name }}
+          path: out/${{ matrix.leg.sym }}_${{ matrix.leg.tf }}/verdicts.json
+          if-no-files-found: ignore
+
       - name: Post verdict comment on PR
         if: always()
         uses: actions/github-script@v7
@@ -189,3 +223,87 @@ jobs:
                 `commit ${context.sha} or branch ${branch}. The result is in ` +
                 `this job's log and must be collected manually.`);
             }
+
+  # ---------------------------------------------------------------- landing
+  # Lands ONE RECORD PER DISPATCHED LEG on `main` through the shared
+  # `research-result` action, so a queue unit routed here (RQ-20261007-004) can
+  # satisfy its `lands:` clause. Only for a queue-dispatched run
+  # (`research_unit` set); a manual run keeps its old comment-only behaviour.
+  #
+  # `if: always()` because a failed or partial sweep is itself a result: a
+  # dropped leg becomes a visible `no_data` / `producer_failed` record.
+  #
+  # ⚠️ THIS JOB IS NOT YET PROVEN END-TO-END. The mapper
+  # (scripts/research/m27/scalp_sweep_result.py) has a self-test and its parts are
+  # checked against research_result.validate(); the commit-to-main half is a nested
+  # composite no CI run exercises, so the first real proof is the first dispatch
+  # (the same caveat the research-result action states for itself).
+  research_result:
+    needs: sweep
+    if: always() && inputs.research_unit != '' && inputs.decision_rule_id != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      # `continue-on-error` is BRANCHED ON, not swallowed: when every shard died
+      # there is nothing to download, and the mapper then emits `producer_failed`
+      # per dispatched leg -- the case this job exists to make visible.
+      - uses: actions/download-artifact@v4
+        id: fetch
+        continue-on-error: true
+        with:
+          pattern: scalp-sweep-*
+          path: sweep_out
+          merge-multiple: false
+      - name: Map this run onto one record per dispatched leg
+        id: derive
+        env:
+          SWEEP_RESULT: ${{ needs.sweep.result }}
+          UNIT: ${{ inputs.research_unit }}
+        run: |
+          set -euo pipefail
+          mkdir -p rr sweep_out
+          # The DISPATCHED population is the static matrix above, read from this
+          # file so the two cannot drift.
+          LEGS="$(python3 - <<'PY'
+          import re
+          txt = open(".github/workflows/ict-scalp-exit-sweep.yml").read()
+          print(",".join(re.findall(r"- \{ name: (\w+),", txt)))
+          PY
+          )"
+          echo "dispatched legs: ${LEGS}"
+          python3 scripts/research/m27/scalp_sweep_result.py \
+            --verdicts-dir sweep_out \
+            --legs "${LEGS}" \
+            --out rr/records.jsonl \
+            --measurements-dir "research/results/${UNIT}/measurements" \
+            --sweep-result "${SWEEP_RESULT}"
+      - name: Land the per-leg results on main
+        uses: ./.github/actions/research-result
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          research-unit: ${{ inputs.research_unit }}
+          power-state: ${{ inputs.power_state }}
+          decision-rule-id: ${{ inputs.decision_rule_id }}
+          decision-rule-registered-at: ${{ inputs.decision_rule_registered_at }}
+          records-file: rr/records.jsonl
+          # The FAN-OUT WIDTH, not 1: a result covering fewer legs than were
+          # dispatched FAILS here instead of grading green on a partial.
+          min-rows: ${{ steps.derive.outputs.min_rows }}
+          extra-paths: ${{ steps.derive.outputs.extra_paths }}
+          # Unused when `records-file` is set (each part carries its own), but the
+          # action requires them.
+          verdict: not_applicable
+          read-state: not_attempted
+          population: per-leg; see each record
+          n: 'null'
+          tool: scripts/research/m27/ict_scalp_exit_sweep.py + scripts/research/m27/scalp_sweep_result.py
