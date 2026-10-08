@@ -98,7 +98,7 @@ def test_ticket_result_keeps_form_dump_and_needs_a_claim():
     assert pe.record_report(_dev(), {"kind": "ticket_result", "ticket_id": "t1", "result": "dry_filled"})["updated"] == 0
     pe.claim_next(_dev())
     r = pe.record_report(_dev(), {"kind": "ticket_result", "ticket_id": "t1", "result": "dry_filled",
-                                  "reason": "app not armed", "form": {"inputs": [{"label": "Take profit price"}]},
+                                  "reason": "server mode dry", "form": {"inputs": [{"label": "Take profit price"}]},
                                   "account_id": "breakout_1"})
     assert r["updated"] == 1
     t = prop_journal.get_ticket("t1")
@@ -246,7 +246,7 @@ def test_heartbeat_keeps_latest_allowlisted_state_and_does_not_ping(_iso):
     assert pe.last_heartbeat("breakout_2") is None
     pe.record_event(_dev(), {"event": "heartbeat", "reason": "logged in, not on the terminal; acct 12345678",
                              "state": {"st": "logged_in", "hold": True, "tabs": 3, "host": "trade.breakoutprop.com",
-                                       "secret": "x", "onAccount": False}})
+                                       "secret": "x", "onAccount": False, "armed": True}})
     hb = pe.last_heartbeat("breakout_2")
     assert len(_iso) == n
     assert "12345678" not in hb["status"] and hb["state"] == {"st": "logged_in", "hold": True, "tabs": 3,

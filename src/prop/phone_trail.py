@@ -30,7 +30,7 @@ Contract (every rule fails closed):
   ``refused`` or a claimed amend with no report LOCKS the ticket's trail and pings the
   operator: an amend that cannot be verified is never retried.
 * ``submit`` follows the entry path's own decision (:func:`phone_executor.submit_mode`);
-  the app's ARMED switch applies on top. No new gate.
+  there is no device-local switch on top (ARMED-GATE). No new gate.
 * TP: :func:`request_tp_amend` publishes a TP revision through the same slot for lane
   TP-DOCTRINE's verdicts; the trail itself never moves the TP.
 """

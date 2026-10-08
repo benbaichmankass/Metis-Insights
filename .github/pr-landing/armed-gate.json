@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Removes a live-submit gate (the phone's device-local ARMED switch), so tier 3 and held for the manager to merge. Operator decision 2026-10-06 ~07:50Z, verbatim: \"not have the feature on the app where I need to arm it manually. That falls into the category of extra gates that are unnecessary and then make it harder to manage the system correctly and are actually less safe than we think\". The server's submit_mode (accounts.yaml mode + PROP_PHONE_MODE_<ACCOUNT> kill switch + test tickets always dry) is unchanged and becomes the only live/dry decision. Every other app gate (terminal gate, symbol verification, read-back, ledger, busy-symbol) is unchanged.",
+  "why": "Checklist row ARMED-GATE (pipeline item PI-20261006-APBY4NTV-0002, not on main at the time of this PR): a hidden, default-off third gate on the device is the stranded-capability pattern CLAUDE.md \u00a7 'The two execution gates' forbids; live vs dry must be visible server-side config."
+}
