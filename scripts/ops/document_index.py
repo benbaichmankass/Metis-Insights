@@ -329,6 +329,22 @@ STATUS_EXPLICIT: Dict[str, Tuple[str, str, str]] = {
         "evidence closing BL-20260816-CORPUS-CONFLICT-REDERIVE-RUNS-THE-STALE-BRANCH-EXTRACTOR; "
         "goes historical once the dispatched-sha stamp lands",
     ),
+    # Written 2026-10-07 by lane PAIRS-STOCKTAKE, the same session that took
+    # every measurement in it (paged /trades/closed and /pairs/soak reads,
+    # config/pairs.yaml, the executor, the mandate store, the prop lot
+    # tables), each figure MEASURED/INFERRED/DECIDED-marked with its locator,
+    # so the status is ESTABLISHED rather than inferred. No other rung can see
+    # it (not imported by rule 1, not in ACTIVE_DOCS, not a skill, not
+    # `history`), so without this entry it reads `unknown`, which it is not.
+    # ⚠️ It goes `historical` once RQ-20261007-005..008 land measured records:
+    # its verdict table's "no Stage-0 evidence" column is then a statement
+    # about the past, and the live answer lives in those records.
+    "docs/research/pairs-stocktake-2026-10-07.md": (
+        "live",
+        "read:PAIRS-STOCKTAKE-lane-authored-and-measured-it-2026-10-07",
+        "operator question 2026-10-06 (PI-20261006-APBY4NTV-0004); goes historical once "
+        "RQ-20261007-005..008 land measured records",
+    ),
     # Written 2026-09-22 by the E24 OPS lane, the same session that took every
     # measurement in it, so the status is ESTABLISHED rather than inferred. Each
     # figure was read this session against a stated population, and every
@@ -405,6 +421,16 @@ STATUS_EXPLICIT: Dict[str, Tuple[str, str, str]] = {
         "read:MI-294-authored-it-this-session-review-record",
         "the 2026-09-17 review record, weighted to performance-7d and soak "
         "monitoring; goes historical at the next system review",
+    ),
+    # Authored and read in full by lane BREAKOUT-TERMS-READ, 2026-10-08. It states
+    # its own coverage: the FAQ Center was read, the binding agreements were 403
+    # (section 0 lists every URL), so the doc is live as a record of what was and
+    # was not read -- not as a reading of Breakout's contracts.
+    "docs/integrations/breakout-terms-read-2026-10-08.md": (
+        "live",
+        "read:BREAKOUT-TERMS-READ-authored-it-this-session-terms-read-record",
+        "the 2026-10-08 read of Breakout's FAQ Center terms; goes historical "
+        "when the Evaluation Agreement / Program Rules are read at source",
     ),
 }
 

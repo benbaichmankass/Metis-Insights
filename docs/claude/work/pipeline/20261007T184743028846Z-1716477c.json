@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "research/results/RQ-20261007-005/ and RQ-20261007-006/ each hold a measured record AND a dated comms/research/r3_cost_fidelity record carries a pairs cell -> read the soak against it (ready); OR /api/bot/pairs/soak?event=open&limit=50 shows no live-pair open in 14 days (dead); OR killed when both live pairs are moved to shadow",
+    "kind": "observation"
+  },
+  "id": "PI-20261007-N6TXSAL6-0003",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PAIRS-STOCKTAKE session_011BUSVxr9kPZvkNn6TXSaL6, manager session_01MM8o5js6TcDFeNAPBY4Ntv, docs/research/pairs-stocktake-2026-10-07.md",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/pairs/soak?limit=1000' | python3 -c \"import json,sys;from collections import Counter;r=json.load(sys.stdin)['records'];print(r[-1]['logged_at_utc'],'->',r[0]['logged_at_utc']);print(Counter((x['pair'],x['execution_mode'],x['event']) for x in r).most_common(12))\""
+  },
+  "state": "queued",
+  "what": "SOAK ALARM for the pairs paper soak (runtime_logs/pairs_soak.jsonl on the live VM, served at /api/bot/pairs/soak; grandfathered pre-2026-09-02 in check_soak_registered.py, so no row registered it until now). pairs_sol_eth and pairs_bnb_btc trade live on bybit_1 paper for EXECUTION validation (config/pairs.yaml note), not PnL. READY in data: the Stage-0 verdicts at the configured parameters (RQ-20261007-005..008) have landed AND a Gate-1 cost-fidelity cell for the two live pairs exists (PI-20261007-N6TXSAL6-0001), so the soak can be read `consistent`/`divergent` against a modelled slippage. DEAD: no `open` row for a live pair in 14 days (MEASURED baseline 2026-09-30..10-07: 19 + 23 opens). Until then the soak is `accruing` and must stay quiet.",
+  "observation": {
+    "due_by": "2026-10-21",
+    "how_to_check": "ls research/results/RQ-20261007-005 research/results/RQ-20261007-006; ls comms/research/r3_cost_fidelity/ | tail -1; curl -sS 'https://ict-bot.duckdns.org/api/bot/pairs/soak?event=open&limit=50' | python3 -c \"import json,sys;r=json.load(sys.stdin)['records'];print(r[0]['logged_at_utc'] if r else 'NO OPENS')\"",
+    "what": "The pairs paper soak can be READ: research/results/RQ-20261007-005/ and RQ-20261007-006/ hold measured records and a dated comms/research/r3_cost_fidelity record carries a pairs cell (ready); or no live-pair `open` event for 14 days (dead); or the live pairs were moved to shadow (killed)"
+  }
+}

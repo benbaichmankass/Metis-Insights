@@ -589,13 +589,25 @@ def main() -> int:
 
     failures: list[str] = []
     scanned = 0
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from src.runtime import checklist_store as _ck  # noqa: PLC0415
     for path in BACKLOGS:
+        is_ck = _ck.is_checklist_path(path)  # monolith, or per-row store once cut over
         try:
-            head = open(path, encoding="utf-8").read()
-        except OSError:
+            head = (json.dumps(_ck.load_path(Path(path))) if is_ck
+                    else open(path, encoding="utf-8").read())
+        except (OSError, ValueError):
             continue
         scanned += 1
-        failures.extend(check_new_rows(_git_show(args.base, path), head, path))
+        if is_ck:
+            try:
+                base_doc = _ck.load_at(".", args.base)
+            except (OSError, ValueError):
+                base_doc = None
+            base_text = json.dumps(base_doc) if base_doc is not None else "{}"
+        else:
+            base_text = _git_show(args.base, path)
+        failures.extend(check_new_rows(base_text, head, path))
         failures.extend(check_status_enum(head, path))
 
     if Path(PIPELINE_DIR).is_dir():

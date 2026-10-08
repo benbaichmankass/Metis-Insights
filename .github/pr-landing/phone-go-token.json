@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2: the LIVE order path of breakout_2 ($5k Breakout evaluation, mode live, executed by the phone). Lane PHONE-GO-TOKEN, dispatched by the manager (session_01MM8o5js6TcDFeNAPBY4Ntv); the manager reviews and merges. What changes: (1) two new per-device-bearer routes, POST /api/bot/prop/phone/verify (server re-verifies the phone's read-back against the stored claimed ticket and config/prop_platforms.yaml instrument steps; issues ONE 30 s token per ticket bound to the ticket id + read-back hash; mode live only when submit_mode is live; test tickets / dry accounts / kill switch get a dry token) and POST /api/bot/prop/phone/go (one-shot redeem right before the click; refused on replay, expiry, changed form hash, dry token, or account/kill switch no longer live); (2) the app keeps every phase-1b phone-side check, then requires verify ok + go:true before a LIVE click, and refuses (report + ping) without it. Effect if the server is unreachable or disagrees: the phone does not submit. It can only REMOVE live submits, never add one. Revert: git revert of the merge commit (server) + the previous APK.",
+  "why": "PI-20261005-YUVCGTMJ-0003 / design 3.4: before the phone clicks a LIVE submit, the server independently confirms the filled form matches the ticket."
+}

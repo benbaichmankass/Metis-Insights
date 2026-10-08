@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01GwGBXfse86d27eHXvzCnvS",
+  "branch": "claude/phone-go-token",
+  "claimed_at": "2026-10-07T18:42:22Z",
+  "purpose": "PHONE-GO-TOKEN: server read-back + go-token before a live phone submit"
+}

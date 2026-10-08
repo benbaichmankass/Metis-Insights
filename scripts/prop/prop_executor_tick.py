@@ -361,6 +361,22 @@ def _code_sha() -> str:
 
 
 
+def emit_trail_pulse(account: str, state_dir: Path, *secrets: str) -> None:
+    """TRAIL-PAUSE-PULSE: one pulse per tick carrying ``trail_paused_since``
+    (null = latch absent, ISO = latched, "unknown" = could not read the file).
+    Written to ``<state dir>/prop_monitor_pulse.json`` for the attention watch
+    and emitted to the journal. Never raises: a pulse failure must not touch
+    the cycle or the trail step."""
+    try:
+        from src.prop import trail_pause
+        pulse = trail_pause.build_pulse(account, state_dir)
+        pulse["written"] = trail_pause.write_pulse(state_dir, pulse)
+        emit({"pulse": pulse}, *secrets)
+    except Exception as exc:  # noqa: BLE001
+        emit({"pulse": {"account": account, "trail_paused_since": "unknown",
+                        "error": type(exc).__name__}}, *secrets)
+
+
 def run_cycle_and_trail(*, adapter, page, api, cfg, mode, args, state_dir, secrets, sleep,
                         save_session=None) -> int:
     """One executor cycle plus the PROP-TRAIL step, shared by the browser tick
@@ -385,6 +401,7 @@ def run_cycle_and_trail(*, adapter, page, api, cfg, mode, args, state_dir, secre
     for al in res.alerts:
         emit({"alert": al}, *secrets)
     emit({"executor": "done", "mode": res.mode, "halted": res.halted}, *secrets)
+    emit_trail_pulse(args.account, state_dir, *secrets)
     if save_session is not None:
         save_session()
     if not (args.watched_click or args.ticket_id):

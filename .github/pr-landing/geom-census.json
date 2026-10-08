@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "GEOM-CENSUS: read-only research script + test + dated baseline + one pipeline row. No runtime, config or order-path change."
+}

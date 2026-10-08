@@ -123,6 +123,7 @@ REPO_ROOT = sr.REPO_ROOT
 MANAGER_STATE_PATHS = [
     "docs/claude/work/SESSIONS.json",
     "docs/claude/work/MANAGER-CHECKLIST.json",
+    "docs/claude/work/checklist",
     "docs/claude/work/MANAGER-LEASE.json",
     # ⚠️ Added with the PR half: an operator CONDITION that exists only in this
     # worktree is exactly as lost to a successor as an unpushed registry row,

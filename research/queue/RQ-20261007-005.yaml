@@ -1,0 +1,149 @@
+id: RQ-20261007-005
+title: 'Stage-0 at the CONFIGURED parameters, net of the full cost stack: pairs_sol_eth (SOLUSDT/ETHUSDT 1h, lookback 15, rolling beta) -- PAIRS-STOCKTAKE'
+status: queued
+cadence: once
+theme: new_strategy_prop
+priority: 1
+kind: experiment
+
+question: >-
+  OPERATOR 2026-10-06 ~08:15Z (verbatim): "where do we stand on all of the
+  pairs strategies? Is anything there ready to go live, and is anything there
+  feasible for a prop account?" MEASURED 2026-10-07 by the PAIRS-STOCKTAKE
+  lane (docs/research/pairs-stocktake-2026-10-07.md): pairs_sol_eth is live on bybit_1 paper (operator-approved 2026-07-16 on the fee-free +$1279 figure);
+  it has NO committed Stage-0 evidence record (`ls comms/strategy_evidence |
+  grep -i pairs` is empty, checklist E37), so MD-PROMOTE-S1-S2 cannot read it
+  and the only numbers that exist are the 2026-07-16 G2 dollar figures in a
+  sprint log (fee-free fixed-beta hold; every pair net-NEGATIVE once 7.5 bps
+  taker x 2 legs is charged). The dispatchable pairs route
+  (research-harness-dispatch.yml harness=pairs) runs the harness at ITS
+  defaults (lookback 20, hedge_beta=one), which is a different leg from the
+  one config/pairs.yaml trades (lookback 15, hedge_beta=rolling, entry_z 2.0,
+  exit_z 0.5, stop_z 2.0, max_hold_bars 20). This unit asks the exact
+  question: at the CONFIGURED parameters, over the full Binance-vision 1h
+  corpus both legs share, is pairs_sol_eth's net_total_r -- net of fee + slippage +
+  per-leg perp funding, resolved through execution_costs.resolve_cost_policy
+  exactly as the harness CLI does -- positive at n >= 39?
+
+why_this_matters: >-
+  This is the Stage-0 half of the ladder for a pair that is already trading
+  on the Stage-1 paper book (or shadowing beside it). A PASS is the record E37
+  needs to write so a guard can read it; a FAIL closes the question the
+  config comment has carried since 2026-07-16 ("NET-negative on taker fees --
+  paper is for execution validation, not PnL") with a measurement at the
+  live parameters instead of an inference from the fee-free number. Either
+  way the result lands a COMMITTED per-pair-trade ledger (entry_time /
+  exit_time / net_r) under comms/research/RQ-20261007-005/<run_id>/trades.jsonl,
+  which is the input the prop-fit question (research/queue/blocked/
+  RQ-20261007-009.yaml) is blocked on. Pre-cost selection is the failure
+  RQ-20260922-011 names; the fee-only arm is reported here and never graded.
+
+power:
+  expected_n: 400
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    d=0.45 -> 39 trades at alpha 0.05 / power 0.8 is the repo's standing E35
+    floor and the script's --min-n default. expected_n=400 is scaled from the
+    only measurement of this pair at these parameters: docs/sprint-logs/
+    S-M22-D2-PAIRS-READINESS-2026-07-16.md section G2 (trainer-diag #6612)
+    counted "~2800 trades" per pair over its ~3-year 1h window, i.e. ~460 per
+    180 days; the Binance-vision 1h corpus scripts/ops/fetch_backtest_corpus.py
+    serves for SOL/ETH/BTC is 180 trailing days (BNBUSDT 1h: 1095, but the
+    aligned window is the shorter leg). That count was taken on a different
+    corpus and is a scaling, not an observation of this run; the run reports
+    its own n and the rule's n branch applies.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      No pairs corpus is registered in research_disposition.CORPORA and no run
+      of this pair at its configured parameters on the Binance-vision corpus
+      exists in research/results/ or comms/research/ (checked 2026-10-07).
+      This run is the first observation; a second corpus (the trainer's
+      longer 1h history) would be the confirmatory one.
+
+decision_rule:
+  id: RULE-RQ1007-005-SOL-ETH-CONFIGURED-STAGE0
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: >-
+    `measurement.net_total_r` and `n` from the verdict.json that
+    scripts/research/pairs_configured_stage0.py writes for --pair pairs_sol_eth:
+    the pairs engine (scripts/backtest_pairs.run_backtest, never
+    re-implemented) at the config/pairs.yaml parameters, net_total_r net of
+    fee (DEFAULT_FEE_BPS_ROUNDTRIP per leg, two legs) + slippage (venue-aware,
+    two legs) + perp funding per leg per 8h window crossed, over the full
+    aligned 1h corpus. Also REPORTED, never graded on: net_total_r_fee_only,
+    win_rate_pct, max_drawdown_r, the resolved cost bps, data_start/data_end.
+  rule: >-
+    PASS iff net_total_r > 0 AND n >= 39. FAIL iff net_total_r <= 0 AND
+    n >= 39 -- a first FAIL re-queues once for a confirmatory run (repo
+    convention), a second FAIL is final. indeterminate iff n < 39. The script
+    grades these clauses itself (grading.auto below). DECISION MAPPING, fixed
+    before the run: PASS -> (a) write the Stage-0 evidence record for pairs_sol_eth
+    (checklist E37) from this run's result.json + trades.jsonl, citing the
+    comms/research/RQ-20261007-005/<run_id>/ path as source_run; (b) promote
+    research/queue/blocked/RQ-20261007-009.yaml (prop fit) with that ledger
+    path filled in. A PASS is Stage-0 evidence ONLY: MD-PROMOTE-S1-S2 still
+    needs the Gate-1 cost-fidelity verdict `consistent` from the paper soak
+    and the account-class/cap clauses, and nothing here edits a roster.
+    FINAL FAIL -> the pair's `execution:` on bybit_1 goes to the operator as
+    a Tier-3 proposal (shadow), with this record attached; the pair is not
+    killed by this unit. indeterminate -> re-queue on the trainer's longer
+    1h history (a new unit, rule re-registered), never a lowered floor.
+  what_it_does_not_do: >-
+    Does not touch config/pairs.yaml, config/accounts.yaml or any order path.
+    No IS/OOS split: the 180-day Binance-vision 1h corpus is one pooled
+    window (the trainer's longer history is the confirmatory corpus, a
+    separate unit). Binance-vision futures candles are a PROXY for Bybit (the
+    venue is geoblocked from GitHub runners); fee/slippage are the venue-aware
+    defaults, not realised bybit_1 fills -- that is Gate 1's question. Says
+    nothing about prop fit (RQ-20261007-009) or about any parameter other
+    than the configured ones.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 15
+  basis: >-
+    Two corpus fetches (scripts/ops/fetch_backtest_corpus.py, Binance-vision)
+    plus one run of the pairs engine on ~4,300 aligned 1h bars; the GLD/GDX
+    harness dispatch (RQ-20260929-105, run 37188716030) took ~10 minutes
+    end to end on a GitHub runner.
+
+run:
+  workflow: research-script-run.yml
+  timeout_minutes: 60
+  command:
+  - python3
+  - scripts/research/pairs_configured_stage0.py
+  - --pair
+  - pairs_sol_eth
+  - --fetch
+  - --out
+  - '{out_dir}'
+  inputs:
+    research_unit: RQ-20261007-005
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+grading:
+  auto: true
+
+related:
+- 'config/pairs.yaml -- the entry this unit prices, at its own parameters'
+- 'docs/research/pairs-stocktake-2026-10-07.md -- the stocktake that registered this unit'
+- 'docs/sprint-logs/S-M22-D2-PAIRS-READINESS-2026-07-16.md section G2 -- the only prior measurement (fee-free, dollars, trainer-diag #6612/#6615)'
+- 'research/queue/blocked/RQ-20261007-009.yaml -- the prop-fit question this unit''s ledger unblocks'
+- 'research/queue/blocked/RQ-20260922-011.yaml -- the universe-scan question (any pair surviving fees)'
+- 'E37 (docs/claude/work/MANAGER-CHECKLIST.json) -- the evidence record a PASS lets a session write'
+- RQ-20260929-105
+- RQ-20260929-106
+last_dispatched_at: null
