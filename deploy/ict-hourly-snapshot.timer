@@ -6,7 +6,6 @@
 
 [Unit]
 Description=Trigger ict-hourly-snapshot every hour
-Requires=ict-hourly-snapshot.service
 
 [Timer]
 # Fire on the top of every hour. RandomizedDelaySec spreads load so a

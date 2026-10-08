@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane TIMER-REQUIRES (dispatched by Manager Session 2026-10-08, session_01Uq7MrjPQDRWqbhCjwuMava). Tier-2 by path: removes the redundant Requires=<own service> line from 19 deploy/*.timer units (18 in deploy/, 1 in deploy/opt-in/); every Unit= is kept. With Requires= a timer (re)start also started its oneshot service; without it the timer only schedules. No ExecStart, cadence, order path, strategy/risk/account config or DB write changes. KNOWN_OFFENDERS in the ratchet test is now empty. Revert: git revert of the merge commit.",
+  "why": "Pipeline item PI-20261008-APBY4NTV-0004: every git-sync timer restart fired every pulled service once; the gateway pair was fixed in #17105, this finishes the remainder."
+}

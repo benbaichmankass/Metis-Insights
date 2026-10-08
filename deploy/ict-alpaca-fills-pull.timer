@@ -20,7 +20,6 @@
 
 [Unit]
 Description=Trigger ict-alpaca-fills-pull hourly (broker truth for the equity accounts, independent of the Bybit wallet ledger)
-Requires=ict-alpaca-fills-pull.service
 
 [Timer]
 OnCalendar=*-*-* *:23:00
