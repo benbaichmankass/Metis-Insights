@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-08",
+    "kind": "date"
+  },
+  "id": "PI-20261008-3QRUJSYR-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-REISSUE 2026-10-08; diag journalctl ict-prop-executor@tradeify_1 16:28Z/16:33Z",
+    "rerun": "scripts/ops/diag_fetch.sh 'journalctl?unit=ict-prop-executor%40tradeify_1.service&lines=80' | grep cancel_expired_resting"
+  },
+  "state": "queued",
+  "what": "URGENT, REAL MONEY: tradeify_1's executor CANNOT cancel an expired resting entry. Ticket prop-manual-e6badec7ae10 (ETH short LIMIT sell 2471.31, SL 2532.158, TP 2226.65, venue order 18912998) passed valid_until 16:26:53Z; _expire_resting -> DXtradeAdapter._row_action (src/prop/platform/dxtrade.py ~8180) returned 'need exactly 1 row and 1 control (rows=1, controls=0)' at 16:28Z and 16:33Z (attempts 1/3, 2/3): the orders row is found but no control matches the cancel action_re, so ROW_ACTION_JS's cancel matcher no longer fits the DXtrade orders-table DOM (selector drift; MEASURED controls=0, cause INFERRED). Effect: the stale LIMIT stays live at the venue past its validity and can still fill, and the ticket stays `placed`, so it blocks every later ETH-short signal on tradeify_1 (_BLOCKING_UNTIL_RESOLVED) and the prop-ticket-reissue action refuses (blocker not terminal). Next: a read-only DOM probe of the orders row (breakout-login-check / breakout-terminal-probe style) to capture the cancel control's markup, then fix action_re/ROW_ACTION_JS (Tier 2). Until then the order needs a manual cancel on the Tradeify terminal."
+}

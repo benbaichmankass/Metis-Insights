@@ -22,18 +22,16 @@
   "updated_at": "2026-10-07T18:50:00Z",
   "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
   "last_review": {
-    "report_id": "work-report 2026-10-08T05:30Z",
-    "reviewed_at": "2026-10-08T05:55:00Z",
-    "by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+    "report_id": "WR-20261008-1537Z",
+    "reviewed_at": "2026-10-08T18:02:00Z",
+    "by": "session_01Uq7MrjPQDRWqbhCjwuMava",
     "counts": {
       "due": 52,
       "unrouted": 11,
       "ask_operator_open": 26,
-      "soaks_ready": 23,
-      "alarms_breached": [
-        "inflight"
-      ]
-    }
+      "alarms_breached": []
+    },
+    "note": "17:52Z review run late (the routine fired into the retired manager). New since 05:55Z: (1) breakout_2 phone heartbeat missing 14:00-17:00Z, cleared 17:02Z (the app was closed; no breakout_2 ticket was affected). (2) RQ-20260929-017 needs_review (verdict wiring_only) -> routed to the 10-09 02:47Z research readout. Counts unchanged from the morning review, so no new dispositions. Today: tradeify_1 stale-limit incident, PROP-CANCEL-FIX #17158 + PROP-REISSUE #17156 in CI."
   },
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",

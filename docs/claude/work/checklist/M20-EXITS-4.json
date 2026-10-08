@@ -2,9 +2,9 @@
   "id": "M20-EXITS-4",
   "title": "M20 exit refinement: fresh coverage matrix on current real-money rosters, then up to 3 unprocessed legs",
   "phase": "W8",
-  "state": "in_flight",
+  "state": "landed_unproven",
   "owner": "research lane",
-  "lane": "session_01JLyScUje5s6PAN84ZiqnJd",
+  "lane": null,
   "model": "claude-sonnet-5-5",
   "ceiling_usd": 20,
   "spend_usd": null,
@@ -14,6 +14,19 @@
     15594
   ],
   "blocked_on": [],
-  "note": "[2026-10-03T16:20Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] #15593 (ief_pullback_1d decay_stall10_t2.5, alpaca_live) APPROVED by manager under the standing authorization (clears the pre-registered gate, replicated on a 2nd partition); it conflicts on docs/research/exit-refinement-coverage.json, so the lane was told to merge main and resolve; the manager merges on green. #15594 (xrp_4h trail 4.0) CLOSED unmerged per the lane's own recommendation (1 of 3 partitions); the lane files a re-sweep pipeline row. || 2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; operator popup verbatim 'M20 exit refinement'. #14053 stays held (shadow n>=25).",
+  "note": "[2026-10-03T16:20Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] #15593 (ief_pullback_1d decay_stall10_t2.5, alpaca_live) APPROVED by manager under the standing authorization (clears the pre-registered gate, replicated on a 2nd partition); it conflicts on docs/research/exit-refinement-coverage.json, so the lane was told to merge main and resolve; the manager merges on green. #15594 (xrp_4h trail 4.0) CLOSED unmerged per the lane's own recommendation (1 of 3 partitions); the lane files a re-sweep pipeline row. || 2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; operator popup verbatim 'M20 exit refinement'. #14053 stays held (shadow n>=25). [2026-10-08T16:05Z manager session_01Uq7MrjPQDRWqbhCjwuMava, stale-state sweep] Lane session_01JLyScUje5s6PAN84ZiqnJd finished 10-03 (bybit_2 + alpaca_live processed; #15593 ief_pullback_1d trail_decay merged). Lane archived now. OBSERVATION OWED: first live trail_decay exit on ief_pullback_1d with the correct close reason.",
+  "lane_history": [
+    {
+      "lane": "session_01JLyScUje5s6PAN84ZiqnJd",
+      "archived_at": "2026-10-08T15:55:59Z"
+    }
+  ],
+  "updated_at": "2026-10-08T16:03:20Z",
+  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
+  "observation": {
+    "what": "first live ief_pullback_1d exit on alpaca_live driven by trail_decay (stall10 tight2.5, #15593) with the correct close reason",
+    "how_to_check": "diag relay: closed trades for ief_pullback_1d since 2026-10-03, close_reason and trail_decay fields",
+    "due_by": "2026-10-31"
+  },
   "_seq": 265
 }

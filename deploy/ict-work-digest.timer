@@ -6,7 +6,6 @@
 
 [Unit]
 Description=Trigger ict-work-digest every hour
-Requires=ict-work-digest.service
 
 [Timer]
 # Hourly, matching the operator's stated cadence (2026-09-02, verbatim: "I

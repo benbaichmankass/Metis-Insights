@@ -2,15 +2,23 @@
   "id": "STAMP-RACE",
   "title": "research-queue-dispatch 'Land the dispatch stamps on main' fails on a 30-min wait race (run 70): re-check main once before failing",
   "phase": "W7",
-  "state": "in_flight",
+  "state": "queued",
   "owner": "fix lane",
-  "lane": "session_01345Wffk9foaxLK53jgMBQP",
+  "lane": null,
   "model": "claude-sonnet-5-5",
   "ceiling_usd": 10,
   "spend_usd": null,
   "tier": 1,
   "prs": [],
   "blocked_on": [],
-  "note": "[2026-10-01T20:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Dispatched. Run 70 (36910217777) red although stamp PR #15276 merged 13 s after the wait expired. Manager decision: re-check once, do not raise the timeout or change stamp-PR checks. Closes PI-20261001-1MX1RCZS-0003.",
+  "note": "[2026-10-01T20:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Dispatched. Run 70 (36910217777) red although stamp PR #15276 merged 13 s after the wait expired. Manager decision: re-check once, do not raise the timeout or change stamp-PR checks. Closes PI-20261001-1MX1RCZS-0003. [2026-10-08T16:05Z manager session_01Uq7MrjPQDRWqbhCjwuMava, stale-state sweep] Lane session_01345Wffk9foaxLK53jgMBQP archived 10-01 after closing PI-0003/PI-0004 (#15298/#15313/#15328). No live lane; remaining work is PACE-W40 queue item 15.",
+  "lane_history": [
+    {
+      "lane": "session_01345Wffk9foaxLK53jgMBQP",
+      "archived_at": "2026-10-08T15:55:58Z"
+    }
+  ],
+  "updated_at": "2026-10-08T15:55:58Z",
+  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
   "_seq": 259
 }

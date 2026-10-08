@@ -17,7 +17,6 @@
 
 [Unit]
 Description=ICT Trading Bot — AI Analyst fast tier (every 15 min)
-Requires=ict-insights-generator.service
 
 [Timer]
 # Initial fire 2 min after boot — gives the trader process a moment

@@ -1,0 +1,22 @@
+{
+  "id": "PROP-REISSUE",
+  "title": "Build prop-ticket-reissue system action; re-issue tradeify_1 suppressed ETH-short prop-manual-2116662b7d8d once its blocker is terminal",
+  "phase": null,
+  "state": "in_flight",
+  "owner": "lane",
+  "lane": "PROP-REISSUE",
+  "model": null,
+  "ceiling_usd": 15,
+  "spend_usd": 9,
+  "tier": 2,
+  "prs": [
+    17156
+  ],
+  "blocked_on": [
+    "PI-20261008-3QRUJSYR-0002"
+  ],
+  "note": "Operator 2026-10-08 ~16:12Z 'Build a re-issue path'. Ceiling $15. Root cause filed in the pipeline (supersede/cancel-replace, Tier-3 proposal). 16:35Z: PR #17156 ready (local tests 21/21 + workflow tests, guards fixed). Re-issue NOT run: blocker prop-manual-e6badec7ae10 still 'placed' -- executor cancel of the expired resting LIMIT fails (controls=0, attempts 1-2/3), order 18912998 still live at venue. Filed PI-20261008-3QRUJSYR-0002 (urgent). Root cause PI-20261008-3QRUJSYR-0001.",
+  "updated_at": "2026-10-08T16:34:31Z",
+  "updated_by": "session_01PypkHTEV3byEps3qruJSYR",
+  "_seq": 360
+}

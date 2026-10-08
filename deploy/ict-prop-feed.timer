@@ -14,7 +14,6 @@
 
 [Unit]
 Description=Trigger ict-prop-feed every 5 minutes (breakout_1 account_status)
-Requires=ict-prop-feed.service
 
 [Timer]
 OnCalendar=*-*-* *:02/5:00

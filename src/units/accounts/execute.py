@@ -2399,6 +2399,11 @@ def _log_trade_to_journal(
             "take_profit_1": float(pkg.tp),
             "position_size": float(order.get("qty") or 0.0),
             "setup_type": setup_type,
+            # Signal-time descriptors, carried from the signal meta so the
+            # ML dataset families (setup_labels, trade_outcomes) read a real
+            # value instead of 100% NaN. None when the strategy emits none.
+            "killzone": (pkg.meta or {}).get("killzone") or None,
+            "bias": (pkg.meta or {}).get("bias") or None,
             "entry_reason": entry_reason[:500],
             "status": status,
             "is_backtest": 0,

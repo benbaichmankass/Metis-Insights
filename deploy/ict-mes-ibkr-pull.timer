@@ -16,7 +16,6 @@
 
 [Unit]
 Description=Trigger ict-mes-ibkr-pull daily (keep the MES deep-history base fresh)
-Requires=ict-mes-ibkr-pull.service
 
 [Timer]
 OnCalendar=*-*-* 23:30:00

@@ -63,7 +63,7 @@ generated:
     leg: gld_pullback_1h
     symbol: GLD
     timeframe: 1h
-last_dispatched_at: '2026-10-01T13:32:02+00:00'
+last_dispatched_at: '2026-10-08T14:55:04+00:00'
 grading:
   auto: true
   decision_rule_id: RULE-TPL-ROSTER-WALKFORWARD-NET-OF-COST

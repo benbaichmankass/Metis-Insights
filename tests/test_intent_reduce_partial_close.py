@@ -39,6 +39,8 @@ CREATE TABLE trades (
     take_profit_1 REAL,
     position_size REAL,
     setup_type TEXT,
+    killzone TEXT,
+    bias TEXT,
     entry_reason TEXT,
     exit_reason TEXT,
     pnl REAL,
