@@ -104,6 +104,12 @@ def test_defaults_reproduce_pre_lever_golden(cid, tmp_path):
     golden = json.loads(GOLDEN.read_text())[cid]
     summary, rows = _run_case(cid, tmp_path)
     assert golden["rows"], f"{cid}: golden holds no trades -- the equality would prove nothing"
+    # `run_date` is the harness stamping TODAY into its summary: the one field that is
+    # supposed to change between the day the golden was captured and the day CI runs.
+    # (It failed all five cases at midnight UTC the first night; every other field,
+    # and every emitted row, is compared exactly.)
+    summary.pop("run_date", None)
+    golden["summary"].pop("run_date", None)
     assert summary == golden["summary"]
     assert rows == golden["rows"]
 
