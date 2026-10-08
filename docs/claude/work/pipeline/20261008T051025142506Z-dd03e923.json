@@ -1,0 +1,24 @@
+{
+  "based_on": "20261008T000302758243Z-74bbbf18.json",
+  "due_when": {
+    "due_date": "2026-10-10",
+    "kind": "date"
+  },
+  "filed": "2026-10-05",
+  "id": "PI-20261005-4GA8WQPA-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-BURNDOWN-2 close-out 2026-10-05 (session_01Urx25ZisSoJtVg4GA8WqpA)",
+    "rerun": "python3 - <<'X'\nimport sys,datetime,collections\nsys.path.insert(0,'scripts/ops')\nimport pipeline as p\nc=collections.Counter()\nfor i in p.load().items.values():\n    if i['state'] in('done','killed') or i['due_when'].get('soak'): continue\n    dw=i['due_when']\n    if dw.get('kind')=='date': nxt=dw.get('due_date')\n    else:\n        lc=dw.get('last_checked'); ev=dw.get('check_every_days')\n        nxt=(datetime.date.fromisoformat(lc[:10])+datetime.timedelta(days=ev)).isoformat() if lc and isinstance(ev,int) else 'NEVER/NO-CADENCE'\n    c[nxt]+=1\nprint(sorted(c.items())[:14])\nX"
+  },
+  "redate": {
+    "observation": "Re-read 2026-10-08: the TOOLING half landed (#16973: `pipeline.py --redate` + redate-guard refuse a later next-due date without a new observation). The WAVE itself is not worked: the 10-11/10-12 cohorts (173+108 items by the 10-05 measurement) still need owner-row batches closed/killed or re-read via --redate. Re-run this item's origin.rerun to get today's cohort sizes before quoting any.",
+    "observed_at": "2026-10-08"
+  },
+  "severity": "medium",
+  "state": "done",
+  "terminal_reason": "The cliff is gone and the recurrence is guarded. MEASURED 2026-10-08 over the 849 open (not done/killed) pipeline items with soak-bound ones excluded, by pipeline.next_due_date(): the largest single-day cohort anywhere on the horizon (through 2027-02-15) is 34 items (2026-10-14); 2026-10-11 holds 24 and 2026-10-12 holds 33, against 173 and 108 in the 2026-10-05 measurement; typical days carry 22-34. 14 further items have no computable date because they are event/observation-conditioned (clears_when), not a lapse. Root cause was fixed-N re-dating: #16973 landed `pipeline.py --redate` + redate-guard (scripts/ci/check_redate.py, run_guards 'redate-guard'), which refuses a later next-due date with state unchanged unless a redate block carries a >=40-char new observation. Population caveat: this measures the SPREAD of due dates, not that the cohorts were each read -- how the cliff was flattened (closures vs re-dates) was not audited here.",
+  "tier": 1,
+  "what": "LAPSE WAVE: the BACKLOG-BURNDOWN-2 lane (2026-10-04/05) took the pipeline from due 358 to due 19 mostly by RE-READING items and re-dating them (check_every_days 7 or 14, last_checked set), not by closing them: 553 items filed >=14 days ago are still OPEN. Their cadences expire together, so the same cliff returns. MEASURED 2026-10-05 on main by the rerun below (items not done/killed, excluding soak-bound): 173 items next due 2026-10-11, 108 on 10-12, 94 on 10-18, 115 on 10-19, 249 on 10-21. ROOT CAUSE of the original cliff (which is how this was found): the A8 import gave 175 archived backlog rows state=queued, last_checked=2026-09-21, check_every_days=14, so all 175 lapsed on 2026-10-05; re-dating by a fixed N days recreates it N days later. WHAT TO DO FIRST: take the 10-11/10-12 wave in owner-row batches, and prefer CLOSING or KILLING over re-dating — most of this lane routings used a keyword heuristic to pick the owner row, so the owner may be imprecise. Consider jittering cadences, or making the import/triage helper spread last_checked, so a batch never lapses on one day. The done-condition (due <=25, unrouted 0) holds only until ~10-11 unless these are worked."
+}
