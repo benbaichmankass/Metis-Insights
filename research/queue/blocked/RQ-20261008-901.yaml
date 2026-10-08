@@ -1,0 +1,89 @@
+id: RQ-20261008-901
+title: >-
+  Exit-head transfer scoping (no retrain): does the published exit-head-donchian-1h-v1
+  artifact recover R on the crypto pullback legs (xrp/ada/eth/sol_pullback_2h)? BLOCKED: no
+  replay driver over backtest_pullback.py
+status: blocked
+cadence: once
+theme: ml_health
+priority: 3
+kind: experiment
+question: >-
+  Same pattern as RQ-20260927-003: score each pullback leg's OWN config-exact
+  backtest_pullback.py trades with the already-published exit-head-donchian-1h-v1 artifact via
+  the unmodified exit_head_replay.replay_trade, no retrain, and report n_fired and
+  recovered_r. Legs with harness support: xrp_pullback_2h, ada_pullback_2h, eth_pullback_2h,
+  sol_pullback_2h (backtest_pullback.py). Caveat stated up front: the head was trained on 1h
+  donchian trade rows, so transfer to a 2h pullback entry population is an extrapolation.
+why_this_matters: >-
+  Scoping only: decides whether a per-leg retrain (RQ-20260927-002 methodology) on a pullback
+  leg is worth trainer time. Not evidence for any Tier-3 wiring.
+power:
+  expected_n: 80
+  min_detectable_effect: 0.35
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Exploratory scoping scan, in-sample, no retrain; no powered effect size is claimed (same
+    stance as RQ-20260927-003 why_not_inferential). The n_fired >= 10 floor is the only count
+    threshold.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      History is fixed; nothing accrues.
+decision_rule:
+  id: RULE-RQ1008-901-PULLBACK-EXIT-HEAD-SCOPING
+  registered_at: '2026-10-08'
+  registered_before_run: true
+  statistic: >-
+    Per leg: replay of the leg's config-exact backtest_pullback.py trades through
+    exit_head_replay.replay_trade with exit-head-donchian-1h-v1; delta_net_r = replayed_net_r -
+    baseline_net_r, net of the full cost stack (fee + venue slippage + funding via
+    execution_costs.resolve_cost_policy as resolved in each harness main; exit-head arms
+    additionally charge round-trip cost per truncated trade); n_fired = trades where
+    would_exit_for fired.
+  rule: >-
+    IF n_fired >= 10 AND delta_net_r > 0: worth_followup (queue a per-leg embargoed walk-forward
+    retrain unit). IF n_fired >= 10 AND delta_net_r <= 0: deprioritize. IF n_fired < 10:
+    unestablishable, read_state producer_failed / insufficient_firing, never a followup or
+    deprioritize call.
+  what_it_does_not_do: >-
+    Wires no exit_head_* key, promotes nothing, retrains nothing. A scoping verdict is not a
+    basis for any Tier-3 change.
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 4.0
+  est_minutes: 20
+  basis: >-
+    Estimate, not a measurement.
+blocked_on:
+  - what: >-
+      scripts/ml/exit_head_replay.py loads scripts/backtest_trend.py only (HARNESS_REL) and
+      scripts/research/exit_head_prop_swap_feasibility.py is a trend harness driver; no script
+      under scripts/ml or scripts/research/exit_head*.py imports backtest_pullback.py (grep
+      2026-10-08), so no driver can produce pullback trades scored by the head. Lane ML-
+      RESEARCH-W41 was told not to build harnesses.
+    ref: >-
+      scripts/ml/exit_head_replay.py HARNESS_REL;
+      scripts/research/exit_head_prop_swap_feasibility.py
+    clears_when: >-
+      A committed driver (sibling of exit_head_prop_swap_feasibility.py) runs backtest_pullback.py
+      with a leg's config-exact flags and scores trades with exit_head_replay.replay_trade, with a
+      golden test that the baseline arm reproduces the harness trade list byte-for-byte. Then git
+      mv to research/queue/, status queued, set run.inputs strategies [xrp_pullback_2h,
+      ada_pullback_2h, eth_pullback_2h, sol_pullback_2h].
+run:
+  workflow: null
+  note: >-
+    Null until the replay driver exists (blocked_on).
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- RQ-20260927-003
+- RQ-20260927-002
+last_dispatched_at: null

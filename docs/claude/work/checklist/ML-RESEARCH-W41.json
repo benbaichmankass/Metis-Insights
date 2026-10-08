@@ -11,8 +11,8 @@
   "tier": 1,
   "prs": [],
   "blocked_on": [],
-  "note": "[2026-10-08T06:55Z manager] Operator 2026-10-08: \"any ml research ... that we can prioritize this week should be\". One Sonnet lane, ceiling $10, after the two finishing lanes close (one-lane rule). Units run on the VM runners.",
-  "updated_at": "2026-10-08T06:54:19Z",
+  "note": "[2026-10-08T06:55Z manager] Operator 2026-10-08: \"any ml research ... that we can prioritize this week should be\". One Sonnet lane, ceiling $10, after the two finishing lanes close (one-lane rule). Units run on the VM runners. 2026-10-08 lane: units RQ-20261008-900 (XRP multi-fold, queued), -901 (pullback exit-head transfer, blocked: no backtest_pullback replay driver), -902 BTC / -903 SOL regime-head gate (queued), -904 MES (blocked: 5m head to 1d bars mapping); RQ-20261007-042/043 moved to queue (flags verified on main). Note: 402 was already graded FAIL on main.",
+  "updated_at": "2026-10-08T09:44:54Z",
   "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
   "_seq": 348
 }

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research queue units only (RQ-20261008-900..904; RQ-20261007-042/043 moved out of blocked/ after their levers landed in #17042) plus one checklist note. No code, config, test or order-path change; each unit registers its decision rule before any run."
+}
