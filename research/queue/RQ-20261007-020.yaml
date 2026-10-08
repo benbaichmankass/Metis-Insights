@@ -158,4 +158,4 @@ result_preliminary: 'MEASURED 2026-10-07 by lane EXIT-PARITY-RQ on a session-loc
   sign across folds; so fix (B), strip stale_exit_bars / stale_exit_below_r from trend_donchian_eth_prop and re-run its
   Stage-0 record, is the cheaper fix; a close verb (fix A) is NOT proposed. Status stays queued: the runner''s own run
   lands the durable E5 record and the grader closes the unit; this field is the session read, not the landing.'
-last_dispatched_at: null
+last_dispatched_at: '2026-10-08T11:06:56+00:00'
