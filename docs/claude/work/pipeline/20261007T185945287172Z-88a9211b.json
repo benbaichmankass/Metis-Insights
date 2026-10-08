@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "filed": "2026-10-07",
+  "id": "PI-20261007-WPBHWTHS-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "by": "session_01DZSAXAAYAWhKdcWpbhwthS",
+    "kind": "session",
+    "ref": "VELOTRADE-RECON (PR #16978, branch claude/velotrade-recon)",
+    "rerun": "grep -n 'def read_trade_history' src/prop/platform/dxtrade_api.py  # present = built; then dispatch system-action velotrade-trade-history-read and check parsed_rows contains the 2026-10-06 ETHUSD 0.01 BUY + SELL"
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 2,
+  "what": "After PR #16978 merges: dispatch velotrade-trade-history-read once and read the output. (1) parsed_rows must show the opening BUY and closing SELL 0.01 ETHUSD near 2026-10-06T10:18Z, else fix trade_history_rows field names and re-record the test fixture from the real shape. (2) Decide the history window: period=today misses a close reconciled after UTC midnight; the action also probes period=yesterday and no-period. (3) Confirm whether the venue sends realized P&L; today pnl is None (never fabricated) so close bodies carry pnl null. Closes PI-20261006-ZRM27CBW-0001 only after (1) is observed."
+}

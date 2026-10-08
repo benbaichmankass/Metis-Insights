@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from src.prop import prop_balance, prop_journal
 
@@ -148,9 +148,14 @@ def match_fill_to_ticket(fill: Dict[str, Any]) -> Optional[str]:
 
 def find_unacted_tickets(
     *, account_id: Optional[str] = None, now: Optional[datetime] = None,
-    limit: int = 200,
+    limit: int = 200, statuses: Tuple[str, ...] = ("emitted",),
 ) -> List[Dict[str, Any]]:
     """Emitted tickets past ``valid_until`` with no matching fill reported.
+
+    ``statuses`` widens the population for the expiry sweep, which also ends
+    unanswered ``expiry_prompted`` / ``invalidated_prompted`` tickets
+    (PROP-FLOW-SEPARATION, 2026-10-07). The default is the drift view's
+    ``emitted`` only.
 
     A ticket is considered acted-on if a ``prop_fills`` row references its
     ``ticket_id`` OR matches its account+symbol+direction. Anything still
@@ -220,7 +225,7 @@ def find_unacted_tickets(
 
     out: List[Dict[str, Any]] = []
     for t in tickets:
-        if t.get("status") != "emitted":
+        if t.get("status") not in statuses:
             continue
         if t.get("ticket_id") in acted_ids:
             continue
@@ -519,6 +524,12 @@ def compute_open_risk(account_id: str) -> Dict[str, Any]:
     }
 
 
+def _qualifying_days(account_id: str) -> Dict[str, Any]:
+    from src.prop import qualifying_days
+
+    return qualifying_days.compute(account_id)
+
+
 def compute_rule_distance(
     account_id: str, status: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -736,6 +747,9 @@ def compute_rule_distance(
         "after_open_risk_state": after_state,
         "distance_to_dd_floor_after_open_risk_usd": dd_after,
         "distance_to_daily_loss_after_open_risk_usd": daily_after,
+        # Evaluation-rule standing (Velotrade qualifying days); state
+        # `not_declared` for rulesets with no such gate. See qualifying_days.py.
+        "qualifying_days": _qualifying_days(account_id),
         "status_present": bool(status),
         "status_age_hours": age_hours,
         "status_freshness": freshness,

@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261008-BFOAI4ZM-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "REGISTER-TOOLING session_012xSAmZaaxVR3W8bFoai4zM 2026-10-08, closing PI-20261005-WFBREDQP-0002 (log_aggregate observation)",
+    "rerun": "curl -H \"Authorization: Bearer $DIAG_READ_TOKEN\" 'https://ict-bot.duckdns.org/api/diag/log_file?name=bybit_coverage_soak&lines=40' | python3 -c \"import sys,json,collections;d=json.load(sys.stdin);print(collections.Counter((json.loads(l)['account_id'],json.loads(l)['global_mode']) for l in d['lines']))\"  # does any one account show two global_mode values?"
+  },
+  "state": "queued",
+  "what": "bybit_coverage_soak rows for ONE account (bybit_1, source partial_sl_legs) carry BOTH global_mode=annotate/apply_scope=not_apply/binding=false AND global_mode=apply/apply_scope=allowlisted/binding=true. MEASURED 2026-10-08T04:57Z on a 40-row log_file tail: bybit_1 10 annotate + 10 apply; bybit_2 10 annotate; bybit_portfolio 10 annotate. Over the whole file (log_aggregate, 137,172 rows, 2026-09-02..10-08) apply = 3,181 rows (2.3%), on days 2026-09-27 and 2026-10-02..10-08, never on every row of a day. global_mode is resolved from BYBIT_GRADED_COVERAGE_MODE (order_monitor.py ~12195); one environment cannot yield two values for the same account in one sweep, so either two processes with different env write this log, or the env is re-read per row, or the sweep alternates. Which one decides whether the partial-SL top-up on bybit_1 is bound to the graded basis or to the side-blind basis on a given sweep. verdicts_differ has been true on 0 rows, so no decision has differed yet -- the exposure is latent, not realised. Find the second writer (journalctl / process env for ict-trader-live vs ict-web-api) and make the mode single-valued or document the intent."
+}

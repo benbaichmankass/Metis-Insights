@@ -96,3 +96,16 @@ def test_edge_warn_escalate_clear_and_unknown():
 def test_block_priority_urgent():
     blk, pri, _ = a.compose_block(_view({}), [("urgent", "x"), ("high", "y")])
     assert pri == "urgent"
+
+
+def test_non_traded_statuses_do_not_reset_the_idle_clock():
+    old = (NOW - timedelta(days=15)).isoformat()
+    rows = [{"status": "skipped", "created_at": NOW.isoformat()},
+            {"status": "placed", "created_at": NOW.isoformat()},
+            {"status": "closed", "closed_at": old}]
+    assert ps.last_fill_time(rows) == datetime.fromisoformat(old)
+    assert ps.last_fill_time(rows[:2]) is None
+    p = ps.probe_prop_idle("tradeify_1", NOW, lambda _p: ("read", {"present": True, "fills": rows}))
+    assert p["status"] == "breached" and p["level"] == "warn"
+    only_skipped = ps.probe_prop_idle("x", NOW, lambda _p: ("read", {"present": True, "fills": rows[:2]}))
+    assert only_skipped["status"] == "unknown" and only_skipped["days"] is None

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2: dxtrade_api adapter gains read_trade_history (read-only GET orders/history, no order path) plus a read-only velotrade-trade-history-read system-action. The manager reviews and merges, then dispatches the action once to prove the live read.",
+  "why": "velotrade_1 closes can fall back to unread (flat_on_terminal) because the REST adapter had no read_trade_history; this adds it in the browser adapter's row shape so match_exit / exit_reason journal the exit price, time and sl/tp/manual reason from the venue's own history."
+}
