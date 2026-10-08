@@ -89,6 +89,47 @@ def _short(s: Any, n: int = 200) -> str:
     return s if len(s) <= n else s[: n - 1].rstrip() + "…"
 
 
+QUEUE_DIR = REPO_ROOT / "research" / "queue"
+
+
+def session_debt(queue_dir: Path | None = None) -> dict:
+    """How many QUEUED research units can only move if a session acts (PI-20261006-LCEVL8D5-0002).
+
+    Operator principle (research/queue/README.md, 2026-10-06): a step that waits on a session is
+    debt. Two kinds, over every ``research/queue/*.yaml`` whose ``status`` is ``queued``:
+
+      * ``session_bound``: ``run.workflow`` is not a ``*.yml``/``*.yaml`` file, so the dispatcher can
+        never fire it;
+      * ``session_graded``: hand-written (no ``generated``) and no ``grading.auto``, so
+        ``queue_grade.py`` can never close it.
+
+    Raises on an unreadable unit rather than returning a shorter list: a debt count that silently
+    skipped a corrupt file would read as less debt.
+    """
+    import yaml  # noqa: PLC0415
+    d = queue_dir or QUEUE_DIR
+    bound: list[str] = []
+    graded: list[str] = []
+    queued = 0
+    files = sorted(d.glob("*.yaml"))
+    for f in files:
+        u = yaml.safe_load(f.read_text(encoding="utf-8"))
+        if not isinstance(u, dict):
+            raise ValueError(f"{f.name}: not a mapping")
+        if u.get("status") != "queued":
+            continue
+        queued += 1
+        uid = str(u.get("id") or f.stem)
+        wf = str((u.get("run") or {}).get("workflow") or "")
+        if not wf.endswith((".yml", ".yaml")):
+            bound.append(uid)
+        elif not u.get("generated") and not (u.get("grading") or {}).get("auto"):
+            graded.append(uid)
+    return {"population": f"{len(files)} unit files in research/queue/, {queued} with status queued",
+            "session_bound": bound, "session_graded": graded,
+            "session_debt": len(bound) + len(graded)}
+
+
 def generate(now: datetime | None = None) -> dict:
     from scripts.ops import attention_watch as aw  # noqa: PLC0415
     from scripts.ops import render_daily_brief as rdb  # noqa: PLC0415
@@ -134,6 +175,11 @@ def generate(now: datetime | None = None) -> dict:
                 "inputs": {"checklist": b.get("checklistState"),
                            "mandates": b.get("mandatesState")}}, not md.strip()
 
+    def _debt() -> tuple[Any, bool]:
+        data = session_debt()
+        return data, data["session_debt"] == 0
+
+    sections["session_debt"] = _section(_debt)
     if sections["inputs"]["state"] == "error":
         for k in ("alarms", "soaks", "ask_operator", "due"):
             sections[k] = {"state": "error", "error": "attention view failed to build"}
@@ -188,6 +234,16 @@ def render(now: datetime, sections: dict) -> str:
         L.append("- none open")
     else:
         L.append(f"- ⛔ {q.get('error', '')}")
+    sd = sections.get("session_debt", {})
+    L += ["", "## Session debt (queued research units only a session can move)"]
+    if sd.get("state") in ("ok", "empty"):
+        dd = sd["data"]
+        L.append(f"**{dd['session_debt']}** — {len(dd['session_bound'])} session-bound (dispatcher can "
+                 f"never fire), {len(dd['session_graded'])} session-graded (grader can never close) "
+                 f"· population: {dd['population']}")
+        L += [f"- bound `{u}`" for u in dd["session_bound"]] + [f"- graded `{u}`" for u in dd["session_graded"]]
+    else:
+        L.append(f"- ⛔ not measured: {sd.get('error', 'section missing')}")
     d = sections.get("due", {})
     L += ["", "## Due (ranked)"]
     if d.get("state") in ("ok", "empty"):
@@ -309,7 +365,25 @@ def _self_test() -> int:
     rep = generate(t)
     check("generate() returns id + generated_at + all sections",
           rep["report_id"] == "WR-20261005-0530Z" and set(rep["sections"]) >=
-          {"inputs", "alarms", "soaks", "ask_operator", "due", "brief"}, list(rep["sections"]))
+          {"inputs", "alarms", "soaks", "ask_operator", "due", "brief", "session_debt"}, list(rep["sections"]))
+    with tempfile.TemporaryDirectory() as qd:
+        q = Path(qd)
+        (q / "RQ-1.yaml").write_text("id: RQ-1\nstatus: queued\nrun:\n  workflow: none — session-local\n")
+        (q / "RQ-2.yaml").write_text("id: RQ-2\nstatus: queued\nrun:\n  workflow: x.yml\n")
+        (q / "RQ-3.yaml").write_text("id: RQ-3\nstatus: queued\nrun:\n  workflow: x.yml\ngenerated:\n  key: k\n")
+        (q / "RQ-4.yaml").write_text("id: RQ-4\nstatus: queued\nrun:\n  workflow: x.yml\ngrading:\n  auto: {rule: r}\n")
+        (q / "RQ-5.yaml").write_text("id: RQ-5\nstatus: done\nrun:\n  workflow: none\n")
+        sdb = session_debt(q)
+        check("session debt: bound, graded and the clean/closed units are told apart",
+              sdb["session_bound"] == ["RQ-1"] and sdb["session_graded"] == ["RQ-2"]
+              and sdb["session_debt"] == 2, sdb)
+        (q / "RQ-6.yaml").write_text("id: [unclosed\n")
+        try:
+            session_debt(q)
+            raised = False
+        except Exception:  # noqa: BLE001
+            raised = True
+        check("a corrupt unit RAISES (section 'error'), never a smaller debt number", raised)
     check("brief comes from render_daily_brief (one renderer)",
           rep["sections"]["brief"]["state"] != "ok"
           or "§0" in rep["sections"]["brief"]["data"]["markdown"], "")

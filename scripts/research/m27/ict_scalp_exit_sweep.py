@@ -90,6 +90,34 @@ def ladder_cells(tp_at_r: float) -> list:
     return out
 
 
+# GEOM-B1 `tp_revision` cell group (RQ-20261007-004): a take-profit that MOVES, on
+# the scalp's LIVE `tp_at_r` bracket. ONE definition of the grid -- imported from
+# the fleet sweep rather than re-listed here, so the two sweeps cannot drift on
+# what a tp_extend / tp_retarget cell is. `--cells tp_revision` selects both
+# matrix levers; `--cells tp_extend` / `tp_retarget` select one.
+TP_REVISION_ALIAS = {"tp_revision": {"tp_extend", "tp_retarget"}}
+
+
+def tp_revision_cells() -> list:
+    spec = _ilu.spec_from_file_location(
+        "_m20_fleet_for_tp", str(_REPO / "scripts" / "research" / "m20_fleet_exit_sweep.py"))
+    mod = _ilu.module_from_spec(spec)
+    sys.modules["_m20_fleet_for_tp"] = mod
+    spec.loader.exec_module(mod)
+    return mod._tp_geometry_cells({}, "scalp")
+
+
+def want_levers(cells_arg: str | None) -> set | None:
+    """`--cells` CSV -> matrix-lever set, expanding the `tp_revision` alias."""
+    if not cells_arg:
+        return None
+    want: set = set()
+    for c in (x.strip() for x in cells_arg.split(",")):
+        if c:
+            want |= TP_REVISION_ALIAS.get(c, {c})
+    return want
+
+
 def declared_lever_flags(leg_cfg: dict) -> list:
     """The leg's OWN shipped exit levers — part of its config-exact BASE.
 
@@ -148,6 +176,9 @@ def metrics(summary: dict) -> dict:
         "win_rate_pct": summary.get("win_rate_pct", 0.0),
         "by_outcome": summary.get("by_outcome", {}),
         "error": summary.get("error"),
+        # GEOM-B1: present ONLY when the run was armed (--tp-*), so every
+        # pre-existing verdict.json is byte-identical.
+        **({"tp_geometry": summary["tp_geometry"]} if summary.get("tp_geometry") else {}),
     }
 
 
@@ -165,6 +196,14 @@ def beats_or_ties(cell: dict, base: dict) -> bool:
         return False
     return (cell["total_r"] >= base["total_r"]
             and cell["max_dd_r"] <= base["max_dd_r"])
+
+
+def fold_is_inert(cell: dict, base: dict) -> bool:
+    """The lever changed nothing on this fold (net R AND max drawdown identical)."""
+    if cell.get("error") or base.get("error"):
+        return False
+    return (cell["total_r"] == base["total_r"]
+            and cell["max_dd_r"] == base["max_dd_r"])
 
 
 # Yearly walk-forward folds (mirror scripts/research/m20_fleet_exit_sweep.py).
@@ -195,7 +234,7 @@ def walk_forward(df, ts, out: Path, cell_tags: dict) -> dict:
         fold_base[name] = metrics(run_cell(csv, [], out / f"wf_base_{name}.json"))
     for tag, extra in cell_tags.items():
         rows = []
-        pass_n = usable = 0
+        pass_n = usable = inert_n = 0
         for name, _s, _e in FOLDS:
             base_m = fold_base[name]
             if base_m.get("error") or base_m["trades"] < _WF_MIN_TRADES:
@@ -205,14 +244,28 @@ def walk_forward(df, ts, out: Path, cell_tags: dict) -> dict:
             cell_m = metrics(run_cell(fold_csv[name], extra, out / f"wf_{tag}_{name}.json"))
             ok = beats_or_ties(cell_m, base_m)
             pass_n += 1 if ok else 0
-            rows.append({"fold": name, "usable": True, "pass": ok,
+            inert = fold_is_inert(cell_m, base_m)
+            inert_n += 1 if inert else 0
+            rows.append({"fold": name, "usable": True, "pass": ok, "inert": inert,
                          "d_netR": round(cell_m["total_r"] - base_m["total_r"], 2),
                          "d_maxDD": round(cell_m["max_dd_r"] - base_m["max_dd_r"], 2)})
         need = math.ceil(2 * usable / 3) if usable else 99
         verdict = ("PASS" if (usable >= 3 and pass_n >= need)
                    else "honest_negative")
+        # EFFECTIVE grade (CA-B04): an inert fold passes beats_or_ties by
+        # construction (0 >= 0, 0 <= 0) without the lever having done anything,
+        # so it is counted as neither a win nor a usable fold. The raw
+        # pass_folds/usable_folds/verdict stay as recorded, beside this.
+        eff_usable = usable - inert_n
+        eff_pass = pass_n - inert_n       # every inert fold was counted a pass
+        eff_need = math.ceil(2 * eff_usable / 3) if eff_usable else 99
+        verdict_eff = ("PASS" if (eff_usable >= 3 and eff_pass >= eff_need)
+                       else "honest_negative")
         wf[tag] = {"pass_folds": pass_n, "usable_folds": usable,
-                   "need": need, "verdict": verdict, "folds": rows}
+                   "need": need, "verdict": verdict, "folds": rows,
+                   "inert_folds": inert_n, "effective_pass_folds": eff_pass,
+                   "effective_usable_folds": eff_usable,
+                   "effective_need": eff_need, "verdict_effective": verdict_eff}
     return wf
 
 
@@ -281,14 +334,18 @@ def main(argv: list[str]) -> int:
 
     # Cells = the stale/giveback grid + the config-relative ladder grid,
     # optionally filtered to one matrix lever.
-    cells = list(CELLS) + ladder_cells(tp_at_r)
-    if args.cells:
-        want = {c.strip() for c in args.cells.split(",") if c.strip()}
-        cells = [c for c in cells if c[1] in want]
+    # The GEOM-B1 tp_extend / tp_retarget cells are OPT-IN: present only when
+    # `--cells` names them (or the `tp_revision` alias), so an empty / legacy
+    # `--cells` still means exactly what it meant.
+    want = want_levers(args.cells)
+    all_cells = list(CELLS) + ladder_cells(tp_at_r)
+    if want and want & {"tp_extend", "tp_retarget"}:
+        all_cells += tp_revision_cells()
+    cells = [c for c in all_cells if want is None or c[1] in want]
     if not cells:
         print(f"ERROR: no cells selected (--cells {args.cells!r}); "
               f"available levers: "
-              f"{sorted({c[1] for c in list(CELLS) + ladder_cells(tp_at_r)})}",
+              f"{sorted({c[1] for c in all_cells} | set(TP_REVISION_ALIAS) | {'tp_extend', 'tp_retarget'})}",
               file=sys.stderr)
         return 2
     print(f"leg={leg_name or '(explicit)'} symbol={symbol} tf={timeframe} "
@@ -317,6 +374,12 @@ def main(argv: list[str]) -> int:
     jobs = []  # (result_key, window, extra, out_json)
     for w, csv in windows.items():
         jobs.append((("base", w), csv, [], out / f"base_{w}.json"))
+    tp_cells_on = any(c[1] in ("tp_extend", "tp_retarget") for c in cells)
+    if tp_cells_on:
+        # The config-exact base read WITH `--tp-report` (no exit changes) so a cell's
+        # calibration share has a base beside it; kept out of the graded `base`.
+        for w, csv in windows.items():
+            jobs.append((("base_tp", w), csv, ["--tp-report"], out / f"base_tp_{w}.json"))
     for tag, lever, extra in cells:
         for w, csv in windows.items():
             jobs.append(((tag, w), csv, extra, out / f"{tag}_{w}.json"))
@@ -346,6 +409,17 @@ def main(argv: list[str]) -> int:
                                  "IS": cell["IS"], "OOS": cell["OOS"],
                                  "is_beat": is_beat, "oos_beat": oos_beat,
                                  "verdict": verdict}
+        if lever in ("tp_extend", "tp_retarget"):
+            tpg = {}
+            for w in ("IS", "OOS"):
+                g = (cell[w].get("tp_geometry") or {})
+                b = (computed[("base_tp", w)].get("tp_geometry") or {})
+                cs, bs = g.get("calibration_share"), b.get("calibration_share")
+                tpg[w] = {"cell": g or None, "base": b or None,
+                          "calibration_share_cell": cs, "calibration_share_base": bs,
+                          "calibration_ge_base": (None if cs is None or bs is None
+                                                  else cs >= bs)}
+            results["cells"][tag]["tp_geometry"] = tpg
         print(f"  {tag:18s} [{lever}]  "
               f"IS ΔR={cell['IS']['total_r'] - base['IS']['total_r']:+.2f} "
               f"ΔDD={cell['IS']['max_dd_r'] - base['IS']['max_dd_r']:+.2f} "
@@ -367,11 +441,14 @@ def main(argv: list[str]) -> int:
         results["walkforward"] = wf
         for tag, r in wf.items():
             results["cells"][tag]["walkforward_verdict"] = r["verdict"]
+            results["cells"][tag]["walkforward_verdict_effective"] = r["verdict_effective"]
             fold_str = " ".join(
                 f"{f['fold']}:{'PASS' if f.get('pass') else ('-' if f.get('usable') else 'skip')}"
                 for f in r["folds"])
             print(f"  {tag:18s} {r['pass_folds']}/{r['usable_folds']} usable folds "
-                  f"(need {r['need']}) -> {r['verdict']}   [{fold_str}]", flush=True)
+                  f"(need {r['need']}) -> {r['verdict']}   [{fold_str}]  "
+                  f"EFFECTIVE {r['effective_pass_folds']}/{r['effective_usable_folds']} "
+                  f"({r['inert_folds']} inert) -> {r['verdict_effective']}", flush=True)
         survivors = [t for t, r in wf.items() if r["verdict"] == "PASS"]
         print(f"\nWALK-FORWARD SURVIVORS (M20-gated, -> Tier-3 proposal): "
               f"{survivors or 'NONE — candidates fail walk-forward, honest_negative'}",

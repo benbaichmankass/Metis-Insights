@@ -23,6 +23,16 @@ never delays a ticket:
    still sits on the safe side of the current price, amend the SL through the
    adapter's ``modify_bracket`` (TP is not touched), then re-read and confirm.
    A stop is never loosened, never removed, and no close control is clicked.
+4. TP doctrine B1 (operator 2026-10-06): on a tick with no SL step due, a leg
+   that DECLARES a ``tp_revision`` rule has its resting TP moved to the rule's
+   current prediction (``src/runtime/tp_revision.py::plan_tp_revision`` -- the
+   same function the exchange ``monitor()`` and the harness use), as a TP-only
+   ``modify_bracket(page, p, None, tp)``, then re-read and confirmed. Only an
+   adapter declaring ``TP_AMEND_SUPPORTED`` is asked (``dxtrade_api``); the
+   browser ``dxtrade`` adapter's rollout guard admits SL-only tightens, so it
+   is skipped with a logged reason. The phone path (breakout_2) receives the
+   same ``plan_tp_revision`` output through its own amend channel (lane
+   PROP-TRAIL-PHONE), never through this function.
 
 ROLLOUT (manager 2026-10-02 23:30Z, DIALOG-MEASURE #15693/#15705). Every
 armed step goes through ``modify_bracket(..., rollout=ModifyRollout(...))`` on
@@ -60,6 +70,8 @@ from src.prop.platform.base import Position
 from src.prop.platform.dxtrade import ROLLOUT_MAX_TIGHTEN_FRACTION, ModifyRollout
 from src.prop.prop_executor import CycleResult, ExecutorConfig, _dir, _f, _parse_ts, _report
 from src.research.trail_levers import effective_trail_mult
+from src.runtime.monitor_verdict import MEANINGFUL_MODIFY_REL_TOL
+from src.runtime.tp_revision import declared_rule, plan_tp_revision
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 STRATEGIES_PATH = _REPO_ROOT / "config" / "strategies.yaml"
@@ -331,7 +343,14 @@ def run_trail_step(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mo
                 f"(open_r={plan.detail.get('open_r')}); a resting-SL amend cannot reproduce a "
                 "bar-close exit, so the prop trail does NOT apply it — operator decides")
             tst["close_lever_alerted"] = True
-        if plan.action != "tighten" or tst.get("locked"):
+        if tst.get("locked"):
+            return
+        if plan.action != "tighten":
+            # TP doctrine B1: with no SL step due this tick, the leg's declared
+            # TP-revision rule may move the resting TP (one modify per ticket
+            # per tick; the protective SL step always goes first).
+            _tp_step(p=p, leg=leg, tid=tid, venue=venue, bot_sym=bot_sym, entry=entry,
+                     initial_sl=isl, signal_time=sig_t, candles=candles, tst=tst)
             return
         # Through-price guard on the VENUE's own quote (the plan only saw the
         # Bybit feed): a long stop must sit a buffer under the bid, a short
@@ -421,6 +440,76 @@ def run_trail_step(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mo
                                       f"(bars={plan.bars}, mfe_r={plan.detail.get('mfe_r')}"
                                       + (f", rollout step toward {plan.sl}" if target != plan.sl else "") + ")",
                             "source": "prop_trail"})
+    def _tp_step(*, p: Position, leg: Mapping[str, Any], tid: Any, venue: str, bot_sym: Any,
+                 entry: float, initial_sl: float, signal_time: datetime,
+                 candles: Optional[pd.DataFrame], tst: Dict[str, Any]) -> None:
+        """Move the resting TP to the leg's revised prediction (TP doctrine,
+        clause 2). Fails CLOSED: an amend that is refused, unconfirmed on the
+        re-read, or that disturbs the SL is alerted and not retried past
+        MAX_ATTEMPTS_PER_TARGET; nothing here can loosen or remove the stop."""
+        if declared_rule(leg) is None:
+            return
+        if not getattr(adapter, "TP_AMEND_SUPPORTED", False):
+            # dxtrade (browser): the rollout guard admits SL-only tightens, so a
+            # TP amend would be refused before any click. Logged, never alerted:
+            # it is a known path limit, measured by tp-doctrine-guard.
+            res.log("trail_tp_skip", ticket_id=tid, venue=venue,
+                    why=f"adapter {getattr(adapter, 'platform', '?')!r} cannot amend a TP")
+            return
+        if candles is None or len(candles) == 0 or "timestamp" not in candles:
+            res.log("trail_tp_skip", ticket_id=tid, why="no candles")
+            return
+        tf_min = _TF_MINUTES.get(str(leg.get("timeframe") or "1h"))
+        if tf_min is None:
+            return
+        q = adapter.read_quote(page, venue) or {}
+        ref = _f(q.get("bid")) if p.side == "long" else _f(q.get("ask"))
+        if ref is None:
+            res.log("trail_tp_skip", ticket_id=tid, why="no venue quote: could not look, no TP amend")
+            return
+        bars = _closed_bars(candles, datetime(1970, 1, 1, tzinfo=timezone.utc), tf_min, now)
+        rev = plan_tp_revision(leg=leg, direction=p.side or "", entry=entry,
+                               risk=abs(entry - initial_sl), bars=bars,
+                               entry_time=signal_time, ref_price=ref)
+        if rev is None:
+            res.log("trail_tp_hold", ticket_id=tid, why="rule produced no placeable target")
+            return
+        cur = p.take_profit
+        if cur is not None and abs(rev.tp - cur) <= max(abs(cur) * MEANINGFUL_MODIFY_REL_TOL, 1e-8):
+            res.log("trail_tp_hold", ticket_id=tid, why="target unchanged", tp=cur)
+            return
+        tries = tst.get("tp_tries") if tst.get("tp_target") == rev.tp else 0
+        if (tries or 0) >= MAX_ATTEMPTS_PER_TARGET:
+            res.log("trail_tp_skip", ticket_id=tid, why=f"TP amend to {rev.tp} already tried {tries}x; alerted")
+            return
+        r = adapter.modify_bracket(page, p, None, rev.tp, arm=live, rollout=rollout)
+        res.log("trail_tp_amend", ticket_id=tid, venue=venue, tp=rev.tp, from_tp=cur,
+                reason=rev.reason, result=r)
+        if not live:
+            return
+        tst.update(tp_target=rev.tp, tp_tries=(tries or 0) + 1)
+        if isinstance(r, dict) and not r.get("ok"):
+            if not tst.get("tp_refused_alerted"):
+                res.alerts.append(f"{tid}: TP amend to {rev.tp} refused ({r.get('why')}); resting TP kept")
+                tst["tp_refused_alerted"] = True
+            return
+        step = _f((cfg.symbols.get(bot_sym) or {}).get("price_step"))
+        got = _confirm_tp(adapter, page, p, rev.tp, step)
+        if got is None:
+            res.alerts.append(f"{tid}: TP amend to {rev.tp} not confirmed on re-read; not retried past "
+                              f"{MAX_ATTEMPTS_PER_TARGET}x (containment acts if the TP or SL goes missing)")
+            return
+        if p.stop_loss is not None and (got.stop_loss is None or not math.isclose(
+                float(got.stop_loss), float(p.stop_loss), rel_tol=1e-6, abs_tol=(step or 0.0) / 2 + 1e-9)):
+            res.alerts.append(f"{tid}: SL reads {got.stop_loss} after the TP amend (was {p.stop_loss}); "
+                              "the reviewer decides")
+        tst.update(applied_tp=rev.tp, tp_tries=0)
+        tst.pop("tp_refused_alerted", None)
+        _report(res, post, {"kind": "amend", "account_id": cfg.account_id, "ticket_id": tid,
+                            "symbol": bot_sym, "direction": p.side, "sl": got.stop_loss,
+                            "tp": got.take_profit, "reason": f"tp revision: {rev.reason}",
+                            "source": "prop_trail_tp"})
+
     for p in positions:
         try:
             _one(p)
@@ -446,6 +535,19 @@ def _confirm(adapter: Any, page: Any, p: Position, sl: float, step: Optional[flo
         for q in adapter.read_positions(page):
             if q.symbol.upper() == p.symbol.upper() and q.side == p.side and q.stop_loss is not None \
                     and abs(q.stop_loss - sl) <= max(tol, abs(sl) * 1e-7):
+                return q
+    except Exception:  # noqa: BLE001 — an unread confirm is reported as not confirmed
+        return None
+    return None
+
+
+def _confirm_tp(adapter: Any, page: Any, p: Position, tp: float, step: Optional[float]) -> Optional[Position]:
+    """The position re-read with its TP at ``tp`` (within half a step), or None."""
+    tol = (step or 0.0) / 2 + 1e-9
+    try:
+        for q in adapter.read_positions(page):
+            if q.symbol.upper() == p.symbol.upper() and q.side == p.side and q.take_profit is not None \
+                    and abs(q.take_profit - tp) <= max(tol, abs(tp) * 1e-7):
                 return q
     except Exception:  # noqa: BLE001 — an unread confirm is reported as not confirmed
         return None

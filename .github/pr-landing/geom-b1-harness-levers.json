@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "GEOM-B1-HARNESS measurement half of the TP doctrine: backtest-only levers (finite target, thesis-conditioned extension, atr_rescale / stall_pull_in retarget) on backtest_trend / backtest_pullback / backtest_ict_scalp, plus a research-index row. Every lever is off by default and a golden captured from the pre-change harnesses pins the defaults bit-for-bit. No order path, config, strategy or param change; the live producer is lane TP-DOCTRINE's."
+}

@@ -12,10 +12,11 @@ Robust: every run is subprocess-isolated with a timeout; a failure is logged
 and the sweep continues.
 """
 import json
-import subprocess
 import itertools
 import time
 from pathlib import Path
+
+from _fresh_run import run_fresh
 
 REPO = '/home/ubuntu/ict-trading-bot'
 PY = f'{REPO}/.venv/bin/python'
@@ -86,7 +87,7 @@ with open(RESULTS, 'w') as rf:
             cmd = [PY] + base + wargs + ['--json', str(jpath)]
             rec = {'family': family, 'market': market, 'tf': tf, 'params': label, 'window': win}
             try:
-                subprocess.run(cmd, cwd=REPO, capture_output=True, timeout=180)
+                run_fresh(cmd, jpath, cwd=REPO, timeout=180)
                 d = json.loads(jpath.read_text())
                 rec.update({
                     'net_r': round(d.get('net_total_r', 0), 2),
