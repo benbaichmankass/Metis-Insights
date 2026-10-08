@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register batch: checklist row notes and state corrections only (handoff, PM-COLLECTOR deploy record, stale in_flight sweep). No code, config or order-path change."
+}

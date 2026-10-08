@@ -2,17 +2,24 @@
   "id": "PM-COLLECTOR",
   "title": "Eng: free prediction-market snapshot collector (macro/Fed/CPI questions) with point-in-time storage, on the existing econ-calendar producer pattern",
   "phase": null,
-  "state": "queued",
+  "state": "landed_unproven",
   "owner": "manager",
-  "lane": "session_019PGbD11wb3hfgoGyHyDmSs",
+  "lane": null,
   "model": "claude-sonnet-5-5",
   "ceiling_usd": 15,
-  "spend_usd": 2.68,
+  "spend_usd": 0.71,
   "tier": 1,
-  "prs": [],
+  "prs": [
+    17131
+  ],
   "blocked_on": [],
-  "note": "[2026-10-08T10:40Z manager] Operator 2026-10-08 (verbatim): \"Ok, lets do that - I want us to add the bigger build out to the roadmap, gated on the system successfully passing milestones (POCs that prove trust worthy and add value)\". Eng backlog by capacity (not before the weekly budget resets unless capacity allows). Free APIs only; source terms respected; snapshots versioned with collection time + hash (design doc section 7/9). Unblocks PM-SURPRISE-EVAL. [2026-10-08T12:47Z manager] Dispatched as serial-queue item 3 (PACE-W40) after REPO-PRIVATE-SCOPE finished: lane session_019PGbD11wb3hfgoGyHyDmSs, Sonnet, ceiling $15. Sources to verify: Kalshi / Polymarket public endpoints, terms checked. Lands as hold (new scheduled workflow); manager merges by hand. [2026-10-08T13:52Z manager] Lane delivered PR #17131 (head 174c1fce, landing hold, Tier 2: new 6h workflow pm-snapshot-collect, Kalshi + Polymarket public APIs, ~120 Actions min/mo, append-only JSONL with content hash). Lane ARCHIVED, final $2.68. HELD by manager: neither source's ToS could be read (Kalshi PDF 429, Polymarket /tos returns a stub; re-tried by the manager 13:50Z, same result). Committing snapshots to a PUBLIC repo republishes third-party data, so 'nothing found forbids it' is not enough. Next: manager re-reads both ToS at the next check-in; merge if they permit automated collection + storage, else drop the forbidding source from config/pm_markets.yaml. Also: Polymarket recession slug returned 0 rows in the dry run. [2026-10-08T14:55Z manager] OPERATOR popup answer (verbatim): \"Store off-repo\". Re-scope #17131: keep the collector, write snapshots to the trainer VM (not the public repo); also fix the timeout-minutes 15 < 50m merge wait test failure (moot if no commit-to-main step). Small lane ~$5, inserted as queue item 5b after RESEARCH-RESULTS-LAND.",
-  "updated_at": "2026-10-08T14:51:52Z",
-  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "note": "[2026-10-08T10:40Z manager] Operator 2026-10-08 (verbatim): \"Ok, lets do that - I want us to add the bigger build out to the roadmap, gated on the system successfully passing milestones (POCs that prove trust worthy and add value)\". Eng backlog by capacity (not before the weekly budget resets unless capacity allows). Free APIs only; source terms respected; snapshots versioned with collection time + hash (design doc section 7/9). Unblocks PM-SURPRISE-EVAL. [2026-10-08T12:47Z manager] Dispatched as serial-queue item 3 (PACE-W40) after REPO-PRIVATE-SCOPE finished: lane session_019PGbD11wb3hfgoGyHyDmSs, Sonnet, ceiling $15. Sources to verify: Kalshi / Polymarket public endpoints, terms checked. Lands as hold (new scheduled workflow); manager merges by hand. [2026-10-08T13:52Z manager] Lane delivered PR #17131 (head 174c1fce, landing hold, Tier 2: new 6h workflow pm-snapshot-collect, Kalshi + Polymarket public APIs, ~120 Actions min/mo, append-only JSONL with content hash). Lane ARCHIVED, final $2.68. HELD by manager: neither source's ToS could be read (Kalshi PDF 429, Polymarket /tos returns a stub; re-tried by the manager 13:50Z, same result). Committing snapshots to a PUBLIC repo republishes third-party data, so 'nothing found forbids it' is not enough. Next: manager re-reads both ToS at the next check-in; merge if they permit automated collection + storage, else drop the forbidding source from config/pm_markets.yaml. Also: Polymarket recession slug returned 0 rows in the dry run. [2026-10-08T14:55Z manager] OPERATOR popup answer (verbatim): \"Store off-repo\". Re-scope #17131: keep the collector, write snapshots to the trainer VM (not the public repo); also fix the timeout-minutes 15 < 50m merge wait test failure (moot if no commit-to-main step). Small lane ~$5, inserted as queue item 5b after RESEARCH-RESULTS-LAND. [2026-10-08T16:00Z manager session_01Uq7MrjPQDRWqbhCjwuMava] #17131 merged 014d44bc (Tier 2, standing data-backed authorization). DEPLOYED via trainer-vm-diag #17149 (manager taken out of auto mode by the operator for exactly this): timer enabled, first manual run 15:51Z exit 0, 63 rows (kalshi 50, polymarket 13) -> data/pm_snapshots/2026-10.jsonl on the trainer. Lane 5b session_0119ErJNvXBoGDk9DFyGcTay final $0.71 (archived). OBSERVATION OWED for done: the first TIMER-driven run (next 18:17Z) appends rows; read journalctl -u ict-pm-snapshot.service or LATEST.json via trainer-vm-diag (health review 10-09 can read it). Revert: revert 014d44bc + systemctl disable --now ict-pm-snapshot.timer.",
+  "updated_at": "2026-10-08T16:03:20Z",
+  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
+  "observation": {
+    "what": "the first timer-driven ict-pm-snapshot run appends rows to data/pm_snapshots/2026-10.jsonl on the trainer",
+    "how_to_check": "trainer-vm-diag: journalctl -u ict-pm-snapshot.service -n 20 --no-pager; cat data/pm_snapshots/LATEST.json (collected_at_utc after 2026-10-08T18:17Z, rows > 0)",
+    "due_by": "2026-10-09"
+  },
   "_seq": 358
 }

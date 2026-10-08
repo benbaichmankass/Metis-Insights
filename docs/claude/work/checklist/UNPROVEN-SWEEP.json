@@ -2,15 +2,23 @@
   "id": "UNPROVEN-SWEEP",
   "title": "Check every landed_unproven checklist row's closing observation against live data; close, re-scope or kill",
   "phase": "W8",
-  "state": "in_flight",
+  "state": "queued",
   "owner": "research lane",
-  "lane": "session_01YZ1v25eGAXFHxUgidK1DDx",
+  "lane": null,
   "model": "claude-sonnet-5-5",
   "ceiling_usd": 15,
   "spend_usd": null,
   "tier": 1,
   "prs": [],
   "blocked_on": [],
-  "note": "2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; operator popup verbatim 'Landed-but-unproven sweep'.",
+  "note": "2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; operator popup verbatim 'Landed-but-unproven sweep'. [2026-10-08T16:05Z manager session_01Uq7MrjPQDRWqbhCjwuMava, stale-state sweep] Lane session_01YZ1v25eGAXFHxUgidK1DDx finished 10-02 (40 landed_unproven rows scanned: 9 closeable, 31 need lanes, 6 unfiled findings incl. bybit_1 OVER-COVER). Lane archived now. Re-dispatch is PACE-W40 queue item 14; it must first re-read the 10-02 output on branch claude/unproven-sweep-2026-10-02.",
+  "lane_history": [
+    {
+      "lane": "session_01YZ1v25eGAXFHxUgidK1DDx",
+      "archived_at": "2026-10-08T15:55:58Z"
+    }
+  ],
+  "updated_at": "2026-10-08T15:55:59Z",
+  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
   "_seq": 263
 }

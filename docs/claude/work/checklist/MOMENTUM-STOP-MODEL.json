@@ -11,8 +11,8 @@
   "tier": 3,
   "prs": [],
   "blocked_on": [],
-  "note": "[2026-10-08T06:55Z manager] Roadmap 2026-10-08; gated on the cross-signal research results.",
-  "updated_at": "2026-10-08T06:54:19Z",
-  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "note": "[2026-10-08T06:55Z manager] Roadmap 2026-10-08; gated on the cross-signal research results. [2026-10-08T16:00Z manager session_01Uq7MrjPQDRWqbhCjwuMava] RQ-20261007-042 INCONCLUSIVE: only eth_4h measured, n_OOS=49, 1/4 cells pass IS/OOS (adx20_k0_t2.5), WF and attribution absent. RQ-043 (#17140) provisional: 2/6 legs clear IS/OOS (eth_4h ms12_a20/a25, eth_prop ms8_a25), WF and swap-base(b) unverified. Model build stays gated.",
+  "updated_at": "2026-10-08T15:55:32Z",
+  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
   "_seq": 353
 }

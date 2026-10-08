@@ -2,9 +2,9 @@
   "id": "CI-AUTOMERGE",
   "title": "Unjam the automation/* PR backlog (research results first) and fix the root cause so new automation PRs land green unattended; then work PI-20261004-IRWQEEXT-0006",
   "phase": "floor",
-  "state": "in_flight",
+  "state": "done",
   "owner": "lane CI-AUTOMERGE",
-  "lane": "session_01MD7v8mG8doHqFYuTbsceQM",
+  "lane": null,
   "model": "claude-opus-5-5",
   "ceiling_usd": 30,
   "spend_usd": null,
@@ -22,6 +22,14 @@
       "what": "bulk close of 110 superseded automation PRs; classifier-denied to the lane"
     }
   ],
-  "note": "[2026-10-04T23:00Z lane CI-AUTOMERGE] ROOT CAUSES (MEASURED, 116 open automation/* PRs): (1) commit-to-main cut its branch from the caller's checkout, so research runs dispatched on a session branch carried it (21 PRs failed pr-landing R5/R12); (2) stale-automation-sweep refreshed 0/115, because it graded each PR absent_on_main on its own .github/merge-slots claim and its refresh() wrote the retired session-board.json. Both are fixed in #16494 (hold; manager merge). MERGED: #16491 (20 stranded research results, 22:16Z). MERGED: #16497 (append-only data rows) and #16505 (3 hygiene fixes, the 13 package dispositions, the close lists). NOT YET OBSERVED: sweeper refresh>0 after #16494 (pipeline PI-20261004-UTBSCEQM-0001). FINDING: GitHub has no jsonregister merge driver, so any PR that appends a checklist row re-conflicts every time main appends one (it struck #16494 twice); the row was therefore moved off #16494.",
+  "note": "[2026-10-04T23:00Z lane CI-AUTOMERGE] ROOT CAUSES (MEASURED, 116 open automation/* PRs): (1) commit-to-main cut its branch from the caller's checkout, so research runs dispatched on a session branch carried it (21 PRs failed pr-landing R5/R12); (2) stale-automation-sweep refreshed 0/115, because it graded each PR absent_on_main on its own .github/merge-slots claim and its refresh() wrote the retired session-board.json. Both are fixed in #16494 (hold; manager merge). MERGED: #16491 (20 stranded research results, 22:16Z). MERGED: #16497 (append-only data rows) and #16505 (3 hygiene fixes, the 13 package dispositions, the close lists). NOT YET OBSERVED: sweeper refresh>0 after #16494 (pipeline PI-20261004-UTBSCEQM-0001). FINDING: GitHub has no jsonregister merge driver, so any PR that appends a checklist row re-conflicts every time main appends one (it struck #16494 twice); the row was therefore moved off #16494. [2026-10-08T16:05Z manager session_01Uq7MrjPQDRWqbhCjwuMava, stale-state sweep] Lane session_01MD7v8mG8doHqFYuTbsceQM archived 10-05 (7 PRs merged). Auto-merge observed working on main: #17122 and #17144 merged by auto-merge 2026-10-08. The open defect (relay merged a held PR) is PI-20261008-APBY4NTV-0003, folded into the 10-09 health review.",
+  "lane_history": [
+    {
+      "lane": "session_01MD7v8mG8doHqFYuTbsceQM",
+      "archived_at": "2026-10-08T15:55:58Z"
+    }
+  ],
+  "updated_at": "2026-10-08T15:55:58Z",
+  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
   "_seq": 287
 }

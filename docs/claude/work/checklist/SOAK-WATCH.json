@@ -2,15 +2,23 @@
   "id": "SOAK-WATCH",
   "title": "Soak contract + soak alarms on the live pipeline + soak report (component of WORK-SYSTEM)",
   "phase": "floor",
-  "state": "in_flight",
+  "state": "done",
   "owner": "lane SOAK-WATCH",
-  "lane": "session_01JqGq9ffmH9ZCU5jc8kDkLF",
+  "lane": null,
   "model": "claude-opus-5-5",
   "ceiling_usd": 35,
   "spend_usd": null,
   "tier": 2,
   "prs": [],
   "blocked_on": [],
-  "note": "[2026-10-04T15:02Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Builder under WORK-SYSTEM.",
+  "note": "[2026-10-04T15:02Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Builder under WORK-SYSTEM. [2026-10-08T16:05Z manager session_01Uq7MrjPQDRWqbhCjwuMava, stale-state sweep] Lane session_01JqGq9ffmH9ZCU5jc8kDkLF archived 10-04; #16470 (non-soak definition of done) merged; the soak-contract guard is run by every research lane.",
+  "lane_history": [
+    {
+      "lane": "session_01JqGq9ffmH9ZCU5jc8kDkLF",
+      "archived_at": "2026-10-08T15:56:01Z"
+    }
+  ],
+  "updated_at": "2026-10-08T15:56:01Z",
+  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
   "_seq": 1
 }
