@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records only. Closes PI-20261004-APBY4NTV-0003 (checklist per-row cutover) with the live observation of the Workflow page after #17073. One new record file under docs/claude/work/pipeline/; no code, config or runtime change."
+}
