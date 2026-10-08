@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from src.prop import prop_balance, prop_journal
 
@@ -148,9 +148,14 @@ def match_fill_to_ticket(fill: Dict[str, Any]) -> Optional[str]:
 
 def find_unacted_tickets(
     *, account_id: Optional[str] = None, now: Optional[datetime] = None,
-    limit: int = 200,
+    limit: int = 200, statuses: Tuple[str, ...] = ("emitted",),
 ) -> List[Dict[str, Any]]:
     """Emitted tickets past ``valid_until`` with no matching fill reported.
+
+    ``statuses`` widens the population for the expiry sweep, which also ends
+    unanswered ``expiry_prompted`` / ``invalidated_prompted`` tickets
+    (PROP-FLOW-SEPARATION, 2026-10-07). The default is the drift view's
+    ``emitted`` only.
 
     A ticket is considered acted-on if a ``prop_fills`` row references its
     ``ticket_id`` OR matches its account+symbol+direction. Anything still
@@ -220,7 +225,7 @@ def find_unacted_tickets(
 
     out: List[Dict[str, Any]] = []
     for t in tickets:
-        if t.get("status") != "emitted":
+        if t.get("status") not in statuses:
             continue
         if t.get("ticket_id") in acted_ids:
             continue

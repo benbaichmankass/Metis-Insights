@@ -276,6 +276,34 @@ def set_ticket_status(
         conn.close()
 
 
+def transition_ticket_status(
+    ticket_id: str, to_status: str, *, from_statuses: Any,
+    account_id: Optional[str] = None,
+) -> int:
+    """Compare-and-set a ticket's status: the UPDATE applies only while the row
+    is still in one of ``from_statuses`` (and, with ``account_id``, belongs to
+    that account). Returns the rows changed, 0 when the ticket moved on first,
+    so a sweep or a Telegram tap can never overwrite a claim, a placement or a
+    fill that landed in between (PROP-FLOW-SEPARATION, 2026-10-07)."""
+    froms = [str(s) for s in (from_statuses or ())]
+    if not froms:
+        return 0
+    conn = _connect()
+    try:
+        ensure_tables(conn)
+        sql = (f"UPDATE prop_tickets SET status = ? WHERE ticket_id = ? "
+               f"AND status IN ({','.join('?' * len(froms))})")
+        params: List[Any] = [to_status, ticket_id, *froms]
+        if account_id:
+            sql += " AND account_id = ?"
+            params.append(account_id)
+        cur = conn.execute(sql, params)
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
 def list_tickets(
     *, account_id: Optional[str] = None, status: Optional[str] = None,
     limit: int = 100,
