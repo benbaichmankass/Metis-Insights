@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 docs only: docs/plans/ml-producers-milestones-2026-10-08.md (plan, no producer code), its docs/DOCUMENT-INDEX.md row, checklist notes on ML-PRODUCERS, and this landing/claim. No src/, config/, ml/configs/ or registry change. Lane 8 of PACE-W40 dispatched by the manager (operator task, row ML-PRODUCERS). Served-vs-declared counts are the 2026-09-29 ML-DEMOTE measurements, not re-measured; dollar sizes are estimates."
+}
