@@ -1,0 +1,18 @@
+{
+  "id": "NEWS-VETO-EVAL",
+  "title": "Research: does the live news score/veto (src/news/news_score.py) add net R, and is its adjustment calibrated (Brier/ECE) -- existing data only",
+  "phase": null,
+  "state": "queued",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-08T10:40Z manager] Operator 2026-10-08 (verbatim): \"Ok, lets do that - I want us to add the bigger build out to the roadmap, gated on the system successfully passing milestones (POCs that prove trust worthy and add value)\". POC 1 of the WEPE gate. Authored as a research unit by the daily RESEARCH-READOUT lane (existing journal + news data, no new build). Pass/fail rule registered before the run: veto rows' counterfactual R vs taken trades, net of cost; calibration of the adjustment.",
+  "updated_at": "2026-10-08T11:19:31Z",
+  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "_seq": 356
+}
