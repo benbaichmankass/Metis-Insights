@@ -642,8 +642,39 @@ jobs:
               core.notice(`poll ${i}: ${checks.length} checks, ${pending.length} pending, ${failed.length} failed`);
               if (failed.length) { core.setFailed(`checks failed: ${failed.map(c=>c.name).join(', ')}`); return; }
               if (checks.length && !pending.length) {
+                // RE-READ EVERYTHING AT THE CURRENT HEAD before merging (#17038,
+                // 2026-10-08: a hold + deleted request + disabled auto-merge were
+                // all ignored because only arm-time state had been checked).
+                // Any read that fails is passed as the REFUSING value.
+                let pm = { pr_open: false, head_unchanged: false, request_present: false,
+                           found: true, parse_ok: false, landing: null };
                 try {
-                  await github.rest.pulls.merge({ owner, repo, pull_number: pr.number, merge_method: 'squash' });
+                  const cur = (await github.rest.pulls.get({ owner, repo, pull_number: pr.number })).data;
+                  pm.pr_open = cur.state === 'open';
+                  pm.head_unchanged = cur.head.sha === sha;
+                  const at = async (path) => {
+                    try { return await github.rest.repos.getContent({ owner, repo, path, ref: cur.head.sha }); }
+                    catch (e) { if (e.status === 404) return null; throw e; }
+                  };
+                  pm.request_present = (await at(reqPath)) !== null;
+                  const d = await at(landingPath);
+                  if (d === null) { pm.found = false; }
+                  else {
+                    const parsed = JSON.parse(Buffer.from(d.data.content, d.data.encoding || 'base64').toString('utf-8'));
+                    pm.parse_ok = true;
+                    pm.landing = (parsed && typeof parsed === 'object') ? (parsed.landing ?? null) : null;
+                  }
+                } catch (e) { core.warning(`pre-merge re-read failed: ${e.message}`); }
+                const pmFile = process.env.LANDING_GATE_INPUT + '.premerge';
+                require('fs').writeFileSync(pmFile, JSON.stringify(pm));
+                const pmRun = require('child_process').spawnSync('python3',
+                  ['scripts/ci/automerge_landing_gate.py', '--premerge', '--input', pmFile], { encoding: 'utf-8' });
+                if (pmRun.status !== 0) {
+                  core.notice(`NOT MERGING #${pr.number}: pre-merge re-read refused (${(pmRun.stdout || pmRun.stderr || '').replace(/\s+/g, ' ').slice(0, 300)}).`);
+                  return;
+                }
+                try {
+                  await github.rest.pulls.merge({ owner, repo, pull_number: pr.number, merge_method: 'squash', sha });
                   core.notice(`merged #${pr.number} (squash)`);
                 } catch (e) { core.setFailed(`direct merge failed: ${e.message} (PR is ready + green; operator can click Merge)`); }
                 return;

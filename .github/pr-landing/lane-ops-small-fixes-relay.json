@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Edits claude-pr-automerge.yml and automerge_landing_gate.py: re-read landing declaration + request file at the current head right before pulls.merge. Manager merges.",
+  "why": "OPS-SMALL-FIXES item 1 (PI-20261008-APBY4NTV-0003): #17038 was merged although its declaration was switched to hold."
+}
