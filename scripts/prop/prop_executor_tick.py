@@ -352,7 +352,9 @@ def _code_sha() -> str:
 
 def emit_trail_pulse(account: str, state_dir: Path, *secrets: str) -> None:
     """TRAIL-PAUSE-PULSE: one pulse per tick carrying ``trail_paused_since``
-    (null = latch absent, ISO = latched, "unknown" = could not read the file).
+    (null = latch absent, ISO = the RETIRED latch file is present -- since
+    NO-HALT 2026-10-09 nothing blocks on it and the trail moves it aside, so a
+    deployed host reads null; "unknown" = could not read the file).
     Written to ``<state dir>/prop_monitor_pulse.json`` for the attention watch
     and emitted to the journal. Never raises: a pulse failure must not touch
     the cycle or the trail step."""

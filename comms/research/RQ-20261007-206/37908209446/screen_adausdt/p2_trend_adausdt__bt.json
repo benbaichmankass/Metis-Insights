@@ -1,0 +1,77 @@
+{
+  "strategy": "trend_donchian",
+  "symbol": "ADAUSDT",
+  "timeframe": "1h",
+  "params": {
+    "donchian": 20,
+    "atr_stop_mult": 2.5,
+    "trail_mult": 3.5,
+    "min_confidence": 0.6,
+    "trail_decay_arm_r": 2.99,
+    "trail_decay_stall_bars": 10,
+    "trail_decay_tight_mult": 1.8
+  },
+  "total_trades": 320,
+  "fee_bps_roundtrip": 7.5,
+  "slippage_bps_roundtrip": 3.0,
+  "funding_bps_per_window": 1.0,
+  "data_start": "2024-10-09 00:00:00+00:00",
+  "data_end": "2026-10-08 23:00:00+00:00",
+  "run_date": "2026-10-09",
+  "tp_r_effective_n": 320,
+  "tp_r_effective_median": 3.222,
+  "tp_r_effective_min": 0.566,
+  "tp_r_effective_max": 6.0,
+  "rr_floor_state": "off",
+  "rr_min_n": 311,
+  "rr_min_p10": 0.657,
+  "rr_min_median": 2.417,
+  "rr_min_p90": 4.847,
+  "rr_floor_exits": 0,
+  "win_rate_pct": 40.0,
+  "total_r": 42.4763,
+  "net_total_r": 28.5761,
+  "net_total_r_long": 25.0792,
+  "net_total_r_short": 3.497,
+  "net_expectancy_r": 0.0893,
+  "net_total_r_fee_only": 34.0165,
+  "net_expectancy_r_fee_only": 0.1063,
+  "mean_cost_r": {
+    "fee_r": 0.02644,
+    "slippage_r": 0.01057,
+    "funding_r": 0.00643,
+    "total_cost_r": 0.04344,
+    "funding_windows": 1.85625
+  },
+  "trades_long": 159,
+  "trades_short": 161,
+  "avg_win_r": 1.2764,
+  "max_mfe_r": 4.489,
+  "max_drawdown_r": 11.7851,
+  "by_outcome": {
+    "trail_stop": 225,
+    "stop": 65,
+    "take_profit": 29,
+    "timeout": 1
+  },
+  "by_year": {
+    "2024": {
+      "trades": 35,
+      "net_r": 3.725
+    },
+    "2025": {
+      "trades": 149,
+      "net_r": 21.5771
+    },
+    "2026": {
+      "trades": 136,
+      "net_r": 3.2736
+    }
+  },
+  "bar_minutes": 60.0,
+  "position_days": 192.9167,
+  "capital_days": 192.9167,
+  "mean_bars_held": 14.469,
+  "net_r_per_position_day": 0.1481,
+  "net_r_per_capital_day": 0.1481
+}

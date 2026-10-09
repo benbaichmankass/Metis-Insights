@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-13",
+    "kind": "date"
+  },
+  "id": "PI-20261009-72XUJX8U-0006",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "manager review of #17255 + lane NO-HALT PR #17272, 2026-10-09",
+    "rerun": "grep -n 'def current_net_position_qty' -A25 src/runtime/positions.py"
+  },
+  "state": "queued",
+  "what": "Collapsed state left by #17272: src/runtime/positions.py current_net_position_qty() still returns 0.0 (flat) when the journal file is missing or unreadable, so 'could not look' reads as 'flat'. #17272 fixed the sibling has_open_trade_for_strategy (now None -> per-tick refusal) but left this one because a tri-state here would also refuse reduce/close dispatches. Fix: return None for could-not-look, and at each caller refuse only NEW-exposure adds that tick (reduce/close/flip proceed on the venue's own position read), with the note_open_trade_read red flag. Tests: missing journal -> add refused that tick, close still dispatched."
+}

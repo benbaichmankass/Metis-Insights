@@ -47,6 +47,20 @@ def test_unreadable_is_unknown_not_none(tmp_path):
         os.chmod(d, stat.S_IRWXU)
 
 
+def test_no_halt_a_trail_pass_leaves_the_pulse_null(tmp_path):
+    # NO-HALT (2026-10-09): the latch is retired. A stale one reads non-null
+    # until the next trail/executor pass moves it aside; an armed step's
+    # record (modify_rollout_last.json) is never read as a pause.
+    from src.prop.platform.dxtrade import ModifyRollout
+    _latch(tmp_path)
+    assert tp.read_trail_paused_since(tmp_path) not in (None, tp.UNKNOWN)
+    roll = ModifyRollout(tmp_path / tp.ROLLOUT_FILE)
+    roll.record("verify_failed", why="x")
+    assert tp.read_trail_paused_since(tmp_path) is None
+    p = tp.build_pulse("breakout_1", tmp_path, now=100.0)
+    assert p["trail_paused_since"] is None and p["trail_paused_ticks"] == 0
+
+
 def test_unknown_when_path_component_is_a_file(tmp_path):
     f = tmp_path / "afile"
     f.write_text("x")
