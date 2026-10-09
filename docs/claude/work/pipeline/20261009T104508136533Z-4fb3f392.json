@@ -1,0 +1,17 @@
+{
+  "based_on": "20261009T085949593980Z-5de98257.json",
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261009-XQ5RTZKZ-0002",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-LATCH session_01AiZHMWhUJ2qQzNXq5RtzkZ, 2026-10-09",
+    "rerun": "grep -n 'executor-clear-halt' scripts/ops/breakout_login_check_action.sh src/prop/prop_executor.py"
+  },
+  "state": "killed",
+  "terminal_reason": "Superseded by the operator's NO-HALT directive 2026-10-09 (verbatim in docs/CLAUDE-RULES-CANONICAL.md § Prime Directive rule 7): whether the executor may clear its own ticket-scoped latch is moot -- branch claude/no-halt removes the AUTO-REVERT latch entirely (per-ticket failures, a one-cycle hold, one red flag after 3 repeats, stale file removed on start).",
+  "what": "DESIGN QUESTION: should the prop executor clear a TICKET-SCOPED AUTO-REVERT latch itself? Today the only clear is the executor-clear-halt system-action (manager decision 2026-09-28: 'the executor never clears its own latch'), so a false positive halts entries until someone acts; velotrade_1 was halted ~17h+ (2026-10-08 15:28Z onward) with 0 positions, 0 orders, balance=equity=4999.97 on every read. Proposed rule, drafted by lane PROP-LATCH but NOT built: clear only reasons '<tid>: partial_no_sl_tp|duplicate|unconfirmed placement'. Conditions, all read in the same cycle: 0 positions, 0 working orders, 0 journal-open fills, balance and equity parsed, no unresolved/watched/close-pending ledger rows, no alert that cycle, live mode only. Move the latch aside, append to halt_clears.jsonl with the evidence, and raise an alert. Never auto-clear account-level trips (errors, read-back refusals, balance/breach floors). The Claude Code auto-mode classifier REFUSED writing this code ('Security Weaken'), so it needs an operator decision."
+}

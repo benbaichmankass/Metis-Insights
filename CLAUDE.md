@@ -459,6 +459,23 @@ route through `RiskManager` per-trade: the account stays live and individual
 trades are refused with a logged cause. Full Prime Directive:
 [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § Prime Directive.
 
+⚠️ **There is no halting — in ANY pipeline** (operator directive 2026-10-09,
+binding; Prime Directive rule 7). Verbatim: *"I never asked for a
+functionality for it to halt myself, nor was it made clear to me in any design
+spec that that's something that would happen. There is no halting. If
+something doesn't work, it tries to figure it out and try again. If it
+consistently is incapable, then yes, it obviously needs to raise a red flag so
+that somebody knows to help it. But there is, this is going back to the same
+thing as adding more and more gates that don't need to be there. Under
+absolutely no circumstances does any pipeline halt training on its own without
+getting verbatim permission from me, the operator. That should not happen
+under any circumstances. There is no halting. There's no halting."* Trading,
+prop execution, training, research and data pipelines never halt themselves.
+A failure is contained per item, retried with diagnosis, and when it keeps
+failing ONE red flag reaches the operator while the pipeline keeps trying. A
+self-halt exists only with the operator's verbatim permission recorded in the
+repo. The prop executor's AUTO-REVERT `halted` latch was removed under it.
+
 ⚠️ **CI is asymmetric, and this is the single mechanical fact behind the roster
 drift.** `scripts/check_dry_run_in_diff.py` fails any PR that adds a
 `mode: dry_run` or `execution: shadow` line without an operator marker; across

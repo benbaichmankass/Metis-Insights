@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-10",
+    "kind": "date"
+  },
+  "id": "PI-20261009-72XUJX8U-0005",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "lane NO-HALT session_016wNjQSovXrhDpd72xUjx8U, 2026-10-09",
+    "rerun": "grep -n 'daily_loss\\|max_dd_pct' src/units/accounts/risk.py | head"
+  },
+  "state": "queued",
+  "what": "NO-HALT question for the operator, risk caps: RiskManager's daily-loss cap and intraday drawdown (src/units/accounts/risk.py ~:873, :888; reset ~:1359) refuse ALL new entries on an account for the rest of the UTC day once tripped. It is the per-trade refusal shape of Prime Directive rule 3 and resets on its own, but it blocks a whole account until midnight, and the only verbatim operator text found is the breakout_1 carve-out (commit d741f2a38: 'the operator accepts breaching the account ... does not want tickets rejected on breach risk'). Tier-3 (risk caps), so NOT changed by lane NO-HALT. Ask once: does the NO-HALT directive cover the daily-loss / drawdown caps, or are they risk policy that stays?"
+}

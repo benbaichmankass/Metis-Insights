@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "order path (src/prop/prop_executor.py, the live prop executor tick). The manager merges under the operator's NO-HALT directive, 2026-10-09, verbatim: \"Under absolutely no circumstances does any pipeline halt training on its own without getting verbatim permission from me, the operator. ... There is no halting.\" The manager watches the first live cycle on each prop account after deploy.",
+  "why": "Removes the prop executor's AUTO-REVERT halted latch: failures become per-ticket (contained, held for the one cycle whose read predates the containment, retried next cycle), naked legs are flattened every cycle with no give-up, one red flag after 3 consecutive same-kind failures, the cycle exits 0 unless the process crashed, a stale halted file is removed on start, executor-clear-halt and the info probe no longer latch. Revert = git revert of this PR (the old latch code returns; nothing on disk needs undoing)."
+}
