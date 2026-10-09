@@ -1,1 +1,0 @@
-auto-merge: retire RQ-20260928-009/010 (MACRO-RESHAPE lane 9)

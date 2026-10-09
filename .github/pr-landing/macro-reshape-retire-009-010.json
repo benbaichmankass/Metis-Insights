@@ -1,5 +1,5 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "Retires research units RQ-20260928-009 and RQ-20260928-010 (blocked -> retired, with reasons). Research-queue YAML only; no code, config, strategy, sizing or risk change."
+  "landing": "hold",
+  "why": "Retires research units RQ-20260928-009 and RQ-20260928-010 (blocked -> retired, reasons recorded). pr-landing R5 refuses to self-land a status change on a pre-registered decision-rule unit, so a human reads this one. Research-queue YAML only; no code, config, strategy, sizing or risk change."
 }
