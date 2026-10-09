@@ -239,7 +239,7 @@ def test_layout_line_ok_after_a_slow_render_and_missing_with_its_reason():
 def _canary_block() -> str:
     s = (REPO / "scripts/ops/prop_feed_tick.sh").read_text()
     a = s.index('LAYOUT_MARK="${STATE_DIR}/layout-missing"')
-    b = s.index('case "${rc}" in')
+    b = s.index("\nesac\n", a) + len("\nesac\n")   # the end of the canary's own case
     return s[a:b]
 
 

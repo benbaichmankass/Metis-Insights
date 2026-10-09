@@ -28,11 +28,14 @@
 #                    print every extracted table (kind, headers, row count,
 #                    first rows with ids masked) and how the readers classify
 #                    it (live test #13987: a filled position read back as 0).
-#     reset-feed   — re-arm the scheduled feed (deploy/ict-prop-feed.timer,
-#                    scripts/ops/prop_feed_tick.sh) after it TRIPPED: clears
-#                    its trip marker and failure count AFTER this check exits
-#                    0, still under the shared lock. A failed check leaves it
-#                    tripped.
+#     reset-feed   — clear the scheduled feed's BACKOFF state
+#                    (deploy/ict-prop-feed.timer, scripts/ops/prop_feed_tick.sh)
+#                    so its next tick tries at once, AFTER this check exits 0,
+#                    still under the shared lock. Never required: the feed
+#                    retries on its own capped backoff and never stops
+#                    (NO-HALT, 2026-10-09). A failed check leaves the backoff
+#                    as it was, so a refused login is not retried early. Also
+#                    removes a stale `tripped` marker left by the old code.
 #   Step-3 executor modes (PROP-EXEC 2026-09-28). Each REPLACES the login
 #   check with ONE run of scripts/prop/prop_executor_tick.py --login reuse
 #   (the feed's saved session; no credential login), under the same lock;
@@ -661,17 +664,18 @@ set +e
 rc=$?
 set -e
 
-# reset-feed re-arms the scheduled feed ONLY on a clean check (exit 0), and
+# reset-feed clears the feed's backoff ONLY on a clean check (exit 0), and
 # still under the lock taken above (fd 9 stays open until this script exits),
-# so a tick can never start between the proof and the re-arm. A failed check
-# leaves the feed tripped.
+# so a tick can never start between the proof and the clear. A failed check
+# leaves the backoff as it was (the feed keeps retrying on it regardless).
 if [ "${WANT_RESET}" = "1" ]; then
     if [ "${rc}" = "0" ]; then
-        [ -f "${FEED_DIR}/tripped" ] && log "reset-feed: was tripped: $(head -c 300 "${FEED_DIR}/tripped")"
-        rm -f "${FEED_DIR}/tripped" "${FEED_DIR}/consecutive_failures"
-        log "reset-feed: feed re-armed (the check above passed)"
+        [ -f "${FEED_DIR}/backoff" ] && log "reset-feed: was backing off: $(sed -n 's/^reason=//p' "${FEED_DIR}/backoff" | head -c 300)"
+        [ -f "${FEED_DIR}/tripped" ] && log "reset-feed: removing a stale pre-NO-HALT trip marker: $(head -c 300 "${FEED_DIR}/tripped")"
+        rm -f "${FEED_DIR}/backoff" "${FEED_DIR}/tripped" "${FEED_DIR}/consecutive_failures"
+        log "reset-feed: backoff cleared (the check above passed); the next feed tick tries at once"
     else
-        log "reset-feed: NOT re-armed — the check exited ${rc}; the feed stays tripped"
+        log "reset-feed: backoff NOT cleared — the check exited ${rc}; the feed keeps retrying on its own backoff"
     fi
 fi
 
