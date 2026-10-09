@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "adds one read-only entry to the diag log_file allowlist in src/web/api/routers/diag.py; outside TIER1_SURFACE so the guard cannot vouch for it",
+  "why": "observability read path only: exposes vol_trail_shadow.jsonl so exit-refinement P5.1 parity for ada_pullback_2h can be read from the live VM; no order path, config or strategy logic touched"
+}
