@@ -1,0 +1,26 @@
+{
+  "based_on": "20261009T092923250305Z-9d023ec2.json",
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "breakout_2 passes (equity >= $5,450) or dies (at/through the $4,850 static floor or the $150 daily-loss limit) AND the operator has been pinged with the outcome and asked what to buy next",
+    "kind": "observation",
+    "last_checked": "2026-10-09"
+  },
+  "id": "PI-20260927-CSTGV2YT-0001",
+  "next_action": "check_observation",
+  "observation": "2026-10-09 ~13:10Z: /api/bot/prop/status?account_id=breakout_2 status_freshness 'absent', balance/equity null: neither passed nor dead is readable yet. No breakout_2 strategy ticket has emitted (root cause in PROP-B2-STARVED PR).",
+  "origin": {
+    "kind": "operator",
+    "ref": "docs/claude/work/MANAGER-CHECKLIST.json R4 note '11:12Z OPERATOR DECISIONS (popups)'; config/prop_rulesets/breakout.yaml sizing:",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_2' ; passed = status equity (else balance) >= 5450; dead = rule_distance.distance_to_dd_floor_usd <= 0 or distance_to_daily_loss_usd <= 0, or the phone/operator reports the account disabled"
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Ran the item's own rerun curl against the live API: GET /api/bot/prop/status?account_id=breakout_1 returns status_freshness=ok, equity=$4724.0, distance_to_dd_floor_usd=24.0 (>0, not dead), distance_to_daily_loss_usd=null but the binding floor distance is positive — account has neither passed ($5500 target) nor died. The operator's decision for both outcomes (buy a fresh eval on pass/die, flip sizing.mode to room) is already pre-recorded in the item itself from the 2026-09-27 popup; nothing new needs asking today.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "check_observation — the operator already decided the actions for both the pass and die outcomes on 2026-09-27; this row is purely waiting on the triggering event (checked daily per its own due_when), not a live judgment call.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[TIER-3 PRE-DECIDED, PROP] When the CURRENT breakout_1 account instance (Breakout 1-Step Classic $5,000 eval; last measured balance $4,724, $24 above the $4,700 static floor, 2026-09-27T07:23Z) PASSES (equity >= $5,500 target) or DIES (equity at/through the $4,700 static floor or the daily-loss limit; Breakout disables the account), then: (1) PING THE OPERATOR to buy a fresh $5,000 Breakout 1-Step Classic evaluation ($45 fee, no refund, operator answer 'Yes, buy and run it'). The purchase is the operator's act, not a session's. (2) FOLLOW-UP once the fresh account exists: in config/prop_rulesets/breakout.yaml set sizing.mode from `flat` to `room` (the value already declared in sizing.next_instance_mode: risk_usd = min(1.5% x live balance, 0.33 x binding cushion), skip below $10) and reset the account's journal state for the new instance; land it as a Tier-3 PR citing this item and the 11:12Z decision. On a PASS the funded account resets to a fresh $5,000 (operator, same popup), so the funded instance is also a fresh account and also switches to room sizing. Operator decision by AskUserQuestion popup in manager session session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-27 ~11:12Z: 'Current flat, room sizing next' + 'Yes, buy and run it'. Evidence: PR #13084, docs/research/b6-prop-ev/live-state-2026-09-27T0723Z.json (fresh-account EV per life, path model: room k=0.33/min $10 +$111.96, k=0.45 +$112.06, flat 1.5% -$12.43; population: breakout_1 evidence n=234 trades over the 363-day window 2025-09-28 to 2026-09-24, 3000 simulated account lives per arm). Code + config landing on branch claude/w6-prop-sizing-decisions (held Tier-3 PR; manager merges).\n\n[TRIAGE 2026-09-28] REROUTE (check_observation) — check_observation — the operator already decided the actions for both the pass and die outcomes on 2026-09-27; this row is purely waiting on the triggering event (checked daily per its own due_when), not a live judgment call.\n\n[REOPENED 2026-10-09, lane PROP-B2-STARVED session_01A6NKNDcUQops3UsF8VAcZL (manager session_01Uq7MrjPQDRWqbhCjwuMava) 2026-10-09] RE-TARGETED to breakout_2 (Breakout 1-Step TURBO $5k eval, phone-executed; config/accounts.yaml: target_profit_pct 0.09 -> pass at equity >= $5,450; risk.max_dd_pct 0.03 STATIC -> floor $4,850; daily_loss 3% = $150). WHAT TRANSFERS: the DETECTION (pass/die read off /api/bot/prop/status?account_id=breakout_2) and step (1) PING THE OPERATOR. WHAT DOES NOT TRANSFER: the pre-decided purchase ('Yes, buy and run it' was for a fresh 1-Step CLASSIC $5k after breakout_1) and the breakout.yaml sizing.mode follow-up. breakout_2 is a different product with its own ruleset (prop_rulesets/breakout_turbo_1step.yaml), so on pass/die the ping ASKS what to buy; no session presumes it. NOTE: as of 2026-10-09 breakout_2 has NO prop_account_status row (status_freshness absent), so detection is blind until the phone posts kind:account_status (it reads the panel when foregrounded on the terminal)."
+}

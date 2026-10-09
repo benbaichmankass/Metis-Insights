@@ -1,0 +1,18 @@
+{
+  "based_on": "20261009T092921396813Z-7a71f158.json",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "for tradeify_1 and velotrade_1 the journaled closed-fill pnl reconciles to the venue balance delta within stated commission+financing (each MEASURED or ESTIMATED with provenance), OR prop_fills records gross/net explicitly per fill",
+    "kind": "observation",
+    "last_checked": "2026-10-09"
+  },
+  "id": "PI-20260924-MQ3CDMU6-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-state-2026-09-24.md#3-baseline-realized-pl-since-inception-never-blended",
+    "rerun": "for each of tradeify_1, velotrade_1: GET /api/bot/prop/fills?account_id=<a> (sum closed-fill pnl) vs prop_account_status balance delta from account_size_usd (GET /api/bot/prop/status?account_id=<a>); state n, residual, and per-fill whether pnl is gross or net of commission"
+  },
+  "state": "queued",
+  "what": "breakout_1 baseline does not reconcile: sum of reported realized pnl over 18 closed fills = -146.52 (MEASURED) vs venue balance 4784.78 - 5000 = -215.22 (MEASURED); residual -68.70 unexplained. Reported pnl mixes gross-of-commission (#41) and net (#17) figures and financing is unjournaled, so a baseline cannot be stated net of costs from the journal. | 2026-10-01 PROP-JOURNAL re-measure: venue balance 4724.00-5000 = -276.00 vs sum of 22 closed journaled pnl (duplicate #52 removed) = -205.10, residual -70.90 (MEASURED). Decomposed: commissions -14.00 (MEASURED) and -16.50 (ESTIMATED), swap -18.07 (ESTIMATED, rate MEASURED twice), leaving -22.33 UNVERIFIED. Journal pnl mixes gross and net per fill, so no journal-derived baseline is net of costs. Open question narrowed to what the -22.33 is (docs/research/prop-journal/prop-journal-truth-2026-10-01.md#2).\n\n[REOPENED 2026-10-09, lane PROP-B2-STARVED session_01A6NKNDcUQops3UsF8VAcZL (manager session_01Uq7MrjPQDRWqbhCjwuMava) 2026-10-09] RE-TARGETED to the live DXtrade evals tradeify_1 (dxtrade browser executor, same adapter breakout_1 used) and velotrade_1 (dxtrade_api), and to breakout_2 once it has fills. The breakout_1 evidence cannot be re-measured (retired), but the defect is in the prop journal's pnl semantics (gross-of-commission vs net per fill report, financing unjournaled), not in that account. UNMEASURED for the new accounts: whether their fill reports carry gross or net pnl is the first read. Until it is measured, a prop baseline 'net of costs' read off prop_fills is not established for any prop account."
+}
