@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Manager dispatch for PI-20261009-VQIPJE2H-0001 (checklist DAILY-DD-SWITCH): 'Do not merge; open the PR with landing: hold and the manager merges.'",
+  "why": "Correctness fix under the operator's standing data-backed Tier-2/3 authorization (CLAUDE.md § Permission tiers): the armed daily-DD switch observed equity only inside RiskManager.evaluate(), so 13 of 13 armed accounts read not_observed and day-start equity would be the equity at the day's first signal. This folds one on-disk equity reading per armed account every trader tick, observe-only (the refusal stays in evaluate), so the switch does what the operator specified in rule 7's exception. Risk-path code (src/units/accounts/) and the trader loop (src/main.py) -> Tier 3."
+}

@@ -877,36 +877,25 @@ class RiskManager:
         """Balance-snapshot equity, or None when absent or older than
         ``max_age_hours`` (the hourly writer's cadence plus slack). A stale
         reading is "could not look", never a figure."""
-        if not self.account_id:
-            return None
-        try:
-            import json
-            from src.utils.paths import runtime_logs_dir
-            p = runtime_logs_dir() / "balance_snapshots.json"
-            if not p.exists():
-                return None
-            entry = (json.loads(p.read_text(encoding="utf-8")) or {}).get(self.account_id)
-            if not isinstance(entry, dict) or entry.get("balance") is None:
-                return None
-            ts = datetime.fromisoformat(str(entry.get("ts")))
-            if ts.tzinfo is None:
-                ts = ts.replace(tzinfo=timezone.utc)
-            if (datetime.now(timezone.utc) - ts).total_seconds() > max_age_hours * 3600:
-                return None
-            return float(entry["balance"])
-        except Exception:  # noqa: BLE001 — unreadable = could not look
-            return None
+        return _dd.snapshot_equity_reading(self.account_id, max_age_hours=max_age_hours)[0]
+
+    def dd_switch_reading(self) -> "_dd.Reading":
+        """``(equity, read_at)`` the daily-DD switch folds in. The dispatch's
+        live total (read now) wins; else the fresh balance snapshot, stamped
+        with ITS time so an older snapshot never regresses a live read."""
+        if self._live_equity is not None:
+            return self._live_equity, None
+        return _dd.snapshot_equity_reading(self.account_id)
 
     def dd_switch_equity(self) -> Optional[float]:
         """The equity reading the daily-DD switch folds in (None = could not look)."""
-        if self._live_equity is not None:
-            return self._live_equity
-        return self._snapshot_equity_fresh()
+        return self.dd_switch_reading()[0]
 
     def check_dd_switch(self) -> bool:
         """Observe equity into the switch; True when it blocks NEW entries."""
         try:
-            row = self.dd_switch.observe(self.dd_switch_equity())
+            equity, read_at = self.dd_switch_reading()
+            row = self.dd_switch.observe(equity, reading_ts=read_at)
             return self.dd_switch.blocks_new_entries(row)
         except Exception as exc:  # noqa: BLE001 — a switch bug must not refuse or halt
             logger.warning("daily_dd_switch: check failed for %s: %s", self.account_id, exc)

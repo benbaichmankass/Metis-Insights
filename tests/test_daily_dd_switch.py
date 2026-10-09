@@ -10,7 +10,8 @@ limit 0.8 x the firm's daily limit at the firm's reset time.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -258,3 +259,144 @@ def test_bot_config_surfaces_the_switch():
         st = out[name]["daily_dd_switch"]
         assert isinstance(st, dict) and "armed" in st and "tripped" in st, name
         assert "day_start_equity" in st and "limit_desc" in st, name
+
+
+# -- the per-tick observe (PI-20261009-VQIPJE2H-0001) ----------------------
+# Before it, observe() ran only inside RiskManager.evaluate(), so a quiet
+# account was never observed: 13 of 13 armed accounts read not_observed 1h35m
+# after arming, and day-start equity would have been the equity at the day's
+# FIRST signal, hiding any loss accrued before it.
+
+@pytest.fixture
+def tick_env(tmp_path, monkeypatch):
+    """A tmp runtime_logs/ (real state-file path, no override), a captured
+    alert sink, and helpers to write the balance snapshot + accounts.yaml."""
+    import src.utils.paths as paths
+    logs = tmp_path / "runtime_logs"
+    logs.mkdir()
+    monkeypatch.setattr(paths, "runtime_logs_dir", lambda: logs)
+    monkeypatch.setattr(dd, "_PATH_OVERRIDE", None)
+    alerts: list = []
+    monkeypatch.setattr(dd, "_default_alert",
+                        lambda kind, acct, row, cfg: alerts.append((kind, acct)))
+
+    accounts = {
+        "acct_tick": {"exchange": "bybit", "risk": {"daily_dd_switch": {"armed": True, "limit_pct": 0.03}}},
+        "acct_off": {"exchange": "bybit", "risk": {"daily_dd_switch": {"armed": False}}},
+        "acct_gone": {"exchange": "bybit", "retired": True,
+                      "risk": {"daily_dd_switch": {"armed": True}}},
+    }
+    acc_path = tmp_path / "accounts.yaml"
+
+    def write_accounts(extra=None):
+        acc_path.write_text(yaml.safe_dump({"accounts": {**accounts, **(extra or {})}}))
+
+    def snap(balances: dict, ts: datetime):
+        (logs / "balance_snapshots.json").write_text(json.dumps(
+            {k: {"balance": v, "ts": ts.isoformat()} for k, v in balances.items()}))
+
+    def tick(now=None):
+        return dd.observe_armed_accounts(acc_path, now=now)
+
+    def state():
+        return json.loads((logs / "daily_dd_switch_state.json").read_text())
+
+    write_accounts()
+    return {"alerts": alerts, "snap": snap, "tick": tick, "state": state,
+            "write_accounts": write_accounts, "logs": logs}
+
+
+def test_tick_without_a_signal_writes_day_start_equity(tick_env):
+    now = _ts(9, 21, 0)
+    tick_env["snap"]({"acct_tick": 10_000.0, "acct_off": 5_000.0}, _ts(9, 20, 30))
+    assert tick_env["tick"](now) == {"acct_tick": "ok"}          # disarmed + retired skipped
+    row = tick_env["state"]()["acct_tick"]
+    assert row["day_start_equity"] == 10_000.0
+    assert row["read_state"] == "ok" and row["loss_usd"] == 0.0 and row["limit_usd"] == 300.0
+    assert row["last_equity_ts"] == _ts(9, 20, 30).isoformat()  # the READING's time, not the tick's
+    assert "acct_off" not in tick_env["state"]() and not tick_env["alerts"]
+
+
+def test_loss_between_signals_trips_on_the_tick_once_and_evaluate_refuses(tick_env):
+    now = datetime.now(timezone.utc)
+    tick_env["snap"]({"acct_tick": 10_000.0}, now - timedelta(minutes=2))
+    tick_env["tick"]()
+    tick_env["snap"]({"acct_tick": 9_650.0}, now - timedelta(minutes=1))   # -3.5%, no signal
+    tick_env["tick"]()
+    tick_env["tick"]()
+    assert tick_env["alerts"] == [("trip", "acct_tick")]                  # ONE alert, from the tick
+    assert tick_env["state"]()["acct_tick"]["tripped"] is True
+    rm = RiskManager({"daily_dd_switch": {"armed": True}}, account_id="acct_tick")
+    assert rm.evaluate(_pkg()) == (False, "DAILY_DD_SWITCH")
+    assert rm.evaluate(_pkg(), opening=False) == (True, None)
+    assert tick_env["alerts"] == [("trip", "acct_tick")]
+
+
+def test_reset_alert_fires_at_the_boundary_with_no_signal(tick_env):
+    tick_env["snap"]({"acct_tick": 10_000.0}, _ts(9, 10, 0))
+    tick_env["tick"](_ts(9, 10, 5))
+    tick_env["snap"]({"acct_tick": 9_600.0}, _ts(9, 23, 30))
+    tick_env["tick"](_ts(9, 23, 31))
+    assert tick_env["alerts"] == [("trip", "acct_tick")]
+    tick_env["tick"](_ts(10, 0, 1))                      # first tick of the new day, same snapshot
+    tick_env["tick"](_ts(10, 0, 2))
+    assert tick_env["alerts"] == [("trip", "acct_tick"), ("reset", "acct_tick")]
+    row = tick_env["state"]()["acct_tick"]
+    assert row["day"] == "2026-10-10" and row["tripped"] is False
+    assert row["day_start_equity"] == 9_600.0            # carried: read 30 min before the boundary
+
+
+@pytest.mark.parametrize("case", ["absent", "stale"])
+def test_unreadable_equity_on_the_tick_never_trips(tick_env, case):
+    tick_env["snap"]({"acct_tick": 10_000.0}, _ts(9, 10, 0))
+    tick_env["tick"](_ts(9, 10, 1))
+    if case == "absent":
+        (tick_env["logs"] / "balance_snapshots.json").unlink()
+    else:   # a 1-dollar balance read 3h ago: older than the 2h freshness bound
+        tick_env["snap"]({"acct_tick": 1.0}, _ts(9, 11, 0))
+    for m in range(4):
+        assert tick_env["tick"](_ts(9, 14, m)) == {"acct_tick": "could_not_look"}
+    row = tick_env["state"]()["acct_tick"]
+    assert row["tripped"] is False and row["day_start_equity"] == 10_000.0
+    assert tick_env["alerts"] == [("unreadable", "acct_tick")]      # ONE red flag, never a trip
+
+
+def test_an_older_snapshot_never_regresses_a_live_read(tick_env):
+    now = datetime.now(timezone.utc)
+    rm = RiskManager({"daily_dd_switch": {"armed": True}}, account_id="acct_tick")
+    rm.note_live_equity(10_000.0)
+    rm.evaluate(_pkg())
+    tick_env["snap"]({"acct_tick": 9_000.0}, now - timedelta(minutes=30))   # read before the live one
+    tick_env["tick"]()
+    row = tick_env["state"]()["acct_tick"]
+    assert row["last_equity"] == 10_000.0 and row["tripped"] is False and not tick_env["alerts"]
+
+
+def test_yesterdays_reading_is_not_todays_equity(tmp_path):
+    sw, alerts = _switch(tmp_path)
+    row = sw.observe(10_000.0, _ts(9, 12, 0), reading_ts=_ts(8, 18, 0))
+    assert row["read_state"] == dd.READ_UNREADABLE and row.get("day_start_equity") is None
+
+
+def test_prop_accounts_are_observed_on_the_tick_from_their_status_row(tick_env, monkeypatch):
+    accounts = yaml.safe_load((_REPO / "config/accounts.yaml").read_text())["accounts"]
+    cfg = dict(accounts["tradeify_1"])
+    cfg["risk"] = dict(cfg.get("risk") or {}, daily_dd_switch={"armed": True})
+    tick_env["write_accounts"]({"tradeify_1": cfg})
+    import src.prop.prop_balance as pb
+    monkeypatch.setattr(pb, "prop_sizing_balance",
+                        lambda aid: ("ok", 5_000.0, {"age_hours": 0.5}) if aid == "tradeify_1"
+                        else ("absent", None, {}))
+    tick_env["snap"]({"acct_tick": 10_000.0}, _ts(9, 12, 0))
+    out = tick_env["tick"](_ts(9, 12, 1))
+    assert out["tradeify_1"] == "ok"
+    row = tick_env["state"]()["tradeify_1"]
+    assert row["day_start_equity"] == 5_000.0 and row["limit_usd"] == pytest.approx(240.0)
+    # A stale status row is "could not look", never a figure.
+    monkeypatch.setattr(pb, "prop_sizing_balance", lambda aid: ("stale", None, {}))
+    assert tick_env["tick"](_ts(9, 13, 0))["tradeify_1"] == "could_not_look"
+
+
+def test_main_loop_calls_the_tick_observe():
+    src = (_REPO / "src/main.py").read_text()
+    assert "observe_armed_accounts()" in src
