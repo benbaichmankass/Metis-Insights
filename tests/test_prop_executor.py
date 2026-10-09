@@ -4137,18 +4137,24 @@ def test_the_action_wrapper_reports_a_deferred_test_as_deferred_not_failed():
     assert "deferred" in block and "exit 0" in block
 
 
-def test_contain_passes_the_accounts_rollout_latch_and_a_guard_refusal_falls_through_to_close(env):
+def test_contain_passes_the_accounts_rollout_record_and_a_guard_refusal_falls_through_to_close(env):
     # DIALOG-MEASURE rollout guard (manager 2026-10-02): the partial_no_sl_tp
     # repair types SL AND TP, so under the guard it is refused before any
     # click; the existing next-cycle close-at-market then takes over.
+    # NO-HALT (2026-10-09): the record is non-blocking and a stale latch file
+    # left by the old code is moved aside, so the repair path still runs.
     ledger, _ = env
+    stale = Path(ledger.path).parent / "modify_rollout.json"
+    stale.parent.mkdir(parents=True, exist_ok=True)
+    stale.write_text('{"state": "verified"}')
     ledger.record("t1", "submitted", spec=SPEC)
     ad = FakeAdapter(positions=[_p(stop_loss=None)])
     ad.modify_result = {"ok": False, "clicked": False,
                         "why": "rollout refused: rollout step must leave the take profit unchanged"}
     res = run(ad, FakeApi(), env)
     assert ("modify_bracket", "SOLUSD", True) in ad.calls
-    assert ad.rollout.path == Path(ledger.path).parent / "modify_rollout.json"
+    assert ad.rollout.latch_path == stale and not stale.exists() and ad.rollout.stale_retired
+    assert ad.rollout.path == Path(ledger.path).parent / "modify_rollout_last.json"
     assert any("rollout refused" in al for al in res.alerts)
     run(ad, FakeApi(), env)
     assert ("flatten", "SOLUSD", True) in ad.calls
