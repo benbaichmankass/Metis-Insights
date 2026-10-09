@@ -11,8 +11,8 @@
   "tier": 2,
   "prs": [],
   "blocked_on": [],
-  "note": "[2026-10-09 lane NO-HALT] Directive recorded verbatim (CLAUDE-RULES-CANONICAL Prime Directive rule 7 + CLAUDE.md). PR (branch claude/no-halt, HELD, manager merges): prop executor AUTO-REVERT halted latch REMOVED -- per-ticket failures, entries held only for the cycle whose read predates a containment, naked legs flattened every cycle (no 'gave up'), ONE red flag after 3 consecutive same-kind failures, cycle exits 0, stale halted removed on start, executor-clear-halt a no-op, info-probe no longer latches. INVENTORY (verbatim operator permission? n = none found): prop executor halted latch n (fixed); info-probe latch n (fixed); modify-rollout latch + trail per-ticket lock n (PI-20261009-72XUJX8U-0001); prop feed tripped (also stops executor) n (-0002); trainer OOM quarantine n (-0003); phone trail lock n (-0004); RiskManager daily-loss/DD cap: breakout_1 carve-out only, Tier-3, asked (-0005); IB breaker 120s cooldown, close-wedge 60-min re-probe, dataset-audit per-cycle skip: auto-retrying, not latches. PI-20261009-XQ5RTZKZ-0002 killed as superseded. Done when: merged + deployed and the next live executor cycle logs stale_latch_ignored / no halted file on any prop account.",
-  "updated_at": "2026-10-09T10:45:24Z",
+  "note": "PR #17249 opened (not draft, HELD for manager merge); CI pending.",
+  "updated_at": "2026-10-09T10:53:20Z",
   "updated_by": "session_016wNjQSovXrhDpd72xUjx8U",
   "_seq": 367
 }
