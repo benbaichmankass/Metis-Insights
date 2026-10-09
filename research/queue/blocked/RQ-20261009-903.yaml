@@ -79,17 +79,21 @@ routing:
     Trainer route via the trainer-vm-diag relay (research-script-run.yml's runner cannot see the snapshots).
 blocked_on:
   - what: >-
-      (1) Accrual: paired n is about 5-6 at 2026-11-07 and reaches 49 only ~2028-04-20 by collection alone.
-      (2) Lever: scripts/macro/econ_event_study.py has no PM-surprise input (grep for pm_ / prediction finds
-      nothing), and nothing joins pm_snapshots to resolved releases.
+      LEVER ONLY (accrual blocker CLEARED 2026-10-09 by PM-BACKFILL-BUILD, PRs #17207 and #17225): nothing joins the
+      trainer-resident backfill (pm_backfill/kalshi/*.jsonl) to resolved releases, and scripts/macro/econ_event_study.py
+      has no PM-surprise input. Measured on the trainer 2026-10-09: releases with a two-sided Kalshi quote at or before
+      the release close: KXCPI 63 of 63 events (45 with the last quote within 6 h), KXPAYROLLS 43 of 43 (35 within 6 h),
+      KXFEDDECISION 28 of 28 (28 within 6 h). Overlap with a resolved consensus in comms/macro/econ_calendar_snapshots*.jsonl
+      (release date within 0-1 day of the Kalshi close, not yet an exact within-6 h join): CPI 60, NFP 41, FOMC 27 = 128
+      pooled releases against the 49 floor. Per kind CPI alone clears 49.
     ref: >-
-      scripts/macro/pm_snapshot_collect.py; deploy/trainer/ict-pm-snapshot.timer; config/pm_markets.yaml;
+      scripts/research/pm_backfill_kalshi.py; docs/claude/work/checklist/PM-SURPRISE-JOIN.json;
       docs/claude/work/checklist/PM-SURPRISE-EVAL.json
     clears_when: >-
-      Stage-1 quality read runs on or after 2026-11-07 (trainer-side, no new code beyond a counting script).
-      Stage 2 is eligible when EITHER paired n >= 49 (~2028-04-20 by collection) OR a verified point-in-time
-      history source (Kalshi settled-market price history) is backfilled and the pm-surprise extension of
-      econ_event_study.py exists. Then git mv to research/queue/, status queued, route via the trainer relay.
+      A PM-surprise builder exists (probability-weighted strike ladder for CPI / NFP, implied rate change for FOMC, using
+      only backfill rows with candle_end_utc <= the release instant) and econ_event_study.py can take it as an input at the
+      registered horizons. Then git mv to research/queue/, fill run.workflow and lands.store, status queued. The decision
+      rule below is UNCHANGED.
 run:
   workflow: null
   note: >-
