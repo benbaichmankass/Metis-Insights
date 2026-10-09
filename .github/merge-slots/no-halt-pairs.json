@@ -1,0 +1,6 @@
+{
+  "held_by": "session_016wNjQSovXrhDpd72xUjx8U",
+  "branch": "claude/no-halt-pairs",
+  "claimed_at": "2026-10-09T11:46:49Z",
+  "purpose": "NO-HALT: pairs executor rebuilds unreadable open-state so exits keep working"
+}

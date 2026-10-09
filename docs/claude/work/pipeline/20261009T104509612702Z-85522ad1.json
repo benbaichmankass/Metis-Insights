@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261009-72XUJX8U-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane NO-HALT session_016wNjQSovXrhDpd72xUjx8U, 2026-10-09",
+    "rerun": "grep -n '_lock\\|ended' src/prop/phone_trail.py"
+  },
+  "state": "queued",
+  "what": "NO-HALT fix, phone trail: src/prop/phone_trail.py `_lock` (~:131, :203, :440, :447, :452) and its `ended` state stop trailing a breakout_2 ticket for good after an unreported claimed amend, 2 refusals, an unverified amend or N misses; only a human-moved stop unlocks (on an amend report). No verbatim operator permission naming the lock ('Ok on the tier 2 items', 2026-10-07, covers PRs #16959/#16980 as a whole). Fix: per-attempt failure, retry next cycle, one red flag after 3; keep the human-moved-stop deferral (that is the operator acting, not a self-halt)."
+}

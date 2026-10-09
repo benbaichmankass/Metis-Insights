@@ -166,14 +166,14 @@
 #                              and `systemctl enable --now` it. Go-live is
 #                              THIS plus `set-env PROP_EXECUTOR_MODE=live`
 #                              (service: none; the tick re-reads .env).
-#     executor-clear-halt    — clear ONLY the executor's AUTO-REVERT latch
-#                              (executor/halted). Manager/operator only; the
-#                              issue's `reason:` is required and recorded with
-#                              the prior latch reason; the file is moved aside.
-#     executor-clear-rollout — clear ONLY the modify-rollout latch
-#                              (executor/modify_rollout.json: one watched
-#                              tighten-only modify per clear), same rules. The
-#                              only way that latch is ever cleared.
+#     executor-clear-halt    — HARMLESS NO-OP since NO-HALT (operator
+#                              2026-10-09): the executor no longer latches and
+#                              removes a stale executor/halted itself on start.
+#                              If the file is still there it is moved aside and
+#                              recorded; absent, it logs and exits 0.
+#     executor-clear-rollout — moves executor/modify_rollout.json aside when
+#                              present (no reason required any more); absent,
+#                              it logs and exits 0.
 #     executor-disable-timer — `systemctl disable --now` the timer. The instant
 #                              revert is `set-env PROP_EXECUTOR_MODE=off`
 #                              (which also stops reconciling in-flight
@@ -277,46 +277,31 @@ if [ -n "${LIMIT_OFFSET}" ]; then
     fi
 fi
 if [ "${EXEC_MODE}" = "executor-clear-halt" ] || [ "${EXEC_MODE}" = "executor-clear-rollout" ]; then
-    # Clear ONE named executor latch, never both (manager 2026-10-02: clearing
-    # an unrelated halt must not silently re-arm a modify step):
-    #   executor-clear-halt    -> the AUTO-REVERT latch executor/halted ONLY
-    #                             (manager / operator decision, 2026-09-28);
-    #   executor-clear-rollout -> the MODIFY-ROLLOUT latch
-    #                             executor/modify_rollout.json ONLY (one watched
-    #                             tighten-only modify per reviewed clear). It is
-    #                             cleared by naming it and in no other way.
-    # Never cleared from inside the executor. Refuses without a reason, when
-    # the named latch is absent, or when it records nothing (that needs a
-    # person to look first). The prior latch is logged and appended to
-    # halt_clears.jsonl, and the file is moved aside, never deleted.
+    # NO-HALT (operator directive 2026-10-09, docs/CLAUDE-RULES-CANONICAL.md
+    # § Prime Directive rule 7): the executor no longer writes or reads
+    # `halted`, so clear-halt is a harmless no-op kept for old issue
+    # templates. Either action moves its file aside when present and records
+    # it in halt_clears.jsonl; absent, it logs and exits 0. Never refuses.
     if [ "${EXEC_MODE}" = "executor-clear-rollout" ]; then
         latch="${X_STATE_DIR}/modify_rollout.json"
     else
         latch="${X_STATE_DIR}/halted"
     fi
-    if [ -z "${ACTION_REASON// }" ]; then
-        log "${EXEC_MODE}: refused — a reason is required (who clears it and why)"
-        exit 1
-    fi
     if [ ! -f "${latch}" ]; then
-        log "${EXEC_MODE}: no latch set at ${latch}; nothing to clear"
-        exit 1
+        log "${EXEC_MODE}: no-op — ${latch} is absent (NO-HALT 2026-10-09)"
+        exit 0
     fi
     prior="$(head -c 500 "${latch}" | tr -d '\r')"
-    if [ -z "${prior// }" ]; then
-        log "${EXEC_MODE}: refused — the latch carries no recorded reason; inspect ${latch} first"
-        exit 1
-    fi
     stamp="$(date -u +%Y%m%dT%H%M%SZ)"
     name="$(basename "${latch}")"
-    log "${EXEC_MODE}: prior latch: ${prior} [${name}]"
+    log "${EXEC_MODE}: moving ${name} aside: ${prior:-(empty)}"
     mv "${latch}" "${latch}.cleared-${stamp}"
-    PRIOR="${prior}" KIND="${name}" ACTOR="${ACTION_ACTOR:-unknown}" ISSUE="${ACTION_ISSUE:-}" WHY="${ACTION_REASON}" \
+    PRIOR="${prior}" KIND="${name}" ACTOR="${ACTION_ACTOR:-unknown}" ISSUE="${ACTION_ISSUE:-}" WHY="${ACTION_REASON:-NO-HALT stale latch}" \
         python3 -c 'import json,os,datetime;print(json.dumps({"ts":datetime.datetime.now(datetime.timezone.utc).isoformat(),"latch":os.environ["KIND"],"actor":os.environ["ACTOR"],"issue":os.environ["ISSUE"],"reason":os.environ["WHY"],"prior":os.environ["PRIOR"]}))' \
-        >> "${X_STATE_DIR}/halt_clears.jsonl"
+        >> "${X_STATE_DIR}/halt_clears.jsonl" || true
     record_audit "breakout-login-check" "${EXEC_MODE}" \
         "{\"account\": \"${ACCOUNT}\", \"moved_to\": \"${name}.cleared-${stamp}\"}" >/dev/null || true
-    log "${EXEC_MODE}: cleared ${name} by ${ACTION_ACTOR:-unknown} (issue #${ACTION_ISSUE:-?}); reason: ${ACTION_REASON}"
+    log "${EXEC_MODE}: moved ${name} aside (${name}.cleared-${stamp})"
     exit 0
 fi
 

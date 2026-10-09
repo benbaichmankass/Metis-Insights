@@ -32,7 +32,7 @@ def test_trail_step_actions_are_emitted_after_the_step() -> None:
     m = re.search(r"for a in res\.actions\[n_act:\]:\s*\n\s*emit\(\{\"action\": a\}", after)
     assert m, "res.actions appended by the trail step must be emitted after it"
     # And the emission sits before the function returns its exit code.
-    ret = after.index("return EXIT_UNPARSED if res.halted else EXIT_OK")
+    ret = after.index("return EXIT_OK")
     assert m.start() < ret
 
 

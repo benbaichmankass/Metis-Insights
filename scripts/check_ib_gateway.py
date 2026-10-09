@@ -34,11 +34,19 @@ Guard rails so a genuinely-bad-credential or IBKR-lockout situation can NOT
 turn into a restart loop (every restart is a fresh IBKR login; too many failed
 logins risk locking the account):
   * ``--cooldown-min`` minimum gap between restarts.
-  * ``--max-restarts`` cap per wedge episode; once exhausted the watchdog
-    stops restarting and alert-only escalates ("manual intervention").
-  * Both counters reset when the Gateway recovers.
+  * ``--max-restarts`` restarts per wedge episode at the plain cooldown.
+    Past that bound the watchdog does NOT stop (NO-HALT, operator directive
+    2026-10-09: "There is no halting."): it raises ONE ``[RED FLAG]`` alert
+    for the episode and keeps restarting, with the gap doubling from
+    ``--cooldown-min`` up to ``--max-backoff-min`` (so IBKR logins stay
+    spaced out -- the lockout guard -- but a long wedge is never abandoned).
+    Per-restart pings past the red flag go to the journal only.
+  * Both counters reset when the Gateway recovers (one recovery ping, which
+    also clears the red flag). A legacy ``exhausted_alerted`` latch in the
+    state file is ignored and removed on load with a log line.
 
-Telegram alerts (first detection, each restart, recovery, exhaustion) reuse
+Telegram alerts (first detection, restarts up to the red flag, the red flag,
+recovery) reuse
 ``src.runtime.notify.send_telegram_direct`` — the same path the liveness
 watchdog uses.
 
@@ -287,6 +295,38 @@ def try_restart(restart_path: Path, timeout_s: int) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+def restart_backoff_s(attempts: int, max_restarts: int, cooldown_s: float,
+                      max_backoff_s: float) -> float:
+    """Seconds to wait after the latest restart before the next one.
+
+    Within the ``--max-restarts`` bound: the plain cooldown. Past it: the gap
+    doubles per further attempt, CAPPED at ``max_backoff_s`` -- restarts never
+    stop (NO-HALT, 2026-10-09), they only slow down so a bad credential /
+    IBKR lockout can never become a tight login loop.
+    """
+    if attempts < max(1, max_restarts):
+        return cooldown_s
+    exponent = min(attempts - max(1, max_restarts) + 1, 32)
+    return min(cooldown_s * (2 ** exponent), max(max_backoff_s, cooldown_s))
+
+
+def clear_legacy_exhausted_latch(state: Dict[str, Any]) -> Dict[str, Any]:
+    """Drop the pre-2026-10-09 ``exhausted_alerted`` latch (mutates + returns).
+
+    The old code stopped restarting once it was set. If it was True the
+    operator already got the EXHAUSTED page for this episode, so it carries
+    over as the red flag having been raised (no duplicate page).
+    """
+    if "exhausted_alerted" in state:
+        was = bool(state.pop("exhausted_alerted"))
+        print("[no-halt] ignoring legacy exhausted_alerted="
+              f"{was} latch in state file; restarts continue on a capped "
+              "backoff (operator directive 2026-10-09: there is no halting)")
+        if was:
+            state["red_flag_alerted"] = True
+    return state
+
+
 def decide(
     *,
     healthy: bool,
@@ -296,22 +336,35 @@ def decide(
     cooldown_s: float,
     now: float,
     auto_restart: bool,
-    exhaustion_reset_s: float = 0.0,
+    max_backoff_s: float = 3600.0,
     actionable: bool = True,
     in_window: bool = False,
 ) -> Dict[str, Any]:
     """Pure decision over current health + prior state.
 
-    Returns ``{action, alert, new_state}`` where ``action`` is one of
-    ``"none" | "recovered" | "detected" | "restart" | "exhausted" |
-    "inconclusive"``.
+    Returns ``{action, alert, red_flag, red_flag_cleared, new_state}`` where
+    ``action`` is one of ``"none" | "recovered" | "detected" | "restart" |
+    "inconclusive" | "suppressed"``.
     ``alert`` is True when the caller should send the message for ``action``.
-    With ``auto_restart=False`` the watchdog is alert-only: it detects + warns
-    once per episode but never restarts (so no restart bookkeeping advances).
+    ``red_flag`` is True exactly once per wedge episode -- when the wedge
+    outlasts ``max_restarts`` -- and the caller sends the ``[RED FLAG]`` ping;
+    ``red_flag_cleared`` is True on the recovery that ends a red-flagged
+    episode. With ``auto_restart=False`` the watchdog is alert-only: it
+    detects + warns once per episode but never restarts (so no restart
+    bookkeeping advances).
+
+    NO TERMINAL STATE (NO-HALT, operator directive 2026-10-09: "There is no
+    halting."). Until 2026-10-09 this returned ``"exhausted"`` once
+    ``max_restarts`` was spent and went alert-only for the rest of the episode
+    (softened only by a 2h ``--exhaustion-reset-min`` re-arm,
+    BL-20260605-004). Now ``max_restarts`` is only the bound past which the
+    gap between restarts doubles from ``cooldown_s`` up to ``max_backoff_s``
+    and the one red flag is raised. Every restart is still a fresh IBKR login,
+    so the cooldown/backoff remains the anti-lockout guard.
 
     ``actionable`` (default True for the normal wedge case) gates whether an
     unhealthy read may drive a restart. When the probe could not produce a
-    usable verdict (unparseable/empty output, timeout, failed to run —
+    usable verdict (unparseable/empty output, timeout, failed to run --
     ``actionable=False``) a ``docker restart`` can't fix the cause (a broken
     probe ENVIRONMENT, not the gateway), so the tick is held: it never
     increments the restart streak, it resets the consecutive-wedge counter
@@ -321,45 +374,37 @@ def decide(
     auto-restart be re-armed without a misconfigured probe driving spurious
     container restarts.
 
-    ``exhaustion_reset_s`` re-arms an exhausted restart budget after a long
-    back-off: once ``max_restarts`` is hit the watchdog normally goes
-    alert-only for the *entire* wedge episode (= until a probe reads healthy),
-    so a wedge whose first burst of restarts all land inside IBKR's overnight
-    server-reset window — when a re-login *cannot* re-establish the session —
-    strands MES for the rest of the (possibly multi-hour) episode even after
-    IBKR recovers (the 2026-06-09 incident, BL-20260605-004). When
-    ``exhaustion_reset_s > 0`` and that long has elapsed since the last
-    restart, the budget is reset to 0 so the watchdog tries again — by which
-    point IBKR's reset window is over and a restart can succeed. ``0`` (the
-    default) keeps the original give-up-for-the-episode behaviour. The
-    anti-lockout guarantee is preserved: re-arming only after a long quiet
-    gap means restarts can never become a tight loop.
-
     ``in_window`` (2026-07-02, BL-20260623-002): True when the caller has
     determined ``now`` falls inside a configured suppression window (e.g.
     IBKR's own overnight reset window, during which a restart can't succeed
     regardless of wedge state). A wedge detected here is logged/alerted once
     per episode for visibility but the streak/restart bookkeeping is frozen
-    — never incremented, never reset — so it resumes exactly where it left
+    -- never incremented, never reset -- so it resumes exactly where it left
     off the instant the window closes, instead of losing the signal or
     burning a restart attempt that was never going to work.
     """
-    s = dict(state)
+    s = clear_legacy_exhausted_latch(dict(state))
     last_status = s.get("last_status")  # "ok" | "wedged" | "suppressed" | None
 
+    def _out(action: str, alert: bool, *, red_flag: bool = False,
+             red_flag_cleared: bool = False) -> Dict[str, Any]:
+        return {"action": action, "alert": alert, "red_flag": red_flag,
+                "red_flag_cleared": red_flag_cleared, "new_state": s}
+
     if healthy:
+        cleared = bool(s.get("red_flag_alerted"))
         s["wedged_streak"] = 0
         s["restart_attempts"] = 0
-        s["exhausted_alerted"] = False
+        s["red_flag_alerted"] = False
         s["last_status"] = "ok"
         # "suppressed" is a wedge that was detected but held during the
-        # reset-suppression window — recovering from it is exactly as
+        # reset-suppression window -- recovering from it is exactly as
         # newsworthy as recovering from an acted-on "wedged" episode.
-        if last_status in ("wedged", "suppressed"):
-            return {"action": "recovered", "alert": True, "new_state": s}
-        return {"action": "none", "alert": False, "new_state": s}
+        if last_status in ("wedged", "suppressed") or cleared:
+            return _out("recovered", True, red_flag_cleared=cleared)
+        return _out("none", False)
 
-    # Unhealthy but INCONCLUSIVE — the probe gave no usable verdict, so a
+    # Unhealthy but INCONCLUSIVE -- the probe gave no usable verdict, so a
     # restart can't address the cause. Hold: never restart, break the
     # consecutive-wedge streak, and alert once on entry. (Restart bookkeeping
     # is left untouched so we don't re-burst once a real wedge resumes.)
@@ -367,65 +412,52 @@ def decide(
         s["wedged_streak"] = 0
         s["last_status"] = "inconclusive"
         if last_status != "inconclusive":
-            return {"action": "inconclusive", "alert": True, "new_state": s}
-        return {"action": "none", "alert": False, "new_state": s}
+            return _out("inconclusive", True)
+        return _out("none", False)
 
     # Wedged, but inside the configured suppression window (e.g. IBKR's own
-    # reset window) — a restart can't succeed here. Freeze the streak/restart
+    # reset window) -- a restart can't succeed here. Freeze the streak/restart
     # bookkeeping exactly as-is (touch neither) so it resumes seamlessly the
     # instant the window closes; alert once per episode for visibility.
     if in_window:
         first_suppressed = last_status not in ("wedged", "suppressed")
         s["last_status"] = "suppressed"
         if first_suppressed:
-            return {"action": "suppressed", "alert": True, "new_state": s}
-        return {"action": "none", "alert": False, "new_state": s}
+            return _out("suppressed", True)
+        return _out("none", False)
 
     # Wedged.
     streak = int(s.get("wedged_streak") or 0) + 1
     s["wedged_streak"] = streak
     attempts = int(s.get("restart_attempts") or 0)
     s["last_status"] = "wedged"
-    # A prior "suppressed" episode already alerted about this same wedge —
+    # A prior "suppressed" episode already alerted about this same wedge --
     # don't re-fire "detected" the instant the window closes.
     first_detection = last_status not in ("wedged", "suppressed")
 
-    def _detect() -> Dict[str, Any]:
-        return {"action": "detected" if first_detection else "none",
-                "alert": first_detection, "new_state": s}
-
-    # Alert-only mode, or not yet a sustained wedge → detect/alert, never restart.
+    # Alert-only mode, or not yet a sustained wedge -> detect/alert, never restart.
     if not auto_restart or streak < restart_after:
-        return _detect()
+        return _out("detected" if first_detection else "none", first_detection)
 
-    # Re-arm an exhausted budget after a long back-off so a wedge that
-    # outlasts the initial burst of restarts (e.g. one spanning IBKR's
-    # overnight reset window, when a re-login can't yet succeed) is retried
-    # once IBKR is healthy again — instead of giving up for the whole
-    # episode (BL-20260605-004). Still anti-lockout: the re-arm only fires
-    # after exhaustion_reset_s of no restart, so it can never tight-loop.
-    if (
-        attempts >= max_restarts
-        and exhaustion_reset_s > 0
-        and now - float(s.get("last_restart_ts") or 0.0) >= exhaustion_reset_s
-    ):
-        attempts = 0
-        s["restart_attempts"] = 0
-        s["exhausted_alerted"] = False
+    # Past the old bound: raise the ONE red flag for this episode, keep going.
+    red_flag = False
+    if attempts >= max_restarts and not s.get("red_flag_alerted"):
+        s["red_flag_alerted"] = True
+        red_flag = True
 
-    # Eligible to restart: enforce max-attempts + cooldown so we never loop
-    # (every restart is a fresh IBKR login; looping risks an account lockout).
-    if attempts >= max_restarts:
-        if not s.get("exhausted_alerted"):
-            s["exhausted_alerted"] = True
-            return {"action": "exhausted", "alert": True, "new_state": s}
-        return {"action": "none", "alert": False, "new_state": s}
-    if now - float(s.get("last_restart_ts") or 0.0) < cooldown_s:
-        return _detect()
+    # Enforce the cooldown / capped backoff between restarts -- every restart
+    # is a fresh IBKR login, so they stay spaced out (anti-lockout), but they
+    # never stop.
+    gap_s = restart_backoff_s(attempts, max_restarts, cooldown_s, max_backoff_s)
+    s["next_backoff_s"] = gap_s
+    if now - float(s.get("last_restart_ts") or 0.0) < gap_s:
+        return _out("detected" if first_detection else "none", first_detection,
+                    red_flag=red_flag)
 
     s["restart_attempts"] = attempts + 1
     s["last_restart_ts"] = now
-    return {"action": "restart", "alert": True, "new_state": s}
+    # Per-restart pings stop once the red flag is up (journal only).
+    return _out("restart", not s.get("red_flag_alerted"), red_flag=red_flag)
 
 
 # ---------------------------------------------------------------------------
@@ -437,11 +469,27 @@ def _ts() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
+def render_red_flag(*, account: str, reason: str, max_restarts: int,
+                    next_backoff_s: float, max_backoff_s: float) -> str:
+    """The ONE red flag per wedge episode (NO-HALT, 2026-10-09)."""
+    return (f"[RED FLAG] IB Gateway auto-heal has not recovered it ({_ts()})\n"
+            f"{account}: {reason}. {max_restarts} restarts did not recover it "
+            f"(possible credential/lockout or IBKR-side issue). The watchdog "
+            f"KEEPS restarting (no halt): next attempt in "
+            f"~{int(next_backoff_s // 60)}m, backoff doubling up to "
+            f"{int(max_backoff_s // 60)}m between attempts. Per-restart pings "
+            f"are suppressed until recovery -- someone needs to look.")
+
+
 def render(action: str, *, account: str, reason: str, streak: int,
-           attempt: int, max_restarts: int, restart: Optional[Dict[str, Any]]) -> str:
+           attempt: int, max_restarts: int, restart: Optional[Dict[str, Any]],
+           red_flag_cleared: bool = False) -> str:
     if action == "recovered":
-        return (f"[OK] IB Gateway recovered ({_ts()})\n"
-                f"{account} reconnected; MES data flowing again.")
+        msg = (f"[OK] IB Gateway recovered ({_ts()})\n"
+               f"{account} reconnected; MES data flowing again.")
+        if red_flag_cleared:
+            msg += "\n[OK] Auto-heal red flag cleared."
+        return msg
     if action == "detected":
         return (f"[WARN] IB Gateway wedge detected ({_ts()})\n"
                 f"{account}: {reason}. MES strategies are skipping ticks.")
@@ -455,10 +503,6 @@ def render(action: str, *, account: str, reason: str, streak: int,
         return (f"[WARN] IB Gateway watchdog probe inconclusive ({_ts()})\n"
                 f"{account}: {reason}. Not auto-restarting (a restart can't fix a "
                 f"broken probe) — check the watchdog/probe on the gateway VM.")
-    if action == "exhausted":
-        return (f"[CRITICAL] IB Gateway auto-heal EXHAUSTED ({_ts()})\n"
-                f"{account}: {reason}. {max_restarts} restarts did not recover it — "
-                f"manual intervention needed (possible credential/lockout issue).")
     if action == "restart":
         r = restart or {}
         if not r.get("ran"):
@@ -494,17 +538,25 @@ def main(argv: Optional[list] = None) -> int:
                    help="Consecutive wedged checks before a restart (default 2).")
     p.add_argument("--max-restarts", type=int,
                    default=int(os.environ.get("IB_WATCHDOG_MAX_RESTARTS", "3")),
-                   help="Max restarts per wedge episode before alert-only (default 3).")
+                   help="Restarts per wedge episode at the plain cooldown; past "
+                        "this ONE red flag is raised and restarts CONTINUE with "
+                        "the gap doubling up to --max-backoff-min (NO-HALT, "
+                        "2026-10-09; default 3).")
+    p.add_argument("--max-backoff-min", type=float,
+                   default=float(os.environ.get("IB_WATCHDOG_MAX_BACKOFF_MIN", "60")),
+                   help="Cap in minutes on the gap between restarts once the "
+                        "wedge has outlasted --max-restarts (default 60). "
+                        "Restarts never stop.")
     p.add_argument("--cooldown-min", type=float,
                    default=float(os.environ.get("IB_WATCHDOG_COOLDOWN_MIN", "20")),
                    help="Minimum minutes between restarts (default 20).")
-    p.add_argument("--exhaustion-reset-min", type=float,
-                   default=float(os.environ.get("IB_WATCHDOG_EXHAUSTION_RESET_MIN", "120")),
-                   help="After the restart budget is exhausted, re-arm it once "
-                        "this many minutes have elapsed since the last restart "
-                        "so a multi-hour wedge spanning IBKR's reset window is "
-                        "retried once IBKR recovers (default 120; 0 disables, "
-                        "reverting to give-up-for-the-episode).")
+    # DEPRECATED no-op, accepted so an older unit file still parses. It
+    # re-armed an exhausted budget after a quiet gap (BL-20260605-004); there
+    # is no exhausted state any more (NO-HALT, 2026-10-09) -- the capped
+    # backoff (--max-backoff-min) supersedes it.
+    p.add_argument("--exhaustion-reset-min", type=float, default=None,
+                   help="DEPRECATED, ignored: there is no exhausted state any "
+                        "more; see --max-backoff-min.")
     p.add_argument("--auto-restart", action="store_true",
                    default=os.environ.get("IB_WATCHDOG_AUTO_RESTART", "").lower()
                    in ("1", "true", "yes"),
@@ -535,7 +587,7 @@ def main(argv: Optional[list] = None) -> int:
         cooldown_s=args.cooldown_min * 60.0,
         now=time.time(),
         auto_restart=args.auto_restart,
-        exhaustion_reset_s=args.exhaustion_reset_min * 60.0,
+        max_backoff_s=args.max_backoff_min * 60.0,
         actionable=actionable,
         in_window=in_window,
     )
@@ -549,10 +601,21 @@ def main(argv: Optional[list] = None) -> int:
     if args.dry_run:
         return 0
 
+    rc = 0
+    if decision.get("red_flag"):
+        flag = render_red_flag(
+            account=args.probe_account, reason=reason,
+            max_restarts=args.max_restarts,
+            next_backoff_s=float(new_state.get("next_backoff_s") or 0.0),
+            max_backoff_s=args.max_backoff_min * 60.0,
+        )
+        print(flag)
+        if not send_alert(flag):
+            rc = 2
+
     if action == "restart":
         restart_result = try_restart(args.restart_script, args.restart_timeout)
 
-    rc = 0
     if decision["alert"] or action == "restart":
         msg = render(
             action,
@@ -562,10 +625,12 @@ def main(argv: Optional[list] = None) -> int:
             attempt=int(new_state.get("restart_attempts") or 0),
             max_restarts=args.max_restarts,
             restart=restart_result,
+            red_flag_cleared=bool(decision.get("red_flag_cleared")),
         )
         if msg:
             print(msg)
-            if not send_alert(msg):
+            # Past the red flag a restart is journal-only (bounded alerts).
+            if decision["alert"] and not send_alert(msg):
                 rc = 2
 
     save_state(args.state, new_state)

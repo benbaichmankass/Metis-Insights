@@ -43,12 +43,17 @@ Nice=-10
 # alert deduping (stale_streak in state json) so dedup of repeat
 # alerts doesn't suppress escalation.
 #
-# Restart-loop containment (BL-20260605-001, hardened 2026-06-09):
-# --max-restarts 5 caps restarts per stall episode; once spent the
-# watchdog stops bouncing the trader and sends a one-shot [CRITICAL]
-# EXHAUSTED alert (then alert-only until the heartbeat recovers, which
-# resets the episode budget). --cooldown-min 3 spaces successive
-# restarts so we re-observe the trader between bounces. A restart that
+# Restart pacing (BL-20260605-001, hardened 2026-06-09; NO-HALT 2026-10-09):
+# the first --max-restarts 5 restarts of a stall episode are spaced by
+# --cooldown-min 3 so we re-observe the trader between bounces. Past that
+# bound the watchdog does NOT stop (operator directive 2026-10-09: "There is
+# no halting."): it sends ONE [RED FLAG] alert for the episode and keeps
+# restarting with the gap doubling from 3 min up to --max-backoff-min 60, so
+# it is never a tight loop and never gives up. Per-restart pings past the
+# red flag go to the journal only; one recovery line rides the "[OK]
+# recovered" ping when the heartbeat is fresh (which also resets the
+# episode). (Until 2026-10-09 it went EXHAUSTED and stopped restarting; a
+# leftover autoheal_exhausted_alerted key is ignored + removed.) A restart that
 # fails to DISPATCH (e.g. systemctl timing out under CPU saturation —
 # the 2026-06-09 incident, BL-20260609-001) does NOT consume an attempt
 # or start the cooldown, so the watchdog retries next check instead of
@@ -67,7 +72,7 @@ Nice=-10
 # stale once the window closes, it alerts as a genuine failure-to-
 # recover. 0 = disabled. 10 min comfortably covers boot + venv + IB-
 # gateway startup.
-ExecStart=/usr/bin/python3 -u scripts/check_heartbeat.py --interval 60 --grace 5 --auto-restart-after 3 --max-restarts 5 --cooldown-min 3 --restart-startup-grace-seconds 180 --boot-grace-seconds 600
+ExecStart=/usr/bin/python3 -u scripts/check_heartbeat.py --interval 60 --grace 5 --auto-restart-after 3 --max-restarts 5 --cooldown-min 3 --max-backoff-min 60 --restart-startup-grace-seconds 180 --boot-grace-seconds 600
 # Pin StandardInput explicitly to /dev/null (BL-20260622-WATCHDOG-STDIN).
 # The default is already null, but pinning it defends against out-of-band
 # drift / a drop-in that set StandardInput to a file/tty/fd which can vanish —

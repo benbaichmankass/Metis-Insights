@@ -263,6 +263,9 @@ def _load_yaml_accounts() -> List[Dict[str, Any]]:
             # consumers (e.g. /api/diag/broker_account_status) can report it
             # instead of null (BL-20260701-ALPACA-STATUS-VISIBILITY follow-up).
             "account_class",
+            # Explicit retirement flag (OPS-DECISIONS-1009): operator-facing
+            # surfaces skip the account via prop_identity.is_retired_account.
+            "retired",
             "ib_host", "ib_port", "ib_account", "ib_client_id",
             # Alpaca/OANDA host selector (paper vs live) + optional base_url.
             # WITHOUT these the read path (balance / open positions) builds
