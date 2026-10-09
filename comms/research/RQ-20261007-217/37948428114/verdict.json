@@ -1,0 +1,216 @@
+{
+  "verdict": "fail",
+  "read_state": "measured",
+  "population": "1 leg(s) [trend_donchian_eth_prop], 355 committed trades in total; grade=pass_all_seeds, overall=all",
+  "n": 355,
+  "measurement": {
+    "leg_verdicts": {
+      "trend_donchian_eth_prop": "fail"
+    },
+    "grade": "pass_all_seeds",
+    "overall": "all",
+    "cells": 15
+  },
+  "note": "trend_donchian_eth_prop: FAIL: ev_net_usd_per_life <= 0 on at least one seed | RQ-20261007-217: book trend6 under breakout_turbo, flat 0.5% / 0.75% / 1.0% per leg of balance",
+  "records": [
+    {
+      "verdict": "fail",
+      "read_state": "measured",
+      "population": "trend_donchian_eth_prop: 355 committed trades from comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl (pinned by --leg); prop_ev_sim path-mode over 3 arm(s) x 5 seed(s), --trades trend_donchian_sol_prop=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop__trades.jsonl --trades p2_trend_xrpusdt=comms/research/RQ-20261007-217/37948428114/screen_xrpusdt/p2_trend_xrpusdt__trades.jsonl --trades p2_trend_linkusdt=comms/research/RQ-20261007-217/37948428114/screen_linkusdt/p2_trend_linkusdt__trades.jsonl --trades p2_trend_zecusdt=comms/research/RQ-20261007-217/37948428114/screen_zecusdt/p2_trend_zecusdt__trades.jsonl --trades p2_trend_uniusdt=comms/research/RQ-20261007-217/37948428114/screen_uniusdt/p2_trend_uniusdt__trades.jsonl --ruleset config/prop_rulesets/breakout_turbo_1step.yaml --costs breakout --swap-model prorated --funded-start fresh --lev-cap trend_donchian_eth_prop=5 --lev-cap trend_donchian_sol_prop=5 --lev-cap p2_trend_xrpusdt=5 --lev-cap p2_trend_linkusdt=2 --lev-cap p2_trend_zecusdt=2 --lev-cap p2_trend_uniusdt=2",
+      "n": 355,
+      "measurement": {
+        "leg": "trend_donchian_eth_prop",
+        "trades_file": "comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": 58.99,
+              "ev_se": 3.67,
+              "p_net_positive": 0.178,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.2772,
+                "90": 0.3748,
+                "180": 0.3767
+              },
+              "rule_v2_verdict": "pass"
+            },
+            "2": {
+              "ev": 56.39,
+              "ev_se": 3.62,
+              "p_net_positive": 0.172,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.2812,
+                "90": 0.3787,
+                "180": 0.383
+              },
+              "rule_v2_verdict": "pass"
+            },
+            "3": {
+              "ev": 59.74,
+              "ev_se": 3.51,
+              "p_net_positive": 0.1855,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.2883,
+                "90": 0.387,
+                "180": 0.3897
+              },
+              "rule_v2_verdict": "pass"
+            },
+            "4": {
+              "ev": 54.87,
+              "ev_se": 3.4,
+              "p_net_positive": 0.178,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.2833,
+                "90": 0.3865,
+                "180": 0.3895
+              },
+              "rule_v2_verdict": "pass"
+            },
+            "5": {
+              "ev": 57.47,
+              "ev_se": 3.58,
+              "p_net_positive": 0.1762,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.2732,
+                "90": 0.379,
+                "180": 0.3825
+              },
+              "rule_v2_verdict": "pass"
+            }
+          },
+          "B": {
+            "1": {
+              "ev": 30.06,
+              "ev_se": 3.15,
+              "p_net_positive": 0.1047,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.2923,
+                "90": 0.3,
+                "180": 0.3
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 32.07,
+              "ev_se": 3.18,
+              "p_net_positive": 0.1092,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.2943,
+                "90": 0.3025,
+                "180": 0.3025
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 31.02,
+              "ev_se": 3.06,
+              "p_net_positive": 0.1105,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.3005,
+                "90": 0.3095,
+                "180": 0.3095
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 26.47,
+              "ev_se": 2.96,
+              "p_net_positive": 0.1045,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.289,
+                "90": 0.2995,
+                "180": 0.2995
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 32.35,
+              "ev_se": 3.23,
+              "p_net_positive": 0.1133,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.2993,
+                "90": 0.3093,
+                "180": 0.3095
+              },
+              "rule_v2_verdict": "indeterminate"
+            }
+          },
+          "C": {
+            "1": {
+              "ev": -1.46,
+              "ev_se": 1.6,
+              "p_net_positive": 0.0537,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.2655,
+                "90": 0.2667,
+                "180": 0.2667
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 0.56,
+              "ev_se": 1.75,
+              "p_net_positive": 0.0515,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.274,
+                "90": 0.2752,
+                "180": 0.2752
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": -0.23,
+              "ev_se": 1.7,
+              "p_net_positive": 0.0548,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.2805,
+                "90": 0.2818,
+                "180": 0.2818
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": -2.59,
+              "ev_se": 1.67,
+              "p_net_positive": 0.0488,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.267,
+                "90": 0.2687,
+                "180": 0.2687
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": -1.99,
+              "ev_se": 1.64,
+              "p_net_positive": 0.051,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.2725,
+                "90": 0.2735,
+                "180": 0.2735
+              },
+              "rule_v2_verdict": "indeterminate"
+            }
+          }
+        }
+      },
+      "note": "FAIL: ev_net_usd_per_life <= 0 on at least one seed | RQ-20261007-217: book trend6 under breakout_turbo, flat 0.5% / 0.75% / 1.0% per leg of balance"
+    }
+  ]
+}
