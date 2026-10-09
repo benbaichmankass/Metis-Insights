@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only: UNPROVEN-SWEEP lane. Checklist rows via scripts/ops/checklist.py (8 done with live-read evidence, 3 dropped as breakout_1-retired, 30 given structured observations) plus one pipeline item (bybit_1 OVER-COVER verdict). No code, config or order-path change."
+}

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 by path: src/main.py builds the live exit monitor's candle fetcher. Lane VOLTRAIL-FETCH-FIX, dispatched by the manager (session_01Uq7MrjPQDRWqbhCjwuMava) for the defect measured in PR #17212 (PI-20261009-AMMAZHNZ-0001). The manager merges. What changes on the monitor path: the per-leg candle limit is 200 for every leg EXCEPT a leg running the vol_trail ATR percentile (declared, or the shadow instrument's leg ada_pullback_2h), which gets window + atr_period + 1 (215 at defaults). Today that is exactly one leg, ada_pullback_2h, whose vol_trail is shadow-only — no stop changes. No strategy, param, sizing or risk change. Revert: git revert of the merge commit.",
+  "why": "The monitor fetched limit=200; trail_vol drops the forming bar → 199 < vol_pctl_window 200, so the percentile was never computable live and the lever silently returned the base mult (56/76 shadow rows null). Also makes that state explicit: insufficient_bars is logged once per package and stamped on shadow rows."
+}

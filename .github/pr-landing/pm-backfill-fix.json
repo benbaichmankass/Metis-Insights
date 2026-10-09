@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One-line URL-escape of the market ticker in scripts/research/pm_backfill_kalshi.py (one-shot offline research script) plus a test. No order path, config, strategy, risk, deploy or live-VM file."
+}

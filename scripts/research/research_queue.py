@@ -208,7 +208,7 @@ DISPATCH_FAILED = "dispatch_failed"
 RUNNER_MEMORY_GB = 16.0
 TRAINER_MEMORY_GB = 6.0
 
-_ID_RE = re.compile(r"^RQ-\d{8}-[0-9]{3}$")
+_ID_RE = re.compile(r"^RQ-\d{8}-(?:[0-9]{3}|[0-9a-f]{4}-[0-9]{2})$")
 _CADENCES = ("once", "daily", "weekly", "monthly")
 _LOG = logging.getLogger(__name__)
 

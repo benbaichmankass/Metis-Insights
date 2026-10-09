@@ -720,7 +720,7 @@ def _gh_api_json(path: str) -> Optional[Any]:
         return None
 
 
-_QUEUE_FILE_RE = re.compile(r"^research/queue/(RQ-\d{8}-\d{3})\.ya?ml$")
+_QUEUE_FILE_RE = re.compile(r"^research/queue/(RQ-\d{8}-(?:\d{3}|[0-9a-f]{4}-\d{2}))\.ya?ml$")
 
 
 def pending_stamp_units(api: Any = _gh_api_json) -> Optional[Dict[str, str]]:

@@ -14,5 +14,12 @@
   ],
   "blocked_on": [],
   "note": "2026-09-29 ~10:52Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): from #14101 / PI-20260929-EXITOPS-0005 (live packages created ~7 min into a 2h bar). Operator directive 09:50Z: data-missing -> task, no popup. Lane registers a rule, replays the gate both ways net of full cost, cross-checks live decisions, ships a held Tier-3 fix; manager ships under the data-backed authorization and notifies. || 2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): verdict KEEP_AND_REPORT (0 live decisions flipped over 43,725 audit rows; gate-local fix moves away from Stage 0 and was reverted). #14131 renumbered to RQ-20260929-201 (3b55065); guards RED (unit placeholder {klines_dir}, run.inputs.research_unit stale, replay script missing from the research capability index) -- sent back. Inert trail_vol lever (PI-20260929-VOLSKIP-0002) sent to M20-EXITS; blocks #14053. || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Lane archived; successor VOLSKIP-SIGNAL (session_01GvZxxxgFK3JVaBFhfzZx6N): pooled RQ-302 INCONCLUSIVE (dR -44.9R, 90% CI [-224,+138]); xrp_pullback_2h fails D1 under forming (n=77) -> resolver NEEDS-DATA (no mirror-window record); lane computing CI before any Tier-3 proposal. #14195 then #14218 (held).",
+  "observation": {
+    "what": "A mirror-window record (or a CI-bounded pooled estimate) settles whether the ada_pullback_2h vol-skip gate on a forming bar changes the trade set",
+    "how_to_check": "Successor VOLSKIP-SIGNAL: pooled RQ-302 INCONCLUSIVE (dR -44.9R, 90% CI [-224,+138]); needs a mirror-window record",
+    "due_by": "2026-10-23T00:00Z"
+  },
+  "updated_at": "2026-10-09T04:36:52Z",
+  "updated_by": "session_015WZhDbDdZTbgTzGXeDzjqe",
   "_seq": 200
 }

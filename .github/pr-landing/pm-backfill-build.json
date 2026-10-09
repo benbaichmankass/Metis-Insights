@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One-shot offline research script (scripts/research/pm_backfill_kalshi.py) + tests + a gitignore line. Writes only to the trainer's off-repo data dir; no timer, service, order path, strategy config or risk cap."
+}

@@ -368,6 +368,9 @@ def stats(
             "score_mean": s.score_mean,
             "score_min": s.score_min if s.count else None,
             "score_max": s.score_max if s.count else None,
+            # empty | insufficient_n | constant | varying -- a constant scorer's
+            # mean/min/max are not a measurement (ML-HYGIENE item 2).
+            "score_read_state": s.score_read_state,
             "first_seen": s.first_seen.isoformat() if s.first_seen else None,
             "last_seen": s.last_seen.isoformat() if s.last_seen else None,
             # Whether `first_seen` is this model's real start or the log's edge.

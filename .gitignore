@@ -185,3 +185,6 @@ artifacts/research/
 
 # PM-COLLECTOR third-party snapshots live on the trainer only; never commit (public repo, source terms unread)
 data/pm_snapshots/
+
+# PM-BACKFILL (one-shot Kalshi history, trainer-only; third-party terms unread, public repo)
+data/pm_backfill/

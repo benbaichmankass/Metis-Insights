@@ -11,8 +11,8 @@
   "tier": 1,
   "prs": [],
   "blocked_on": [],
-  "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here. [2026-10-08T06:55Z manager] Overlapping scope moved to ML-DATASET-FIXES / ML-STAGE-DECISIONS.",
-  "updated_at": "2026-10-08T06:54:20Z",
-  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here. [2026-10-08T06:55Z manager] Overlapping scope moved to ML-DATASET-FIXES / ML-STAGE-DECISIONS. [2026-10-09 lane 11 session_01FxmMUG6xTvooBvr8w3xuW9] (1) registry 97 vs 96: MEASURED trainer-vm-diag #17184: ml/registry-store 96 files = 96 distinct model_id = ModelRegistry.list() 96, no dupes/odd names; the 10-04 '97 files' no longer reproduces (cause not recoverable) -> surfaces agree, closed. (2) 4 constant shadow scorers (execution-quality, setup-quality-audit, mes-setup-quality, mes-trade-outcome-winrate baselines): reporting fixed (shadow stats score_read_state, attribution constant_scorer, live_agreement gate not graded); cause filed PI-20261009-01FXMMUG-0001; no stage change. (3) conviction-meta-v1-bt: removed stale c_setup/c_wr optionals, c_reg comments corrected in 3 manifests; parked model, nothing built. (4) ECE: n==0 returned 0.0 and out-of-[0,1] preds were silently dropped; added ece_with_read_state (empty/out_of_range/insufficient_n<100/ok), calibrator report now null+state and labels ece_calibrated in-sample. (5) trainer-vm-diag parser: CRLF blank line silently cut a cmd: | block (fixed); unfenced col-0 heredoc body cut + nested fence in heredoc documented in diag-data skill. PR on branch claude/ml-hygiene. Remaining on row (exit-head demote observation, regime-model demote proposal, 4 producers, 4 quarantined manifests) is outside this lane.",
+  "updated_at": "2026-10-09T01:49:48Z",
+  "updated_by": "session_01FxmMUG6xTvooBvr8w3xuW9",
   "_seq": 234
 }

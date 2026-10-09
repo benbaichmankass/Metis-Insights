@@ -353,6 +353,11 @@ class ModelAttribution:
     brier: float | None
     baseline_brier: float | None
     brier_lift: float | None
+    # True when every logged score is identical (score_min == score_max over
+    # n >= 2). Such a head carries no information: its AUC is exactly 0.5 by
+    # ties and its Brier is the base-rate Brier, so every metric below reads as a
+    # grade when it is not a measurement (ML-HYGIENE item 2).
+    constant_scorer: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -367,6 +372,7 @@ class ModelAttribution:
             "brier": self.brier,
             "baseline_brier": self.baseline_brier,
             "brier_lift": self.brier_lift,
+            "constant_scorer": self.constant_scorer,
         }
 
 
@@ -403,6 +409,7 @@ def aggregate_attribution(joined: Iterable[JoinedScore]) -> list[ModelAttributio
             brier=brier,
             baseline_brier=baseline_brier,
             brier_lift=brier_lift,
+            constant_scorer=n >= 2 and min(scores) == max(scores),
         ))
     return sorted(out, key=lambda a: (-a.n, a.model_id))
 

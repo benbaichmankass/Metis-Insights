@@ -139,7 +139,7 @@ READ_STATES = ("measured", "no_data", "producer_failed", "not_attempted")
 #: world. Named once so the rule below and the guard cannot drift apart.
 NON_MEASURED = tuple(s for s in READ_STATES if s != "measured")
 
-_UNIT_RE = re.compile(r"^RQ-\d{8}-\d{3}$")
+_UNIT_RE = re.compile(r"^RQ-\d{8}-(?:\d{3}|[0-9a-f]{4}-\d{2})$")
 _RUN_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 

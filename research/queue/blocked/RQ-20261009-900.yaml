@@ -1,0 +1,178 @@
+id: RQ-20261009-900
+title: 'TP doctrine, predict-head step 1: on the live-timeframe real-money Bybit legs and the prop Donchian legs, does an entry-time MFE-quantile head beat all three naive TP baselines out of sample? -- blocked on the live-leg corpus lever'
+status: blocked
+cadence: once
+theme: live_strategy
+priority: 1
+kind: experiment
+
+question: >-
+  Checklist row TP-PREDICT-HEAD. The TP doctrine (docs/ARCHITECTURE-CANONICAL.md
+  § "TP doctrine", operator 2026-10-06) needs a real predictive take-profit at
+  entry on every leg. ML-2 (docs/research/ml2-predictive-bracket-2026-09-06.md,
+  n=9,814 trend_donchian 15m backtest trades) refuted a head built on SIX
+  entry-bar features: calibrated, but 0 of 5 quantiles sharper than a risk-scaled
+  baseline. That corpus is 15m, and no live leg runs trend_donchian at 15m, so it
+  says nothing about the legs that carry money. The ONE question: on the legs
+  that DO carry money, at their own timeframe, does a head that predicts a trade's
+  MFE in R at entry -- from the six ML-2 features plus the two decision-time
+  columns the harness already emits and ML-2 dropped (adx_at_entry,
+  regime_weight) -- give quantile forecasts sharper than ALL of (B1) the leg's
+  fixed declared tp_r read as a constant forecast, (B2) the strategy-class
+  default tp_r, (B3) the ATR/risk-scaled constant multiple (ml2_bracket_train_eval
+  .risk_scaled_baseline), and (B4) the leg's own unconditional train-fold
+  quantile (MI-148's per-leg MFE-quantile answer, which is the baseline the
+  doctrine is already pointing at)? Strata are graded SEPARATELY and never
+  pooled: S1 bybit_2 Donchian 4h (trend_donchian_eth_4h, trend_donchian_xrp_4h),
+  S2 bybit_2 pullback 2h (xrp_pullback_2h, ada_pullback_2h), S3 prop Donchian 1h
+  (trend_donchian_eth_prop, trend_donchian_sol_prop). The TP-hit probability at a
+  candidate level x is P(mfe_r >= x), so a quantile head already IS a TP-hit
+  head over the whole grid x in {1.5, 2, 3, 4, 6}; no separate classifier is
+  registered.
+
+why_this_matters: >-
+  MEASURED 2026-10-09 by `python3 scripts/ci/check_tp_doctrine.py`: 50 routings,
+  0 compliant; 7 real-money (4 fail entry_tp, 7 fail tp_revision), 6 prop (all
+  fail tp_revision). S1+S2 are 4 of the 7 real-money routings' legs (plus the
+  alpaca_live 1d sentinels, which are too thin for any head: e35 IS+OOS 34-44
+  trades per leg, see RQ-20261006-061) and S3 is all six prop routings. RQ-20261006-060
+  and RQ-20261007-001/080 ask whether a FIXED or measured-move target works; if
+  they all fail, the only doctrine-compliant answer left is a conditional
+  prediction, and this unit says in advance whether that is worth a Tier-3
+  producer or whether the per-leg MFE quantile (B4) is the whole answer, which
+  is what ML-2 found at 15m. Either result is a deliverable: a PASS licenses step
+  2 (RQ-20261009-901); a clean honest_negative closes the ML branch of the
+  doctrine for these legs and leaves B4 + an extension rule (RQ-20261007-001).
+
+power:
+  expected_n: 113
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    The statistic is the per-trade paired difference in pinball loss
+    (baseline minus model) on the chronologically last 35% of each stratum's
+    trades (ml2_bracket_train_eval default split 0.65). Floor at d=0.30:
+    (1.96+0.8416)^2 / 0.30^2 = 87.2 -> 88 EVAL trades per stratum. expected_n=113
+    is the SMALLEST stratum's expected eval size: S1 = 0.35 x (189 + 135) = 113.
+    Full-window trade counts are the maximum IS+OOS (base_is_trades +
+    base_oos_trades) found per leg in docs/research/e35-bracket-corpus.jsonl on
+    2026-10-09 (1830 d): eth_4h 130+59=189, xrp_4h 74+61=135, xrp_pullback_2h
+    230+59=289, ada_pullback_2h 238+50=288, eth_prop 831+59=890, sol_prop
+    262+59=321, giving eval sizes S1 113 / S2 ~202 / S3 ~424. These are the e35
+    sweep's counts for the leg's shipped params; the lever's config-exact run may
+    differ slightly, which is why n is re-stated from the landed corpus (rule
+    below makes any stratum with <88 eval trades INDETERMINATE rather than a
+    verdict). Declared as source: none rather than corpus: e35, because the e35
+    statistic is OOS-only trades of a different run and would grade this unit
+    against the wrong quantity. NOT iid: consecutive trades overlap in holding
+    time and the shuffled-label null is the guard against that, but the true
+    requirement is higher than 88 and S1 clears it by only 25.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Nothing accrues: the corpus is regenerated from a fixed 1830 d candle
+      window by the harness. The sample is bounded by how many trades the shipped
+      entry rule produced in that window (S1 324 total is the binding one), not
+      by calendar. Declared accruing-style because the e35 corpus statistic does
+      not measure this unit's eval-fold quantity.
+
+decision_rule:
+  id: RULE-RQ1009-900-MFE-HEAD-VS-NAIVE-TP
+  registered_at: '2026-10-09'
+  registered_before_run: true
+  statistic: >-
+    Per stratum, per quantile q in {0.5, 0.6, 0.7, 0.8, 0.9}: out-of-sample
+    pinball loss on outcome mfe_r (R basis; the harness emits the ENTRY stop, so R
+    is exact) of the head minus each of B1, B2, B3, B4, with the shuffled-label
+    null p95 gating each quantile (ml2_bracket_train_eval.evaluate, control_trials
+    >= 20); plus coverage calibration (MACE), plus the same verdict at split
+    0.55 / 0.65 / 0.75. Feature list is CLOSED and fixed before the run: risk_frac,
+    is_long, confidence, hour_sin, hour_cos, dow, adx_at_entry, regime_weight. No
+    feature may be added after seeing a result.
+  rule: >-
+    A stratum is SHARPER IF the head beats ALL FOUR baselines (improvement above
+    that baseline's null p95) at >= 3 of the 5 quantiles, at EVERY split in
+    {0.55, 0.65, 0.75}, AND neither of the stratum's two legs, graded alone,
+    reverses the sign of the pooled improvement at >= 3 of 5 quantiles.
+    PASS IF at least one stratum is SHARPER and its eval n >= 88 -> record the
+    stratum, and step 2 (RQ-20261009-901) may run on exactly the strata that
+    passed. HONEST_NEGATIVE IF every stratum with eval n >= 88 fails: the
+    per-leg MFE quantile (B4) is the whole predictive answer on these legs, as
+    ML-2 found at 15m, and the TP-doctrine path for them is B4 as the entry TP
+    plus the extension rule of RQ-20261007-001; record on the TP-PREDICT-HEAD
+    row; never a demotion. INDETERMINATE for a stratum with eval n < 88. A head
+    that beats B1-B3 but not B4 is NOT a pass: that is the volatility confound
+    ML-2 caught, and B4 is what a model-free doctrine implementation would use.
+    MIXED (some strata SHARPER, some not) is reported per stratum and is not
+    averaged.
+  what_it_does_not_do: >-
+    Prediction quality only -- it grades forecast sharpness, NOT net P&L, and
+    must not be quoted as evidence a head makes money (that is step 2). Touches
+    no config, declares no tp_r on any leg, and reads backtest rows only (never
+    blends real, prop and paper). The feature set is still decision-time and
+    single-instrument: a negative here does not refute cross-asset or peer-symbol
+    information (the gap ML-2 itself named), it refutes THESE eight columns on
+    THESE legs. Cannot cover the alpaca_live 1d pullback sentinels (too few
+    trades).
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 60
+  basis: >-
+    Runner. Six config-exact harness runs (backtest_trend.py x4, backtest_pullback.py
+    x2) over a 1830 d candle window fetched from data.binance.vision, then the
+    ml2 corpus build and the SGD quantile evaluation, which is stdlib/numpy and
+    took seconds on 9,814 rows in ML-2. An estimate, not a measurement.
+
+blocked_on:
+- what: >-
+    No driver produces the per-trade rows this needs for the live legs.
+    m20_fleet_exit_sweep.py runs the harness config-exact but keeps no emit file
+    (it reads the summary), mi307_offline_mfe.py --run runs it config-exact and
+    uncapped but `rec.pop("rows")` discards the rows, and ml2_bracket_corpus.py
+    consumes an emit but its closed FEATURE_NAMES drops adx_at_entry and
+    regime_weight (both ARE in the trend and pullback emits) and
+    ml2_bracket_train_eval.py can only grade outcome mfe_frac / exit_frac against
+    the pooled and risk-scaled baselines -- it has no R-basis outcome, no B1/B2
+    constant-forecast baselines, no B4 per-leg train-quantile baseline and no
+    per-stratum / per-leg run. LEVER NAME: `ml2-live-leg-corpus` -- (1) a
+    runner that builds the six legs' config-exact args via
+    m20_fleet_exit_sweep.base_args, runs the harness uncapped with
+    --emit-trades and KEEPS the emit under a stable path; (2) ml2_bracket_corpus
+    FEATURE_NAMES extended by exactly adx_at_entry and regime_weight with
+    test_no_outcome_column_is_a_feature still passing; (3) ml2_bracket_train_eval
+    gains --outcome mfe_r and baselines B1/B2/B4 beside the existing B3, graded
+    per stratum.
+  ref: TP-PREDICT-HEAD (docs/claude/work/checklist/); build row to be added by the manager
+  clears_when: >-
+    The runner emits docs/research or comms/research per-trade rows for all six
+    legs and `ml2_bracket_train_eval.py --corpus <rows> --outcome mfe_r --per-leg`
+    prints the four baselines per quantile; then `git mv` this file to
+    research/queue/ and fill run.workflow (research-script-run.yml, like
+    RQ-20261007-080) and lands.store.
+
+run:
+  workflow: null
+  note: >-
+    Deliberately null until blocked_on clears. Existing ML-2 tooling would only
+    re-run the 15m corpus, which is the question already answered.
+
+lands:
+  store: research/results/ (once promoted)
+
+related:
+- TP-PREDICT-HEAD
+- 'docs/research/ml2-predictive-bracket-2026-09-06.md (ML-2 refuted at 15m with six entry-bar features; the per-leg MFE quantile in R is the standing answer)'
+- RQ-20261009-901
+- RQ-20261006-060
+- RQ-20261007-001
+- RQ-20261007-080
+- scripts/research/ml2_bracket_corpus.py
+- scripts/research/ml2_bracket_train_eval.py
+- scripts/research/mi307_offline_mfe.py
+last_dispatched_at: null

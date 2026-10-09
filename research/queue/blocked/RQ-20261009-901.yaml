@@ -1,0 +1,132 @@
+id: RQ-20261009-901
+title: 'TP doctrine, predict-head step 2: net of the full cost stack, does a head-chosen per-trade take-profit beat the best naive TP policy out of sample on the strata step 1 passed? -- blocked on step 1 and on the TP-overlay replay lever'
+status: blocked
+cadence: once
+theme: live_strategy
+priority: 1
+kind: experiment
+requires_result: {unit: RQ-20261009-900, verdict: pass}
+
+question: >-
+  Checklist row TP-PREDICT-HEAD, step 2. Step 1 (RQ-20261009-900) only says
+  whether a head's MFE quantile forecasts are SHARPER than the naive baselines;
+  sharper forecasts are not money (the TP competes with the trail for the right
+  tail, mi307_offline_mfe.py). On exactly the strata step 1 passed, does placing
+  each trade's take-profit at the head's predicted quantile -- not a constant --
+  earn more NET R, after fees + slippage + funding, than the best of three
+  naive TP policies: (P1) the leg's fixed declared tp_r, (P2) the strategy-class
+  default tp_r, (P3) a volatility-scaled ATR multiple k chosen on the train fold
+  from {1.5, 2, 3, 4, 6}? A no-TP control (the harness's uncapped book) is
+  reported beside all of them but is not a baseline the head must beat, because
+  the doctrine forbids a sentinel as the answer.
+
+why_this_matters: >-
+  The doctrine's clause 1 is a finite predictive TP at entry. A head that is
+  sharper but loses to a fixed multiple of risk on net R is "P&L without
+  prediction"'s mirror: prediction without P&L, and not worth a Tier-3
+  producer plus a monitor hook on a real-money book. This is the unit that
+  decides whether TP-PREDICT-HEAD becomes an engineering build (a trained head
+  served at order-package time) or closes as "B4 is enough".
+
+power:
+  expected_n: 113
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Same strata and same eval sizes as RQ-20261009-900 (S1 113 / S2 ~202 /
+    S3 ~424 out-of-sample trades; floor 88 at d=0.30, (1.96+0.8416)^2/0.30^2 =
+    87.2). The statistic here is the per-trade difference in net R between the
+    head policy and the best baseline policy on those trades, so the same
+    paired one-sample design applies. Only strata that PASSED step 1 are run, so
+    the binding n is whichever of them is smallest. Not iid (overlapping holds):
+    the true requirement is higher, and the fold gate below is the second guard.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Same fixed 1830 d window and the same trade counts as step 1 (the rows are
+      the step-1 corpus); nothing accrues. Gated by requires_result, so it cannot
+      run before step 1 lands a measured pass.
+
+decision_rule:
+  id: RULE-RQ1009-901-HEAD-TP-NET-OF-COST
+  registered_at: '2026-10-09'
+  registered_before_run: true
+  statistic: >-
+    Per passing stratum, truncation-honest overlay on the step-1 emit rows: a
+    trade whose mfe_r >= its policy TP exits at tp_R minus its own cost_r
+    (cost_fee_r + cost_slippage_r + cost_funding_r from the emit, funding not
+    reduced for the shorter hold, which is conservative); a trade that never
+    reached it keeps its emitted net_r. The head's tp_R = its predicted quantile
+    q* of mfe_r (q* chosen on the TRAIN fold only, from {0.5,...,0.9}, by train
+    net R), floored at 1.0 R and capped at the leg's reachable cap_r
+    (scripts/research/target_reachability_report.py). Computed per fold on the
+    be_floor_sweep calendar partition k = 3, 4, 5 (pooled net R, and the number
+    of exercised folds won; an inert fold is not a win). Plus the TP-hit
+    calibration: |realised hit rate - (1 - q*)| on the eval fold.
+  rule: >-
+    PASS IF, in a stratum, head-policy pooled out-of-sample net R > the best of
+    P1/P2/P3 net R AND a strict majority of exercised folds is won at EVERY k in
+    {3, 4, 5} AND realised hit rate is within 0.10 of 1 - q* (0.10 is a declared
+    tolerance, not a fitted one) AND eval n >= 88 -> a Tier-3 proposal to build
+    the served head for that stratum's legs (produced-and-consumed per the
+    tp-doctrine guard), proposed with the tp_r values it would replace and the
+    revert. The proposal is a popup only if two strata disagree in a way that is
+    a preference; a clean pass is a data-backed Tier-3 decision under the
+    2026-09-27 standing authorization. HONEST_NEGATIVE IF no stratum passes:
+    the head is not worth serving; the doctrine's entry TP for those legs is the
+    best P1-P3 policy or B4, whichever RQ-20261006-060 / RQ-20261007-001 pick,
+    and the ML branch is closed for these legs on this feature set. INDETERMINATE
+    for a stratum with eval n < 88 or no exercised folds.
+  what_it_does_not_do: >-
+    Declares no tp_r, touches no config and trains no deployable model; the
+    overlay is optimistic about intrabar ordering on the bar where the target
+    and the stop are both touched (the harness emit has bar-level mfe only), and
+    that bias applies equally to the head and to P1-P3. A pass is therefore
+    evidence for a build, not a P&L estimate. Real, prop and paper are never
+    blended.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.5
+  est_minutes: 20
+  basis: >-
+    Runner. Pure post-processing of the step-1 emit rows; no harness re-run.
+    An estimate.
+
+blocked_on:
+- what: >-
+    (1) RQ-20261009-900 must land a PASS (requires_result). (2) No per-trade
+    take-profit overlay exists: grep of scripts/ src/ tests/ for per-trade TP
+    policy / overlay finds nothing, backtest_trend.py --tp-r is ONE constant for
+    the run, and e35_bracket_geometry_sweep grades constant tp_r cells only.
+    LEVER NAME: `tp-policy-overlay` -- a script under scripts/research/ that
+    reads the step-1 emit rows and the head's per-trade predictions, applies the
+    truncation-honest overlay above for the head and for P1/P2/P3, and reuses
+    be_floor_sweep's FOLD_PANEL and inert-fold rule for the gate.
+  ref: TP-PREDICT-HEAD (docs/claude/work/checklist/); RQ-20261009-900; build row to be added by the manager
+  clears_when: >-
+    RQ-20261009-900 has a `read_state: measured` pass record under
+    research/results/RQ-20261009-900/ AND the overlay script exists with a
+    --selftest that plants a head that should win and a shuffled head that
+    should not; then `git mv` to research/queue/ and fill run.workflow
+    (research-script-run.yml) and lands.store.
+
+run:
+  workflow: null
+  note: Deliberately null until blocked_on clears.
+
+lands:
+  store: research/results/ (once promoted)
+
+related:
+- TP-PREDICT-HEAD
+- RQ-20261009-900
+- RQ-20261006-060
+- RQ-20261007-001
+- scripts/research/be_floor_sweep.py
+- scripts/research/target_reachability_report.py
+last_dispatched_at: null
