@@ -224,22 +224,15 @@ class TestFuturesWholeContractEnforcement:
         assert qty == pytest.approx(4.0)
         assert qty == int(qty)
 
-    def test_futures_daily_budget_scaledown_stays_integer(self):
-        """The daily-loss-budget scale-down path floors to whole contracts
-        too (it re-floors with the account precision)."""
-        # Budget $600 < risk-based loss $1000 → scaled = 600/250 = 2.4 → 2.
-        cfg = dict(self._IB_PAPER_LIKE, daily_usd=600)
-        rm = RiskManager(cfg)
+    def test_futures_size_not_clipped_by_daily_usd(self):
+        """2026-10-09: the daily-loss-budget scale-down was removed (folded into
+        the account-level daily_dd_switch); a futures size stays the whole-
+        contract risk-based size regardless of a small ``daily_usd``."""
         pkg = _pkg("MES", 5800.0, 5750.0, 5900.0)
-        qty = rm.position_size(pkg, 100_000, market_type="futures")
-        assert qty == pytest.approx(2.0)
-
-    def test_futures_daily_budget_scaledown_below_one_refused(self):
-        # Budget $200 → scaled = 200/250 = 0.8 → floor 0 → refusal.
-        cfg = dict(self._IB_PAPER_LIKE, daily_usd=200)
-        rm = RiskManager(cfg)
-        pkg = _pkg("MES", 5800.0, 5750.0, 5900.0)
-        assert rm.position_size(pkg, 100_000, market_type="futures") == 0.0
+        for budget in (200, 600):
+            rm = RiskManager(dict(self._IB_PAPER_LIKE, daily_usd=budget))
+            qty = rm.position_size(pkg, 100_000, market_type="futures")
+            assert qty == pytest.approx(4.0) and float(qty).is_integer()
 
     def test_crypto_path_sub_min_lot_refuses(self):
         """Linear/spot accounts REFUSE a sub-min-lot risk-based size rather than

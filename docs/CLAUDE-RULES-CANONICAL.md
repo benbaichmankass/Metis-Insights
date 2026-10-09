@@ -1200,6 +1200,20 @@ decides whether to intervene.
      `halted` file is removed on start, and `executor-clear-halt` is a
      harmless no-op. The inventory of the other self-halts, and which carry
      verbatim permission, is on checklist row `NO-HALT`.
+   - **The ONE sanctioned exception: the account-level daily drawdown
+     switch** (operator, 2026-10-09, same day). Verbatim:
+
+     > "I overreacted regarding the halting. There is one thing that I want to take back, and that is the daily drawdown on at the account level. That's the only place I want there to be like a automatic off switch, basically, where if we lose more than a defined amount from the account in a day, then the account automatically turns off until it resets the next day. But that should be a default off. We'll arm all of them, but I, the default for when it's built should be off so that like we know that it's something that has to actively be done and turned on. And the default setting should be, for the prop accounts, obviously it should be like the prop accounts daily drawdown with a buffer. And for the other accounts, it should be 3%."
+
+     Popup answers the same day: **keep open, block new** (open positions
+     keep their SL/TP; only new entries are refused until the daily reset;
+     one alert on trip, one on reset) and a prop buffer of **20% of the <!-- population-ok: an operator-chosen config parameter, not a measurement -->
+     firm's limit** (limit = 0.8 × the firm's daily limit, at the firm's
+     reset time). Config: `config/accounts.yaml::<acct>.risk.daily_dd_switch`;
+     `armed` defaults to `false` in code and arming is an explicit
+     per-account YAML act. It is a per-trade `RiskManager` refusal (rule 3),
+     never a `mode:` flip (rule 2). Checklist row `DAILY-DD-SWITCH`. It
+     sanctions no other self-halt.
 
 ### What this rules out (queued for the safeguards PR follow-on)
 

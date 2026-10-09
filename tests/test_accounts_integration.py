@@ -142,6 +142,17 @@ def prop_journal(tmp_path, monkeypatch):
 # Coordinator.multi_account_execute integration
 # ---------------------------------------------------------------------------
 
+
+def _trip_dd_switch(account) -> None:
+    """Trip an ARMED daily-DD switch on ``account`` (2026-10-09: the switch
+    replaced the journal-rebuilt DAILY_LOSS_CAP these tests used to breach)."""
+    from src.units.accounts import daily_dd_switch as dd
+    account.risk_manager.dd_switch = dd.DailyDDSwitch(
+        account.name, dd.parse_config({"armed": True}), alert=lambda *a: None,
+    )
+    account.risk_manager.dd_switch.observe(10_000.0)
+    account.risk_manager.dd_switch.observe(9_000.0)
+
 class TestCoordinatorMultiAccountExecute:
     # S-026 G2: multi_account_execute now sizes per-account. Tests
     # supply a fixed balance via balance_fetcher so position_size
@@ -202,9 +213,7 @@ class TestCoordinatorMultiAccountExecute:
         from src.units.accounts import load_accounts
         _seed_breach_trade(prop_journal, "prop_breakout")
         accounts = load_accounts(accounts_yaml)
-        assert next(
-            a for a in accounts if a.name == "prop_breakout"
-        ).risk_manager.daily_pnl == pytest.approx(-200.0)
+        _trip_dd_switch(next(a for a in accounts if a.name == "prop_breakout"))
         with patch("src.units.accounts.load_accounts", return_value=accounts):
             results = coord.multi_account_execute(
                 _pkg(), accounts_path=accounts_yaml, dry_run=True,

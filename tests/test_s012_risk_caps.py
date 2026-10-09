@@ -6,7 +6,9 @@ combines an OrderPackage from the new roster with the account-level
 caps. PR E3a layers max_dd_pct on top.
 
 DoD coverage (PR sequence § 9):
-* RiskManager.approve refuses when daily loss > daily_usd, for both
+* (2026-10-09) DAILY_LOSS_CAP / INTRADAY_DRAWDOWN were folded into the
+  default-disarmed daily_dd_switch: the tests below now pin that they are
+  REPORTED and no longer refuse. Historical: approve refused when daily loss > daily_usd, for both
   strategies.
 * safe_place_order returns 'halted' when the kill-switch flag is set.
 * (E3a) RiskManager.approve refuses when intra-day drawdown ≥ max_dd_pct.
@@ -91,38 +93,26 @@ def _account(name: str = "test", **risk_overrides) -> TradingAccount:
 
 
 class TestDailyLossCap:
-    # Converted 2026-06-28 (audit Workstream B) from the removed dead-router
-    # entry point ``acc.place_order`` to the actual risk gate
-    # ``acc.risk_manager.approve`` it wrapped (False == would-refuse). The
-    # live path reaches the same gate via RiskManager.evaluate in
-    # Coordinator.multi_account_execute.
-    def test_daily_loss_exceeded_rejects_vwap(self):
-        """daily_pnl < -max_daily_loss_usd → approve() False (vwap)."""
-        acc = _account(daily_usd=100.0)
-        acc.risk_manager.record_trade_result(-150.0)  # blew through cap
-        assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is False
-
-    def test_daily_loss_exceeded_rejects_turtle_soup(self):
+    # 2026-10-09 (operator directive, rule 7's one exception): the always-on
+    # DAILY_LOSS_CAP refusal was folded into the account-level, default-
+    # DISARMED ``daily_dd_switch`` (tests/test_daily_dd_switch.py). A day past
+    # ``daily_usd`` is now a REPORTED figure; approve() no longer refuses on it.
+    def test_daily_loss_past_figure_no_longer_refuses_vwap(self):
         acc = _account(daily_usd=100.0)
         acc.risk_manager.record_trade_result(-150.0)
-        assert acc.risk_manager.approve(_turtle_soup_pkg(estimated_value=100.0)) is False
-
-    def test_daily_loss_at_cap_still_passes(self):
-        """Boundary: daily_pnl == -daily_usd is the exact cap. Still allowed.
-
-        The check is `daily_pnl < -max_daily_loss_usd` (strict <), so
-        equality passes. This is the documented S-010 contract.
-        """
-        acc = _account(daily_usd=100.0)
-        acc.risk_manager.record_trade_result(-100.0)
         assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is True
 
-    def test_reset_daily_clears_breach(self):
+    def test_daily_loss_past_figure_no_longer_refuses_turtle_soup(self):
+        acc = _account(daily_usd=100.0)
+        acc.risk_manager.record_trade_result(-150.0)
+        assert acc.risk_manager.approve(_turtle_soup_pkg(estimated_value=100.0)) is True
+
+    def test_daily_pnl_still_tracked_and_reset(self):
         acc = _account(daily_usd=100.0)
         acc.risk_manager.record_trade_result(-200.0)
-        assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is False
+        assert acc.risk_manager.daily_pnl == -200.0
         acc.risk_manager.reset_daily()
-        assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is True
+        assert acc.risk_manager.daily_pnl == 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -203,10 +193,11 @@ class TestRiskManagerApprove:
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 100.0, "pos_size": 500.0})
         assert rm.approve(_vwap_pkg(estimated_value=600.0)) is True
 
-    def test_approve_after_daily_loss_breach_returns_false(self):
+    def test_approve_after_daily_loss_past_figure_returns_true(self):
+        """DAILY_LOSS_CAP was folded into the daily_dd_switch (2026-10-09)."""
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 100.0, "pos_size": 500.0})
         rm.record_trade_result(-150.0)
-        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is False
+        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is True
 
     def test_approve_with_no_estimated_value_passes(self):
         """When meta omits estimated_value, the size cap cannot be checked
@@ -238,19 +229,20 @@ class TestMaxDrawdownIntraday:
         rm.update_equity(9_700.0)         # 3 % drawdown < 5 % cap
         assert rm.approve(_vwap_pkg(estimated_value=100.0)) is True
 
-    def test_drawdown_at_or_above_cap_rejects_vwap(self):
+    def test_drawdown_at_or_above_figure_no_longer_rejects_vwap(self):
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0})
         rm.update_equity(10_000.0)
-        rm.update_equity(9_500.0)         # exactly 5 % → reject (>= cap)
-        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is False
+        rm.update_equity(9_500.0)         # exactly 5 % — reported, not refused
+        assert rm.intraday_drawdown() == pytest.approx(0.05)
+        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is True
 
-    def test_drawdown_at_or_above_cap_rejects_turtle_soup(self):
+    def test_drawdown_above_figure_no_longer_rejects_turtle_soup(self):
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0})
         rm.update_equity(10_000.0)
-        rm.update_equity(9_400.0)         # 6 % > 5 % cap
-        assert rm.approve(_turtle_soup_pkg(estimated_value=100.0)) is False
+        rm.update_equity(9_400.0)         # 6 % > 5 % — reported, not refused
+        assert rm.approve(_turtle_soup_pkg(estimated_value=100.0)) is True
 
-    def test_drawdown_via_account_risk_manager_rejects(self):
+    def test_drawdown_via_account_risk_manager_no_longer_rejects(self):
         """The account's RiskManager refuses when the drawdown cap is breached.
         (Was an end-to-end ``place_order`` raising RiskBreach; place_order was
         the dead router, removed 2026-06-28 — the gate it wrapped is asserted
@@ -258,7 +250,7 @@ class TestMaxDrawdownIntraday:
         acc = _account(max_dd_pct=0.05, daily_usd=1_000.0, pos_size=1_000.0)
         acc.risk_manager.update_equity(10_000.0)
         acc.risk_manager.update_equity(9_400.0)  # 6 % drawdown
-        assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is False
+        assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is True
 
     def test_intraday_high_bumps_when_equity_climbs(self):
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0})
@@ -266,8 +258,8 @@ class TestMaxDrawdownIntraday:
         rm.update_equity(11_000.0)       # new intra-day high
         rm.update_equity(10_500.0)       # 4.5 % drawdown vs 11 000 — passes
         assert rm.approve(_vwap_pkg(estimated_value=100.0)) is True
-        rm.update_equity(10_400.0)       # 5.45 % drawdown vs 11 000 — fails
-        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is False
+        rm.update_equity(10_400.0)       # 5.45 % drawdown vs 11 000
+        assert rm.intraday_drawdown() == pytest.approx(600 / 11_000)
 
     def test_drawdown_clamped_at_zero_when_above_high(self):
         """Sanity: equity > high → drawdown is 0, not a negative."""
@@ -297,7 +289,6 @@ class TestMaxDrawdownIntraday:
         rm.record_trade_result(-200.0)
         assert rm.daily_pnl == -200.0
         assert rm.intraday_drawdown() == pytest.approx(0.10)
-        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is False
 
         # Roll over to next UTC day.
         monkeypatch.setattr(
@@ -320,9 +311,13 @@ class TestMaxDrawdownIntraday:
         assert rep["intraday_drawdown_pct"] == pytest.approx(0.03)
         assert rep["halted"] is False
 
-    def test_report_halted_when_drawdown_breached(self):
+    def test_report_not_halted_by_drawdown_figure(self):
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0})
         rm.update_equity(10_000.0)
-        rm.update_equity(9_000.0)        # 10 % > 5 % cap
+        rm.update_equity(9_000.0)        # 10 % > 5 % — reported only
         rep = rm.report()
-        assert rep["halted"] is True
+        assert rep["intraday_drawdown_pct"] == pytest.approx(0.10)
+        # ``halted`` now means exactly "the armed daily-DD switch is tripped"
+        # (2026-10-09); a disarmed switch never reports halted.
+        assert rep["halted"] is False
+        assert rep["daily_dd_switch"]["armed"] is False
