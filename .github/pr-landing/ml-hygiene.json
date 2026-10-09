@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "Held, not self-landed: pr-landing-guard R5 will not vouch for ml/calibration/*, ml/configs/conviction-meta*.yaml (Tier-2 by name) or scripts/ml/fit_confidence_calibrators.py. Content is Tier-1 in effect: ECE read-state helper + calibrator report, constant-scorer flag in shadow stats / attribution / live_agreement gate (reporting only, no threshold or stage change), trainer-vm-diag awk CRLF normalisation + diag-data skill note, conviction-meta-v1-bt expected_optional_features cleanup (audit-silence only; parked model, stage unchanged). No order path, no strategies/accounts config, no promotion/demotion. Lane 11 of PACE-W40 (row ML-HYGIENE); manager merges by hand.",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Guard R5 cannot vouch for ml/calibration, ml/configs conviction-meta manifests and scripts/ml/fit_confidence_calibrators.py; manager reads and merges by hand."
+}

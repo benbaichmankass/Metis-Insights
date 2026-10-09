@@ -33,7 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from ml.calibration import (
     brier_score,
-    expected_calibration_error,
+    ece_with_read_state,
     fit_calibrator,
     reliability_curve,
 )
@@ -74,6 +74,10 @@ def _load_rows(emit_dir: str | None, corpus: str | None):
     return by_strategy
 
 
+def _ece_val(r: dict):
+    return None if r["ece"] is None else round(r["ece"], 4)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--emit-dir", help="dir of *.jsonl from backtest --emit-trades")
@@ -111,8 +115,13 @@ def main() -> int:
             "method": cal.method,
             "brier_raw": round(brier_score(ys, xs), 4),
             "brier_calibrated": round(brier_score(ys, preds), 4),
-            "ece_raw": round(expected_calibration_error(ys, xs), 4),
-            "ece_calibrated": round(expected_calibration_error(ys, preds), 4),
+            # ECE carries a read state; None + state when n is too small or the
+            # scale is wrong. ece_calibrated is IN-SAMPLE (the calibrator was fit
+            # on these rows) so it is optimistic by construction.
+            "ece_raw": _ece_val(ece_with_read_state(ys, xs)),
+            "ece_calibrated": _ece_val(ece_with_read_state(ys, preds)),
+            "ece_read_state": ece_with_read_state(ys, xs)["read_state"],
+            "ece_calibrated_in_sample": True,
             "reliability_calibrated": [
                 {"mean_pred": round(b.mean_pred, 4),
                  "frac_pos": round(b.frac_pos, 4), "count": b.count}

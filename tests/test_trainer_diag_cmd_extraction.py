@@ -273,3 +273,23 @@ def test_the_general_rule_does_not_break_an_indented_continuation():
     out = _extract(body)
     assert "first_command" in out and "second_command_after_a_blank_line" in out, out
     assert "Prose." not in out, out
+
+
+def test_crlf_blank_line_inside_a_block_scalar_does_not_truncate():
+    """ML-HYGIENE item 5: a web-UI-authored body is CRLF; a bare "\\r" line was
+    read as a non-indented non-empty line and silently ended the `cmd: |` block,
+    so only the prefix ran (and exited 0)."""
+    body = "cmd: |\r\n  echo a\r\n\r\n  echo b\r\n"
+    out = _extract(body)
+    assert "echo a" in out and "echo b" in out
+    assert "\r" not in out
+
+
+def test_unfenced_block_with_column_zero_heredoc_body_is_truncated_documented():
+    """DOCUMENTED PITFALL (diag-data skill): in an UNFENCED `cmd: |` block every
+    line must be indented (YAML). A column-0 heredoc body ends the block there
+    and the prefix still runs. Wrap the script in a fence to avoid it."""
+    unfenced = "cmd: |\n  python3 - <<'PY'\nimport os\nPY\n  echo done\n"
+    assert _extract(unfenced).strip() == "python3 - <<'PY'"
+    fenced = "cmd: |\n```\npython3 - <<'PY'\nimport os\nPY\necho done\n```\n"
+    assert "echo done" in _extract(fenced)

@@ -52,13 +52,15 @@ trainer_config:
     - symbol
     - direction
     - strategy_name
-  # c_setup/c_wr/c_reg are honestly absent on backtest rows (no shadow heads
-  # replayed offline) → NaN, exactly as a live row whose heads didn't score.
-  # c_reg is additionally dead pending MB-20260618-XA-D2B. LightGBM handles NaN.
+  # c_reg only. c_setup and c_wr were declared expected-optional here but are now
+  # populated in the backtest conviction dataset (the trainer printed
+  # `manifest_stale_optional_declaration` for both every cycle, ML review
+  # 2026-10-04), so the silence would have hidden a future regression of those
+  # columns -- removed 2026-10-09 (ML-HYGIENE). c_reg still reads dead: no
+  # regime_alignment calibrator feeds it (MB-20260618-XA-D2B). Parked model
+  # (docs/plans/ml-producers-milestones-2026-10-08.md); nothing is being built.
   expected_optional_features:
     - c_reg
-    - c_setup
-    - c_wr
   categorical_columns:
     - regime
     - vol_regime
