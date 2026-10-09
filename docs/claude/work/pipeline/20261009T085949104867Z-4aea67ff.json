@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "due_date": "2026-10-10",
+    "kind": "date"
+  },
+  "id": "PI-20261009-XQ5RTZKZ-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12T18:00Z",
+    "how_to_check": "GET /api/bot/prop/fills?account_id=velotrade_1 (newest row status) + journalctl ict-prop-executor@velotrade_1 (confirm verdict placed, tick exit 0)",
+    "what": "the next velotrade_1 ticket after #17236 deploys and the latch is cleared reaches status placed or open, not skipped"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-LATCH session_01AiZHMWhUJ2qQzNXq5RtzkZ, 2026-10-09",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/prop/fills?account_id=velotrade_1' | python3 -c \"import json,sys;[print(f['ticket_id'],f['status'],f['reason']) for f in json.load(sys.stdin)['fills']]\""
+  },
+  "state": "queued",
+  "what": "velotrade_1 lost two trades to a false-positive AUTO-REVERT latch (MEASURED: journal ict-prop-executor@velotrade_1 2026-10-08 15:15-15:45Z + /api/bot/prop/fills). (1) prop-manual-df6e8938ab89 (ETH short LIMIT 0.82@2471.31) was placed as an IF-THEN group (http 200), read back as partial_no_sl_tp because the REST read carries no SL/TP on a resting entry, and was CANCELLED by the executor's own repair; journalled as 'skipped: unconfirmed_submit', which misstates the cause. (2) prop-manual-2ac3f6d3f6ff (16:00Z, ETH short entry 2433.8) was skipped 'executor halted'. Fix: PR #17236 (Tier-2, held). Done when: #17236 is merged and deployed, the latch is cleared via executor-clear-halt, and the NEXT velotrade_1 ticket reaches status placed/open (not skipped) on the fills API."
+}
