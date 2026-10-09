@@ -1,0 +1,108 @@
+{
+  "request_id": "HEALTH-REVIEW-W41",
+  "reviewed_at": "2026-10-09T20:10:00Z",
+  "reviewer": "claude",
+  "window_start": "2026-10-04T08:00:00Z",
+  "window_end": "2026-10-09T20:00:00Z",
+  "overall_assessment": "investigate",
+  "dispatch": "direct /api/diag + /api/bot via scripts/ops/diag_fetch.sh (served by ict-bot.duckdns.org); one system-action issue #17296 (gateway-forensics); Actions run/job logs via GitHub MCP",
+  "findings": {
+    "ib_gateway": {
+      "status": "ok",
+      "note": "MEASURED gateway-forensics #17296 19:47Z: ib-gateway RestartCount=0, running since 06:05:17Z (scheduled reset); timers restarted 13x by deploys 15:05-19:31Z without restarting the container; ib_state clients 498/9357/497 connected, consecutive_failures 0."
+    },
+    "automerge_relay": {
+      "status": "concern",
+      "note": "queued stale run re-armed NATIVE auto-merge on held #17038 (job 113094653735, 01:45:15Z); #17124 fixed poll path only. Fix PR claude/health-review-w41 (hold)."
+    },
+    "ci_latency": {
+      "status": "concern",
+      "note": "pytest-run 29-64 min on main (20 completed pushes 2026-10-09); 50 min landing wait expires -> research-queue-dispatch land job red (run 37965310081). Stopgap 50->80 in PR; PI-20261009-VQIPJE2H-0002."
+    },
+    "daily_dd_switch": {
+      "status": "watch",
+      "note": "13/13 armed accounts not_observed 19:40Z; observe() only runs in RiskManager.evaluate(); last order_package 13:33Z. PI-20261009-VQIPJE2H-0001 (Tier-3 proposal)."
+    },
+    "no_halt_deploy": {
+      "status": "ok",
+      "note": "all 9 NO-HALT merge commits + DAILY-DD 09b593034 are ancestors of VM git_sha d4ea4a21c (restart_pending false). Prop executors tradeify_1/velotrade_1 tick every 5 min, 'halted': null on 28/31 runs, 0 non-null. Trainer #17251 and gateway watchdog #17252 deploys on their own VMs NOT verified."
+    },
+    "flaky_tests": {
+      "status": "ok",
+      "note": "pytest-run on main: newest failure 2026-10-08T04:31Z (before #17230 merged 2026-10-09 09:17Z); filtered query status=failure; tests/test_phone_executor.py 46 passed locally."
+    }
+  },
+  "security_check": {
+    "status": "watch",
+    "sources_checked": [
+      "interaction: orphan_events log",
+      "accounts/balances reachability"
+    ],
+    "signals": [],
+    "note": "COULD NOT LOOK at GitHub secret scanning (tool schema requires a files list, not a repo scan), external actors, VM auth log. Not a clean bill; no breach signal seen in what was read."
+  },
+  "soak_decisions_due": [],
+  "new_work_compliance": {
+    "prs_audited": 0,
+    "commits_audited": 0,
+    "findings": [],
+    "note": "SCOPED: audited only the 9 NO-HALT PRs + #17281/#17282 by their commit messages' tier labels (HELD) - not a full window sweep. Not done: full delta since 2026-10-04."
+  },
+  "compliance_audit": {
+    "section": "not run",
+    "artifacts_scanned": 0,
+    "findings": [],
+    "note": "Friday rotation (src/units/accounts) and tp-doctrine measurement NOT run this session (budget)."
+  },
+  "orphan_events": "orphan_events.jsonl: 61 lines, 0 with ts >= 2026-10-04 (probe shown to read: file present, newest line 2026-06 era).",
+  "broker_reachability": "api_ok true: alpaca_live, alpaca_paper, alpaca_portfolio, alpaca_options_paper, bybit_1, bybit_2, bybit_portfolio, ib_paper, oanda_practice. api_ok false: ib_live (shelved), breakout_1 (retired), breakout_2/tradeify_1/velotrade_1 (browser/prop, known API-ERROR, PI-20261004-APBY4NTV-0002). balances as_of 19:00:34Z.",
+  "anomalies": [
+    "watchdog+reset timers on the gateway VM restart on every deploy (13x in 4.5h) - harmless since #17105 but noisy",
+    "branch-protection-sync failed 8x and work-digest 19x on main today - work-digest shares the 50 min wait (covered by the 80 min stopgap); branch-protection-sync NOT investigated"
+  ],
+  "backlog_drain": [
+    {
+      "id": "IB-GATEWAY-DOWN",
+      "disposition": "resolved",
+      "note": "checklist done; evidence above"
+    },
+    {
+      "id": "PI-20261008-APBY4NTV-0003",
+      "disposition": "fixed-now(pending merge)",
+      "note": "stale-run guard in PR; item updated, stays routed until merged"
+    },
+    {
+      "id": "RQ-COLLECTOR",
+      "disposition": "kept-open",
+      "note": "collector fixed; landing wait stopgap in PR; PI-...VQIPJE2H-0002"
+    },
+    {
+      "id": "DAILY-DD-SWITCH",
+      "disposition": "kept-open",
+      "note": "root-caused; PI-20261009-VQIPJE2H-0001; operator approval for Tier-3 fix"
+    }
+  ],
+  "backlog_coverage": {
+    "sources": [
+      "pipeline",
+      "checklist"
+    ],
+    "pipeline_due_total": 76,
+    "pipeline_unrouted_total": 0,
+    "open_at_start": 76,
+    "triaged": 4,
+    "resolved": 1,
+    "fixed_now": 1,
+    "closed_stale": 0,
+    "kept_open": 2,
+    "count_untriaged": 72,
+    "note": "GATE NOT MET and stated: only the 4 items the manager named were driven to a disposition. The other 72 due items are all routed to an owner row (0 unrouted per pipeline.py --stats) and were not re-validated this run (budget ceiling \$12). A later review or the manager must walk them."
+  },
+  "sprint_doc_review": [],
+  "recommended_action": "Manager: merge PR claude/health-review-w41 (hold, landing machinery). Operator: approve/decline the Tier-3 per-tick daily-DD observe (PI-20261009-VQIPJE2H-0001).",
+  "operator_attention_required": true,
+  "claude_channel_ping": {
+    "sent": false,
+    "note": "not sent from this lane (no send-ping dispatched)"
+  }
+}

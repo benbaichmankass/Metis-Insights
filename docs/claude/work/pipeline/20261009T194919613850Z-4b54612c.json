@@ -1,0 +1,17 @@
+{
+  "based_on": "20261009T075107135405Z-94abfe53.json",
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261008-APBY4NTV-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv, overnight 2026-10-08 (PR #17038, lane DXTRADE-PROBE-ACCOUNT)",
+    "rerun": "gh api repos/benbaichmankass/Metis-Insights/issues/17038/timeline --jq '.[]|select(.event==\"merged\" or .event==\"auto_merge_disabled\")|\"\\(.event) \\(.actor.login) \\(.created_at)\"' ; git show eb1f11a01 --stat -- .github/ ; grep -n 'pulls.merge' .github/workflows/claude-pr-automerge.yml"
+  },
+  "routed_to": "AUTOMERGE-GAPS | health-review W41 fix PR claude/health-review-w41 (manager merges)",
+  "state": "routed",
+  "what": "AUTOMERGE RELAY MERGED A PR WHOSE OWN DECLARATION SAID HOLD. #17038 (claude/dxtrade-probe-account): at 01:35Z the manager switched .github/pr-landing/dxtrade-probe-account.json to landing: hold (hold_reason unvouchable_paths, pr-landing R5), DELETED .github/pr-automerge-requests/dxtrade-probe-account.txt in the same commit (eb1f11a01) and disabled GitHub auto-merge (timeline: auto_merge_disabled 01:35:59Z). At 02:25:11Z github-actions[bot] merged it anyway (timeline: merged), with no auto_merge_enabled event in between and no claude-pr-automerge run on that branch after 01:35Z (runs 02:13-02:21Z were on other branches), so the merge came from the relay's land step (pulls.merge, claude-pr-automerge.yml ~line 646) sweeping a PR whose request file was absent at head and whose declaration read hold. Tier-1 content, no harm this time; the gate '2b. THE LANDING GATE - never arm a PR whose own declaration says hold' did not hold for the SWEEP path. Lane task (Tier-1 self-land): root-cause which run merged it (search run logs for 17038), make the land sweep re-read the head's declaration + request file before pulls.merge, add a self-test. || [2026-10-09 health-review W41] ROOT CAUSE MEASURED (job log of run 37710372952, job 113094653735): the run was QUEUED 00:56:36Z->01:45:01Z; it had been triggered by push 42648cc (landing 'self'), but by 01:45 the PR head was eb1f11a (hold) and the manager had disabled auto-merge at 01:35Z. The stale run read the request file and landing declaration at ITS OWN context.sha, passed every gate ('landing gate: self', 'arming gate: attached') and called enablePullRequestAutoMerge at 01:45:15Z ('auto-merge enabled on #17038'); GitHub then merged at 02:25:11Z as github-actions[bot]. #17124 (pulls.merge pre-merge re-read) closed only the poll-merge fallback; the NATIVE arm path stayed open. Fix: stale-run guard (pulls.get head.sha must equal context.sha, else do nothing) in PR claude/health-review-w41, with 2 tests (the stale-run one fails without the fix). Tier-1 landing machinery, landing: hold -- manager merges. Closes when the PR is merged and a queued-run race is no longer reproducible."
+}
