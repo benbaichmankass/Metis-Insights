@@ -1,0 +1,6 @@
+{
+  "held_by": "session_016wNjQSovXrhDpd72xUjx8U",
+  "branch": "claude/no-halt-risk-caps",
+  "claimed_at": "2026-10-09T13:06:33Z",
+  "purpose": "NO-HALT: remove RiskManager account-wide daily-loss / intraday-drawdown stop (Tier-3, operator decision 2026-10-09)"
+}
