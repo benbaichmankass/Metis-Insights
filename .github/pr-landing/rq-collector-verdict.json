@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research-tooling collector only (scripts/research/collect_runner_results.py): a cancelled run whose E5 record is already on main no longer reads as a lost run; API failures read as unreadable (warn), not lost. No order path, config or runtime change."
+}

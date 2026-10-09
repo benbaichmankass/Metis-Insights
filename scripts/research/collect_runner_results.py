@@ -21,13 +21,24 @@ schema), and the dispatcher lands the whole batch with a SINGLE
 wait per cycle.
 
 WHAT IS AND IS NOT LANDED, stated rather than assumed:
-  * a run whose `comms/research/<unit>/<run_id>/run-manifest.json` is already
-    in the checkout is skipped (landed by an earlier cycle, or by the old
-    per-run `land` job for runs dispatched before this change);
+  * a run whose `comms/research/<unit>/<run_id>/run-manifest.json` OR whose
+    E5 record `research/results/<unit>/<run_id>.jsonl` is already in the
+    checkout is skipped (landed by an earlier cycle, or by the old per-run
+    `land` job). The record test matters: a CANCELLED / timed-out run never
+    writes a run-manifest, so keying on the manifest alone re-collected such a
+    run every cycle, `gh run download` refused the non-empty directory ("file
+    exists"), and that was reported as a LOST run -- on every cycle since
+    2026-10-07 (RQ-COLLECTOR, run 37283785325), although its record was on main;
   * a run whose artifact carries no `record-inputs.json` is an OLD-STYLE run
     (dispatched before this change): it landed itself, skipped;
-  * a run whose artifact has expired or is missing is reported by id as
-    `lost` -- it is not silently dropped, and it is not fabricated either;
+  * a run whose artifact has expired, whose record-inputs.json is unreadable or
+    whose record is refused is reported by id as `lost` -- rows that cost runner
+    minutes are gone or cannot land; not silently dropped, not fabricated;
+  * an API failure (run list / artifact listing / download) is `unreadable`, NOT
+    `lost`: we could not look, nothing is claimed, the next cycle retries. It
+    warns but does not fail the cycle; a run list that fails outright is
+    `read_error`, which still does;
+  * nothing to collect (every run already landed or not a unit run) is success;
   * a run with `conclusion != success` still lands (its manifest, logs and a
     `producer_failed` record), exactly as the old `land` job did.
 
@@ -88,8 +99,21 @@ def run_artifacts(repo_slug: str, run_id: int) -> Optional[List[Dict[str, Any]]]
 
 
 def download(run_id: int, name: str, dest: Path) -> bool:
-    dest.mkdir(parents=True, exist_ok=True)
-    return _gh(["run", "download", str(run_id), "-n", name, "-D", str(dest)], timeout=600) is not None
+    """Download into a scratch dir and merge, because `gh run download -D <dir>` refuses
+    to extract over an existing file -- a half-landed directory must not read as a failure."""
+    import shutil
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        if _gh(["run", "download", str(run_id), "-n", name, "-D", td], timeout=600) is None:
+            return False
+        dest.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(td, dest, dirs_exist_ok=True)
+    return True
+
+
+def already_landed(root: Path, unit: str, run_id: int) -> bool:
+    return ((root / "comms" / "research" / unit / str(run_id) / "run-manifest.json").exists()
+            or (root / "research" / "results" / unit / f"{run_id}.jsonl").exists())
 
 
 def emit_record(root: Path, rec: Dict[str, Any], *, run: Dict[str, Any], repo_slug: str) -> Optional[str]:
@@ -130,8 +154,8 @@ def emit_record(root: Path, rec: Dict[str, Any], *, run: Dict[str, Any], repo_sl
 
 def collect(root: Path, *, repo_slug: str, runs: Optional[List[Dict[str, Any]]] = None,
             artifacts_for=run_artifacts, downloader=download, dry_run: bool = False) -> Dict[str, Any]:
-    """The batch: {landed:[{unit,run_id,record,min_rows}], skipped:[...], lost:[...], read_error}."""
-    out: Dict[str, Any] = {"landed": [], "skipped": [], "lost": [], "read_error": None}
+    """The batch: {landed, skipped, lost, unreadable, read_error}."""
+    out: Dict[str, Any] = {"landed": [], "skipped": [], "lost": [], "unreadable": [], "read_error": None}
     if runs is None:
         runs = completed_runs()
     if runs is None:
@@ -141,7 +165,7 @@ def collect(root: Path, *, repo_slug: str, runs: Optional[List[Dict[str, Any]]] 
         run_id = int(run["databaseId"])
         arts = artifacts_for(repo_slug, run_id)
         if arts is None:
-            out["lost"].append({"run_id": run_id, "why": "artifact listing failed"})
+            out["unreadable"].append({"run_id": run_id, "why": "artifact listing failed (API); retried next cycle"})
             continue
         hit = None
         for a in arts:
@@ -154,7 +178,7 @@ def collect(root: Path, *, repo_slug: str, runs: Optional[List[Dict[str, Any]]] 
             continue
         art, unit = hit
         dest = root / "comms" / "research" / unit / str(run_id)
-        if (dest / "run-manifest.json").exists():
+        if already_landed(root, unit, run_id):
             out["skipped"].append({"run_id": run_id, "unit": unit, "why": "already on main"})
             continue
         if art.get("expired"):
@@ -164,7 +188,7 @@ def collect(root: Path, *, repo_slug: str, runs: Optional[List[Dict[str, Any]]] 
             out["landed"].append({"unit": unit, "run_id": run_id, "record": None, "dry_run": True})
             continue
         if not downloader(run_id, str(art["name"]), dest):
-            out["lost"].append({"run_id": run_id, "unit": unit, "why": "artifact download failed"})
+            out["unreadable"].append({"run_id": run_id, "unit": unit, "why": "artifact download failed (API); retried next cycle"})
             continue
         rec_path = dest / RECORD_INPUTS
         if not rec_path.exists():
@@ -245,8 +269,31 @@ def _self_test() -> int:
             if not _gh(["--version"]) else True
         # dry run touches nothing
         (root / "comms/research/RQ-20300101-003").rename(root / "comms/research/RQ-20300101-003.bak")
+        (root / "research/results/RQ-20300101-003").rename(root / "research/results/RQ-20300101-003.bak")
         res3 = collect(root, repo_slug="o/r", runs=runs, artifacts_for=arts, downloader=fake_download, dry_run=True)
         assert any(x["run_id"] == 3 and x["dry_run"] for x in res3["landed"]) and not (root / "comms/research/RQ-20300101-003").exists()
+        # the three verdicts, planted (RQ-COLLECTOR). A CANCELLED run: record on main, NO run-manifest,
+        # a non-empty directory -> already landed, never "lost" (the bug that read red every cycle).
+        (root / "comms/research/RQ-20300101-006/6").mkdir(parents=True)
+        (root / "comms/research/RQ-20300101-006/6/record-inputs.json").write_text("{}")
+        (root / "research/results/RQ-20300101-006").mkdir(parents=True)
+        (root / "research/results/RQ-20300101-006/6.jsonl").write_text("{}\n")
+        runs2 = [{"databaseId": i, "conclusion": "cancelled", "headSha": "abc", "url": f"u{i}"} for i in (6, 7, 8, 9)]
+
+        def arts2(_slug, run_id):
+            if run_id == 7:
+                return None                                            # API failure listing artifacts
+            unit = f"RQ-20300101-00{run_id}"
+            return [{"name": f"research-script-run-{unit}-{run_id}", "expired": run_id == 9}]
+
+        res4 = collect(root, repo_slug="o/r", runs=runs2, artifacts_for=arts2, downloader=lambda *a: False)
+        assert [x["run_id"] for x in res4["skipped"]] == [6], res4        # nothing-to-collect: landed already
+        assert [x["run_id"] for x in res4["unreadable"]] == [7, 8], res4  # could-not-list / could-not-download
+        assert [x["run_id"] for x in res4["lost"]] == [9], res4           # lost: expired before any cycle took it
+        assert res4["landed"] == [] and res4["read_error"] is None, res4
+        # nothing to collect at all is a clean cycle
+        res5 = collect(root, repo_slug="o/r", runs=runs2[:1], artifacts_for=arts2, downloader=lambda *a: False)
+        assert not (res5["lost"] or res5["unreadable"] or res5["read_error"] or res5["landed"]), res5
     print("collect_runner_results self-test OK")
     return 0
 
@@ -273,11 +320,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"  landed  {x['unit']:<18} run {x['run_id']}  {x.get('record') or '(dry run)'}")
     for x in res["lost"]:
         print(f"  LOST    {x.get('unit', '?'):<18} run {x['run_id']}  {x['why']}")
+    for x in res["unreadable"]:
+        print(f"::warning::collect_runner_results: could not read run {x['run_id']} ({x['why']}) -- not lost")
     gh_out = os.environ.get("GITHUB_OUTPUT")
     if gh_out:
         with open(gh_out, "a", encoding="utf-8") as fh:
-            fh.write(f"count={len(res['landed'])}\nlost={len(res['lost'])}\n")
-    # A lost run is a red cycle: rows that cost runner minutes must never vanish silently.
+            fh.write(f"count={len(res['landed'])}\nlost={len(res['lost'])}\nunreadable={len(res['unreadable'])}\n")
+    # A lost run (or an unreadable run list) is a red cycle; a single API hiccup is a warning: rows that cost runner minutes must never vanish silently.
     return 1 if res["lost"] or res["read_error"] else 0
 
 

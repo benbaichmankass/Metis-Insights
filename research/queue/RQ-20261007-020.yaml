@@ -1,7 +1,7 @@
 id: RQ-20261007-020
 title: 'Exit parity, prop real money: trend_donchian_eth_prop WITHOUT the stale_exit close lever the prop path
   cannot fire (vs the 2026-10-05-730d record WITH it) -- build the close op, or strip the lever?'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -166,7 +166,7 @@ grading:
   first_fail: 1 row(s), all measured, all fail
   graded_at: '2026-10-08'
   grader: scripts/research/queue_grade.py
-  note: 'first FAIL: re-queued for a confirmatory run (last_dispatched_at reset), not killed'
+  note: two consecutive FAIL passes; closed as fail (never on one pass)
   reason: 1 row(s), all measured, all fail
   rows: 1
   verdict: fail

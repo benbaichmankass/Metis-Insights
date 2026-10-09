@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Real-money prop order path (src/prop/prop_executor.py runs ict-prop-executor@<acct> and clicks cancel on the venue; src/prop/breakout_executor.py is the ticket emission path). The operator APPROVED the exact rule on 2026-10-08 ~20:03Z in a popup relayed by the manager (session_01Uq7MrjPQDRWqbhCjwuMava), verbatim answer: \"Approve as proposed (Recommended)\"; the proposal is the TIER-3 PROPOSAL text in pipeline item PI-20261008-3QRUJSYR-0001. Lane PROP-SUPERSEDE builds exactly that rule and does not merge: the manager merges.",
+  "why": "PROP-SUPERSEDE: a newer same (account, strategy, symbol, direction) signal supersedes a resting, unfilled `placed` entry: the executor cancels it (the #17158/#17167 cancel path), confirms it gone on a re-read, reports the old ticket `skipped: superseded by <new id>`, and only then releases the new ticket (rebuilt with prop_ticket_reissue.rebuild_fields) into normal intake. A position, a possible partial fill, an unreadable read, or any doubt keeps the 2026-09-29 block (fail closed)."
+}
