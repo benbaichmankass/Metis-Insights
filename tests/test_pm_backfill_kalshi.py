@@ -4,7 +4,7 @@ import os
 import sys
 import urllib.error
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts", "macro"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts", "research"))
 import pm_backfill_kalshi as bf  # noqa: E402
 
 CFG = {"kalshi": {"base_url": "https://k.test", "series": {"KXCPI": "cpi"}},

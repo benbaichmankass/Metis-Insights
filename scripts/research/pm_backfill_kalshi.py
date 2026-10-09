@@ -2,7 +2,7 @@
 """PM-BACKFILL — one-shot, point-in-time Kalshi history for settled release markets.
 
 Feeds RQ-20261009-903 (PM-SURPRISE-EVAL). For each settled market in the series listed in
-config/pm_markets.yaml ``backfill.series`` it fetches HOURLY bid/ask candlesticks over the window
+config/pm_markets.yaml ``kalshi.series`` (release series only, see DEFAULT_SERIES) it fetches HOURLY bid/ask candlesticks over the window
 [close - window_hours_before_close, close + 1h] and APPENDS one JSON line per candle to
 <data_dir>/pm_backfill/kalshi/<series>.jsonl (off-repo; third-party terms unread, operator 2026-10-08).
 
@@ -30,11 +30,14 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 import yaml
 
-import pm_snapshot_collect as pmc  # same-dir reuse: http_get_json, content_hash, _f, CONFIG
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "macro"))
+import pm_snapshot_collect as pmc  # noqa: E402  reuse: http_get_json, content_hash, _f, CONFIG
 
 REPO = pmc.REPO
 data_dir = pmc.data_dir
 Fetch = Callable[[str], Any]
+DEFAULT_SERIES = ["KXCPI", "KXPAYROLLS", "KXFEDDECISION"]
+DEFAULTS = {"window_hours_before_close": 168, "period_minutes": 60, "min_seconds_between_calls": 2.5}
 
 
 class Limiter:
@@ -144,7 +147,7 @@ def _append(path: Path, rows: List[Dict[str, Any]]) -> None:
 
 def backfill_series(cfg: Dict[str, Any], series: str, fetch: Fetch, out_dir: Path, limiter: Limiter,
                     dry_run: bool = False, max_markets: Optional[int] = None, now: Optional[str] = None) -> Dict[str, Any]:
-    base, bf = cfg["kalshi"]["base_url"], cfg.get("backfill", {})
+    base, bf = cfg["kalshi"]["base_url"], {**DEFAULTS, **cfg.get("backfill", {})}
     hours, period = int(bf.get("window_hours_before_close", 168)), int(bf.get("period_minutes", 60))
     topic = cfg["kalshi"]["series"].get(series, series)
     now = now or _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -185,16 +188,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--config", type=Path, default=pmc.CONFIG)
     ap.add_argument("--out-dir", type=Path, default=None, help="default: <data_dir>/pm_backfill/kalshi")
-    ap.add_argument("--series", nargs="*", default=None, help="default: backfill.series from the config")
+    ap.add_argument("--series", nargs="*", default=None, help="default: DEFAULT_SERIES")
     ap.add_argument("--max-markets", type=int, default=None, help="cap markets per series (smoke test)")
     ap.add_argument("--dry-run", action="store_true", help="list markets, print candle URLs; write nothing")
     a = ap.parse_args(argv)
     cfg = yaml.safe_load(a.config.read_text())
     out_dir = a.out_dir or (data_dir() / "pm_backfill" / "kalshi")
-    gap = float(cfg.get("backfill", {}).get("min_seconds_between_calls", 2.5))
+    gap = float({**DEFAULTS, **cfg.get("backfill", {})}["min_seconds_between_calls"])
     limiter = Limiter(max(gap, 2.5))
     rc = 0
-    for s in a.series or cfg["backfill"]["series"]:
+    for s in a.series or cfg.get("backfill", {}).get("series") or DEFAULT_SERIES:
         st = backfill_series(cfg, s, pmc.http_get_json, out_dir, limiter, a.dry_run, a.max_markets)
         print(json.dumps(st, sort_keys=True))
         rc = rc or (1 if st["failed_markets"] else 0)

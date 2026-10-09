@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "One-shot offline research script (scripts/macro/pm_backfill_kalshi.py) + tests + a gitignore line + a backfill: block in config/pm_markets.yaml that the live collector ignores. Writes only to the trainer's off-repo data dir; no timer, service, order path, strategy config or risk cap."
+  "why": "One-shot offline research script (scripts/research/pm_backfill_kalshi.py) + tests + a gitignore line. Writes only to the trainer's off-repo data dir; no timer, service, order path, strategy config or risk cap."
 }
