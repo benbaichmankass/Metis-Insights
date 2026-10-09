@@ -1,0 +1,18 @@
+{
+  "based_on": "20261009T092928113987Z-b18a7f19.json",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "tradeify_1 AND velotrade_1 feed rows carry a non-null realized_today and rule_distance.day_pnl_state == 'measured'",
+    "kind": "observation",
+    "last_checked": "2026-10-09"
+  },
+  "id": "PI-20260928-4UNXYJIA-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane W6-PROP-FEED session_016Np9Ac9hgbbV4g4UnXYjia 2026-09-28 (manager session_01KAQRJxRbRwpYTkPgBjNVyQ)",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=tradeify_1' and '...?account_id=velotrade_1'; read status.realized_today and rule_distance.day_pnl_state (want non-null / 'measured'); or the vm-diag relay journalctl?unit=ict-prop-feed@tradeify_1 and grep 'account_unparsed'"
+  },
+  "state": "queued",
+  "what": "breakout_1 feed snapshots post realized_today=null. Every scheduled tick of ict-prop-feed prints 'account_unparsed: realized_today': the terminal's 'Day RPL' (ACCOUNT_LABELS['realized_today'], src/prop/platform/dxtrade.py) does not parse from the page. MEASURED 2026-09-28 09:01-09:17Z (diag issue #13545; prop_account_status ids 22-26). Each feed row becomes the latest status, so compute_rule_distance reports day_pnl_state='realized_unreported' and distance_to_daily_loss=None. The daily-loss cushion on the operator's panel therefore goes from 'measured' (the manual report, id 21) to unknown ('—'). That is honest, not fabricated, but it loses information on an account-killer limit. Fix: get the real label/structure of the Day RPL metric (a breakout-login-check run's --dump-dir page_text on the VM, or the structure dump) and fix the selector; never default it to 0.\n\n[REOPENED 2026-10-09, lane PROP-B2-STARVED session_01A6NKNDcUQops3UsF8VAcZL (manager session_01Uq7MrjPQDRWqbhCjwuMava) 2026-10-09] RE-TARGETED to tradeify_1 (platform dxtrade, browser flow: the SAME DXtradeAdapter ACCOUNT_LABELS['realized_today'] selector) and velotrade_1 (dxtrade_api). breakout_1 is retired; this item is about the DXtrade feed, not that account. MEASURED 2026-10-09 ~13:10Z via GET /api/bot/prop/status: tradeify_1 status_freshness ok, as_of 13:03:23Z, realized_today None, rule_distance.day_pnl_state 'realized_unreported'; velotrade_1 status_freshness ok, as_of 13:03:05Z, realized_today None, day_pnl_state 'unreported'. So the daily-loss cushion is unknown on both live DXtrade evals."
+}
