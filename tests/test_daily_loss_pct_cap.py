@@ -6,13 +6,15 @@ every signal and then size-refused all day. ``daily_loss_pct`` makes the
 daily-loss budget ``daily_loss_pct × equity`` when set, falling back to
 the absolute ``daily_usd`` only when no equity figure is available.
 
+2026-10-09 (operator directive, rule 7 exception): the always-on
+DAILY_LOSS_CAP refusal and the daily-loss sizing clamp were folded into the
+account-level ``daily_dd_switch`` (tests/test_daily_dd_switch.py). The
+figure below is now REPORTED only (``report()``), never a refusal.
+
 Pins:
-1. percentage cap scales with equity (5% of 274k ≈ 13.7k, not $100);
-2. a small daily loss no longer zeroes the size on a large account;
-3. exhaustion is computed against the percentage cap;
-4. absent ``daily_loss_pct`` → the absolute ``daily_usd`` is unchanged
-   (prop-account behaviour preserved);
-5. no equity available → falls back to the absolute floor.
+1. the reported figure scales with equity (5% of 274k ≈ 13.7k, not $100);
+2. no equity available → the absolute ``daily_usd`` floor;
+3. a day past the figure neither refuses nor zeroes size.
 """
 from __future__ import annotations
 
@@ -73,41 +75,32 @@ def test_small_loss_does_not_zero_size_on_large_balance():
     assert qty > 0.0, "5%-of-equity cap should leave ample budget at -$100"
 
 
-def test_pct_cap_still_zeroes_when_truly_exhausted():
+def test_spent_daily_budget_no_longer_zeroes_size():
+    """2026-10-09: the S-026 G3 daily-loss sizing clamp is REMOVED — at zero
+    budget it was an always-on daily off switch spelled as sizing. The
+    account-level ``daily_dd_switch`` is now the only daily off (operator)."""
     rm = _rm(daily_loss_pct=0.05)
-    rm.daily_pnl = -13_700.0  # exactly 5% of 274k → budget == 0
+    rm.daily_pnl = -13_700.0  # exactly 5% of 274k → old budget == 0
     qty = rm.position_size(
         _pkg(), 274_000.0, market_type="linear", total_account_usd=274_000.0,
     )
-    assert qty == 0.0
+    assert qty > 0.0
 
 
-def test_is_daily_cap_exhausted_uses_percentage():
-    rm = _rm(daily_loss_pct=0.05)
-    rm.daily_pnl = -100.0
-    assert rm.is_daily_cap_exhausted(274_000.0) is False
-    rm.daily_pnl = -20_000.0
-    assert rm.is_daily_cap_exhausted(274_000.0) is True
-
-
-def test_evaluate_daily_loss_cap_uses_percentage():
+def test_daily_loss_figure_is_reported_not_refused():
+    """``daily_loss_pct`` / ``daily_usd`` remain REPORTED figures only: a day
+    past them no longer refuses (DAILY_LOSS_CAP was folded into the switch)."""
     rm = _rm(daily_loss_pct=0.05)
     rm.current_equity = 274_000.0
-    rm.daily_pnl = -100.0
-    ok, reason = rm.evaluate(_pkg())
-    assert ok, reason  # -100 is well within 5% of 274k
     rm.daily_pnl = -20_000.0
-    ok, reason = rm.evaluate(_pkg())
-    assert not ok and reason == "DAILY_LOSS_CAP"
+    assert rm.evaluate(_pkg()) == (True, None)
+    assert rm.effective_daily_loss_usd(274_000.0) == 0.05 * 274_000.0
+    assert not hasattr(rm, "is_daily_cap_exhausted")
 
 
-def test_prop_style_absolute_cap_unchanged():
-    """Account with no daily_loss_pct (the prop profile) keeps the
-    absolute USD cap exactly as before."""
+def test_absolute_figure_is_reported_not_refused():
     rm = _rm(daily_usd=50, daily_loss_pct=0.0)
     rm.daily_pnl = -60.0
-    # -60 below a -50 absolute cap → exhausted regardless of equity.
-    assert rm.is_daily_cap_exhausted(100_000.0) is True
     rm.current_equity = 100_000.0
-    ok, reason = rm.evaluate(_pkg())
-    assert not ok and reason == "DAILY_LOSS_CAP"
+    assert rm.effective_daily_loss_usd(100_000.0) == 50.0
+    assert rm.evaluate(_pkg()) == (True, None)

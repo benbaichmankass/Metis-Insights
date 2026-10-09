@@ -222,17 +222,22 @@ class TestRiskManagerEvaluateReasons:
         assert ok is True
         assert reason is None
 
-    def test_evaluate_daily_loss_cap_uses_DAILY_LOSS_CAP_token(self):
-        """``DAILY_LOSS_CAP`` is referenced as a literal in
-        ``tests/test_packages_command.py`` and ``processor.format_packages``;
-        if the token drifts, the rejection-renderer breaks silently."""
+    def test_evaluate_daily_dd_switch_uses_DAILY_DD_SWITCH_token(self):
+        """2026-10-09: DAILY_LOSS_CAP / INTRADAY_DRAWDOWN were folded into the
+        account-level daily-DD switch; its refusal token is the canonical
+        one ``execute_pkg`` writes through to the trade journal. (The old
+        tokens stay renderable for historical journal rows.)"""
         rm = RiskManager(
-            {"max_dd_pct": 0.05, "daily_usd": 100.0, "pos_size": 500.0}
+            {"max_dd_pct": 0.05, "daily_usd": 100.0,
+             "daily_dd_switch": {"armed": True, "limit_pct": 0.03}},
+            account_id="s043_dd",
         )
-        rm.daily_pnl = -150.0  # past the daily loss cap
+        rm.note_live_equity(10_000.0)
+        assert rm.evaluate(_pkg(estimated_value=100.0)) == (True, None)
+        rm.note_live_equity(9_690.0)  # 3.1 % below the day start
         ok, reason = rm.evaluate(_pkg(estimated_value=100.0))
         assert ok is False
-        assert reason == "DAILY_LOSS_CAP"
+        assert reason == "DAILY_DD_SWITCH"
 
     def test_evaluate_large_estimated_value_no_longer_caps(self):
         """(Removed 2026-06-24) The ``POSITION_SIZE_CAP`` reason token is gone
@@ -245,18 +250,6 @@ class TestRiskManagerEvaluateReasons:
         ok, reason = rm.evaluate(_pkg(estimated_value=600.0))
         assert ok is True
         assert reason is None
-
-    def test_evaluate_intraday_drawdown_uses_INTRADAY_DRAWDOWN_token(self):
-        """The drawdown reason token is the third canonical one;
-        ``execute_pkg`` writes it through to the trade journal."""
-        rm = RiskManager(
-            {"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0}
-        )
-        rm.update_equity(10_000.0)
-        rm.update_equity(9_500.0)  # exactly 5 % drawdown — at cap
-        ok, reason = rm.evaluate(_pkg(estimated_value=100.0))
-        assert ok is False
-        assert reason == "INTRADAY_DRAWDOWN"
 
     def test_evaluate_with_no_estimated_value_skips_position_size_check(self):
         """When meta omits ``estimated_value``, the position-size check

@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Risk-gate change on the live order path (src/units/accounts/risk.py, prop_risk.py, src/core/coordinator.py, config/accounts.yaml). The manager merges under the operator's directive of 2026-10-09, verbatim (docs/CLAUDE-RULES-CANONICAL.md rule 7): \"That's the only place I want there to be like a automatic off switch ... But that should be a default off. We'll arm all of them\". This PR builds the switch with every account armed: false; arming is PR 2 (branch claude/daily-dd-arm). NOTE FOR THE MERGER: this PR also retires the always-on DAILY_LOSS_CAP / INTRADAY_DRAWDOWN refusals and the daily-loss sizing clamp (folded into the switch per \"the only place\"), so between merging PR 1 and PR 2 no account has a RiskManager-level daily-loss off. Merge PR 2 straight after PR 1 to avoid that window.",
+  "why": "Checklist row DAILY-DD-SWITCH. Adds src/units/accounts/daily_dd_switch.py: when armed and today's equity drawdown from the day start reaches the limit (non-prop 3% of day-start equity, UTC reset; prop 0.8 x the firm's daily limit at the firm's reset time), NEW entries are refused with DAILY_DD_SWITCH until the reset; reduce-only orders pass; one alert on trip, one on reset, one red flag after 3 consecutive unreadable checks. Surfaced on /api/bot/config accounts[].daily_dd_switch. Revert = git revert of this PR (restores the old caps; the state file runtime_logs/daily_dd_switch_state.json is inert without the code)."
+}
