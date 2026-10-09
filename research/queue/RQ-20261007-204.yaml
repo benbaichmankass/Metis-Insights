@@ -1,7 +1,7 @@
 id: RQ-20261007-204
 title: 'Velotrade Classic 1-Step $5k prop fit with PACE: trend_donchian 1h on FILUSDT at flat 0.5% / 1.0% of balance, days-to-target
   reported (PI-20261006-APBY4NTV-0001 batch 2)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 1
@@ -126,8 +126,6 @@ lands:
   store: research/results/
   assert_field: read_state
   min_rows: 1
-grading:
-  auto: true
 related:
 - PI-20261006-APBY4NTV-0001
 - RQ-20261001-024
@@ -137,3 +135,13 @@ related:
 - docs/integrations/breakout-instruments-2026-09-27.md
 - scripts/research/p2_breakout_symbol_screen.py
 last_dispatched_at: '2026-10-08T22:03:35+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-RQ1007-204-VELO-FIT-p2_trend_filusdt
+  evidence:
+  - research/results/RQ-20261007-204/37851039508.jsonl
+  graded_at: '2026-10-09'
+  grader: scripts/research/queue_grade.py
+  reason: 1 row(s), all measured, all pass
+  rows: 1
+  verdict: pass
