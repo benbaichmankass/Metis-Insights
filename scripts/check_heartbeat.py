@@ -19,6 +19,16 @@ operator trusts the alert path. The autoheal action sends its own
 Telegram ping with the systemctl exit code so the operator sees the
 recovery attempt regardless of whether it succeeded.
 
+NO-HALT (operator directive 2026-10-09: "There is no halting."): the
+autoheal never gives up. Until then it went EXHAUSTED after
+``--max-restarts`` and stopped restarting for the rest of the stall. Now,
+past that bound, it raises ONE ``[RED FLAG]`` ping for the episode and keeps
+restarting with the gap doubling from ``--cooldown-min`` up to
+``--max-backoff-min``; per-restart pings past the red flag go to the journal
+only, and one recovery line is sent when the heartbeat is fresh again. A
+legacy ``autoheal_exhausted_alerted`` latch in the state file is ignored and
+removed on load with a log line.
+
 Stdlib-only: no requests, no anthropic SDK, no internal src.* imports
 beyond ``src.runtime.notify`` (also stdlib-only). This means the
 watchdog keeps working even if the bot's own venv is wedged.
@@ -325,18 +335,70 @@ def render_autoheal_alert(
     )
 
 
-def render_autoheal_exhausted(
-    unit: str, max_restarts: int, stale_count: int, age_s: Optional[float]
+def render_autoheal_red_flag(
+    unit: str,
+    max_restarts: int,
+    stale_count: int,
+    age_s: Optional[float],
+    next_backoff_s: float,
+    max_backoff_s: float,
 ) -> str:
+    """The ONE red flag per stall episode (NO-HALT, operator 2026-10-09).
+
+    Sent once when the stall outlasts the old ``--max-restarts`` bound. The
+    watchdog does NOT stop: it keeps restarting on a capped backoff, and the
+    per-restart pings are folded into the journal until the heartbeat
+    recovers (one recovery line then rides the "[OK] recovered" ping).
+    """
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     age_min = int(age_s // 60) if age_s else 0
     return (
-        f"[CRITICAL] Autoheal EXHAUSTED ({ts})\n"
+        f"[RED FLAG] Autoheal has not recovered the trader ({ts})\n"
         f"Unit: {unit}. {max_restarts} restarts did not keep the trader "
         f"heartbeating (stale {age_min}m, {stale_count} consecutive checks).\n"
-        f"Watchdog is now alert-only for this episode — manual intervention "
-        f"required (the trader will not stay up)."
+        f"The watchdog KEEPS restarting (no halt): next attempt in "
+        f"~{int(next_backoff_s // 60)}m, backoff doubling up to "
+        f"{int(max_backoff_s // 60)}m between attempts. Per-restart pings are "
+        f"suppressed until recovery — someone needs to look at why the trader "
+        f"will not stay up."
     )
+
+
+def autoheal_backoff_s(
+    attempts: int, max_restarts: int, cooldown_s: float, max_backoff_s: float
+) -> float:
+    """Seconds to wait after the latest restart before the next one.
+
+    Within the old ``--max-restarts`` bound the gap is the plain cooldown
+    (unchanged behaviour). Past it the gap doubles per further attempt and is
+    CAPPED at ``max_backoff_s`` — the watchdog never stops trying, it only
+    slows down (NO-HALT, operator directive 2026-10-09).
+    """
+    if attempts < max(1, max_restarts):
+        return cooldown_s
+    exponent = min(attempts - max(1, max_restarts) + 1, 32)
+    cap = max(max_backoff_s, cooldown_s)
+    return min(cooldown_s * (2 ** exponent), cap)
+
+
+def clear_legacy_exhausted_latch(state: Dict[str, Any]) -> Dict[str, Any]:
+    """Drop the pre-2026-10-09 ``autoheal_exhausted_alerted`` latch.
+
+    The old code stopped restarting once that latch was set; it is ignored and
+    removed now. If it was set the operator already received the old
+    EXHAUSTED ping for this episode, so it is carried over as the red flag
+    having been raised (no duplicate page). Mutates and returns ``state``.
+    """
+    if "autoheal_exhausted_alerted" in state:
+        was = bool(state.pop("autoheal_exhausted_alerted"))
+        print(
+            "[no-halt] ignoring legacy autoheal_exhausted_alerted="
+            f"{was} latch in state file; restarts continue on a capped "
+            "backoff (operator directive 2026-10-09: there is no halting)"
+        )
+        if was:
+            state["autoheal_red_flag_alerted"] = True
+    return state
 
 
 def decide_autoheal(
@@ -349,15 +411,23 @@ def decide_autoheal(
     now: float,
     seconds_since_active: Optional[float],
     startup_grace_s: float,
+    max_backoff_s: float = 3600.0,
 ) -> Dict[str, Any]:
     """Pure decision over streak + prior autoheal bookkeeping.
 
-    Mirrors ``check_ib_gateway.decide``: enforces a per-episode restart
-    cap (then a one-shot EXHAUSTED escalation), a cooldown between
-    restarts, and a startup-grace so we never bounce a trader that has
-    only just (re)started. Returns
-    ``{action, new_state}`` where ``action`` ∈
-    ``{"none", "restart", "exhausted"}``.
+    There is NO terminal state (NO-HALT, operator directive 2026-10-09:
+    "There is no halting."). Until 2026-10-09 this returned ``"exhausted"``
+    once ``max_restarts`` was spent and then stopped restarting for the rest
+    of the stall episode. Now ``max_restarts`` is only the bound after which
+    (a) ONE red flag is raised for the episode and (b) the gap between
+    restarts doubles from ``cooldown_s`` up to ``max_backoff_s`` — restarts
+    never stop while the heartbeat is stale.
+
+    Safety gates kept: a cooldown/backoff between restarts and a startup-grace
+    so we never bounce a trader that has only just (re)started. Returns
+    ``{action, red_flag, new_state}`` where ``action`` ∈
+    ``{"none", "restart"}`` and ``red_flag`` is True exactly once per episode
+    (the caller sends it).
 
     Bookkeeping (``autoheal_attempts`` / ``last_autoheal_ts``) is NOT
     advanced here — the effecting caller advances it ONLY when a restart
@@ -366,17 +436,18 @@ def decide_autoheal(
     mode, BL-20260609-001) does not burn an attempt or start a cooldown,
     and the watchdog retries on the next check instead of going quiet.
     """
-    s = dict(state)
+    s = clear_legacy_exhausted_latch(dict(state))
     if threshold <= 0 or stale_streak < threshold:
-        return {"action": "none", "new_state": s}
+        return {"action": "none", "red_flag": False, "new_state": s}
     attempts = int(s.get("autoheal_attempts") or 0)
-    if attempts >= max_restarts:
-        if not s.get("autoheal_exhausted_alerted"):
-            s["autoheal_exhausted_alerted"] = True
-            return {"action": "exhausted", "new_state": s}
-        return {"action": "none", "new_state": s}
-    if now - float(s.get("last_autoheal_ts") or 0.0) < cooldown_s:
-        return {"action": "none", "new_state": s}
+    red_flag = False
+    if attempts >= max_restarts and not s.get("autoheal_red_flag_alerted"):
+        s["autoheal_red_flag_alerted"] = True
+        red_flag = True
+    gap_s = autoheal_backoff_s(attempts, max_restarts, cooldown_s, max_backoff_s)
+    s["autoheal_next_backoff_s"] = gap_s
+    if now - float(s.get("last_autoheal_ts") or 0.0) < gap_s:
+        return {"action": "none", "red_flag": red_flag, "new_state": s}
     if (
         startup_grace_s > 0
         and seconds_since_active is not None
@@ -385,8 +456,8 @@ def decide_autoheal(
         # Trader (re)started very recently; it is still completing startup +
         # its first tick and hasn't written the first heartbeat yet. Don't
         # kill it mid-first-tick (BL-20260605-001 part b).
-        return {"action": "none", "new_state": s}
-    return {"action": "restart", "new_state": s}
+        return {"action": "none", "red_flag": red_flag, "new_state": s}
+    return {"action": "restart", "red_flag": red_flag, "new_state": s}
 
 
 def render_alert(action: str, age_s: Optional[float], hb_path: Path) -> str:
@@ -466,13 +537,24 @@ def main(argv: Optional[list] = None) -> int:
         type=int,
         default=int(os.environ.get("LIVENESS_MAX_RESTARTS", "5")),
         help=(
-            "Max autoheal restarts per stall episode before the watchdog "
-            "stops restarting and escalates to a one-shot [CRITICAL] "
-            "EXHAUSTED alert (then alert-only until the heartbeat recovers). "
-            "Mirrors check_ib_gateway.py's --max-restarts so a trader that "
-            "will not stay up cannot become an unbounded restart loop "
+            "Restarts per stall episode at the plain --cooldown-min spacing. "
+            "Past this bound the watchdog does NOT stop (NO-HALT, operator "
+            "directive 2026-10-09): it raises ONE [RED FLAG] alert for the "
+            "episode and keeps restarting with the gap doubling up to "
+            "--max-backoff-min, so a trader that will not stay up is never "
+            "left down and never becomes a tight restart loop "
             "(BL-20260605-001). The episode counter resets when the "
             "heartbeat goes fresh again. Default: %(default)s."
+        ),
+    )
+    p.add_argument(
+        "--max-backoff-min",
+        type=float,
+        default=float(os.environ.get("LIVENESS_MAX_BACKOFF_MIN", "60")),
+        help=(
+            "Cap, in minutes, on the gap between restarts once the stall has "
+            "outlasted --max-restarts (the gap doubles from --cooldown-min up "
+            "to this). Restarts never stop. Default: %(default)s."
         ),
     )
     p.add_argument(
@@ -529,7 +611,7 @@ def main(argv: Optional[list] = None) -> int:
     )
     action = decision["action"]
     age_s = decision["age_s"]
-    state = dict(decision["state"])
+    state = clear_legacy_exhausted_latch(dict(decision["state"]))
 
     # Track consecutive-stale streak independent of alert deduping. A
     # heartbeat older than threshold OR a missing file increments the
@@ -548,11 +630,27 @@ def main(argv: Optional[list] = None) -> int:
 
     # A fresh heartbeat ends the stall episode → reset the autoheal restart
     # budget so the NEXT stall gets a full --max-restarts allowance and the
-    # cooldown/exhausted gates don't carry over from a prior episode.
+    # cooldown/backoff/red-flag state doesn't carry over from a prior episode.
+    # If this episode raised the red flag, announce the recovery ONCE: folded
+    # into the "[OK] recovered" ping when there is one, standalone otherwise.
+    red_flag_recovery: Optional[str] = None
     if not is_stale:
+        if state.get("autoheal_red_flag_alerted"):
+            red_flag_recovery = (
+                "[OK] Autoheal red flag cleared: trader heartbeating again "
+                f"after {int(state.get('autoheal_attempts') or 0)} restarts "
+                "this episode."
+            )
         state["autoheal_attempts"] = 0
-        state["autoheal_exhausted_alerted"] = False
+        state["autoheal_red_flag_alerted"] = False
+        state["autoheal_next_backoff_s"] = 0.0
         state["last_autoheal_ts"] = 0.0
+
+    if red_flag_recovery and action != "recovered":
+        print(red_flag_recovery)
+        if not args.dry_run:
+            send_alert(red_flag_recovery)  # best-effort, once per episode
+        red_flag_recovery = None
 
     if action == "ok":
         # No new alert needed. Autoheal can still fire here — alert
@@ -591,6 +689,8 @@ def main(argv: Optional[list] = None) -> int:
             return 0
 
     msg = render_alert(action, age_s, args.heartbeat)
+    if red_flag_recovery:
+        msg = f"{msg}\n{red_flag_recovery}"
     print(msg)
 
     if args.dry_run:
@@ -654,7 +754,12 @@ def _maybe_autoheal(
         ``last_autoheal_ts`` (so a dispatch that fails under CPU
         saturation does not burn an attempt or start a cooldown — it is
         retried next check; BL-20260609-001).
-      * action ``"exhausted"`` → one-shot [CRITICAL] EXHAUSTED ping.
+      * ``red_flag`` → the ONE [RED FLAG] ping for this stall episode, sent
+        when the stall outlasts ``--max-restarts``. From then on restarts
+        CONTINUE on a capped backoff (never stop — NO-HALT, operator
+        directive 2026-10-09) and their per-restart pings go to the journal
+        only, so alert volume stays bounded (first detection + one red flag
+        + one recovery).
     Failures Telegram the operator but never propagate.
     """
     threshold = args.auto_restart_after
@@ -666,6 +771,7 @@ def _maybe_autoheal(
 
     now_epoch = time.time()
     seconds_since_active = _seconds_since_unit_active(args.restart_unit)
+    max_backoff_s = float(getattr(args, "max_backoff_min", 60.0)) * 60.0
     decision = decide_autoheal(
         state=state,
         stale_streak=stale_streak,
@@ -675,17 +781,19 @@ def _maybe_autoheal(
         now=now_epoch,
         seconds_since_active=seconds_since_active,
         startup_grace_s=float(args.restart_startup_grace_seconds),
+        max_backoff_s=max_backoff_s,
     )
+    state.clear()
     state.update(decision["new_state"])
     action = decision["action"]
 
-    if action == "exhausted":
-        msg = render_autoheal_exhausted(
-            args.restart_unit, args.max_restarts, stale_streak, age_s
+    if decision.get("red_flag"):
+        msg = render_autoheal_red_flag(
+            args.restart_unit, args.max_restarts, stale_streak, age_s,
+            float(state.get("autoheal_next_backoff_s") or 0.0), max_backoff_s,
         )
         print(msg)
-        send_alert(msg)  # best-effort
-        return
+        send_alert(msg)  # best-effort; once per episode
     if action != "restart":
         return
 
@@ -694,7 +802,9 @@ def _maybe_autoheal(
         args.restart_unit, result, stale_streak, age_s
     )
     print(autoheal_msg)
-    send_alert(autoheal_msg)  # best-effort
+    if not state.get("autoheal_red_flag_alerted"):
+        send_alert(autoheal_msg)  # best-effort
+    # else: past the red flag — journal only, the watchdog keeps restarting.
     state["last_autoheal_returncode"] = result.get("returncode")
     state["last_autoheal_attempt_ts"] = datetime.now(timezone.utc).isoformat()
     if result.get("ran"):
