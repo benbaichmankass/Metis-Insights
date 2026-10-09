@@ -1,0 +1,6 @@
+{
+  "held_by": "session_016wNjQSovXrhDpd72xUjx8U",
+  "branch": "claude/no-halt-reset-suspect",
+  "claimed_at": "2026-10-09T11:43:52Z",
+  "purpose": "NO-HALT: reconciler RESET-SUSPECT rows re-verified + auto-resolved every pass instead of parked for manual resolution"
+}
