@@ -44,5 +44,5 @@ def test_breakout_1_is_flagged_retired_and_hidden_from_hourly_snapshot(monkeypat
 
 def test_retired_prop_feed_is_never_re_enabled_by_deploy():
     src = open("scripts/install_systemd_units.sh").read()
-    line = next(l for l in src.splitlines() if l.startswith("_RETIRED_TIMERS="))
+    line = next(ln for ln in src.splitlines() if ln.startswith("_RETIRED_TIMERS="))
     assert "ict-prop-feed.timer" in line
