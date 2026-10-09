@@ -110,3 +110,15 @@ def test_max_markets_cap(tmp_path):
 def test_ticker_with_reserved_chars_is_escaped():
     m = {"ticker": "FEDDECISION-23JUN-C>25", "close_time": "2023-06-14T18:00:00Z", "_endpoint": "historical"}
     assert "/historical/markets/FEDDECISION-23JUN-C%3E25/candlesticks" in bf.candle_url("https://k.test", "KXFEDDECISION", m, 24, 60)
+
+
+def test_historical_endpoint_field_names_are_parsed():
+    """The historical endpoint uses unsuffixed keys; reading only *_dollars nulled every historical row."""
+    c = {"end_period_ts": 1626127200, "open_interest": "2467.00", "volume": "611.00",
+         "price": {"close": "0.2100", "high": "0.2100", "low": "0.2000", "mean": "0.2096", "open": "0.2000", "previous": "0.2000"},
+         "yes_ask": {"close": "0.2200", "high": "0.2200", "low": "0.2000", "open": "0.2000"},
+         "yes_bid": {"close": "0.1600", "high": "0.1600", "low": "0.1600", "open": "0.1600"}}
+    m = {"ticker": "CPI-21JUN-T0.6", "close_time": "2021-07-12T23:00:00Z", "_endpoint": "historical"}
+    (r,) = bf.candle_rows("KXCPI", "cpi", m, [c], "2026-10-09T06:00:00Z")
+    assert (r["yes_bid_close"], r["yes_ask_close"], r["trade_close"], r["trade_mean"]) == (0.16, 0.22, 0.21, 0.2096)
+    assert (r["volume"], r["open_interest"], r["last_price_prev"]) == (611.0, 2467.0, 0.2)

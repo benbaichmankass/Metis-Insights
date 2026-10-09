@@ -108,9 +108,16 @@ def candle_url(base: str, series: str, m: Dict[str, Any], hours_before: int, per
     return f"{base}/series/{series}/markets/{tk}/candlesticks?{q}"
 
 
-def _ohlc(d: Optional[Dict[str, Any]], pfx: str) -> Dict[str, Optional[float]]:
+def _ohlc(d: Optional[Dict[str, Any]], pfx: str, keys: Tuple[str, ...] = ("open", "high", "low", "close")) -> Dict[str, Optional[float]]:
+    """OHLC from a candle sub-object. The live endpoint names fields ``close_dollars``; the historical
+    endpoint names them ``close`` (verified 2026-10-09: reading only ``*_dollars`` nulled every historical row)."""
     d = d or {}
-    return {f"{pfx}_{k}": pmc._f(d.get(f"{k}_dollars")) for k in ("open", "high", "low", "close")}
+    return {f"{pfx}_{k}": pmc._f(d.get(f"{k}_dollars", d.get(k))) for k in keys}
+
+
+def _num(c: Dict[str, Any], key: str) -> Optional[float]:
+    """``volume_fp`` / ``open_interest_fp`` (live) or ``volume`` / ``open_interest`` (historical)."""
+    return pmc._f(c.get(f"{key}_fp", c.get(key)))
 
 
 def candle_rows(series: str, topic: str, m: Dict[str, Any], candles: List[Dict[str, Any]], fetched_at: str) -> List[Dict[str, Any]]:
@@ -126,8 +133,9 @@ def candle_rows(series: str, topic: str, m: Dict[str, Any], candles: List[Dict[s
             "result": m.get("result"), "expiration_value": m.get("expiration_value"),
             "candle_end_utc": _iso(c["end_period_ts"]),
             **_ohlc(c.get("yes_bid"), "yes_bid"), **_ohlc(c.get("yes_ask"), "yes_ask"),
-            "last_price_prev": pmc._f((c.get("price") or {}).get("previous_dollars")),
-            "volume": pmc._f(c.get("volume_fp")), "open_interest": pmc._f(c.get("open_interest_fp")),
+            **_ohlc(c.get("price"), "trade", ("open", "high", "low", "close", "mean")),
+            "last_price_prev": pmc._f((c.get("price") or {}).get("previous_dollars", (c.get("price") or {}).get("previous"))),
+            "volume": _num(c, "volume"), "open_interest": _num(c, "open_interest"),
             "fetched_at_utc": fetched_at,
         }))
     return rows
