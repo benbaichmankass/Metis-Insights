@@ -8,13 +8,13 @@
   },
   "id": "PI-20260924-2S8DXGTZ-0001",
   "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-25",
-  "next_action": "check_observation",
+  "next_action": "dispatch_lane",
   "origin": {
     "kind": "review",
     "ref": "MANAGER-CHECKLIST.json#E67 (/performance-review, session_01HUMdsBGKWKBmNC2S8DxGtz)",
     "rerun": "python3 -c \"import json,yaml; accts=yaml.safe_load(open('config/accounts.yaml'))['accounts']; real=set(); [real.update(a.get('strategies',[])) for a in accts.values() if a.get('account_class') in ('real_money','prop')]; d=json.load(open('comms/strategy_evidence/gld_pullback_1h.json')); print('gld_pullback_1h in real-money roster:', 'gld_pullback_1h' in real); print(d['decision_rule']['verdict'], d['n_trades_oos'], d['folds_positive'], d['folds'], d['cost_stack'])\""
   },
-  "reclassified": "[PIPELINE-ROUTE 2026-10-09] was ask_operator: missing-data: CLAUDE.md blocks real-money promotion until the slippage is measured (E62 / D1); clears on E62 landing, not on an operator opinion.",
+  "reclassified": "[PIPELINE-ROUTE 2026-10-09] was ask_operator: missing-data: CLAUDE.md blocks real-money promotion until slippage is measured (E62 / D1); the task is landing E62's measured equities slippage, then the resolver re-asks. Not an operator preference.",
   "routed_to": "MANDATE-ARM | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — Read comms/strategy_evidence/gld_pullback_1h.json: verdict pass (generated 2026-09-28, re-cut by #13637). config/accounts.yaml: gld_pullback_1h only on alpaca_paper; not in any real_money/prop ro",
   "severity": "medium",
   "state": "routed",
