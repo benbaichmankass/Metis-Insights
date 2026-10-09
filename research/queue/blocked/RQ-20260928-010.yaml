@@ -3,7 +3,7 @@ title: >-
   M28 P4 rescore at a REALISTIC (nonzero) options cost stack — does the
   event-blind value thesis clear calibration/edge once fee_frac and
   carry_frac_per_day stop being the zero-cost placeholder CAA05-0003 flagged?
-status: blocked
+status: retired
 cadence: once
 theme: macro
 priority: 2
@@ -172,3 +172,4 @@ related:
   - 'comms/macro/thesis_p4_scorecard.json (the zero-cost baseline — NOT to be overwritten)'
   - 'docs/research/M28-macro-value-speculation-DESIGN.md'
 last_dispatched_at: null
+retired_reason: "2026-10-09 MACRO-RESHAPE lane 9: RETIRED, not unblocked. At zero cost the committed baseline is already negative (calibration_rank -0.0037, edge_vs_baseline -0.0047, n=1104, 2005-2026); a nonzero fee_frac/carry_frac_per_day can only lower edge_vs_baseline, so the unit's PASS branch is unreachable and its expected verdict (KILLED_HONESTLY) is already determined. It also never ran: design.cost_figure was never decided and run.inputs carried 'NOT YET DECIDED' (HTTP 422 on dispatch, see blocked_on). Spending an options-chain cost study to quantify a known-worse number buys nothing. CAA05-0003 closes as killed on the zero-cost evidence: even the most favourable cost assumption fails the naive floor."

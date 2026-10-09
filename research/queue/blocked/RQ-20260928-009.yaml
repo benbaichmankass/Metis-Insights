@@ -4,7 +4,7 @@ title: >-
   actually wired (production thesis_tick.py AND the offline P4/S1 replay),
   does conviction-with-events clear calibration/edge where conviction-alone
   (thesis_p4_scorecard.json, committed 2026-09-27) failed?
-status: blocked
+status: retired
 cadence: once
 kind: experiment
 
@@ -171,3 +171,4 @@ related:
   - 'comms/macro/horizon_ic_scorecard.json (the horizon scan already run — see why_this_matters)'
   - 'docs/research/M28-macro-value-speculation-DESIGN.md'
 last_dispatched_at: null
+retired_reason: "2026-10-09 MACRO-RESHAPE lane 9: RETIRED, not unblocked. Verified in src/units/strategies/macro_thesis/thesis_engine.py: form_value_thesis sets thesis_conviction = value_conviction(read) from the valuation read alone; watched_events and signals are only stored on the thesis (watched_events=..., signals=...), never fed into conviction. So threading an event join through thesis_tick.py and build_replay_entries leaves calibration_rank and edge_vs_baseline numerically UNCHANGED by construction: this unit's rule would read NULL before it ran. Making events matter needs a new conviction blend (a new hypothesis and a new pre-registration, not 'one argument and its wiring'); the 240-minute estimate was itself the blocker note. Independent evidence the conviction axis is flat: horizon_ic_scorecard.json (no monetizable horizon at 7-180d) and RQ-20260929-001 (band restriction NOT_YET). Zero-cost M28 sleeve 2005-2026: calibration_rank -0.0037, edge_vs_baseline -0.0047. PI-20260927-CAA05-0002 (wiring gap) stays a code-quality finding on its own track; it no longer gates research."
