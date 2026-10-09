@@ -63,3 +63,15 @@ generated:
     symbol: QQQ
     timeframe: 1d
 last_dispatched_at: '2026-10-08T18:06:57+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-TPL-E35-BRACKET-IS-OOS-GATE
+  evidence:
+  - docs/research/e35-bracket-corpus.jsonl
+  graded_at: '2026-10-08'
+  grader: scripts/research/queue_grade.py
+  latest: true
+  needs_review: true
+  reason: base_oos_trades 7 < 39 (unresolvable_at_current_n)
+  rows: 199
+  verdict: indeterminate

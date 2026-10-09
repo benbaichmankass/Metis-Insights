@@ -383,6 +383,17 @@ def _phone_result(meta: Any) -> Optional[Dict[str, Any]]:
     return res if isinstance(res, dict) else None
 
 
+def _supersede_meta(meta: Any) -> Optional[Dict[str, Any]]:
+    """A suppressed ticket's supersede candidate (PROP-SUPERSEDE), or None."""
+    if isinstance(meta, str):
+        try:
+            meta = json.loads(meta)
+        except (TypeError, ValueError):
+            return None
+    cand = meta.get("supersede") if isinstance(meta, dict) else None
+    return cand if isinstance(cand, dict) else None
+
+
 def list_outbound_tickets(
     *, account_id: Optional[str] = None, status: Optional[str] = None,
     limit: int = 100,
@@ -490,6 +501,9 @@ def list_outbound_tickets(
             # Phone executor read-back (PHONE-EXEC-1B): result + reason + the ticket form the phone read (control
             # labels and our own typed values only). Without it a refusal's reason was invisible on this API.
             "phone_result": _phone_result(tk.get("meta")),
+            # PROP-SUPERSEDE: the candidate a suppressed ticket carries (the
+            # executor reads it here; it never opens the DB).
+            "supersede": _supersede_meta(tk.get("meta")),
         }
 
     for r in op_rows:
