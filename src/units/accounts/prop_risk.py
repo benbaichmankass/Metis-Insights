@@ -320,18 +320,12 @@ class PropRiskManager(RiskManager):
 
         return super().evaluate(order, opening=opening)
 
-    def dd_switch_equity(self) -> Optional[float]:
+    def dd_switch_reading(self):
         """A prop account's equity is the operator/executor-reported status
         row (``prop_sizing_balance``: equity preferred over balance), and only
         when that row is fresh — a stale or absent row is "could not look"."""
-        if not self.account_name:
-            return None
-        try:
-            from src.prop.prop_balance import prop_sizing_balance
-            state, val, _meta = prop_sizing_balance(self.account_name)
-        except Exception:  # noqa: BLE001 — unreadable = could not look
-            return None
-        return val if state == "ok" else None
+        from src.units.accounts import daily_dd_switch as _dd
+        return _dd.prop_equity_reading(self.account_name or "")
 
     # ------------------------------------------------------------------
     # State-update hooks (persist through to runtime_state/prop_state.json)

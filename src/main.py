@@ -1203,6 +1203,18 @@ def main() -> None:
             except Exception:  # noqa: BLE001
                 logger.exception("macro_thesis_tick failed")
 
+            # Account-level daily-DD switch (operator 2026-10-09, rule 7's one
+            # sanctioned off): fold one on-disk equity reading per ARMED
+            # account every tick, so day-start equity, the trip alert and the
+            # reset alert do not wait for a signal. OBSERVE-ONLY — the refusal
+            # stays in RiskManager.evaluate. No broker call; best-effort.
+            try:
+                from src.units.accounts.daily_dd_switch import observe_armed_accounts
+                with _tick_hook("daily_dd_switch"):
+                    observe_armed_accounts()
+            except Exception:  # noqa: BLE001
+                logger.exception("daily_dd_switch tick observe failed")
+
             # Prop trades are a manual bridge (no broker feed), so the
             # order_monitor above never sees them. Emit a periodic
             # "still monitoring" pulse per open prop position instead so

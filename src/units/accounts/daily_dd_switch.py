@@ -46,6 +46,12 @@ Semantics
   consecutive unreadable checks on an armed account, ONE red flag is sent;
   checks keep running (NO-HALT rule 7).
 
+* **Observed every trader tick** — ``observe_armed_accounts`` (called once
+  per tick from ``src/main.py``) folds one on-disk equity reading per armed
+  account, observe-only, so day-start equity, the trip alert and the reset
+  alert never wait for a signal. ``RiskManager.evaluate`` still observes (with
+  the dispatch's live total equity where it has one) and is the only refusal.
+
 State lives in ``runtime_logs/daily_dd_switch_state.json`` (accounts are
 rebuilt every dispatch tick, so the file is the cross-tick memory — the same
 reason ``daily_cap_alert`` used one). Best-effort: a state-file failure never
@@ -59,7 +65,7 @@ import os
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Mapping, Optional
+from typing import Any, Callable, Dict, Mapping, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +90,16 @@ def _f(x: Any) -> Optional[float]:
     except (TypeError, ValueError):
         return None
     return v
+
+
+def _parse_ts(raw: Any) -> Optional[datetime]:
+    if not raw:
+        return None
+    try:
+        ts = datetime.fromisoformat(str(raw))
+    except ValueError:
+        return None
+    return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
 
 
 def _parse_hhmm(raw: Any) -> timedelta:
@@ -257,15 +273,26 @@ class DailyDDSwitch:
             logger.warning("daily_dd_switch: %s alert failed for %s: %s", kind, self.account_id, exc)
 
     # -- the check -----------------------------------------------------------
-    def observe(self, equity: Optional[float], now: Optional[datetime] = None) -> Dict[str, Any]:
+    def observe(self, equity: Optional[float], now: Optional[datetime] = None, *,
+                reading_ts: Optional[datetime] = None) -> Dict[str, Any]:
         """Fold one equity reading into today's state; alert on transitions.
+
+        ``reading_ts`` is when the equity was READ (a balance snapshot can be
+        up to 2h old); it defaults to ``now`` (a live read). A reading older
+        than the one already folded never regresses the row, and a reading
+        from before today's carry window is not today's equity — both leave
+        the row's verdict as it was / "could not look" respectively.
 
         Returns the account's row (see :meth:`status`)."""
         if not self.account_id:
             return {}
         now = now or datetime.now(timezone.utc)
+        reading_ts = reading_ts or now
+        if reading_ts.tzinfo is None:
+            reading_ts = reading_ts.replace(tzinfo=timezone.utc)
         day = trading_day(now, self.cfg.reset_utc)
-        row = self._row()
+        before = self._row()
+        row = dict(before)
         if row.get("day") != day.isoformat():
             was_tripped = bool(row.get("tripped"))
             carry = None
@@ -285,6 +312,16 @@ class DailyDDSwitch:
                 self._send("reset", row)
 
         eq = _f(equity)
+        if eq is not None and eq > 0:
+            last_ts = _parse_ts(row.get("last_equity_ts"))
+            if last_ts is not None and reading_ts < last_ts:
+                # Older than what is already folded (e.g. the hourly snapshot
+                # after a dispatch's live read): no new information.
+                self._put_if_changed(before, row)
+                return row
+            if reading_ts < day_boundary(day, self.cfg.reset_utc) - CARRY_DAY_START_WINDOW:
+                eq = None      # yesterday's equity is not a reading of today
+
         if eq is None or eq <= 0:
             row["unreadable_streak"] = int(row.get("unreadable_streak") or 0) + 1
             row["read_state"] = READ_UNREADABLE
@@ -299,7 +336,7 @@ class DailyDDSwitch:
         row["red_flagged"] = False
         row["read_state"] = READ_OK
         row["last_equity"] = eq
-        row["last_equity_ts"] = now.isoformat()
+        row["last_equity_ts"] = reading_ts.isoformat()
         if not row.get("day_start_equity"):
             row["day_start_equity"] = eq
         dse = _f(row.get("day_start_equity"))
@@ -312,8 +349,13 @@ class DailyDDSwitch:
             row["tripped"] = True
             row["tripped_at"] = now.isoformat()
             self._send("trip", row)
-        self._put(row)
+        self._put_if_changed(before, row)
         return row
+
+    def _put_if_changed(self, before: Dict[str, Any], row: Dict[str, Any]) -> None:
+        # Observed every trader tick: an unchanged row costs no write.
+        if row != before:
+            self._put(row)
 
     def blocks_new_entries(self, row: Optional[Dict[str, Any]] = None,
                            now: Optional[datetime] = None) -> bool:
@@ -358,8 +400,100 @@ def switch_for_account(account_id: str, account_cfg: Mapping[str, Any], **kw: An
     return DailyDDSwitch(account_id, parse_config(block, prop_terms=terms), **kw)
 
 
+# -- equity readings (shared by RiskManager.evaluate and the per-tick observe) --
+
+Reading = Tuple[Optional[float], Optional[datetime]]
+SNAPSHOT_MAX_AGE_HOURS = 2.0      # the hourly snapshot writer's cadence plus slack
+
+
+def snapshot_equity_reading(account_id: str, *, max_age_hours: float = SNAPSHOT_MAX_AGE_HOURS,
+                            now: Optional[datetime] = None) -> Reading:
+    """``(equity, read_at)`` from ``runtime_logs/balance_snapshots.json``.
+
+    ``(None, None)`` when absent, unreadable or older than ``max_age_hours`` —
+    a stale reading is "could not look", never a figure. Connection-free."""
+    if not account_id:
+        return None, None
+    try:
+        from src.utils.paths import runtime_logs_dir
+        p = runtime_logs_dir() / "balance_snapshots.json"
+        if not p.exists():
+            return None, None
+        entry = (json.loads(p.read_text(encoding="utf-8")) or {}).get(account_id)
+        if not isinstance(entry, dict) or entry.get("balance") is None:
+            return None, None
+        ts = _parse_ts(entry.get("ts"))
+        if ts is None:
+            return None, None
+        if ((now or datetime.now(timezone.utc)) - ts).total_seconds() > max_age_hours * 3600:
+            return None, None
+        return float(entry["balance"]), ts
+    except Exception:  # noqa: BLE001 — unreadable = could not look
+        return None, None
+
+
+def prop_equity_reading(account_id: str, *, now: Optional[datetime] = None) -> Reading:
+    """``(equity, read_at)`` from the latest operator/executor-reported prop
+    status row (``prop_sizing_balance``: equity preferred over balance), only
+    when that row is fresh — a stale or absent row is "could not look"."""
+    if not account_id:
+        return None, None
+    try:
+        from src.prop.prop_balance import prop_sizing_balance
+        state, val, meta = prop_sizing_balance(account_id)
+    except Exception:  # noqa: BLE001 — unreadable = could not look
+        return None, None
+    if state != "ok" or val is None:
+        return None, None
+    age = _f((meta or {}).get("age_hours"))
+    now = now or datetime.now(timezone.utc)
+    return val, (now - timedelta(hours=age)) if age is not None else now
+
+
+def observe_armed_accounts(accounts_path: Optional[Path] = None,
+                           now: Optional[datetime] = None) -> Dict[str, str]:
+    """Fold one equity reading per ARMED account — the per-tick observe.
+
+    OBSERVE-ONLY: it never refuses anything (the refusal stays in
+    ``RiskManager.evaluate``). It exists so day-start equity, the trip alert
+    and the reset alert do not wait for a signal: before it, ``observe`` ran
+    only inside ``evaluate``, so a quiet account was never observed and its
+    day start was the equity at the day's FIRST signal (PI-20261009-VQIPJE2H-0001).
+
+    Reads only what is already on disk — the hourly balance snapshot, or the
+    prop status row for a prop account — so it adds no broker call; a
+    dispatch's live total equity is folded by ``evaluate`` itself, and a
+    snapshot older than that live read never regresses the row. Returns
+    ``{account: read_state}``. Never raises.
+    """
+    out: Dict[str, str] = {}
+    try:
+        import yaml
+        from src.prop.prop_identity import is_prop_account, is_retired_account
+        path = accounts_path or Path(__file__).resolve().parents[3] / "config" / "accounts.yaml"
+        accounts = (yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}).get("accounts") or {}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("daily_dd_switch: tick observe could not read accounts: %s", exc)
+        return out
+    for name, cfg in accounts.items():
+        try:
+            if not isinstance(cfg, Mapping) or cfg.get("enabled") is False or is_retired_account(cfg):
+                continue
+            sw = switch_for_account(str(name), cfg)
+            if not sw.cfg.armed:
+                continue
+            reading = (prop_equity_reading(str(name), now=now) if is_prop_account(cfg)
+                       else snapshot_equity_reading(str(name), now=now))
+            row = sw.observe(reading[0], now, reading_ts=reading[1])
+            out[str(name)] = str(row.get("read_state") or READ_NOT_OBSERVED)
+        except Exception as exc:  # noqa: BLE001 — one account never stops the rest
+            logger.warning("daily_dd_switch: tick observe failed for %s: %s", name, exc)
+    return out
+
+
 __all__ = [
     "REASON", "DEFAULT_LIMIT_PCT", "PROP_FIRM_BUFFER", "UNREADABLE_FLAG_AFTER",
     "BASIS_PCT", "BASIS_PROP", "SwitchConfig", "DailyDDSwitch", "parse_config",
     "prop_firm_terms", "trading_day", "switch_for_account", "load_state",
+    "snapshot_equity_reading", "prop_equity_reading", "observe_armed_accounts",
 ]
