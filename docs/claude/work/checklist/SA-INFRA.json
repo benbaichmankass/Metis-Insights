@@ -16,5 +16,12 @@
   ],
   "blocked_on": [],
   "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): sonnet (no order path). FIX-SA-08 Tier 2 hold; FIX-SA-12 may delete only provably rebuildable/superseded data on its own, lists the rest for a decision. Never restarts ict-trader-live. || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14173 (0553bf1), #14174 (86315f8), #14176 (207ffa6) merged. Observations (a)-(d) owed per PI-20260929-BTG1YDOI-0001. Trainer disk decision (BTG1YDOI-0002): operator asked 13:50Z for a recommendation to approve.",
+  "observation": {
+    "what": "Observations (a)-(d) of PI-20260929-BTG1YDOI-0001: OnFailure= firing, running-vs-disk sha, trainer disk prune + 90% alarm",
+    "how_to_check": "Read PI-20260929-BTG1YDOI-0001 and -0002; trainer-vm-diag df",
+    "due_by": "2026-10-16T00:00Z"
+  },
+  "updated_at": "2026-10-09T04:36:51Z",
+  "updated_by": "session_015WZhDbDdZTbgTzGXeDzjqe",
   "_seq": 206
 }

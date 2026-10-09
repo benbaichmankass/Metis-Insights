@@ -11,14 +11,14 @@
   "tier": 1,
   "prs": [],
   "blocked_on": [],
-  "note": "2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; operator popup verbatim 'Landed-but-unproven sweep'. [2026-10-08T16:05Z manager session_01Uq7MrjPQDRWqbhCjwuMava, stale-state sweep] Lane session_01YZ1v25eGAXFHxUgidK1DDx finished 10-02 (40 landed_unproven rows scanned: 9 closeable, 31 need lanes, 6 unfiled findings incl. bybit_1 OVER-COVER). Lane archived now. Re-dispatch is PACE-W40 queue item 14; it must first re-read the 10-02 output on branch claude/unproven-sweep-2026-10-02.",
+  "note": "2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; operator popup verbatim 'Landed-but-unproven sweep'. [2026-10-08T16:05Z manager session_01Uq7MrjPQDRWqbhCjwuMava, stale-state sweep] Lane session_01YZ1v25eGAXFHxUgidK1DDx finished 10-02 (40 landed_unproven rows scanned: 9 closeable, 31 need lanes, 6 unfiled findings incl. bybit_1 OVER-COVER). Lane archived now. Re-dispatch is PACE-W40 queue item 14; it must first re-read the 10-02 output on branch claude/unproven-sweep-2026-10-02. [2026-10-09 lane session_015WZhDbDdZTbgTzGXeDzjqe, ~$4] Re-dispatch pass over 120 landed_unproven rows (77 lacked a structured observation). Result: 6 done (A6, JC-CA-06, GRADE, EXIT-CLUSTER, R8, ORDER-AUDIT-2) + PROP-EXEC and W6-PROP-FEED done = 8 done; 3 dropped (BREAKOUT-ATTRITION, BREAKOUT-CAP-ROUND, PROP-FUNNEL: breakout_1 retired); 30 given a structured observation; 0 reopened. bybit_1 OVER-COVER: not live (see PI-20261009-GXEDZJQE-0001). The 10-02 scan branch claude/unproven-sweep-2026-10-02 no longer exists on origin (git ls-remote), so its other 5 unfiled findings could not be recovered; only the bybit_1 one is named in this row. ~47 landed_unproven rows still carry no observation (mostly tier-1 research/tooling rows) -> re-dispatch.",
   "lane_history": [
     {
       "lane": "session_01YZ1v25eGAXFHxUgidK1DDx",
       "archived_at": "2026-10-08T15:55:58Z"
     }
   ],
-  "updated_at": "2026-10-08T15:55:59Z",
-  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
+  "updated_at": "2026-10-09T04:37:08Z",
+  "updated_by": "session_015WZhDbDdZTbgTzGXeDzjqe",
   "_seq": 263
 }
