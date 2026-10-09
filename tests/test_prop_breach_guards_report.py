@@ -16,7 +16,6 @@ becomes one informational line for a ``report`` account only, and
 """
 from __future__ import annotations
 
-import logging
 
 import pytest
 

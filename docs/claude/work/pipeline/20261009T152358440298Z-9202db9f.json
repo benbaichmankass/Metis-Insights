@@ -6,11 +6,16 @@
   },
   "id": "PI-20261009-BKKVRSVQ-0001",
   "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-23",
+    "how_to_check": "GET /api/diag/log_file?name=daily_dd_switch_state (per-account day, day_start_equity, limit_usd, tripped, read_state, unreadable_streak); GET /api/diag/log_file?name=operator_alerts and grep kind daily_dd_switch; GET /api/diag/journal order_packages where reason='DAILY_DD_SWITCH'. Compare against GET /api/bot/config accounts[].daily_dd_switch.armed.",
+    "what": "every armed account (13 of 14) shows read_state ok with a non-null day_start_equity in daily_dd_switch_state.json on a deployed sha containing PR 2; first trip/reset pair seen with one alert each"
+  },
   "origin": {
     "kind": "session",
     "ref": "checklist DAILY-DD-SWITCH, branch claude/daily-dd-switch (lane session_01FFwi1Fff49ryncBkkVrsvQ), 2026-10-09",
     "rerun": "GET /api/diag/log_file?name=daily_dd_switch_state (per-account day, day_start_equity, limit_usd, tripped, read_state, unreadable_streak); GET /api/diag/log_file?name=operator_alerts and grep kind daily_dd_switch; GET /api/diag/journal order_packages where reason='DAILY_DD_SWITCH'. Compare against GET /api/bot/config accounts[].daily_dd_switch.armed."
   },
   "state": "queued",
-  "what": "DAILY-DD-SWITCH is landed_unproven until observed live: after PR 1 (switch, all armed:false) and PR 2 (armed:true on every non-retired account) are merged AND deployed, the trader must fold a real equity reading into runtime_logs/daily_dd_switch_state.json for every armed account (read_state ok, day_start_equity set, limit_usd matching 3% / 0.8 x firm limit), and the first trip or first reset must be seen end to end: a DAILY_DD_SWITCH refusal in the journal plus exactly ONE 'Daily drawdown switch TRIPPED' alert, and ONE 'reset' alert after the account's day boundary. Merged != deployed != observed."
+  "what": "DAILY-DD-SWITCH is landed_unproven until observed live: after PR 1 (switch, all armed:false) and PR 2 (armed:true on every non-retired account) are merged AND deployed, the trader must fold a real equity reading into runtime_logs/daily_dd_switch_state.json for every armed account (13 of 14 accounts in config/accounts.yaml; breakout_1 is retired) (read_state ok, day_start_equity set, limit_usd matching 3% / 0.8 x firm limit), and the first trip or first reset must be seen end to end: a DAILY_DD_SWITCH refusal in the journal plus exactly ONE 'Daily drawdown switch TRIPPED' alert, and ONE 'reset' alert after the account's day boundary. Merged != deployed != observed."
 }

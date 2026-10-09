@@ -1207,7 +1207,7 @@ decides whether to intervene.
 
      Popup answers the same day: **keep open, block new** (open positions
      keep their SL/TP; only new entries are refused until the daily reset;
-     one alert on trip, one on reset) and a prop buffer of **20% of the
+     one alert on trip, one on reset) and a prop buffer of **20% of the <!-- population-ok: an operator-chosen config parameter, not a measurement -->
      firm's limit** (limit = 0.8 × the firm's daily limit, at the firm's
      reset time). Config: `config/accounts.yaml::<acct>.risk.daily_dd_switch`;
      `armed` defaults to `false` in code and arming is an explicit

@@ -231,7 +231,7 @@ def _dd_switch_status(name: str, cfg: Dict[str, Any]) -> Optional[Dict[str, Any]
     try:
         from src.units.accounts.daily_dd_switch import switch_for_account
         return switch_for_account(name, cfg).status()
-    except Exception as exc:  # noqa: BLE001 — a status bug never fails /config
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged and surfaced as an `error` field, never an empty status
         logger.warning("bot_config: daily_dd_switch status failed for %s: %s", name, exc)
         return {"error": f"{type(exc).__name__}: {exc}"}
 
