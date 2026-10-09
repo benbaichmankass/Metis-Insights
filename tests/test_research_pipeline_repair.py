@@ -55,7 +55,9 @@ def test_next_rq_id_skips_every_claimed_number():
 
 
 def test_hashed_rq_ids_are_minted_distinct_and_accepted_by_validators():
-    from scripts.research import next_rq_id as n, research_queue as rq, script_run as sr
+    from scripts.research import next_rq_id as n
+    from scripts.research import research_queue as rq
+    from scripts.research import script_run as sr
     a, b = n.session_hash("lane-a"), n.session_hash("lane-b")
     assert a != b
     ids = n.next_hashed_ids({}, "2030-10-01", a, 2)
