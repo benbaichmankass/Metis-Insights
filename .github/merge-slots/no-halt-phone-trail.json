@@ -1,0 +1,6 @@
+{
+  "held_by": "session_016wNjQSovXrhDpd72xUjx8U",
+  "branch": "claude/no-halt-phone-trail",
+  "claimed_at": "2026-10-09T11:39:29Z",
+  "purpose": "NO-HALT: phone trail retries with backoff + one red flag instead of a permanent per-ticket lock"
+}

@@ -760,9 +760,16 @@ is ever outstanding. The claim serves it ONLY to an app that posts `accepts: ["a
 5. **DRY:** cancel and report `dry_amended`. **LIVE:** click the ONE save button, then read the result back on the terminal:
    the row's SL/TP columns, or else the dialog re-opened read-only and cancelled.
 
-Anything unverified before the save is `refused`; after it, `mismatch`. The server locks that ticket's trail on
-`mismatch`, `human_moved`, a second refusal, or a claimed amend with no report, and pings the operator. A locked trail is
-never retried.
+Anything unverified before the save is `refused`; after it, `mismatch`. **No halting** (operator directive 2026-10-09,
+*"There is no halting."*; until then the server LOCKED the ticket's trail for good on these): a `refused`, a `mismatch`
+or a claimed amend with no report fails THAT attempt only. The ticket backs off 1, 2, 4, 8 (cap) closed bars and is
+re-planned; the next amend still carries the stop the server believes is resting (after a `mismatch`, the stop the
+terminal read back, when it read one), so the phone's pre-click check decides before any click. The first failure of a
+streak pings; 3 in a row raise ONE red flag; the first success after it announces recovery once. A `no_position` read is
+a miss, never an end: re-checked with backoff (6 never-seen reads raise one red flag). `human_moved` still HOLDS the
+ticket's trail (the trail never fights a human's stop) until the human's `{kind: amend}` report puts their levels on
+record, then resumes from them. A `locked`/`ended` state left by the old code is ignored on load with a log line (an old
+human-moved lock is kept as the hold). The trail only ever tightens.
 
 **UNMEASURED:** no capture has shown Breakout's Positions row edit control or its dialog. The headless fixtures
 (`test/exec_check.js`, "amend") prove the helpers' mechanics on synthetic DOM only. The first real amend, dry or live,
