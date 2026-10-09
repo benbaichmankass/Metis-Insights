@@ -80,7 +80,19 @@ inputs:
       deadline (STAMP-RACE, below) cannot rescue a merge that lands minutes
       later. 50 = ~37 run + queue time + margin. Every caller's job budget was
       raised by the same 20 min so the work allowance each had is unchanged.
-    default: "50"
+
+      ⚠️ RAISED 50 -> 80 (HEALTH-REVIEW-W41, 2026-10-09; RQ-COLLECTOR residual).
+      The 2026-10-04 sizing was outgrown in 5 days. MEASURED over the 20
+      completed `pytest-run` pushes on main 2026-10-09 (Actions run durations):
+      29-64 min, 12 of 20 above 44 min. Dispatcher run 37965310081 went red
+      because its batch PR #17287's own `pytest-run` took 44 min
+      (17:21:15-18:05:59Z) and the 50 min wait expired at 18:11Z, ~5 min after
+      CI went green. The collector was NOT the cause (its step succeeded and
+      "Fail the job if the collector lost a run's rows" was skipped). 80 =
+      observed worst 64 + queue. Every caller's job budget was raised by the
+      same 30 min. ⚠️ A FIXED NUMBER WILL BE OUTGROWN AGAIN; the real fix is a
+      faster `pytest-run` (pipeline row filed by this review).
+    default: "80"
   refresh-command:
     description: >
       A shell command that RE-DERIVES this caller's generated file(s), run after

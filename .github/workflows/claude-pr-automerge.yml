@@ -584,6 +584,34 @@ jobs:
             // A FAILED READ IS NOT AN EMPTY READ. `checks_read_ok: false` grades
             // `unreadable`, which refuses — an unread head is the head the gate
             // exists to protect, not a safe one.
+            // ⚠️ STALE-RUN GUARD (PI-20261008-APBY4NTV-0003, 2026-10-09). Every
+            // read above (request gate, landing declaration, arming gate) is
+            // taken at THIS PUSH's `context.sha`. A run that sat queued while a
+            // newer push landed on the branch therefore decides on a head that
+            // no longer exists. Measured: #17038 run 37710372952 (push 42648cc,
+            // landing "self") was queued 00:56Z->01:45Z; the manager had pushed
+            // eb1f11a (landing "hold", request deleted) and DISABLED auto-merge
+            // at 01:35Z; the stale run then re-read its OLD head, passed every
+            // gate and called enablePullRequestAutoMerge at 01:45:15Z -- and
+            // github-actions[bot] merged the held PR at 02:25Z. #17124's
+            // pre-merge re-read protects only the poll-then-merge fallback below;
+            // this NATIVE arm path was left open. A newer push has its own run,
+            // which is the one entitled to decide, so a stale run does NOTHING.
+            try {
+              const cur = (await github.rest.pulls.get({ owner, repo, pull_number: pr.number })).data;
+              if (cur.state !== 'open' || cur.head.sha !== context.sha) {
+                core.notice(`NOT ARMING #${pr.number} — STALE RUN: this run decided on ` +
+                            `${context.sha.slice(0,8)} but the PR is now ${cur.state} at ` +
+                            `${cur.head.sha.slice(0,8)}. The newer push's own run decides; ` +
+                            `nothing armed, nothing merged.`);
+                return;
+              }
+            } catch (e) {
+              core.setFailed(`could not re-read #${pr.number} before arming (${e.message}); ` +
+                             `NOT arming -- a read that failed is not proof the head is current.`);
+              return;
+            }
+
             const armHead = pr.head?.sha || context.sha;
             let checkRuns = null, checksReadOk = false;
             try {

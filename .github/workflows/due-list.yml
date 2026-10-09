@@ -78,7 +78,7 @@ jobs:
     # 40 = ~5m of render work + the 30m wait + 5m slack. If the action's wait
     # default is ever widened, that test fails here rather than silently
     # consuming this margin, which is how gld-compat-matrix lost its own.
-    timeout-minutes: 60
+    timeout-minutes: 90  # was 60: shared commit-to-main wait 50->80 (W41)
     steps:
       - name: Checkout main
         uses: actions/checkout@v4

@@ -170,7 +170,7 @@ jobs:
     # 145 = 1 setup + 100 poll + 30 commit-to-main verify + ~3 classify/write
     # + 11 slack. The cause of the slowness (trainer memory pressure: 5568/5909
     # MB used, 4 GB swap in use on 09-26) is untouched by this and is filed.
-    timeout-minutes: 165
+    timeout-minutes: 195  # was 165: shared commit-to-main wait 50->80 (W41)
     steps:
       - name: Resolve run parameters
         id: params
