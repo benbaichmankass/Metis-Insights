@@ -1,5 +1,7 @@
 {
   "tier": 1,
   "landing": "hold",
-  "why": "Retires research units RQ-20260928-009 and RQ-20260928-010 (blocked -> retired, reasons recorded). pr-landing R5 refuses to self-land a status change on a pre-registered decision-rule unit, so a human reads this one. Research-queue YAML only; no code, config, strategy, sizing or risk change."
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Status change blocked->retired on two pre-registered decision-rule units (RQ-20260928-009/010); pr-landing R5 will not self-land that. Needs a human to read the retired_reason on each and merge.",
+  "why": "Retires research units RQ-20260928-009 and RQ-20260928-010 with reasons recorded. Research-queue YAML only; no code, config, strategy, sizing or risk change."
 }
