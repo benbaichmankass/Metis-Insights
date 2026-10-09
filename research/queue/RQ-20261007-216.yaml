@@ -193,7 +193,7 @@ related:
 - RQ-20261007-201
 - scripts/research/prop_ev_grid.py
 - scripts/research/p2_breakout_symbol_screen.py
-last_dispatched_at: null
+last_dispatched_at: '2026-10-09T16:00:59+00:00'
 grading:
   auto: true
   confirmatory_run: 1
