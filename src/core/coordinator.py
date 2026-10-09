@@ -1048,6 +1048,16 @@ class Coordinator:
             except Exception:  # noqa: BLE001 — never break sizing on a probe
                 return str(getattr(acc, "exchange", "")).lower() == "breakout"
 
+        def _is_phone_flow(account_id: str) -> bool:
+            """True when *account_id* is a ``phone_accounts`` entry in
+            config/prop_platforms.yaml (ticket flow ``phone``). An unreadable
+            file reads as not-phone, keeping the refusal (the old behaviour)."""
+            try:
+                from src.prop.platform import FLOW_PHONE, ticket_flow
+                return ticket_flow(account_id) == FLOW_PHONE
+            except Exception:  # noqa: BLE001 — never break sizing on a probe
+                return False
+
         def _prop_sizing_balance_or_refuse(acc, notify: bool = True) -> float:
             """A declared prop account's sizing basis — or a refusal.
 
@@ -1744,7 +1754,28 @@ class Coordinator:
             available_basis_kind = None
             margin_basis: dict = {}
             try:
-                if _is_declared_prop:
+                if _is_declared_prop and _is_prop_bridge and _is_phone_flow(account.name):
+                    # PHONE-FLOW BRIDGE (PROP-B2-STARVED, 2026-10-09): the
+                    # snapshot's only machine source is the phone itself, which
+                    # reads the account panel only while it is foregrounded on
+                    # the terminal -- and it foregrounds only for a waiting
+                    # ticket. Refusing on a missing snapshot is therefore a
+                    # DEADLOCK, not a per-trade refusal: MEASURED, breakout_2
+                    # refused all 7 trend_donchian_eth_prop signals
+                    # 2026-10-07..08 (prop_balance_absent) while tradeify_1 /
+                    # velotrade_1 emitted. The bridge does not size off this
+                    # number (0.0 basis -> ruleset below), so the refusal still
+                    # PAGES (one red flag, NO-HALT) and the ticket emits.
+                    try:
+                        _prop_sizing_balance_or_refuse(
+                            account, notify=not effective_dry)
+                    except RuntimeError as _snap_exc:
+                        logger.warning(
+                            "multi_account_execute: %s phone-flow emits without a "
+                            "fresh snapshot (the phone reads it at placement): %s",
+                            account.name, _snap_exc)
+                    balance = 0.0
+                elif _is_declared_prop:
                     _prop_balance = _prop_sizing_balance_or_refuse(
                         account, notify=not effective_dry)
                     balance = 0.0 if _is_prop_bridge else _prop_balance

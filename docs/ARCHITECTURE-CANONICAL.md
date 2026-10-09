@@ -656,9 +656,12 @@ passed.
 
 tradeify_1 is `browser` on MEASURED evidence: every `ict-prop-executor@tradeify_1`
 tick logged `env_mode: live` until its feed tripped at 2026-10-06 18:27:45Z
-(rc=4 feasibility stop, never retried). While the trip holds, its tickets are
-notify-only and expire unplaced; a human placing one reports it by pasting the
-fill with its ticket id.
+(rc=4 feasibility stop, never retried). While that trip held, its tickets were
+notify-only and expired unplaced; a human placing one reports it by pasting the
+fill with its ticket id. The trip latch itself is gone (NO-HALT, operator
+directive 2026-10-09, PI-20261009-72XUJX8U-0002): the feed now retries on a
+capped backoff (`<feed dir>/backoff`, one red flag, one recovery notice) and
+the executor tick no longer skips because of the feed's state.
 
 ### The rules
 

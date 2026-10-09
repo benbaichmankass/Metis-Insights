@@ -1,0 +1,18 @@
+{
+  "id": "TELEGRAM-CHANNELS",
+  "title": "Telegram channel re-plumb (3 channels, one purpose each) + in-channel notification settings menu",
+  "phase": "W41",
+  "state": "queued",
+  "owner": "manager (queue: lowest priority, next free lane)",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-09T13:40Z operator request, verbatim intent; LOW priority, 'wait till we have a free lane ... it's just UI'] (1) PROP-TICKETS channel -> TRADES channel: prop execution is fully automated, so NO tickets there any more; it carries only trade OPENED / CLOSED / UPDATED events (all accounts). (2) Main ICT bot channel (today carries trade updates) -> SYSTEM channel: hourly system update, restarts, problems/alerts, red flags (NO-HALT) \u2014 things the operator must be aware of. (3) Claude bot channel -> MANAGER channel: updates from the manager (PR merges, decisions taken under authority, questions/anything needing the operator when not in a session) \u2014 the always-on 'pay attention to me' route. (4) FEATURE (asked before, never delivered): each channel's menu gets a settings button to toggle notification TYPES on/off and set CADENCE where relevant (e.g. hourly vs 4h system update), persisted, so the operator tunes what he sees. Build notes: map every existing sender (src/runtime/notify.py, claude_ping, send-ping system-action, hourly_report, prop ticket/fill pings, watchdog alerts) to exactly one channel by event type; remove prop ticket prompts; settings via Telegram bot inline keyboard / BotFather menu command, stored server-side; tests per route; confirm on live (one event of each kind lands in the right channel). Done = all three channels carry only their kind for 48h + settings toggles work.",
+  "updated_at": "2026-10-09T13:38:13Z",
+  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
+  "_seq": 368
+}
