@@ -29,8 +29,10 @@ A journal-read failure returns ``None`` ("we could not look"), never ``0.0``
 ("we looked and it is flat"). Until FIX-CA-07 (CA-A02, 2026-09-27) it
 returned ``0.0`` and the intent-mode dispatcher then sent a fresh full-size
 ``open`` on an account that already held the symbol; the dispatcher now
-refuses that account for that package with ``net_position_unreadable``. A
-missing journal file still reads as flat (no rows can exist yet).
+refuses that account for that package with ``net_position_unreadable``.
+``current_net_position_qty`` still reads a missing journal file as flat;
+``has_open_trade_for_strategy`` reads it as ``None`` (NO-HALT round 2,
+2026-10-09 — see its docstring).
 """
 from __future__ import annotations
 
@@ -108,17 +110,32 @@ def has_open_trade_for_strategy(
     strategy-monocle gate keys on (so a prematurely-closed package can't
     free the gate while the position is genuinely still open).
 
-    A missing journal returns ``False``. A read failure returns ``None``
-    ("could not look", FIX-CA-07) — NOT ``False``: the netting guard must not
-    read a locked journal as "no open trade" and let a re-entry through. The
-    coordinator refuses on ``None``; the pairs executor's truthiness checks
-    treat it as not-open, which is its pre-fix behaviour.
+    A read failure returns ``None`` ("could not look", FIX-CA-07) — NOT
+    ``False``: the netting guard must not read a locked journal as "no open
+    trade" and let a re-entry through.
+
+    A MISSING journal file also returns ``None`` (NO-HALT round 2,
+    2026-10-09). It used to return ``False``, so a journal the resolver could
+    not find (wrong data dir, unmounted volume) read as "no open trade" and a
+    duplicate entry went through. The trader creates the file at boot
+    (``enable_wal_mode``), so a missing file mid-run is "we could not look",
+    not "nothing is open". Callers refuse THAT entry for THAT tick and re-read
+    on the next one — no latch: the coordinator refuses the add with
+    ``net_position_unreadable`` (``note_open_trade_read`` raises one red flag
+    after ``OPEN_TRADE_READ_RED_FLAG_AFTER`` consecutive refusals); the pairs
+    executor reads the pair as ``unreadable`` (entries refused this tick,
+    counted as possibly-open for concurrency).
     """
     if not strategy_name:
         return False
     path = db_path or _trade_journal_path()
     if not os.path.exists(path):
-        return False
+        logger.warning(
+            "has_open_trade_for_strategy: journal file missing (%s) for "
+            "account=%s symbol=%s strategy=%s (could not look -> None)",
+            path, account_id, symbol, strategy_name,
+        )
+        return None
     try:
         with sqlite3.connect(path) as conn:
             row = conn.execute(
@@ -135,6 +152,70 @@ def has_open_trade_for_strategy(
             account_id, symbol, strategy_name, exc,
         )
         return None
+
+
+# ── bounded alerting for the netting guard's "could not look" refusals ─────
+# NO-HALT (operator directive 2026-10-09: "There is no halting."): an
+# unreadable open-trade read refuses THAT add for THAT dispatch and the next
+# dispatch re-reads — no latch. Every refusal already logs a WARN and journals
+# a ``net_position_unreadable`` rejection row; this adds ONE red flag when the
+# same (account, symbol, strategy) is refused this way on
+# OPEN_TRADE_READ_RED_FLAG_AFTER consecutive reads, and ONE recovery notice
+# when a read succeeds after a red flag. In-process: a restart re-counts.
+OPEN_TRADE_READ_RED_FLAG_AFTER = 3
+_open_trade_read_streaks: Dict[str, Dict[str, Any]] = {}
+
+
+def note_open_trade_read(
+    account_id: str,
+    symbol: str,
+    strategy_name: Optional[str],
+    *,
+    unreadable: bool,
+) -> int:
+    """Advance (``unreadable``) or clear the consecutive-unreadable streak for
+    ``(account_id, symbol, strategy_name)`` and emit the bounded alerts above.
+    Returns the streak length after the call (0 when cleared). Never raises.
+    """
+    key = f"{account_id}|{symbol}|{strategy_name}"
+    try:
+        if not unreadable:
+            st = _open_trade_read_streaks.pop(key, None)
+            if st and st.get("flagged"):
+                from src.runtime.outcomes import Level, report
+                report(
+                    "open_trade_read_unreadable", "recovered", level=Level.WARN,
+                    reason=(
+                        f"netting guard: open-trade read for {account_id}/{symbol}/"
+                        f"{strategy_name} readable again after {st.get('n')} "
+                        f"consecutive unreadable reads"
+                    ),
+                    account_id=account_id, symbol=symbol,
+                    strategy=strategy_name, streak=st.get("n"),
+                )
+            return 0
+        st = _open_trade_read_streaks.setdefault(key, {"n": 0, "flagged": False})
+        st["n"] = int(st.get("n") or 0) + 1
+        n = st["n"]
+        if n >= OPEN_TRADE_READ_RED_FLAG_AFTER and not st.get("flagged"):
+            st["flagged"] = True
+            from src.runtime.outcomes import Level, report
+            report(
+                "open_trade_read_unreadable", "red_flag", level=Level.CRITICAL,
+                reason=(
+                    f"RED FLAG — netting guard could not read the trade journal for "
+                    f"{account_id}/{symbol}/{strategy_name} on {n} consecutive "
+                    f"dispatches (missing or unreadable journal). Each add was "
+                    f"refused with net_position_unreadable; the account stays live "
+                    f"and every dispatch re-reads. The journal needs a look"
+                ),
+                account_id=account_id, symbol=symbol,
+                strategy=strategy_name, streak=n,
+            )
+        return n
+    except Exception as exc:  # noqa: BLE001 — an alert must never break dispatch
+        logger.error("note_open_trade_read failed for %s: %s", key, exc)
+        return int((_open_trade_read_streaks.get(key) or {}).get("n") or 0)
 
 
 def current_net_position_qty(

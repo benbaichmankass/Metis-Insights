@@ -255,15 +255,21 @@ def _pair_leg_state(pair: Dict[str, Any], account_id: str,
 
 
 def _pair_is_open(pair: Dict[str, Any], account_id: str, db_path: Optional[str]) -> bool:
-    """True when BOTH legs of the pair currently hold an open trade (the pair is
-    on). Uses the journal open-truth (has_open_trade_for_strategy).
+    """True when the pair is ON (both legs hold an open trade) **or its leg
+    rows could not be read** — the CONCURRENCY view, conservative by design.
+    Uses the journal open-truth (has_open_trade_for_strategy).
 
-    Retained for the concurrency helpers, which genuinely want "is this pair
-    ON". Anything DECIDING what to do must use ``_pair_leg_state`` instead —
-    this boolean cannot express the half-open case and reports it as False
-    (and reports ``unreadable`` as False too, its pre-existing behaviour).
+    Used only by the concurrency helpers (``_held_leg_symbols``,
+    ``_count_correlated_open``). An ``unreadable`` pair used to answer False
+    here, so a missing/locked journal made its legs look free and another
+    pair sharing a leg symbol could open on top of them. It now counts as
+    possibly-open for THIS tick only; the next tick re-reads (no latch).
+
+    Anything DECIDING what to do with a pair must use ``_pair_leg_state``
+    instead — this boolean cannot express the half-open case (False) and
+    cannot tell ``open`` from ``unreadable`` (both True).
     """
-    return _pair_leg_state(pair, account_id, db_path) == "open"
+    return _pair_leg_state(pair, account_id, db_path) in ("open", "unreadable")
 
 
 _STATE_ALERT_COOLDOWN_S = 3600.0
@@ -352,7 +358,9 @@ def _alert_half_open_pair(pair_label: str, account_id: str, *,
 # exits keep being evaluated, and the condition is reported as:
 #   * the FIRST failing evaluation -> one WARN (persisted, no page);
 #   * the _RED_FLAG_AFTER-th CONSECUTIVE one -> ONE CRITICAL red flag;
-#   * the first readable evaluation after a red flag -> one ``recovered``.
+#   * the first readable evaluation after a red flag -> one ``recovered``
+#     (or one ``cleared_flat`` when the streak ends because the pair went
+#     flat — that is not the bookkeeping becoming readable).
 # The streak is per (pair, kind) and in-process: a restart starts it again,
 # which can at worst re-flag once after _RED_FLAG_AFTER more failures.
 _RED_FLAG_AFTER = 3
@@ -360,10 +368,16 @@ _state_streaks: Dict[str, Dict[str, Any]] = {}
 
 
 def _state_streak(pair_label: str, account_id: str, kind: str, *,
-                  failing: bool, **evidence: Any) -> int:
+                  failing: bool, cleared_by: str = "readable",
+                  **evidence: Any) -> int:
     """Advance (``failing``) or clear (not ``failing``) the unreadable-state
     streak for ``(pair_label, kind)`` and emit the bounded alerts described
     above. Returns the streak length after this call (0 when cleared).
+
+    ``cleared_by`` says WHY a flagged streak ended, so the closing notice is
+    true: ``readable`` (the open-state was read again — ``recovered``) or
+    ``flat`` (the pair went flat, so there is no open-state left to read —
+    ``cleared_flat``; the bookkeeping was never shown readable).
 
     ``kind`` keeps the faults apart, never collapsed: ``leg_state_error``
     (the leg rows could not be read at all), ``error`` (the spread
@@ -376,12 +390,22 @@ def _state_streak(pair_label: str, account_id: str, kind: str, *,
             st = _state_streaks.pop(key, None)
             if st and st.get("flagged"):
                 from src.runtime.outcomes import Level, report
-                report("pairs_state_unreadable", "recovered", level=Level.WARN,
-                       reason=(f"pairs {pair_label}: open-state ({kind}) readable again on "
-                               f"{account_id} after {st.get('n')} consecutive unreadable "
-                               f"evaluations"),
-                       pair=pair_label, account_id=account_id, state_read=kind,
-                       streak=st.get("n"))
+                if cleared_by == "flat":
+                    report("pairs_state_unreadable", "cleared_flat", level=Level.WARN,
+                           reason=(f"pairs {pair_label}: red flag on open-state ({kind}) "
+                                   f"cleared on {account_id} because the pair is now FLAT "
+                                   f"(no open legs) after {st.get('n')} consecutive "
+                                   f"unreadable evaluations — the bookkeeping was never "
+                                   f"read back, so this is not a recovery of it"),
+                           pair=pair_label, account_id=account_id, state_read=kind,
+                           streak=st.get("n"))
+                else:
+                    report("pairs_state_unreadable", "recovered", level=Level.WARN,
+                           reason=(f"pairs {pair_label}: open-state ({kind}) readable again "
+                                   f"on {account_id} after {st.get('n')} consecutive "
+                                   f"unreadable evaluations"),
+                           pair=pair_label, account_id=account_id, state_read=kind,
+                           streak=st.get("n"))
             return 0
         st = _state_streaks.setdefault(key, {"n": 0, "flagged": False})
         st["n"] = int(st.get("n") or 0) + 1
@@ -1594,7 +1618,8 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
                 # this pair is over, and a rebuilt entry is for a closed
                 # position.
                 for kind in ("error", "absent"):
-                    _state_streak(_label, account_id, kind, failing=False)
+                    _state_streak(_label, account_id, kind, failing=False,
+                                  cleared_by="flat")
                 if name in rebuilt_states:
                     rebuilt_states.pop(name, None)
                     rebuilt_dirty = True
