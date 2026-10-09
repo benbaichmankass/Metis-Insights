@@ -11,6 +11,7 @@ from pathlib import Path
 import yaml
 
 from scripts.prop.prop_executor_tick import default_state_dir
+from src.prop.platform.dxtrade import ROLLOUT_LAST_FILE
 from src.prop.prop_trail import ROLLOUT_FILE, STATE_FILE
 from src.web.api.routers import diag
 
@@ -30,6 +31,7 @@ def test_every_prop_account_has_latch_and_state_entries(monkeypatch):
     for acct in _prop_accounts():
         assert f"prop_trail_latch_{acct}" in diag._LOG_FILES, acct
         assert f"prop_trail_state_{acct}" in diag._LOG_FILES, acct
+        assert f"prop_trail_last_step_{acct}" in diag._LOG_FILES, acct
 
 
 def test_entries_resolve_to_the_writers_state_dir(monkeypatch):
@@ -38,3 +40,4 @@ def test_entries_resolve_to_the_writers_state_dir(monkeypatch):
         want = default_state_dir(acct)
         assert diag._LOG_FILES[f"prop_trail_latch_{acct}"] == want / ROLLOUT_FILE
         assert diag._LOG_FILES[f"prop_trail_state_{acct}"] == want / STATE_FILE
+        assert diag._LOG_FILES[f"prop_trail_last_step_{acct}"] == want / ROLLOUT_LAST_FILE

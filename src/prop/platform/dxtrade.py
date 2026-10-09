@@ -5204,35 +5204,81 @@ def rollout_verify_mismatch(before: "Position", after: Optional["Position"], new
     return bad
 
 
+#: The RETIRED per-account latch. Until NO-HALT (operator 2026-10-09, "There
+#: is no halting.") its existence blocked every further armed modify on the
+#: account until ``executor-clear-rollout``. Nothing reads it as a block now;
+#: a copy left by the old code is moved aside on sight (:class:`ModifyRollout`).
+ROLLOUT_LATCH_FILE = "modify_rollout.json"
+#: The NON-blocking evidence record of the account's latest armed modify step.
+ROLLOUT_LAST_FILE = "modify_rollout_last.json"
+
+
 class ModifyRollout:
-    """The per-account latch of the modify rollout (a JSON file in the
-    executor's state dir). Its EXISTENCE blocks every further armed modify:
-    the single watched step has been used ("in_progress" written BEFORE the
-    click, so a crash cannot buy a second), "verified" or "verify_failed".
-    Only a reviewed removal of the file allows the next step: the
-    ``executor-clear-rollout`` system-action, which names this latch alone
-    (``executor-clear-halt`` never touches it)."""
+    """Evidence record of the account's armed modify steps -- NOT a latch.
+
+    Each armed step still passes the per-step guards in ``modify_bracket``
+    (tighten-only and bounded, ``rollout_tighten_mismatch``; the next-read
+    verify, ``rollout_verify_mismatch``), and its outcome is written to
+    ``<state dir>/modify_rollout_last.json``: "in_progress" BEFORE the click
+    (so a crash mid-step leaves evidence), then "verified" / "verify_failed" /
+    "refused". That file never blocks the next step: a failed step is that
+    step's failure, retried on the next cycle by its caller (NO-HALT, operator
+    2026-10-09: "There is no halting.").
+
+    ``path`` is the account's legacy latch path (``<state dir>/modify_rollout.json``,
+    what every caller passes); the evidence file sits beside it. A legacy latch
+    left by the old code is ignored and moved aside to
+    ``modify_rollout.json.retired-<UTC stamp>`` on construction, with a log line;
+    :attr:`stale_retired` says what was moved (None when nothing was)."""
 
     def __init__(self, path: Any) -> None:
         from pathlib import Path
-        self.path = Path(path)
+        self.latch_path = Path(path)
+        self.path = self.latch_path.with_name(ROLLOUT_LAST_FILE)
+        self.stale_retired: Optional[Dict[str, Any]] = self.retire_stale_latch()
 
-    def blocked(self) -> Optional[str]:
-        if not self.path.exists():
-            return None
+    def retire_stale_latch(self) -> Optional[Dict[str, Any]]:
+        """Move a legacy latch file aside (never raises). Returns
+        ``{"from", "to", "prior"}`` when one was moved, else None."""
+        import logging
         try:
-            state = json.loads(self.path.read_text()).get("state")
+            if not self.latch_path.exists():
+                return None
+            try:
+                prior = self.latch_path.read_text()[:500]
+            except OSError:
+                prior = "unreadable"
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            dest = self.latch_path.with_name(f"{self.latch_path.name}.retired-{stamp}")
+            self.latch_path.replace(dest)
+        except OSError as exc:
+            logging.getLogger(__name__).warning(
+                "modify-rollout: stale latch %s could not be moved aside (%s); it is ignored either way",
+                self.latch_path, type(exc).__name__)
+            return None
+        logging.getLogger(__name__).warning(
+            "modify-rollout: stale latch %s from the retired rollout latch moved aside to %s (NO-HALT); "
+            "it no longer blocks any modify", self.latch_path, dest.name)
+        return {"from": str(self.latch_path), "to": str(dest), "prior": prior}
+
+    def last(self) -> Optional[Dict[str, Any]]:
+        """The latest step's record, or None when absent/unreadable."""
+        try:
+            data = json.loads(self.path.read_text())
         except (OSError, ValueError):
-            state = "unreadable"
-        return (f"rollout: the single watched modify step is used (state {state!r}); "
-                f"further modifies are halted until {self.path.name} is reviewed and cleared "
-                "(executor-clear-rollout)")
+            return None
+        return data if isinstance(data, dict) else None
 
     def record(self, state: str, **facts: Any) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.path.with_suffix(".tmp")
-        tmp.write_text(json.dumps({"state": state, "at": time.time(), **facts}, default=str))
-        tmp.replace(self.path)
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self.path.with_suffix(".tmp")
+            tmp.write_text(json.dumps({"state": state, "at": time.time(), **facts}, default=str))
+            tmp.replace(self.path)
+        except OSError:
+            # Evidence only: an unwritable record must not stop the step's
+            # own guards from deciding (they do not read it).
+            pass
 
 def check_bracket_spec(spec: BracketSpec) -> List[str]:
     """Pure structural check of one bracket before any click: both legs, a
@@ -8385,14 +8431,16 @@ class DXtradeAdapter(PropPlatformAdapter):
     # no quantity field); modify_bracket targets exactly that surface (#15673).
     # Flipped True on the operator's answer "Merge and switch on together"
     # (2026-10-03, with the PROP-TRAIL merge #15316). Every armed modify still
-    # passes the ROLLOUT guard below (#15693): one watched, tighten-only SL
-    # step per reviewed executor-clear-rollout. Setting this back to False is
-    # the kill switch: an armed modify then refuses before any click.
+    # passes the ROLLOUT guard below (#15693): a tighten-only, bounded SL
+    # step, verified on the next read. Setting this back to False is the kill
+    # switch: an armed modify then refuses before any click.
     EDIT_DIALOG_MEASURED = True
-    # When armed, the first modifies on a real-money book are a ROLLOUT
-    # (manager 2026-10-02 21:30Z): one watched, tighten-only step per reviewed
-    # clear of the per-account latch (ModifyRollout, cleared only by
-    # executor-clear-rollout, never by executor-clear-halt). Every armed modify is gated by it.
+    # When armed, every modify on a real-money book is a ROLLOUT step
+    # (manager 2026-10-02 21:30Z): tighten-only, at most
+    # ROLLOUT_MAX_TIGHTEN_FRACTION of the stop distance, TP untouched, verified
+    # on the next read. Since NO-HALT (operator 2026-10-09) there is no
+    # per-account latch: ModifyRollout records each step's outcome as evidence
+    # and a failed step is retried by its caller. Every armed modify is gated by it.
     ROLLOUT_GUARD = True
     # TP doctrine B1: the rollout guard refuses any TP change
     # (`rollout_tighten_mismatch`), so this adapter cannot move a TP while it
@@ -8630,14 +8678,13 @@ class DXtradeAdapter(PropPlatformAdapter):
             return {"ok": False, "clicked": False, **seen, "why": "position side / size unknown: refusing"}
         guarded = bool(self.ROLLOUT_GUARD)
         if guarded:
-            # ROLLOUT: a single watched TIGHTEN-ONLY step, refused before any
-            # click unless the latch is clear and the move is bounded.
+            # ROLLOUT guard: every armed step is a TIGHTEN-ONLY, bounded SL
+            # step, refused before any click otherwise. Its record is evidence
+            # only -- a previous step's outcome never blocks this one (NO-HALT,
+            # operator 2026-10-09: "There is no halting.").
             if rollout is None:
                 return {"ok": False, "clicked": False, **seen,
-                        "why": "refused: rollout guard needs the account's modify-rollout latch"}
-            blocked = rollout.blocked()
-            if blocked:
-                return {"ok": False, "clicked": False, **seen, "why": blocked}
+                        "why": "refused: rollout guard needs the account's modify-rollout record"}
             try:
                 quote = self.read_quote(page, position.symbol)
             except Exception:
@@ -8695,8 +8742,10 @@ class DXtradeAdapter(PropPlatformAdapter):
         if not guarded:
             return {"ok": True, "clicked": True, **seen, "panel": panel, "why": "Modify Position clicked"}
         # ROLLOUT verify: the very next positions read must show the NEW stop,
-        # the UNCHANGED take profit and size -- else alert loudly and keep the
-        # latch (no further modify until it is reviewed and cleared).
+        # the UNCHANGED take profit and size -- else THIS step failed and says
+        # so loudly. Nothing is latched: the caller retries on its next cycle,
+        # and that step passes the same tighten-only guard from whatever SL
+        # then rests (NO-HALT, operator 2026-10-09).
         page.wait_for_timeout(1_500)
         try:
             rows = [p for p in self.read_positions(page) if canonical_symbol(p.symbol) == canonical_symbol(position.symbol)]
@@ -8708,7 +8757,7 @@ class DXtradeAdapter(PropPlatformAdapter):
             rollout.record("verify_failed", why="; ".join(bad))
             return {"ok": False, "clicked": True, **seen, "panel": panel, "rollout": "verify_failed",
                     "why": "ROLLOUT VERIFY FAILED after Modify Position: " + "; ".join(bad)
-                           + " -- further modifies halted"}
+                           + " -- this step failed; the next cycle retries"}
         rollout.record("verified", sl=float(stop_loss))
         return {"ok": True, "clicked": True, **seen, "panel": panel, "rollout": "verified",
                 "why": "Modify Position clicked; next read shows the new SL with TP and size unchanged"}

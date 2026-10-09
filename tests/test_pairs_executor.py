@@ -463,6 +463,7 @@ def test_run_pairs_tick_live_submin_leg_skips_no_placement(tmp_path, monkeypatch
                                                      "risk": {"risk_pct": 0.015}}})
     import src.utils.paths as _paths
     monkeypatch.setattr(_paths, "trade_journal_db_path", lambda: str(tmp_path / "j.db"))
+    _empty_journal(tmp_path / "j.db")   # flat = a READABLE journal with no open legs
     import src.runtime.pairs_soak as _soak
     monkeypatch.setattr(_soak, "record_pairs_soak", lambda rec: captured.append(rec) or True)
 
@@ -518,6 +519,7 @@ def test_run_pairs_tick_shadow_places_nothing(tmp_path, monkeypatch):
                                                      "risk": {"risk_pct": 0.015}}})
     import src.utils.paths as _paths
     monkeypatch.setattr(_paths, "trade_journal_db_path", lambda: str(tmp_path / "j.db"))
+    _empty_journal(tmp_path / "j.db")   # flat = a READABLE journal with no open legs
 
     import src.runtime.pairs_soak as _soak
     monkeypatch.setattr(_soak, "record_pairs_soak", lambda rec: captured.append(rec) or True)
@@ -868,6 +870,7 @@ def _live_open_tick(tmp_path, monkeypatch, *, halted: bool):
                                                      "risk": {"risk_pct": 0.015}}})
     import src.utils.paths as _paths
     monkeypatch.setattr(_paths, "trade_journal_db_path", lambda: str(tmp_path / "j.db"))
+    _empty_journal(tmp_path / "j.db")   # flat = a READABLE journal with no open legs
     import src.runtime.pairs_soak as _soak
     monkeypatch.setattr(_soak, "record_pairs_soak", lambda rec: captured.append(rec) or True)
     flag = tmp_path / "trader_halt.flag"
@@ -918,6 +921,16 @@ def _seed_open_legs(db, *, side_a, side_b, entry_a, entry_b, opened_at):
             "position_size, status, is_backtest, strategy_name, account_id) "
             "VALUES (?,?,?,?,?,?,?,?,?)",
             (opened_at, sym, side, float(px_), 1.0, "open", 0, strat, "bybit_1"))
+    conn.commit()
+    conn.close()
+
+
+def _empty_journal(db):
+    """A READABLE journal with no open legs — what "flat" means. A missing
+    file is "could not look" (NO-HALT round 2, 2026-10-09), not flat."""
+    import sqlite3 as _sq
+    conn = _sq.connect(db)
+    conn.execute(_real_trades_ddl())
     conn.commit()
     conn.close()
 
@@ -1154,7 +1167,9 @@ def test_leg_state_read_failure_is_its_own_state(monkeypatch):
     monkeypatch.setattr(_pos, "has_open_trade_for_strategy",
                         lambda a, sym, strat, **k: None if sym == "BTCUSDT" else True)
     assert px._pair_leg_state(pair, "bybit_1", None) == "unreadable"
-    assert px._pair_is_open(pair, "bybit_1", None) is False
+    # The concurrency view is conservative: could-not-look counts as possibly
+    # open for this tick (NO-HALT round 2, 2026-10-09).
+    assert px._pair_is_open(pair, "bybit_1", None) is True
 
 
 def test_stale_sidecar_for_other_trades_is_not_reused_and_flat_prunes_it(
@@ -1179,3 +1194,149 @@ def test_stale_sidecar_for_other_trades_is_not_reused_and_flat_prunes_it(
     conn.close()
     px.run_pairs_tick({})
     assert "pairs_sol_btc" not in _j.loads((tmp_path / "rebuilt.json").read_text())
+
+
+# ── NO-HALT round 2 (2026-10-09): "could not look" is never folded into flat ─
+
+def test_missing_journal_refuses_entry_this_tick_then_opens_once_readable(
+        tmp_path, monkeypatch):
+    """The REAL leg read (no stub) against a journal file that does not exist:
+    the pair must NOT open — a missing journal used to read as flat — and the
+    bar is NOT consumed, so the next tick, with the journal readable and flat,
+    opens normally. No latch."""
+    ca, cb = _extended_spread()
+    soak, closes, sent, bars = _unreadable_state_env(
+        tmp_path, monkeypatch, ca=ca, cb=cb, bar_keys=["SAME"] * 10)
+    assert not (tmp_path / "j.db").exists()                       # precondition
+    placed = []
+    monkeypatch.setattr(px, "_place_pair",
+                        lambda *a, **k: placed.append(a) or {"placed": True,
+                                                             "trade_ids": ["t1", "t2"]})
+    import src.units.accounts.execute as _exec
+    monkeypatch.setattr(_exec, "_fetch_balance", lambda *a, **k: 100000.0)
+    import src.units.accounts.qty_legalize as _ql
+    monkeypatch.setattr(_ql, "legalize_qty",
+                        lambda qty, **k: _ql.LegalizedQty(qty=qty, ok=True, reason="",
+                                                          venue_min=0.0, step=0.0,
+                                                          source="instrument_profile"))
+    px.run_pairs_tick({})
+    assert placed == []
+    assert soak[-1]["event"] == "skip_state_unreadable"
+    assert soak[-1]["state_read"] == "leg_state_error"
+    assert "pairs_sol_btc" not in bars, "the bar was consumed — that is a latch for the bar"
+    _empty_journal(tmp_path / "j.db")
+    px.run_pairs_tick({})
+    assert len(placed) == 1 and soak[-1]["event"] == "open"
+
+
+def _three_pairs():
+    return [
+        {"name": "p_unread", "symbol_a": "SOLUSDT", "symbol_b": "BTCUSDT"},
+        {"name": "p_flat", "symbol_a": "XRPUSDT", "symbol_b": "ADAUSDT"},
+        {"name": "me", "symbol_a": "SOLUSDT", "symbol_b": "ETHUSDT"},
+    ]
+
+
+def _patch_reads(monkeypatch, unreadable_symbols):
+    import src.runtime.positions as _pos
+    monkeypatch.setattr(
+        _pos, "has_open_trade_for_strategy",
+        lambda account_id, symbol, strategy, **k:
+            None if symbol in unreadable_symbols else False)
+
+
+def test_concurrency_counts_an_unreadable_pair_as_held(monkeypatch):
+    """An unreadable pair's legs are NOT free for another pair this tick:
+    they count as held (disjoint-legs gate) and as an open correlated pair
+    (haircut). A readable flat pair still counts as nothing."""
+    _patch_reads(monkeypatch, {"SOLUSDT", "BTCUSDT"})
+    pairs = _three_pairs()
+    held = px._held_leg_symbols(pairs, "bybit_1", None, exclude_name="me")
+    assert held == {"SOLUSDT", "BTCUSDT"}
+    assert px._count_correlated_open(pairs[2], pairs, "bybit_1", None) == 1
+
+
+def test_concurrency_readable_path_unchanged(monkeypatch):
+    """Positive control: everything readable and flat -> nothing held."""
+    _patch_reads(monkeypatch, set())
+    pairs = _three_pairs()
+    assert px._held_leg_symbols(pairs, "bybit_1", None, exclude_name="me") == set()
+    assert px._count_correlated_open(pairs[2], pairs, "bybit_1", None) == 0
+
+
+def test_unreadable_pair_blocks_a_sharing_pair_entry_this_tick(monkeypatch):
+    """End to end through decide_pair: the sharing pair is refused with
+    skip_concurrency (this tick only — the held set is recomputed every tick)."""
+    _patch_reads(monkeypatch, {"SOLUSDT", "BTCUSDT"})
+    pairs = [{"name": "p_unread", "symbol_a": "SOLUSDT", "symbol_b": "XRPUSDT"},
+             {"name": "me", "symbol_a": "SOLUSDT", "symbol_b": "BTCUSDT"}]
+    held = px._held_leg_symbols(pairs, "bybit_1", None, exclude_name="me")
+    ca, cb = _extended_spread()
+    d = px.decide_pair(_params(), ca, cb, open_state=None, held_symbols=held,
+                       risk_budget_usd=100.0, correlation_open=0)
+    assert d.event == "skip_concurrency" and not d.legs
+    _patch_reads(monkeypatch, set())
+    held = px._held_leg_symbols(pairs, "bybit_1", None, exclude_name="me")
+    d = px.decide_pair(_params(), ca, cb, open_state=None, held_symbols=held,
+                       risk_budget_usd=100.0, correlation_open=0)
+    assert d.event == "open"
+
+
+def test_flagged_streak_ending_because_the_pair_went_flat_is_not_called_recovered(
+        tmp_path, monkeypatch):
+    """Review (c) of #17255: the pair goes flat while its open-state red flag
+    stands. The bookkeeping was never read back, so the closing notice must say
+    the pair is flat (``cleared_flat``) — not ``recovered``."""
+    ca, cb = _jammed_at(n=120, k=116)
+    _seed_open_legs(tmp_path / "j.db", side_a="short", side_b="long",
+                    entry_a=ca[116], entry_b=cb[116], opened_at=_ago(3))
+    soak, closes, sent, _ = _unreadable_state_env(tmp_path, monkeypatch, ca=ca, cb=cb)
+    for _ in range(3):
+        px.run_pairs_tick({})
+    import sqlite3 as _sq
+    conn = _sq.connect(tmp_path / "j.db")
+    conn.execute("UPDATE trades SET status='closed'")
+    conn.commit()
+    conn.close()
+    px.run_pairs_tick({})
+    px.run_pairs_tick({})
+    flags = [s[0][1] for s in sent if s[0][0] == "pairs_state_unreadable"]
+    assert flags == ["error", "red_flag", "cleared_flat"], flags
+
+
+def test_state_streak_readable_clear_still_says_recovered(monkeypatch):
+    sent = []
+    import src.runtime.outcomes as _out
+    monkeypatch.setattr(_out, "report", lambda *a, **k: sent.append(a))
+    px._state_streaks.clear()
+    for _ in range(3):
+        px._state_streak("A/B", "bybit_1", "error", failing=True)
+    px._state_streak("A/B", "bybit_1", "error", failing=False)
+    assert [a[1] for a in sent] == ["error", "red_flag", "recovered"]
+
+
+def test_exit_fires_on_a_readable_open_pair_while_the_budget_is_unavailable(
+        tmp_path, monkeypatch):
+    """Review (d) of #17255: an OPEN pair whose bookkeeping is READABLE
+    (state_source=journal) must exit even though ``_budget_for`` would return
+    None (the balance read fails throughout ``_unreadable_state_env``). The
+    budget sizes entries only; it is never consulted for an open pair."""
+    import json as _j
+    ca, cb = _jammed_at()
+    _seed_open_legs(tmp_path / "j.db", side_a="short", side_b="long",
+                    entry_a=ca[-26], entry_b=cb[-26], opened_at=_ago(25))
+    _seed_pkg(tmp_path / "j.db", "pairs_sol_btc_a", _j.dumps(
+        {"pair_direction": "short_spread", "entry_spread": 0.1, "stop_spread": 9.9,
+         "opened_at_utc": _ago(25), "bar_seconds": 3600}))
+    soak, closes, sent, _ = _unreadable_state_env(tmp_path, monkeypatch, ca=ca, cb=cb)
+    import src.units.accounts.execute as _exec
+    balance_reads = []
+    monkeypatch.setattr(_exec, "_fetch_balance",
+                        lambda *a, **k: balance_reads.append(1) or (_ for _ in ()).throw(
+                            RuntimeError("balance down")))
+    px.run_pairs_tick({})
+    assert closes == ["timeout"], soak
+    assert soak[-1]["event"] == "close"
+    assert soak[-1]["state_source"] == "journal"
+    assert not any(r["event"] == "skip_no_risk_basis" for r in soak)
+    assert balance_reads == [], "the budget must not be derived for an open pair"

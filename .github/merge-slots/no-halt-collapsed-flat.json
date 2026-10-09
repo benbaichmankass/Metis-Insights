@@ -1,0 +1,6 @@
+{
+  "held_by": "session_016wNjQSovXrhDpd72xUjx8U",
+  "branch": "claude/no-halt-collapsed-flat",
+  "claimed_at": "2026-10-09T13:48:26Z",
+  "purpose": "NO-HALT round 2: missing/unreadable journal is could-not-look, not flat (netting guard + pairs concurrency)"
+}
