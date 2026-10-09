@@ -30,6 +30,10 @@ def _iso(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     ]}))
     monkeypatch.setattr(pe, "DEVICES_PATH", dev)
     monkeypatch.delenv("PROP_PHONE_MODE_BREAKOUT_2", raising=False)
+    # No network in unit tests: the REAL config/prop_platforms.yaml may carry a dry_test_request for
+    # breakout_2, which claim_next serves only when _bybit_last returns a price -- so with Bybit
+    # reachable from CI every claim test got an extra phone-test ticket. Tests needing a price patch it.
+    monkeypatch.setattr(pe, "_bybit_last", lambda sym: None)
     sent: list = []
     monkeypatch.setattr("src.runtime.notify.send_telegram_direct", lambda m, **k: sent.append(m) or True)
     return sent
