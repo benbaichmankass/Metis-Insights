@@ -482,6 +482,11 @@ PY
     # that DID build — is SKIPPED this cycle rather than trained on known-bad
     # data. Self-heals: a later rebuild that clears the flag trains normally. To
     # revert to observe-only, drop the `continue` below.
+    # NO-HALT note (2026-10-09): this refusal is a per-cycle data-quality
+    # check, not a latch. It persists only for the rest of this UTC day's
+    # progress file (the same-day catch-up resume does not re-audit); the next
+    # daily cycle rebuilds the dataset and re-audits from scratch, and there
+    # is no cross-day state and nothing a person must clear.
     emit "$(printf '{"ts":"%s","status":"manifest_audit_skipped_enforced","manifest":"%s","detail":"SKIPPED (enforced): dataset audit flagged a dead feature / degenerate label in a NON-empty dataset — not trained this cycle. Fix the flagged column/label (see dataset_audit.jsonl) to resume training."}' "$(iso_now)" "$manifest")"
     progress_mark "$manifest" skipped reason=audit_flagged
     skipped_n=$((skipped_n + 1))
@@ -491,11 +496,6 @@ PY
     # one means "we looked at the data and refused to train on it". Counting
     # it apart is what gives the cycle the state between `trained` and
     # `failed` that F-103 named as missing.
-    # NO-HALT note (2026-10-09): this refusal is a per-cycle data-quality
-    # check, not a latch. It persists only for the rest of this UTC day's
-    # progress file (the same-day catch-up resume does not re-audit); the next
-    # daily cycle rebuilds the dataset and re-audits from scratch, and there
-    # is no cross-day state and nothing a person must clear.
     skipped_enforced_n=$((skipped_enforced_n + 1))
     continue
   elif [ "$audit_verdict" = "EMPTY" ]; then
