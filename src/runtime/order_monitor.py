@@ -2636,11 +2636,35 @@ _DEFAULT_SNAPSHOT_MIN_FILL_AGE_SECONDS = 300
 # wiped all 8 positions at once), not a set of individual disappearances.
 # RISK-1 (BL-20260707-RECONCILER-MASS-FALSE-CLOSE): a suspected reset is NO
 # LONGER auto-closed — mass-closing N live rows on one inference is the
-# amplifier that turned a bad read into 7 false closes. It fires ONE latched
-# alert and leaves the rows OPEN for the operator. 3 keeps a normal 1-2 position
-# exit on the individual-close path while routing any wholesale vanish to
-# alert-first.
+# amplifier that turned a bad read into 7 false closes. It fires ONE alert and
+# marks the rows RESET-SUSPECT. 3 keeps a normal 1-2 position exit on the
+# individual-close path while routing any wholesale vanish to alert-first.
+#
+# NO-HALT (operator directive 2026-10-09, "There is no halting."): a suspect row
+# is NO LONGER left open for manual resolution — that parked the row forever and
+# the strategy-monocle open-package gate then blocked every new entry for that
+# strategy+symbol until a human closed it. Each suspect row is now RE-VERIFIED
+# against the venue on every pass (``_RESET_SUSPECT_ROWS`` below): venue shows
+# it → it stays open and is managed normally; venue confirms flat on
+# ``_RESET_SUSPECT_CONFIRM_READS`` consecutive clean reads → it is closed as
+# ``exchange_reset_flat`` with its PnL DECLARED unmeasured (never priced from a
+# mark); a read failure resolves nothing and is retried next pass. A row still
+# suspect after ``_RESET_SUSPECT_FLAG_AFTER`` passes raises ONE red flag per
+# account; recovery is announced once.
 _ACCOUNT_RESET_SNAPSHOT_THRESHOLD = 3
+
+# Consecutive clean venue-flat reads (each >= _close_confirm_seconds() after the
+# previous counted one) required, AFTER the reset-suspect detection pass, before
+# a suspect row is resolved closed. The detection itself already needed two
+# observations (arm + confirm), so a resolved row has read flat on >= 4.
+_RESET_SUSPECT_CONFIRM_READS = 2
+
+# Counted passes a row may stay RESET-SUSPECT (detection pass included) before
+# ONE red flag is raised for its account. A row resolving normally is suspect
+# for 2 counted passes (detection + first clean read) and resolves on the 3rd,
+# so the flag fires only when re-verification failed to settle (read failures /
+# unconfirmed per-symbol reads).
+_RESET_SUSPECT_FLAG_AFTER = 3
 
 # Exit-coverage reattach-or-close (2026-06-15): an open ``orphan_adopt`` trade
 # with NO recoverable order package has no rational exit strategy and is
@@ -2766,10 +2790,25 @@ _PENDING_SNAPSHOT_DISAPPEAR_CONFIRM: Dict[int, datetime] = {}
 # suspected wholesale-RESET alert (>= _ACCOUNT_RESET_SNAPSHOT_THRESHOLD
 # strategy-attributed positions confirmed absent in one pass) fires ONCE, not
 # every confirm window while the anomaly persists. Cleared when the account no
-# longer presents a mass vanish (event resolved / rows manually reconciled).
+# longer presents a mass vanish (suspect rows re-verified and resolved, or read
+# back present). It only bounds ALERT volume — it never stops reconciliation.
 # In-process (a restart re-arms from scratch — fail-safe toward re-alerting,
 # never toward a silent mass-close).
 _RESET_ALERT_LATCHED: set = set()
+
+# NO-HALT (2026-10-09): per-row RESET-SUSPECT re-verification state, keyed by
+# trades.id → {"account", "symbol", "side", "since", "passes", "flat_reads",
+# "last_flat_at"}. ``passes`` counts counted verification passes the row has
+# stayed suspect (detection = 1); ``flat_reads`` counts CONSECUTIVE clean
+# venue-flat reads since detection (any read failure / unconfirmed read resets
+# it to 0). In-process: a restart drops it and a still-vanished set is simply
+# re-detected through the normal arm → confirm path (never closes early).
+_RESET_SUSPECT_ROWS: Dict[int, Dict[str, Any]] = {}
+
+# Accounts that have had their ONE "reset-suspect not settling" red flag this
+# episode. Cleared — with ONE recovery announcement — once the account has no
+# suspect rows left. Bounds alert volume; never gates anything.
+_RESET_SUSPECT_FLAGGED: set = set()
 
 # 2-observation confirm cache for the STUCK-STRATEGY WATCHDOG's "position flat
 # at exchange → finalize closed" branch (BL-20260708-WATCHDOG-FALSEFLAT-FLAP).
@@ -3558,16 +3597,32 @@ def _orphan_position_policy() -> str:
     return "adopt"
 
 
+def _send_reset_alert(msg: str, *, caller: str) -> None:
+    """Telegram + WARNING FCM, best-effort — never raises into the sweep."""
+    try:
+        from src.runtime.notify import send_telegram_direct
+        send_telegram_direct(msg, parse_mode=None, mirror_to_fcm=False)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("%s: telegram send failed: %s", caller, exc)
+    try:
+        from src.runtime.mobile_push import publish_event
+        from src.runtime.mobile_push.event_kinds import WARNING
+        publish_event(WARNING, {"text": msg})
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("%s: fcm WARNING publish failed: %s", caller, exc)
+
+
 def _alert_account_reset(account_id: str, symbols: List[str]) -> None:
     """One consolidated 'account reset SUSPECTED' alert (Telegram + WARNING FCM).
 
     Fired once (latched per account) when the position-snapshot reconciler finds
     >= ``_ACCOUNT_RESET_SNAPSHOT_THRESHOLD`` positions for one account confirmed
     absent in a single pass. RISK-1 (BL-20260707-RECONCILER-MASS-FALSE-CLOSE):
-    the reconciler NO LONGER auto-closes on a mass vanish — mass-closing N live
-    rows on one inference is the amplifier that turned a bad 2026-07-07 read into
-    7 false closes. The rows are left OPEN; this alert asks the operator to
-    resolve. Best-effort — never raises into the reconcile sweep.
+    the reconciler does NOT mass-close on that one inference — mass-closing N
+    live rows on one read is the amplifier that turned a bad 2026-07-07 read
+    into 7 false closes. NO-HALT (2026-10-09): the rows are not parked for the
+    operator either; each is re-verified against the venue every pass and
+    resolved automatically. Best-effort — never raises into the reconcile sweep.
     """
     uniq: List[str] = []
     for s in symbols:
@@ -3579,23 +3634,251 @@ def _alert_account_reset(account_id: str, symbols: List[str]) -> None:
         f"{n} open position(s) vanished from the exchange in one snapshot "
         f"({', '.join(uniq[:12])}{' …' if len(uniq) > 12 else ''}). A wholesale "
         "vanish is treated as an account-level anomaly (external reset/wipe / "
-        "auth-scope change / broker incident), NOT strategy exits — so the DB "
-        "rows are left OPEN, NOT auto-closed (mass-closing on one read is how a "
-        "bad snapshot false-closed live positions on 2026-07-07). Please verify "
-        "on the broker whether these are genuinely flat; if so, close them "
-        "manually. If this recurs, check who/what has reset access to the account."
+        "auth-scope change / broker incident), NOT strategy exits — so the rows "
+        "are NOT mass-closed on this one read. Each is re-verified against the "
+        f"venue every pass: it closes (exit_reason=exchange_reset_flat, PnL "
+        f"declared unmeasured) only after {_RESET_SUSPECT_CONFIRM_READS} more "
+        "consecutive clean flat reads, and stays open if the venue shows it. "
+        "No action needed unless a follow-up red flag says re-verification is "
+        "not settling. If this recurs, check who/what has reset access to the "
+        "account."
+    )
+    _send_reset_alert(msg, caller="_alert_account_reset")
+
+
+def _alert_reset_suspect_stuck(account_id: str, items: List[Dict[str, Any]]) -> None:
+    """The ONE red flag: suspect rows on *account_id* have not settled after
+    ``_RESET_SUSPECT_FLAG_AFTER`` counted passes. Reconciliation keeps running
+    and retrying; this only asks somebody to look."""
+    desc = ", ".join(
+        f"#{it.get('trade_id')} {it.get('symbol')}/{it.get('side')} "
+        f"(passes={it.get('passes')}, last={it.get('last_read')})"
+        for it in items[:12]
+    )
+    msg = (
+        f"\U0001F6A9 [RED FLAG] Reset-suspect rows not settling: {account_id}\n"
+        f"{len(items)} row(s) still RESET-SUSPECT after "
+        f"{_RESET_SUSPECT_FLAG_AFTER}+ verification passes: {desc}. The venue "
+        "read keeps failing or cannot confirm flat, so nothing has been closed. "
+        "The reconciler keeps re-reading every pass and will resolve on its own "
+        "once the venue answers; please check the broker connection / account. "
+        "One flag per episode; recovery will be announced once."
+    )
+    _send_reset_alert(msg, caller="_alert_reset_suspect_stuck")
+
+
+def _alert_reset_suspect_recovered(account_id: str) -> None:
+    """ONE recovery announcement once a flagged account has no suspect rows."""
+    msg = (
+        f"\u2705 [RECOVERED] Reset-suspect rows settled: {account_id}\n"
+        "Every RESET-SUSPECT row on this account was re-verified against the "
+        "venue and resolved (closed as exchange_reset_flat on confirmed flat, or "
+        "kept open because the venue shows the position)."
+    )
+    _send_reset_alert(msg, caller="_alert_reset_suspect_recovered")
+
+
+def _reset_suspect_bump(tid: int, state: Dict[str, Any], last_read: str) -> None:
+    """Count one more verification pass for a still-suspect row."""
+    state["passes"] = int(state.get("passes", 0)) + 1
+    state["last_read"] = last_read
+
+
+def _reset_suspect_maybe_flag(aid: str) -> None:
+    """Raise the account's ONE red flag when any of its suspect rows has stayed
+    suspect for ``_RESET_SUSPECT_FLAG_AFTER`` counted passes."""
+    if aid in _RESET_SUSPECT_FLAGGED:
+        return
+    stuck = [
+        {"trade_id": tid, **st}
+        for tid, st in _RESET_SUSPECT_ROWS.items()
+        if st.get("account") == aid
+        and int(st.get("passes", 0)) >= _RESET_SUSPECT_FLAG_AFTER
+    ]
+    if not stuck:
+        return
+    _RESET_SUSPECT_FLAGGED.add(aid)
+    logger.error(
+        "_reconcile_orphan_exchange_positions: RESET-SUSPECT RED FLAG account=%s "
+        "— %d row(s) unsettled after %d+ verification passes (%s); still "
+        "re-verifying every pass.",
+        aid, len(stuck), _RESET_SUSPECT_FLAG_AFTER,
+        ", ".join(str(it["trade_id"]) for it in stuck),
     )
     try:
-        from src.runtime.notify import send_telegram_direct
-        send_telegram_direct(msg, parse_mode=None, mirror_to_fcm=False)
+        _alert_reset_suspect_stuck(aid, stuck)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("_alert_account_reset: telegram send failed: %s", exc)
+        logger.warning("reset-suspect red flag send failed account=%s: %s", aid, exc)
+
+
+def _reset_suspect_maybe_recover(aid: str) -> None:
+    """Announce recovery ONCE when a flagged account has no suspect rows left."""
+    if aid not in _RESET_SUSPECT_FLAGGED:
+        return
+    if any(st.get("account") == aid for st in _RESET_SUSPECT_ROWS.values()):
+        return
+    _RESET_SUSPECT_FLAGGED.discard(aid)
+    logger.warning(
+        "_reconcile_orphan_exchange_positions: RESET-SUSPECT recovered "
+        "account=%s — every suspect row resolved.", aid,
+    )
     try:
-        from src.runtime.mobile_push import publish_event
-        from src.runtime.mobile_push.event_kinds import WARNING
-        publish_event(WARNING, {"text": msg})
+        _alert_reset_suspect_recovered(aid)
     except Exception as exc:  # noqa: BLE001
-        logger.debug("_alert_account_reset: fcm WARNING publish failed: %s", exc)
+        logger.warning("reset-suspect recovery send failed account=%s: %s", aid, exc)
+
+
+def _reset_suspect_note_read_failure(aid: str) -> None:
+    """The account's venue snapshot could not be read this pass. Resolve
+    NOTHING; break every suspect row's consecutive-flat streak (a clean read
+    must follow a clean read), count the pass, and maybe raise the red flag.
+    Reconciliation simply retries next pass."""
+    touched = False
+    for tid, st in _RESET_SUSPECT_ROWS.items():
+        if st.get("account") != aid:
+            continue
+        st["flat_reads"] = 0
+        st["last_flat_at"] = None
+        _reset_suspect_bump(tid, st, "snapshot_read_failed")
+        touched = True
+    if touched:
+        _reset_suspect_maybe_flag(aid)
+
+
+def _reverify_reset_suspect_row(
+    db, r, *, state: Dict[str, Any], aid: str, cfg: Any, sym: str,
+    canonical: str, exchange_positions: set, now_dt: datetime, now_iso: str,
+    summary: Dict[str, int], supports_presence: bool,
+    position_present: Callable[[Any, str], Optional[bool]],
+) -> str:
+    """Re-read the venue for one RESET-SUSPECT row (NO-HALT, 2026-10-09).
+
+    Returns ``"present"`` (venue shows the position → kept open, managed
+    normally), ``"resolved"`` (venue confirmed flat on
+    ``_RESET_SUSPECT_CONFIRM_READS`` consecutive clean reads → closed), or
+    ``"suspect"`` (still verifying / venue could not confirm → retried next
+    pass). Evidence standard is the reconciler's own: absent from a SUCCESSFUL
+    batch snapshot AND, where the integration supports it, a per-symbol
+    broker-confirmed flat (``False``); consecutive counted reads must be at
+    least ``_close_confirm_seconds()`` apart. An unconfirmed (``None``)
+    per-symbol read resolves nothing and breaks the streak.
+    """
+    tid_int = int(r["id"])
+    if (sym, canonical) in exchange_positions:
+        summary["snapshot_reset_cleared_present"] = (
+            summary.get("snapshot_reset_cleared_present", 0) + 1
+        )
+        logger.warning(
+            "_reconcile_orphan_exchange_positions: RESET-SUSPECT cleared — "
+            "trade_id=%s account=%s symbol=%s side=%s is PRESENT on the venue; "
+            "kept open and managed normally.", tid_int, aid, sym, canonical,
+        )
+        return "present"
+    if supports_presence:
+        present = position_present(cfg, sym)
+        if present is True:
+            summary["snapshot_reset_cleared_present"] = (
+                summary.get("snapshot_reset_cleared_present", 0) + 1
+            )
+            logger.warning(
+                "_reconcile_orphan_exchange_positions: RESET-SUSPECT cleared — "
+                "trade_id=%s account=%s symbol=%s side=%s per-symbol broker "
+                "check reads OPEN (batch list was partial); kept open.",
+                tid_int, aid, sym, canonical,
+            )
+            return "present"
+        if present is not False:
+            # Could not confirm — resolve nothing; streak broken; retry.
+            state["flat_reads"] = 0
+            state["last_flat_at"] = None
+            _reset_suspect_bump(tid_int, state, "presence_unconfirmed")
+            summary["snapshot_reset_suspect"] = (
+                summary.get("snapshot_reset_suspect", 0) + 1
+            )
+            return "suspect"
+    last_flat = state.get("last_flat_at")
+    if (
+        last_flat is not None
+        and (now_dt - last_flat).total_seconds() < _close_confirm_seconds()
+    ):
+        # Inside the spacing window — this read is not counted; wait.
+        summary["snapshot_reset_suspect"] = (
+            summary.get("snapshot_reset_suspect", 0) + 1
+        )
+        return "suspect"
+    state["flat_reads"] = int(state.get("flat_reads", 0)) + 1
+    state["last_flat_at"] = now_dt
+    if state["flat_reads"] >= _RESET_SUSPECT_CONFIRM_READS:
+        try:
+            _resolve_reset_suspect_row(
+                db, r, aid=aid, sym=sym, canonical=canonical,
+                now_iso=now_iso, summary=summary,
+            )
+            return "resolved"
+        except Exception as exc:  # noqa: BLE001 — retried next pass
+            logger.warning(
+                "_reconcile_orphan_exchange_positions: RESET-SUSPECT resolve "
+                "failed trade_id=%s account=%s symbol=%s: %s — retrying next "
+                "pass", tid_int, aid, sym, exc,
+            )
+            summary["errors"] += 1
+            _reset_suspect_bump(tid_int, state, "resolve_failed")
+            return "suspect"
+    _reset_suspect_bump(tid_int, state, "flat")
+    summary["snapshot_reset_suspect"] = summary.get("snapshot_reset_suspect", 0) + 1
+    return "suspect"
+
+
+def _resolve_reset_suspect_row(db, r, *, aid: str, sym: str, canonical: str,
+                               now_iso: str, summary: Dict[str, int]) -> bool:
+    """Close a RESET-SUSPECT row the venue has confirmed flat on
+    ``_RESET_SUSPECT_CONFIRM_READS`` consecutive clean reads.
+
+    Honest close: ``exit_reason='exchange_reset_flat'`` (excluded from strategy
+    analytics by ``_clean_trades.exclude_reset_flat_predicate``), ``exit_price``
+    and ``pnl`` left NULL and DECLARED unmeasured (``pnl_source`` =
+    ``provenance.UNMEASURED_MARKER``) — the venue never showed us this exit, so
+    no price is invented; ``_sweep_local_pnl_for_unpriced`` skips the reason.
+    The linked package is cascade-closed so the strategy-monocle gate clears.
+    """
+    from src.runtime.provenance import UNMEASURED_MARKER
+    tid_int = int(r["id"])
+    notes = _decode_notes(r["notes"])
+    notes.update({
+        "closed_at": now_iso,
+        "closed_by": "position_snapshot_reconciler",
+        "reset_event": True,
+        "closed_reason": (
+            "RESET-SUSPECT auto-resolved: vanished in a wholesale account "
+            "vanish, then re-verified flat on "
+            f"{_RESET_SUSPECT_CONFIRM_READS} further consecutive venue reads "
+            "(per-symbol broker check where supported). Exit not observed."
+        ),
+        "pnl_source": UNMEASURED_MARKER,
+        "unmeasured_reason": "account_reset_exit_unobserved",
+    })
+    db.update_trade(tid_int, {
+        "status": "closed",
+        "exit_reason": "exchange_reset_flat",
+        "closed_at": now_iso,
+        "notes": dump_capped(notes, 2000),
+    })
+    _cascade_close_linked_package(
+        db, tid_int,
+        close_reason="exchange_reset_flat",
+        caller="_reconcile_orphan_exchange_positions(reset_suspect)",
+    )
+    _cancel_resting_protection_after_flat(aid, sym)
+    summary["snapshot_reset_resolved"] = summary.get("snapshot_reset_resolved", 0) + 1
+    logger.warning(
+        "_reconcile_orphan_exchange_positions: RESET-SUSPECT RESOLVED — "
+        "trade_id=%s account=%s symbol=%s side=%s strategy=%s closed as "
+        "exchange_reset_flat (venue flat on %d consecutive re-reads; PnL "
+        "declared unmeasured)",
+        tid_int, aid, sym, canonical, r["strategy_name"],
+        _RESET_SUSPECT_CONFIRM_READS,
+    )
+    return True
 
 
 def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
@@ -3687,15 +3970,23 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
         # this pass but inside the 2-observation confirm window (snapshot_pending).
         "snapshot_closed": 0,
         # RISK-1 (BL-20260707-RECONCILER-MASS-FALSE-CLOSE): kept at 0 for
-        # back-compat — a wholesale RESET is NO LONGER auto-closed. A mass vanish
-        # now ALERTS (snapshot_reset_alerted) and leaves the rows OPEN. (Historical
-        # exchange_reset_flat rows from before this change still exist and are
-        # still excluded from strategy metrics by _clean_trades.)
+        # back-compat — a wholesale RESET is NEVER mass-closed on the detection
+        # read. A mass vanish ALERTS (snapshot_reset_alerted) and marks the rows
+        # RESET-SUSPECT; they are resolved per row by re-verification
+        # (snapshot_reset_resolved). exchange_reset_flat rows are excluded from
+        # strategy metrics by _clean_trades.
         "snapshot_reset_closed": 0,
         # Strategy-attributed rows confirmed absent in a suspected wholesale
         # RESET (>= _ACCOUNT_RESET_SNAPSHOT_THRESHOLD in one pass): alerted +
-        # left OPEN, never auto-closed on inference.
+        # marked RESET-SUSPECT, never closed on that one inference.
         "snapshot_reset_alerted": 0,
+        # NO-HALT (2026-10-09): RESET-SUSPECT rows re-verified this pass and
+        # still suspect (awaiting further clean flat reads / venue unreadable),
+        # resolved closed on confirmed flat, or cleared because the venue shows
+        # the position (kept open, managed normally).
+        "snapshot_reset_suspect": 0,
+        "snapshot_reset_resolved": 0,
+        "snapshot_reset_cleared_present": 0,
         # Rows absent from the batch LIST but NOT closed because a positive
         # per-symbol broker check (alpaca) said still-open (True) or could-not-
         # confirm (None) — only a broker-confirmed flat closes (RISK-1).
@@ -3757,7 +4048,10 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
             # close-on-disappear). _reconcile_open_trades observed the
             # same condition and bumped skipped_no_creds. Conservative
             # by design: we don't close an adopted_orphan row on the
-            # basis of a transient creds-read failure.
+            # basis of a transient creds-read failure. RESET-SUSPECT rows on
+            # this account resolve NOTHING this pass (streak broken, pass
+            # counted, red flag if unsettled) and are retried next pass.
+            _reset_suspect_note_read_failure(aid)
             continue
 
         # Read DB-open trades for this account in one batch so we don't
@@ -3985,10 +4279,21 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
             # then decide AFTER the loop whether this is a wholesale account RESET
             # (>= _ACCOUNT_RESET_SNAPSHOT_THRESHOLD positions vanishing at once —
             # the 2026-07-07 alpaca_paper paper-reset signature) vs individual
-            # disappearances. RISK-1: a suspected reset is NOT auto-closed — it
-            # fires ONE latched alert and leaves the rows OPEN; only individual
-            # (< threshold) confirmed-flat disappearances auto-close.
+            # disappearances. RISK-1: a suspected reset is NOT closed on that one
+            # inference — it fires ONE latched alert and marks the rows
+            # RESET-SUSPECT; only individual (< threshold) confirmed-flat
+            # disappearances close on the detection pass. NO-HALT (2026-10-09):
+            # suspect rows are re-verified every pass below and resolved on the
+            # venue's evidence — never parked for a human.
             _snapshot_to_close: List[Tuple[Any, int, str, str]] = []
+            # Drop suspect state for rows of this account that are no longer
+            # open (closed by another path) — nothing left to verify.
+            _open_ids = {int(_r["id"]) for _r in open_rows}
+            for _stid in [
+                t for t, st in _RESET_SUSPECT_ROWS.items()
+                if st.get("account") == aid and t not in _open_ids
+            ]:
+                _RESET_SUSPECT_ROWS.pop(_stid, None)
             # Track whether ANY strategy row for this account read absent from
             # the batch snapshot this pass (armed / pending / confirmed alike).
             # Used only to clear the reset-alert latch when the account is
@@ -4007,6 +4312,21 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                 if not sym or not canonical:
                     continue
                 tid_int = int(r["id"])
+                _suspect = _RESET_SUSPECT_ROWS.get(tid_int)
+                if _suspect is not None:
+                    # NO-HALT re-verification of a RESET-SUSPECT row.
+                    if (sym, canonical) not in exchange_positions:
+                        _any_absent = True
+                    _verdict = _reverify_reset_suspect_row(
+                        db, r, state=_suspect, aid=aid, cfg=cfg, sym=sym,
+                        canonical=canonical, exchange_positions=exchange_positions,
+                        now_dt=now_iso_dt, now_iso=now_iso, summary=summary,
+                        supports_presence=supports_position_presence(cfg),
+                        position_present=account_position_present,
+                    )
+                    if _verdict != "suspect":
+                        _RESET_SUSPECT_ROWS.pop(tid_int, None)
+                    continue
                 if (sym, canonical) in exchange_positions:
                     # Still open on the exchange — clear any pending arming.
                     _PENDING_SNAPSHOT_DISAPPEAR_CONFIRM.pop(tid_int, None)
@@ -4104,7 +4424,7 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
 
             # ── decide: wholesale account RESET vs individual disappearance ──
             # RISK-1 (BL-20260707-RECONCILER-MASS-FALSE-CLOSE): a mass vanish is
-            # NEVER auto-closed. Even though each collected row here is already
+            # NEVER closed on the detection pass. Even though each collected row here is already
             # per-symbol-confirmed flat (alpaca 404) or two-observation-confirmed
             # absent (IB/OANDA), >= _ACCOUNT_RESET_SNAPSHOT_THRESHOLD positions
             # disappearing from ONE account in a single pass is an account-level
@@ -4112,9 +4432,13 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
             # independent strategy exits — and mass-closing N live rows with a
             # fabricated local-mark PnL is the exact amplifier that turned one bad
             # 2026-07-07 read into 7 false closes + re-adoptions. So a suspected
-            # reset ALERTS (once, latched) and leaves the rows OPEN for an operator
-            # to resolve; only an INDIVIDUAL (< threshold) confirmed-flat
-            # disappearance auto-closes.
+            # reset ALERTS (once, latched) and marks the rows RESET-SUSPECT; only
+            # an INDIVIDUAL (< threshold) confirmed-flat disappearance closes now.
+            # NO-HALT (operator, 2026-10-09: "There is no halting."): suspect rows
+            # are NOT parked for an operator — each is re-verified against the
+            # venue every pass (_reverify_reset_suspect_row) and resolved on
+            # consecutive clean flat reads, kept open if the venue shows it, and
+            # retried when the read fails; ONE red flag if it does not settle.
             _is_reset = (
                 len(_snapshot_to_close) >= _ACCOUNT_RESET_SNAPSHOT_THRESHOLD
             )
@@ -4127,11 +4451,18 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                 logger.warning(
                     "_reconcile_orphan_exchange_positions: RESET-SUSPECT for "
                     "account=%s — %d strategy-attributed positions confirmed "
-                    "absent in ONE pass (%s). NOT auto-closing (RISK-1: never "
-                    "mass-close on inference); leaving the rows OPEN for manual "
-                    "resolution and alerting the operator.",
+                    "absent in ONE pass (%s). NOT closing on this one read "
+                    "(RISK-1: never mass-close on inference); marking them "
+                    "RESET-SUSPECT for per-row venue re-verification every pass "
+                    "(NO-HALT 2026-10-09).",
                     aid, len(_snapshot_to_close), ", ".join(_vanished_syms),
                 )
+                for (_r, _t, _s, _c) in _snapshot_to_close:
+                    _RESET_SUSPECT_ROWS[_t] = {
+                        "account": aid, "symbol": _s, "side": _c,
+                        "since": now_iso, "passes": 1, "flat_reads": 0,
+                        "last_flat_at": None, "last_read": "detected",
+                    }
                 # Latch so the alert fires ONCE per account per episode, not on
                 # every confirm window while the anomaly persists.
                 if aid not in _RESET_ALERT_LATCHED:
@@ -4202,6 +4533,10 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
             # duplicate alert.
             if not _any_absent:
                 _RESET_ALERT_LATCHED.discard(aid)
+            # ONE red flag per account for rows not settling; ONE recovery
+            # announcement once none remain. Never gates reconciliation.
+            _reset_suspect_maybe_flag(aid)
+            _reset_suspect_maybe_recover(aid)
 
         if not positions:
             # No exchange positions to walk for the adopt pass; the
@@ -13322,6 +13657,12 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
                 # src.web.api._clean_trades.exclude_reduce_leg_predicate.
                 "   AND COALESCE(setup_type, '') != 'intent_reduce' "
                 "   AND COALESCE(notes, '') NOT LIKE '%\"intent_reduce\": true%' "
+                # NO-HALT (2026-10-09): a RESET-SUSPECT row auto-resolved as
+                # exchange_reset_flat is DECLARED unmeasured at close — the venue
+                # never showed its exit and closed_at is the re-verification
+                # time, not the exit time, so a close-time bar would be a price
+                # for the wrong moment. Never price it here.
+                "   AND COALESCE(exit_reason, '') != 'exchange_reset_flat' "
                 # MI-128: the window keys on the CLOSE, not the OPEN.
                 # `created_at` is when the position was OPENED; the value this
                 # sweep exists to recover is a property of the CLOSE. Keyed on

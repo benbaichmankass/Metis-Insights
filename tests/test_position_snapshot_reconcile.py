@@ -94,6 +94,10 @@ def tmp_db(tmp_path, monkeypatch):
     _om._PENDING_SNAPSHOT_DISAPPEAR_CONFIRM.clear()
     _om._PENDING_ORPHAN_DISAPPEAR_CONFIRM.clear()
     _om._RESET_ALERT_LATCHED.clear()
+    _om._RESET_SUSPECT_ROWS.clear()
+    _om._RESET_SUSPECT_FLAGGED.clear()
+    # No real Telegram / FCM from any reset alert path under test.
+    monkeypatch.setattr(_om, "_send_reset_alert", lambda msg, caller: None)
     db = Database(db_path=str(db_path))
 
     monkeypatch.setattr(
@@ -543,8 +547,10 @@ def test_account_wide_reset_alerts_first_and_does_not_close(tmp_db, monkeypatch)
         ).fetchall()
     finally:
         conn.close()
-    # All four rows are LEFT OPEN for manual resolution.
+    # All four rows stay OPEN on the detection pass (marked RESET-SUSPECT and
+    # re-verified on later passes — see the NO-HALT section below).
     assert rows and all(r[0] == "open" for r in rows)
+    assert len(_om._RESET_SUSPECT_ROWS) == 4
     # Exactly ONE consolidated alert for the account (not one per position).
     assert len(alerts) == 1
     assert alerts[0][0] == "ib_paper"
@@ -553,7 +559,7 @@ def test_account_wide_reset_alerts_first_and_does_not_close(tmp_db, monkeypatch)
 
 def test_reset_alert_is_latched_not_re_fired_each_pass(tmp_db, monkeypatch):
     """The reset alert fires ONCE per account per episode (latched), not on every
-    confirm window while the mass vanish persists."""
+    pass while the suspect rows are being re-verified (and resolved)."""
     import src.runtime.order_monitor as _om
     alerts = []
     monkeypatch.setattr(
@@ -567,8 +573,9 @@ def test_reset_alert_is_latched_not_re_fired_each_pass(tmp_db, monkeypatch):
     ):
         _reconcile_orphan_exchange_positions(tmp_db)   # arms
         _reconcile_orphan_exchange_positions(tmp_db)   # confirms → alert #1
-        _reconcile_orphan_exchange_positions(tmp_db)   # re-arms
-        _reconcile_orphan_exchange_positions(tmp_db)   # confirms again → latched
+        _reconcile_orphan_exchange_positions(tmp_db)   # re-verify flat #1
+        _reconcile_orphan_exchange_positions(tmp_db)   # re-verify flat #2 → resolved
+        _reconcile_orphan_exchange_positions(tmp_db)   # nothing left
     assert len(alerts) == 1  # latched — not re-fired
 
 
@@ -711,3 +718,227 @@ def test_below_threshold_is_normal_flat_no_reset_alert(tmp_db, monkeypatch):
         conn.close()
     assert rows and all(r[0] == "exchange_flat_reconciled" for r in rows)
     assert alerts == []
+
+
+# ─────────────────────────────────────────────────────────────────────
+# NO-HALT (operator directive 2026-10-09, "There is no halting."):
+# RESET-SUSPECT rows are re-verified every pass and resolved automatically —
+# never parked open for manual resolution (which held the strategy-monocle
+# open-package gate shut for that strategy+symbol indefinitely).
+# ─────────────────────────────────────────────────────────────────────
+
+_RESET_SYMS = ("MES", "MGC", "MHG", "SPY")
+
+
+def _spy_alerts(monkeypatch):
+    import src.runtime.order_monitor as _om
+    calls = {"detect": [], "flag": [], "recover": []}
+    monkeypatch.setattr(_om, "_alert_account_reset",
+                        lambda aid, syms: calls["detect"].append(aid))
+    monkeypatch.setattr(_om, "_alert_reset_suspect_stuck",
+                        lambda aid, items: calls["flag"].append((aid, items)))
+    monkeypatch.setattr(_om, "_alert_reset_suspect_recovered",
+                        lambda aid: calls["recover"].append(aid))
+    return calls
+
+
+def _statuses(db, account_id="ib_paper"):
+    conn = db.connect()
+    try:
+        conn.row_factory = __import__("sqlite3").Row
+        return [dict(r) for r in conn.execute(
+            "SELECT id, symbol, status, exit_reason, pnl, exit_price, notes "
+            "FROM trades WHERE account_id=? ORDER BY id", (account_id,),
+        ).fetchall()]
+    finally:
+        conn.close()
+
+
+def _seed_reset_rows(db, account_id="ib_paper", strategy="mes_trend",
+                     with_packages=False):
+    for i, sym in enumerate(_RESET_SYMS):
+        pkg = f"pkg-reset-{i}" if with_packages else None
+        if with_packages:
+            db.insert_order_package({
+                "order_package_id": pkg, "strategy_name": strategy,
+                "symbol": sym, "direction": "long", "entry": 100.0,
+                "sl": 90.0, "tp": 120.0, "confidence": 0.5, "status": "open",
+                "linked_trade_id": None, "meta": {},
+            })
+        db.insert_trade({
+            "timestamp": "2026-06-16T07:00:00+00:00", "symbol": sym,
+            "direction": "long", "entry_price": 100.0, "position_size": 1.0,
+            "setup_type": strategy, "status": "open", "is_backtest": 0,
+            "strategy_name": strategy, "account_id": account_id,
+            "notes": "{}", "order_package_id": pkg,
+        })
+
+
+def test_reset_suspect_auto_resolves_on_consecutive_flat_reads(tmp_db, monkeypatch):
+    """Detection never closes; two further consecutive clean flat reads resolve
+    every suspect row as exchange_reset_flat with PnL DECLARED unmeasured (no
+    fabricated price), with no red flag on the normal path."""
+    import src.runtime.order_monitor as _om
+    from src.runtime.provenance import UNMEASURED_MARKER
+    calls = _spy_alerts(monkeypatch)
+    _seed_reset_rows(tmp_db)
+    with patch("src.units.accounts.clients.account_open_positions", return_value=[]):
+        _reconcile_orphan_exchange_positions(tmp_db)              # arm
+        _reconcile_orphan_exchange_positions(tmp_db)              # detect → suspect
+        assert all(r["status"] == "open" for r in _statuses(tmp_db))
+        s3 = _reconcile_orphan_exchange_positions(tmp_db)         # flat read #1
+        assert all(r["status"] == "open" for r in _statuses(tmp_db))
+        assert s3["snapshot_reset_suspect"] == 4
+        s4 = _reconcile_orphan_exchange_positions(tmp_db)         # flat read #2
+    assert s4["snapshot_reset_resolved"] == 4
+    rows = _statuses(tmp_db)
+    assert len(rows) == 4
+    for r in rows:
+        assert r["status"] == "closed"
+        assert r["exit_reason"] == "exchange_reset_flat"
+        assert r["pnl"] is None and r["exit_price"] is None
+        notes = json.loads(r["notes"])
+        assert notes["pnl_source"] == UNMEASURED_MARKER
+        assert notes["reset_event"] is True
+    assert _om._RESET_SUSPECT_ROWS == {}
+    assert calls["detect"] == ["ib_paper"]
+    assert calls["flag"] == [] and calls["recover"] == []
+
+
+def test_reset_resolved_rows_are_never_priced_by_the_local_sweep(tmp_db, monkeypatch):
+    """The universal local-PnL sweep must not anchor-price a reset-resolved row:
+    its closed_at is the re-verification time, not the exit time."""
+    import src.runtime.order_monitor as _om
+    _spy_alerts(monkeypatch)
+    _seed_reset_rows(tmp_db)
+    with patch("src.units.accounts.clients.account_open_positions", return_value=[]):
+        for _ in range(4):
+            _reconcile_orphan_exchange_positions(tmp_db)
+    assert all(r["exit_reason"] == "exchange_reset_flat" for r in _statuses(tmp_db))
+    summary = _om._sweep_local_pnl_for_unpriced(tmp_db)
+    assert summary["scanned"] == 0
+    assert all(r["pnl"] is None for r in _statuses(tmp_db))
+
+
+def test_reset_suspect_kept_open_when_venue_shows_position(tmp_db, monkeypatch):
+    """A suspect row the venue shows on a later pass stays OPEN and leaves the
+    suspect state (managed normally) — never closed on the reset inference."""
+    import src.runtime.order_monitor as _om
+    calls = _spy_alerts(monkeypatch)
+    _seed_reset_rows(tmp_db)
+    present = [_ib_position(symbol=s, side="long", size=1.0, entry=100.0)
+               for s in _RESET_SYMS]
+    with patch("src.units.accounts.clients.account_open_positions", return_value=[]):
+        _reconcile_orphan_exchange_positions(tmp_db)
+        _reconcile_orphan_exchange_positions(tmp_db)             # suspect
+    assert len(_om._RESET_SUSPECT_ROWS) == 4
+    with patch("src.units.accounts.clients.account_open_positions",
+               return_value=present):
+        s = _reconcile_orphan_exchange_positions(tmp_db)
+        _reconcile_orphan_exchange_positions(tmp_db)
+    assert s["snapshot_reset_cleared_present"] == 4
+    assert _om._RESET_SUSPECT_ROWS == {}
+    assert all(r["status"] == "open" for r in _statuses(tmp_db))
+    assert calls["flag"] == []
+
+
+def test_reset_suspect_alpaca_per_symbol_open_keeps_row(tmp_db, monkeypatch):
+    """Alpaca: batch list omits the symbols but the per-symbol check reads OPEN
+    → the suspect row is kept open (partial-list guard still holds)."""
+    import src.runtime.order_monitor as _om
+    _spy_alerts(monkeypatch)
+    _seed_reset_rows(tmp_db, account_id="alpaca_live", strategy="equity_mr")
+    presence = {"v": False}
+    with patch("src.units.accounts.clients.account_open_positions", return_value=[]), \
+         patch("src.units.accounts.clients.account_position_present",
+               side_effect=lambda cfg, sym: presence["v"]):
+        _reconcile_orphan_exchange_positions(tmp_db)
+        _reconcile_orphan_exchange_positions(tmp_db)             # suspect
+        presence["v"] = True
+        _reconcile_orphan_exchange_positions(tmp_db)
+    assert _om._RESET_SUSPECT_ROWS == {}
+    assert all(r["status"] == "open"
+               for r in _statuses(tmp_db, account_id="alpaca_live"))
+
+
+def test_reset_suspect_read_failure_resolves_nothing_one_red_flag_then_recovers(
+    tmp_db, monkeypatch,
+):
+    """Venue unreadable while suspect: nothing resolves, reconciliation keeps
+    retrying, exactly ONE red flag after repeats; when reads come back flat the
+    rows resolve on two consecutive clean reads and recovery is announced once."""
+    import src.runtime.order_monitor as _om
+    calls = _spy_alerts(monkeypatch)
+    _seed_reset_rows(tmp_db)
+    with patch("src.units.accounts.clients.account_open_positions", return_value=[]):
+        _reconcile_orphan_exchange_positions(tmp_db)
+        _reconcile_orphan_exchange_positions(tmp_db)             # suspect (pass 1)
+    with patch("src.units.accounts.clients.account_open_positions", return_value=None):
+        for _ in range(6):                                       # venue unreadable
+            _reconcile_orphan_exchange_positions(tmp_db)
+    assert all(r["status"] == "open" for r in _statuses(tmp_db))
+    assert len(calls["flag"]) == 1                               # ONE red flag
+    assert calls["flag"][0][0] == "ib_paper"
+    assert len(_om._RESET_SUSPECT_ROWS) == 4                     # still trying
+    with patch("src.units.accounts.clients.account_open_positions", return_value=[]):
+        _reconcile_orphan_exchange_positions(tmp_db)             # clean flat #1
+        assert all(r["status"] == "open" for r in _statuses(tmp_db))
+        _reconcile_orphan_exchange_positions(tmp_db)             # clean flat #2
+        _reconcile_orphan_exchange_positions(tmp_db)
+    assert all(r["exit_reason"] == "exchange_reset_flat" for r in _statuses(tmp_db))
+    assert len(calls["flag"]) == 1
+    assert calls["recover"] == ["ib_paper"]
+
+
+def test_reset_suspect_unconfirmed_per_symbol_never_resolves(tmp_db, monkeypatch):
+    """Alpaca per-symbol read None (could not confirm) while suspect: never a
+    close, the streak never builds, ONE red flag."""
+    calls = _spy_alerts(monkeypatch)
+    _seed_reset_rows(tmp_db, account_id="alpaca_live", strategy="equity_mr")
+    presence = {"v": False}
+    with patch("src.units.accounts.clients.account_open_positions", return_value=[]), \
+         patch("src.units.accounts.clients.account_position_present",
+               side_effect=lambda cfg, sym: presence["v"]):
+        _reconcile_orphan_exchange_positions(tmp_db)
+        _reconcile_orphan_exchange_positions(tmp_db)             # suspect
+        presence["v"] = None
+        for _ in range(5):
+            _reconcile_orphan_exchange_positions(tmp_db)
+    assert all(r["status"] == "open"
+               for r in _statuses(tmp_db, account_id="alpaca_live"))
+    assert len(calls["flag"]) == 1
+
+
+def test_reset_suspect_flat_reads_respect_confirm_spacing(tmp_db, monkeypatch):
+    """Consecutive counted flat reads must be >= _close_confirm_seconds apart;
+    a re-read inside the window is not counted, so it cannot resolve early."""
+    _spy_alerts(monkeypatch)
+    _seed_reset_rows(tmp_db)
+    with patch("src.units.accounts.clients.account_open_positions", return_value=[]):
+        _reconcile_orphan_exchange_positions(tmp_db)
+        _reconcile_orphan_exchange_positions(tmp_db)             # suspect
+        monkeypatch.setenv("RECONCILER_CLOSE_CONFIRM_SECONDS", "3600")
+        _reconcile_orphan_exchange_positions(tmp_db)             # flat #1 counted
+        _reconcile_orphan_exchange_positions(tmp_db)             # inside window
+        _reconcile_orphan_exchange_positions(tmp_db)             # inside window
+    assert all(r["status"] == "open" for r in _statuses(tmp_db))
+
+
+def test_monocle_gate_unblocks_after_reset_suspect_resolves(tmp_db, monkeypatch):
+    """The strategy-monocle open-package gate holds the strategy+symbol while
+    the suspect row is open and clears ON ITS OWN once re-verification resolves
+    it — no latch beyond the row/package state."""
+    from src.runtime import strategy_monocle as sm
+    _spy_alerts(monkeypatch)
+    _seed_reset_rows(tmp_db, with_packages=True)
+    scope = frozenset({"ib_paper"})
+    with patch("src.units.accounts.clients.account_open_positions", return_value=[]):
+        _reconcile_orphan_exchange_positions(tmp_db)
+        _reconcile_orphan_exchange_positions(tmp_db)             # suspect
+        assert sm._open_package_scope("mes_trend", "MES", scope)["action"] == "block"
+        _reconcile_orphan_exchange_positions(tmp_db)
+        _reconcile_orphan_exchange_positions(tmp_db)             # resolved
+    for sym in _RESET_SYMS:
+        gate = sm._open_package_scope("mes_trend", sym, scope)
+        assert gate["action"] == "pass", (sym, gate)
+        assert sm._has_open_package_for_strategy("mes_trend", sym) is None

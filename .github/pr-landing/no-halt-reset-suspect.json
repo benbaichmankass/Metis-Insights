@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Live trader reconcile path: src/runtime/order_monitor.py position-snapshot reconciler RESET-SUSPECT handling (and the local-PnL sweep's exclusion of exchange_reset_flat rows); the manager merges under the operator's NO-HALT directive 2026-10-09 (\"There is no halting.\")",
+  "why": "A wholesale account vanish (>= 3 strategy rows confirmed absent in one pass) used to fire one alert and leave the rows OPEN for manual resolution forever, and the strategy-monocle open-package gate then blocked new entries for every affected strategy+symbol until a human closed them. Now each RESET-SUSPECT row is re-verified against the venue every pass: venue shows it -> kept open and managed normally; venue confirms flat (absent from a successful snapshot plus the per-symbol broker check where supported) on 2 further consecutive reads spaced by the close-confirm window -> closed exit_reason=exchange_reset_flat with pnl NULL declared unmeasured (provenance UNMEASURED_MARKER; the local-PnL sweep now skips that reason) and the linked package cascade-closed so the gate clears; a read failure resolves nothing and retries. ONE red flag per account if rows stay suspect 3 counted passes, ONE recovery announcement. The no-mass-close-on-one-read RISK-1 guard is kept. Revert: git revert of this PR's commit restores the park-for-manual behaviour."
+}
