@@ -123,6 +123,14 @@ def record_vol_trail_shadow(
             "raw_last_bar_open_ts": str(candles_df["timestamp"].iloc[-1]) if "timestamp" in candles_df else None,
             "ref_cell": {"above": REF_ABOVE_PCTL, "tight": REF_TIGHT_MULT, "window": REF_WINDOW},
             "atr_pctl_closed": None if pctl_closed is None else round(pctl_closed, 4),
+            # Why a null above is null: "insufficient_bars" (the trimmed frame
+            # is shorter than the window — the 2026-10-09 fetch defect) is not
+            # a percentile that failed to compute on a full window.
+            "atr_pctl_closed_read_state": (
+                "insufficient_bars" if len(closed) < REF_WINDOW
+                else ("ok" if pctl_closed is not None else "nan_in_window")),
+            "n_bars_raw": len(candles_df),
+            "n_bars_closed": len(closed),
             "atr_pctl_raw": None if pctl_raw is None else round(pctl_raw, 4),
             "would_fire_closed": bool(fires_closed),
             "would_fire_raw": bool(fires_raw),
