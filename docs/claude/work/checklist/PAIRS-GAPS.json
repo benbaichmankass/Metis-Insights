@@ -1,0 +1,18 @@
+{
+  "id": "PAIRS-GAPS",
+  "title": "Pairs follow-ups: Gate-1 cost-fidelity grader emits no pairs cell; bybit_1 pairs closes unbalanced (80/591 reconciler); pairs paper soak unregistered",
+  "phase": "W6",
+  "state": "queued",
+  "owner": "unassigned",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "2026-10-09 PIPELINE-ROUTE: created to own PI-20261007-N6TXSAL6-0001 (r3_cost_fidelity record has no pairs_* cell so MD-PROMOTE-S1-S2 reads no_record), PI-20261007-N6TXSAL6-0002 (a/b leg counts unequal, 5 unmatched legs to attribute by pairs_group_id) and PI-20261007-N6TXSAL6-0003 (read the pairs soak against the Stage-0 verdicts RQ-20261007-005..008). Split from PAIRS-STOCKTAKE (landed_unproven, stocktake delivered) so the builds have an owner. Grader/read work Tier-1; any pairs order-path fix is Tier-2.",
+  "updated_at": "2026-10-09T07:50:30Z",
+  "updated_by": "session_01QwgzukpNwXp9m42kFvBX4p",
+  "_seq": 365
+}

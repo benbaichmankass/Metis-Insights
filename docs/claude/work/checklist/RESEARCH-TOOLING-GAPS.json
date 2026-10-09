@@ -1,0 +1,18 @@
+{
+  "id": "RESEARCH-TOOLING-GAPS",
+  "title": "Research tooling gaps: roster-walkforward units can never auto-grade; backtest_orb.py lacks the full cost stack and a gradable summary; research-harness-dispatch lacks an extra_args input",
+  "phase": "W6",
+  "state": "queued",
+  "owner": "unassigned",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "2026-10-09 PIPELINE-ROUTE: created to own PI-20261006-1VPYTX8E-0001, PI-20261007-ZKGGKTAG-0001, PI-20261007-ZKGGKTAG-0002. Each re-verified today by its origin.rerun and still open: backtest_orb.py resolve_cost_policy count 0 / net_total_r count 17 mismatch (cost stack missing); research-harness-dispatch.yml extra_args count 0; roster-walkforward.yaml still routes to research-harness-dispatch.yml with 'net-of-cost OOS R' units in research/queue. All Tier-1 tooling/CI.",
+  "updated_at": "2026-10-09T07:50:30Z",
+  "updated_by": "session_01QwgzukpNwXp9m42kFvBX4p",
+  "_seq": 364
+}
