@@ -1,5 +1,7 @@
 {
   "tier": 3,
   "landing": "hold",
-  "why": "Tier-3 strategy-param declare (ada_pullback_2h trail_vol_above_pctl 0.9 / trail_vol_tight_mult 2.5 / vol_pctl_window 200) arming bybit_2 real money, its bybit_portfolio mirror and bybit_1. Operator approval required; manager must not self-land."
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-3 strategy-param declare (ada_pullback_2h trail_vol_above_pctl 0.9 / trail_vol_tight_mult 2.5 / vol_pctl_window 200) arming bybit_2 real money, its bybit_portfolio mirror and bybit_1. Operator approval required; the manager must not self-land.",
+  "why": "Tier-3 strategy-param declare; see hold_text."
 }
