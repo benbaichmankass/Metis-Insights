@@ -15,3 +15,10 @@ polymarket:
   queries:
     - {q: "fed decision", topic: fed_rate_decision, slug_prefix: "fed-decision-in-"}
     - {q: "recession", topic: recession, slug_prefix: "us-recession-"}
+# One-shot historical backfill (scripts/macro/pm_backfill_kalshi.py). Release-type series only; the
+# live collector above ignores this key.
+backfill:
+  series: [KXCPI, KXPAYROLLS, KXFEDDECISION]
+  window_hours_before_close: 168   # hourly candles from close-168h to close+1h
+  period_minutes: 60
+  min_seconds_between_calls: 2.5
