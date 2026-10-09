@@ -16,5 +16,12 @@
   ],
   "blocked_on": [],
   "note": "2026-09-30 ~06:45Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): found by LIVE-NO-TRADES. Fix PR #14590 (open-package gate per ACCOUNT, landing hold, Tier-3) is open as a draft; awaiting the lane's report, then independent review, then the manager decides under the data-backed Tier-3 authorization and notifies the operator. Model opus: live order path. || 2026-09-30 ~08:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14590 MERGED (2926c22f, 08:04Z) after two review rounds (fail-closed reads; Stage-2 pairs coupled per the 2026-09-21 mirror-identity decision). DEPLOYED: VM git_sha 1f7297a78 contains it. PARTLY OBSERVED: open_package_blocked rows carry the new fields; open_package_read_failed 0 rows; pair-coupled IEF case not yet observable (needs a US-hours ief signal). Follow-ups filed (#14634, #14639: MEK2XMWT-0004..0006). Lane ARCHIVED.",
+  "observation": {
+    "what": "A US-hours ief signal on alpaca_live while a paper IEF package is open is NOT blocked, and the Stage-2 pair-coupled case is exercised",
+    "how_to_check": "journal open_package_blocked rows for strategy ief_pullback_1d across accounts; fields added by #14590. open_package_read_failed was 0 rows at last read",
+    "due_by": "2026-10-23T00:00Z"
+  },
+  "updated_at": "2026-10-09T04:36:50Z",
+  "updated_by": "session_015WZhDbDdZTbgTzGXeDzjqe",
   "_seq": 242
 }

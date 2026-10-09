@@ -15,5 +15,12 @@
   ],
   "blocked_on": [],
   "note": "[2026-10-04T09:25Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] ROOT CAUSE (lane, verified): NOT the producer -- tradeify_1's own 08:01:29Z ETH ticket was risk_usd 50.0. src/prop/prop_journal.py::list_outbound_tickets read prop_tickets with no account_id filter and keyed by order_package_id alone; both prop accounts roster trend_donchian_eth_prop, so both views returned breakout_1's $75 ticket. FIX #16243: MERGED aab5c817 09:07Z (operator 'Let the lane ship it'); DEPLOYED (diag version 09:19:50Z ce43aaa69 contains aab5c817, restart_pending false); OBSERVED read path: ?account_id=tradeify_1 returns only its own ticket (risk 50.0). NOT YET OBSERVED: a tradeify_1 executor intake under the fix -- closes on PI-20261004-WGO5DRFX-0001. Population: 12 of 12 accounts have producer risk == config; the read defect touched exactly the 2 prop accounts. Revert: git revert aab5c817.",
+  "observation": {
+    "what": "A tradeify_1 executor intake under fix #16243 shows the ticket at its own risk (50.0), not breakout_1's 75",
+    "how_to_check": "GET /api/bot/prop/tickets?account_id=tradeify_1 and prop_fills for tradeify_1; closes on PI-20261004-WGO5DRFX-0001",
+    "due_by": "2026-10-16T00:00Z"
+  },
+  "updated_at": "2026-10-09T04:36:50Z",
+  "updated_by": "session_015WZhDbDdZTbgTzGXeDzjqe",
   "_seq": 273
 }

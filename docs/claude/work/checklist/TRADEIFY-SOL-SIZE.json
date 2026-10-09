@@ -18,5 +18,12 @@
   ],
   "blocked_on": [],
   "note": "[2026-10-04T14:10Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] CAUSE CONFIRMED (dry walks #16311 enabled at limit 0.5% below ask, #16313 disabled 0.5% above; terminal footer 'Entry Price you set must be lower than'). OPERATOR DECISION popup ~12:42Z: 'Retry in band (Recommended)'. #16332 reviewed+MERGED 50e83f90 by manager; DEPLOYED (tradeify_1 executor code_sha 5a5d4485a contains it, ticks exit 0). NOT YET OBSERVED: a real marketable ticket entering awaiting_resting_price. | [2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] MEASURED (a) #16232: MARKET 1.0 SOL submit ENABLED; LIMIT at the same size disabled (#16202). INFERRED: SOL quotes read bid==ask so a buy limit at the bid is marketable and DXtrade disables it. #16220 (masked sidebar_text, diagnostic) MERGED fafb61aa by manager; lane re-runs the limit walk to confirm in the terminal's words, then writes the Tier-3 policy options (refuse / market-within-band / wait) for the operator. (c) not needed.",
+  "observation": {
+    "what": "A real marketable tradeify_1 ticket enters awaiting_resting_price; policy options (refuse / market-within-band / wait) put to the operator",
+    "how_to_check": "prop_fills / ticket status for tradeify_1; lane's Tier-3 policy write-up",
+    "due_by": "2026-10-23T00:00Z"
+  },
+  "updated_at": "2026-10-09T04:36:52Z",
+  "updated_by": "session_015WZhDbDdZTbgTzGXeDzjqe",
   "_seq": 274
 }
