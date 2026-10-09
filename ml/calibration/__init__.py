@@ -17,6 +17,7 @@ from .calibrators import (
 from .fit import (
     ReliabilityBin,
     brier_score,
+    ece_with_read_state,
     expected_calibration_error,
     fit_calibrator,
     reliability_curve,
@@ -30,6 +31,7 @@ __all__ = [
     "PlattCalibrator",
     "ReliabilityBin",
     "brier_score",
+    "ece_with_read_state",
     "expected_calibration_error",
     "fit_calibrator",
     "reliability_curve",

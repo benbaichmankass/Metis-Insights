@@ -343,6 +343,10 @@ def iter_records_with_archives(
             yield r
 
 
+#: Rows needed before an identical-score run is called a constant scorer.
+CONSTANT_MIN_N = 30
+
+
 @dataclass
 class ModelStats:
     """Per-(model_id, stage) aggregate over a record stream."""
@@ -371,6 +375,18 @@ class ModelStats:
     @property
     def score_mean(self) -> float:
         return self.score_sum / self.count if self.count else 0.0
+
+    @property
+    def score_read_state(self) -> str:
+        """``empty`` | ``insufficient_n`` | ``constant`` | ``varying``.
+
+        ``constant`` = every logged score identical over >= CONSTANT_MIN_N rows:
+        a head whose metrics are meaningless (ML-HYGIENE item 2)."""
+        if not self.count:
+            return "empty"
+        if self.count < CONSTANT_MIN_N:
+            return "insufficient_n"
+        return "constant" if self.score_max == self.score_min else "varying"
 
 
 def aggregate(
@@ -795,7 +811,7 @@ def format_stats_table(stats: Iterable[ModelStats]) -> str:
         return ""
     headers = (
         "model_id", "stage", "count", "mean", "min", "max",
-        "first_seen", "last_seen",
+        "first_seen", "last_seen", "scores",
     )
     body = []
     for s in rows:
@@ -809,6 +825,7 @@ def format_stats_table(stats: Iterable[ModelStats]) -> str:
                 f"{s.score_max:.6f}",
                 s.first_seen.isoformat(timespec="seconds") if s.first_seen else "-",
                 s.last_seen.isoformat(timespec="seconds") if s.last_seen else "-",
+                "CONSTANT" if s.score_read_state == "constant" else "",
             )
         )
     widths = [

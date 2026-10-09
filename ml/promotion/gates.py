@@ -544,6 +544,16 @@ def _gate_shadow_soak(entry: Any, th: GateThresholds) -> GateResult:
 
 
 def _gate_live_agreement(attribution: Any, th: GateThresholds) -> GateResult:
+    if attribution is not None and getattr(attribution, "constant_scorer", False):
+        # A constant scorer is flagged, not graded: its AUC is 0.5 by ties and
+        # would otherwise read as an honest 'fail' (ML-HYGIENE item 2).
+        return GateResult(
+            "live_agreement", "insufficient_data",
+            f"CONSTANT SCORER: all {attribution.n} logged scores equal "
+            f"{attribution.score_min:.6g}; AUC/Brier are not a measurement "
+            "(fix the serving key/features, do not grade)",
+            required=th.require_live_agreement,
+        )
     if attribution is None or attribution.auc is None:
         return GateResult(
             "live_agreement", "insufficient_data",

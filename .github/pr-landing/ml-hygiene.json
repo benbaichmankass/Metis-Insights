@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1: ECE read-state helper + calibrator report (ml/calibration, scripts/ml), constant-scorer flag in shadow stats / attribution / live_agreement gate (reporting only, no stage or threshold change), trainer-vm-diag awk CRLF normalisation + diag-data skill note, conviction-meta-v1-bt expected_optional_features cleanup (audit-silence only; parked model, stage unchanged). No order path, no config/strategies or accounts, no promotion/demotion. Lane 11 of PACE-W40, dispatched by the manager (row ML-HYGIENE)."
+}

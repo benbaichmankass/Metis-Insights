@@ -1,0 +1,1 @@
+auto-merge: ML-HYGIENE (ECE read state, constant-scorer flag, diag parser CRLF, conviction-meta optionals)
