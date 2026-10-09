@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "OPS-DECISIONS-1009 Tier-1 half: pipeline records (13 breakout_1-only items killed, 1 done, 30 rescoped, 3 decided items closed + 1 follow-up filed), two checklist rows re-pointed, the exit-refinement SKILL Path-B bar (operator 2026-10-09), and the hold-merge alarm accepting a RESOLVING recorded_decision (scripts/ops/pr_landing_hold_alarm.py + tests; the workflow file is untouched). No src/, config/ or order-path change; runtime/config half is a separate held Tier-2 PR."
+}
