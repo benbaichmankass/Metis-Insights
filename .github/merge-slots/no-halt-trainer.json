@@ -1,0 +1,6 @@
+{
+  "held_by": "session_016wNjQSovXrhDpd72xUjx8U",
+  "branch": "claude/no-halt-trainer",
+  "claimed_at": "2026-10-09T11:39:56Z",
+  "purpose": "NO-HALT: retire trainer OOM manifest quarantine; retry every cycle + one red flag"
+}

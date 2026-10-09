@@ -251,6 +251,16 @@ if state is None:
 for m in manifests:
     state["manifests"].setdefault(m, {"status": "pending", "started_at": None,
                                         "finished_at": None, "rc": None, "model_id": None})
+
+# NO-HALT (2026-10-09): a same-day row skipped by the RETIRED OOM quarantine
+# is a stale latch, not a refusal — reopen it so this run retries the manifest.
+for m, row in state["manifests"].items():
+    if isinstance(row, dict) and row.get("status") == "skipped" \
+            and row.get("reason") == "quarantined_oom":
+        row["status"] = "pending"
+        row["reason"] = "stale_quarantine_reopened"
+        print("stale quarantined_oom progress row reopened for retry: %s" % m,
+              file=sys.stderr)
 state["status"] = "in_progress"
 state["updated_at"] = now
 
@@ -379,25 +389,26 @@ for manifest in "${TO_RUN_LIST[@]}"; do
     failed_n=$((failed_n + 1))
     continue
   fi
-  # --- Single-manifest OOM quarantine (BL-20260717-TRAINER-SINGLE-MANIFEST-OOM) -
-  # The heavy-job queue stops two jobs colliding, but can't shrink a manifest
-  # that can't fit the 5 GB cgroup ALONE — that one OOMs every cycle. The cycle
-  # already BOUNDS it (30-min cap below → continue), but the per-day progress
-  # file retries it forever, burning up to TRAINING_MANIFEST_TIMEOUT_S each run.
-  # This guard SKIPS a manifest that has crossed the OOM-streak quarantine
-  # threshold so the window isn't wasted; it self-heals (one recheck lets it back
-  # in after the recheck window, and a successful train clears it). Fail-open:
-  # `decide` exits 0 on any tracker error, so the manifest runs normally.
-  set +e
-  python -m src.utils.trainer_manifest_health decide "$manifest" >/dev/null 2>&1
-  q_rc=$?
-  set -e
-  if [ "$q_rc" -eq 10 ]; then
-    emit "$(printf '{"ts":"%s","status":"manifest_quarantined","manifest":"%s","detail":"skipped: repeatedly OOMs alone on the 6 GB box — route to GPU burst (gpu-burst-train.yml) or shrink its peak RSS. trainer-resource-protocol.md Rule 3."}' "$(iso_now)" "$manifest")"
-    progress_mark "$manifest" skipped reason=quarantined_oom
-    skipped_n=$((skipped_n + 1))
-    continue
-  fi
+  # --- Single-manifest OOM streak: RETRY, never halt (NO-HALT 2026-10-09) ----
+  # A manifest that can't fit the 5 GB cgroup ALONE OOMs every cycle; the
+  # 30-min cap below bounds each attempt. Until 2026-10-09 a 3-OOM streak
+  # QUARANTINED the manifest (skipped for 7 days unless a person cleared it) —
+  # a self-halt of training, retired under the operator's directive: "There is
+  # no halting." The manifest is now attempted EVERY cycle; `decide` never
+  # returns a skip. It only reports the streak (so the retry is visible) and
+  # drops any stale quarantine the old code left behind, with a log line.
+  # Fail-open: any tracker error → empty output → the manifest just runs.
+  q_dec="$(python -m src.utils.trainer_manifest_health decide "$manifest" 2>/dev/null || true)"
+  case "$q_dec" in
+    *'"stale_quarantine_cleared": ["'*)
+      emit "$(printf '{"ts":"%s","status":"manifest_stale_quarantine_cleared","manifest":"%s","detail":"ignored + removed a quarantine left by the retired OOM-quarantine code; quarantine no longer exists — every manifest is retried every cycle (NO-HALT 2026-10-09)","decision":%s}' "$(iso_now)" "$manifest" "$q_dec")"
+      ;;
+  esac
+  case "$q_dec" in
+    *'"reason": "retry_after_oom"'*)
+      emit "$(printf '{"ts":"%s","status":"manifest_oom_retry","manifest":"%s","detail":"retrying a manifest whose previous attempt(s) OOM/timed out — no quarantine, no halt","decision":%s}' "$(iso_now)" "$manifest" "$q_dec")"
+      ;;
+  esac
   # --- Dataset-unchanged retrain skip (MB-20260720-FCPCV-RETRAIN-NOOP) ------
   # A manifest pinning an experiment dataset version the nightly build never
   # rebuilds (v5xx/v9xx/... — only DATASET_VERSION gets --overwrite'd each
@@ -474,12 +485,17 @@ PY
     emit "$(printf '{"ts":"%s","status":"manifest_audit_skipped_enforced","manifest":"%s","detail":"SKIPPED (enforced): dataset audit flagged a dead feature / degenerate label in a NON-empty dataset — not trained this cycle. Fix the flagged column/label (see dataset_audit.jsonl) to resume training."}' "$(iso_now)" "$manifest")"
     progress_mark "$manifest" skipped reason=audit_flagged
     skipped_n=$((skipped_n + 1))
-    # A REFUSAL is not a skip. `skipped` is ONE bucket over four
-    # unrelated reasons (quarantined_oom / dataset_unchanged / empty
-    # dataset / this), and only this one means "we looked at the data
-    # and refused to train on it". Counting it apart is what gives the
-    # cycle the state between `trained` and `failed` that F-103 named
-    # as missing.
+    # A REFUSAL is not a skip. `skipped` is ONE bucket over several
+    # unrelated reasons (dataset_unchanged / empty dataset / this — the
+    # retired quarantined_oom reason was removed 2026-10-09), and only this
+    # one means "we looked at the data and refused to train on it". Counting
+    # it apart is what gives the cycle the state between `trained` and
+    # `failed` that F-103 named as missing.
+    # NO-HALT note (2026-10-09): this refusal is a per-cycle data-quality
+    # check, not a latch. It persists only for the rest of this UTC day's
+    # progress file (the same-day catch-up resume does not re-audit); the next
+    # daily cycle rebuilds the dataset and re-audits from scratch, and there
+    # is no cross-day state and nothing a person must clear.
     skipped_enforced_n=$((skipped_enforced_n + 1))
     continue
   elif [ "$audit_verdict" = "EMPTY" ]; then
@@ -539,8 +555,15 @@ print(json.dumps({
 ' "$(iso_now)" "$manifest" "$start" "$summary")"
     progress_mark "$manifest" done
     trained_n=$((trained_n + 1))
-    # Trained fit → clear any OOM streak/quarantine for this manifest (self-heal).
-    python -m src.utils.trainer_manifest_health record-success "$manifest" >/dev/null 2>&1 || true
+    # Trained fit → clear any OOM streak for this manifest. If that streak had
+    # raised its red flag, announce the recovery ONCE (`record-success` exits 30).
+    set +e
+    q_ok="$(python -m src.utils.trainer_manifest_health record-success "$manifest" 2>/dev/null)"
+    q_ok_rc=$?
+    set -e
+    if [ "$q_ok_rc" -eq 30 ]; then
+      emit "$(printf '{"ts":"%s","status":"manifest_oom_recovered","manifest":"%s","detail":"trained OK after a red-flagged OOM/timeout streak — recovered","streak":%s}' "$(iso_now)" "$manifest" "${q_ok:-null}")"
+    fi
   elif [ "$rc" -eq 78 ]; then
     # Exit 78 (BSD EX_CONFIG) — `python -m ml train` raised
     # EmptyDatasetError (reason=empty_dataset: dataset built but 0 rows yet —
@@ -600,17 +623,21 @@ print(json.dumps({
     overall_rc=1
     failed_n=$((failed_n + 1))
     # Single-manifest OOM streak (BL-20260717-TRAINER-SINGLE-MANIFEST-OOM): count
-    # this OOM/timeout. On crossing the quarantine threshold, escalate LOUDLY —
-    # the trainer can't commit a backlog item itself (it resets --hard each
-    # cycle), so this cycle event IS the durable signal (rides the mirror →
-    # /api/bot/ml/cycle), where the next ml-/system-review routes the manifest to
-    # the GPU burst or shrinks it. `record-oom` exits 20 on the trip.
+    # this OOM/timeout and attach its diagnosis (exit-code meaning, the cap, the
+    # stderr tail). NOTHING IS SKIPPED next cycle — the manifest is retried every
+    # cycle (NO-HALT 2026-10-09: "There is no halting."). On the streak reaching
+    # TRAINER_MANIFEST_OOM_FLAG_AFTER (default 3) `record-oom` exits 20 exactly
+    # ONCE per failure episode and we raise ONE red flag. The trainer can't
+    # commit a backlog item itself (it resets --hard each cycle), so this cycle
+    # event IS the durable signal (rides the mirror → /api/bot/ml/cycle), where
+    # the next /ml-review picks the Rule-3 disposition (shrink / GPU burst / drop).
     set +e
-    q_oom="$(python -m src.utils.trainer_manifest_health record-oom "$manifest" "$rc" 2>/dev/null)"
+    q_oom="$(python -m src.utils.trainer_manifest_health record-oom "$manifest" "$rc" \
+      "$TRAINING_MANIFEST_TIMEOUT_S" "/tmp/train_$$.err" 2>/dev/null)"
     q_oom_rc=$?
     set -e
     if [ "$q_oom_rc" -eq 20 ]; then
-      emit "$(printf '{"ts":"%s","status":"manifest_quarantine_tripped","manifest":"%s","detail":"repeatedly OOMs/timeouts ALONE on the 6 GB box — QUARANTINED from the cycle. ROUTE TO GPU BURST (gpu-burst-train.yml) or shrink its peak RSS. Auto-rechecks after the recheck window; a successful train clears it. trainer-resource-protocol.md Rule 3.","streak":%s}' "$(iso_now)" "$manifest" "$q_oom")"
+      emit "$(printf '{"ts":"%s","status":"manifest_oom_red_flag","manifest":"%s","detail":"RED FLAG: OOM/timeout on consecutive cycles ALONE on the 6 GB box. NOT quarantined — still retried every cycle (no halt). Needs a Rule-3 disposition: shrink its peak RSS, route to GPU burst (gpu-burst-train.yml), or drop/split. trainer-resource-protocol.md Rule 3.","streak":%s}' "$(iso_now)" "$manifest" "${q_oom:-null}")"
     fi
     rm -f "/tmp/train_$$.out" "/tmp/train_$$.err"
     continue
