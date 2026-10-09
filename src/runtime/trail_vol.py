@@ -31,7 +31,13 @@ Contract (identical to the stale/giveback/trail-decay levers):
   verdicts — no per-leg soak needed here).
 * **Window unfilled** (fewer than ``vol_pctl_window`` bars, or a NaN in the
   trailing window) ⇒ base mult (fail-permissive), matching the harness's
-  ``min_periods=window`` NaN → never-fire.
+  ``min_periods=window`` NaN → never-fire. This is read-state
+  ``insufficient_bars`` and is LOGGED (WARNING, once per package) — it is
+  "we could not look", not "we looked and the tail did not fire". Until
+  2026-10-09 the two were silent and identical, and the monitor's ``limit=200``
+  fetch minus the forming bar left 199 < 200 bars, so a declared lever could
+  never fire live (PR #17212 P5 parity: 56/76 ada_pullback_2h shadow rows had
+  a null closed percentile). :func:`monitor_fetch_limit` sizes the fetch.
 * Fail-safe on every missing input; **never raises** into the monitor.
 """
 from __future__ import annotations
@@ -45,6 +51,15 @@ logger = logging.getLogger(__name__)
 _DEFAULT_WINDOW = 200
 _DEFAULT_ATR_PERIOD = 14
 
+# What the exit monitor fetched before 2026-10-09, for every leg. Kept as the
+# floor so a leg without a vol_trail need gets byte-identical candles.
+MONITOR_BASE_LIMIT = 200
+
+READ_STATE_OK = "ok"
+READ_STATE_INSUFFICIENT_BARS = "insufficient_bars"
+
+_INSUFFICIENT_LOGGED: set = set()
+
 
 def _f(v: Any) -> Optional[float]:
     try:
@@ -52,6 +67,74 @@ def _f(v: Any) -> Optional[float]:
         return x if math.isfinite(x) else None
     except (TypeError, ValueError):
         return None
+
+
+def vol_trail_declared(cfg: Dict[str, Any]) -> bool:
+    """True when *cfg* arms the lever (same predicate the resolver uses)."""
+    tight = _f((cfg or {}).get("trail_vol_tight_mult"))
+    above = _f((cfg or {}).get("trail_vol_above_pctl")) or 0.0
+    below = _f((cfg or {}).get("trail_vol_below_pctl")) or 0.0
+    return tight is not None and tight > 0 and (above > 0.0 or below > 0.0)
+
+
+def required_closed_bars(window: int, atr_period: int) -> int:
+    """CLOSED bars needed for a harness-identical percentile at the last bar.
+
+    ``_atr`` is an SMA of TR with ``min_periods=1``: row 0 has no prior close
+    and rows 1..period-1 are partial averages. For every one of the ``window``
+    ATR values the percentile ranks to be a full ``period`` average (as in the
+    harness, which ranks over the whole history), the frame needs
+    ``window + atr_period`` closed bars.
+    """
+    return int(window) + int(atr_period)
+
+
+def monitor_fetch_limit(strategy_name: Optional[str], cfg: Dict[str, Any]) -> int:
+    """``limit`` the exit monitor must pass to ``fetch_candles`` for this leg.
+
+    ``MONITOR_BASE_LIMIT`` (200, unchanged) unless the leg runs the vol_trail
+    percentile — declared on the leg, or the log-only shadow instrument's leg
+    (``trail_vol_shadow.SHADOW_STRATEGY``). Then: ``required_closed_bars`` + 1
+    for the still-forming bar that ``drop_forming_bar`` removes. Never raises.
+    """
+    try:
+        cfg = cfg or {}
+        win = 0
+        if vol_trail_declared(cfg):
+            try:
+                win = int(cfg.get("vol_pctl_window") or _DEFAULT_WINDOW)
+            except (TypeError, ValueError):
+                win = _DEFAULT_WINDOW
+        from src.runtime.trail_vol_shadow import REF_WINDOW, SHADOW_STRATEGY
+
+        if strategy_name == SHADOW_STRATEGY:
+            win = max(win, REF_WINDOW)
+        if win <= 0:
+            return MONITOR_BASE_LIMIT
+        try:
+            period = int(cfg.get("atr_period") or _DEFAULT_ATR_PERIOD)
+        except (TypeError, ValueError):
+            period = _DEFAULT_ATR_PERIOD
+        return max(MONITOR_BASE_LIMIT, required_closed_bars(win, period) + 1)
+    except Exception:  # noqa: BLE001 — sizing must never break the fetcher
+        return MONITOR_BASE_LIMIT
+
+
+def _log_insufficient(open_pkg: Optional[Dict[str, Any]], meta: Dict[str, Any],
+                      have: int, need: int) -> None:
+    pkg = open_pkg or {}
+    key = str(pkg.get("order_package_id") or meta.get("strategy_label") or "")
+    if key in _INSUFFICIENT_LOGGED:
+        return
+    _INSUFFICIENT_LOGGED.add(key)
+    logger.warning(
+        "trail_vol: read_state=%s for %s pkg=%s — %d closed bars < window %d; "
+        "the lever is declared but CANNOT evaluate (base mult returned). "
+        "Check the monitor fetch limit (trail_vol.monitor_fetch_limit).",
+        READ_STATE_INSUFFICIENT_BARS,
+        meta.get("strategy_label") or pkg.get("strategy_name"),
+        pkg.get("order_package_id"), have, need,
+    )
 
 
 def resolve_vol_trail_mult(
@@ -114,7 +197,10 @@ def resolve_vol_trail_mult(
         if win <= 0:
             return base_mult
         if candles_df is None or len(candles_df) < win:
-            return base_mult  # window unfilled — fail-permissive (harness NaN)
+            # window unfilled — fail-permissive (harness NaN), but SAID.
+            _log_insufficient(open_pkg, meta,
+                              0 if candles_df is None else len(candles_df), win)
+            return base_mult
 
         try:
             period = int(_pick("atr_period") or _DEFAULT_ATR_PERIOD)
