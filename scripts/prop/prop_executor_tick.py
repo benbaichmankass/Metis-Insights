@@ -64,7 +64,9 @@ Session (``--login``):
   the operator's) session. For a manual run only.
 
 Prints JSON lines, redacted like the login check (no credentials, cookies,
-URL paths or tokens). Exit: 0 ok · 3 read did not parse / halted · 4
+URL paths or tokens). Exit: 0 ok (the executor cycle ALWAYS exits 0 unless the
+process crashed: NO-HALT, operator 2026-10-09) · 3 a measurement / round trip
+failed · 4
 feasibility stop (incl. ``feasibility: canvas_ticket``) · 5 environment ·
 6 no reusable session · 1 other.
 """
@@ -128,14 +130,12 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
     2026-09-30): ``off`` is the EXECUTOR's kill switch (no cycle, no ticket,
     no submit, no reconcile), while a probe is a manual, one-shot,
     operator/manager-dispatched measurement that places nothing and writes
-    nothing to the API. The one exception to "nothing in the executor's state
-    dir": ``instrument_info_probe`` (click mode) writes the executor's
-    AUTO-REVERT ``halted`` latch -- armed before its first click, removed
-    only after a VERIFIED restore, kept with the reason otherwise
-    (``arm_info_probe_latch`` / ``latch_info_probe``). That latch only ever
-    BLOCKS entries. Blocking it under
-    ``off`` would block measurement exactly when the executor has been
-    reverted. ``probe`` opens and closes the order form but types nothing;
+    nothing to the API. ``instrument_info_probe`` (click mode) used to write
+    the executor's ``halted`` latch when it could not verify the linked-symbol
+    restore; since NO-HALT (operator 2026-10-09) it ALERTS instead and writes
+    nothing: the order form checks the symbol at open AND at read-back
+    (``form_names_symbol``), so a wrong linked symbol refuses that one ticket,
+    it never needed a halt. ``probe`` opens and closes the order form but types nothing;
     the other two never reach the order form."""
     base = pe.executor_mode(env, getattr(args, "account", pe.PRIMARY_ACCOUNT) or pe.PRIMARY_ACCOUNT)
     if args.probe_ticket:
@@ -268,23 +268,19 @@ def emit_info_probe(got: Dict[str, Any], *secrets: str) -> int:
     return EXIT_UNPARSED if got.get("alerts") else EXIT_OK
 
 
-#: The pre-click latch text. A process killed mid-click (SIGTERM, timeout)
-#: never reaches its ``finally`` restore, so the latch goes down FIRST and is
-#: removed only after a verified restore (manager re-review of #14645).
+#: Kept for log readers: the text the pre-NO-HALT probe wrote as its
+#: in-progress latch. Nothing writes it any more.
 INFO_PROBE_ARMED = ("AUTO-REVERT: instrument-info-probe IN PROGRESS -- if this persists the probe "
                     "was killed mid-run and the linked symbol is UNVERIFIED; re-select it on the "
                     "terminal, then executor-clear-halt")
 
 
 def arm_info_probe_latch(state_dir: Path) -> bool:
-    """Write the in-progress latch before any click. Returns True only when
-    THIS call wrote it; an already-present latch (a real executor trip) is
-    left exactly as it is and is never removed by the probe."""
-    st = pe.ExecutorState(state_dir)
-    if st.halted():
-        return False
-    st.halt(INFO_PROBE_ARMED)
-    return True
+    """NO-HALT (operator 2026-10-09): writes nothing and returns False. The
+    probe no longer latches the executor; the shared login.lock already keeps
+    a tick from running during it, and the order form's own symbol check
+    (open + read-back) refuses a ticket on a wrong linked symbol."""
+    return False
 
 
 def fresh_page_recheck(got: Dict[str, Any], adapter: Any, context: Any, page: Any, login_url: str) -> None:
@@ -313,24 +309,17 @@ def fresh_page_recheck(got: Dict[str, Any], adapter: Any, context: Any, page: An
 
 def latch_info_probe(got: Dict[str, Any], state_dir: Path, *, armed: bool = False) -> Optional[str]:
     """A click-mode info probe that could not VERIFY the linked-symbol restore
-    leaves the executor's own AUTO-REVERT ``halted`` latch in place with the
-    reason (manager review of #14645): the next executor tick reads it before
-    trading and refuses every new entry, alerting, until the symbol is
-    re-selected and ``executor-clear-halt`` runs. The reason is appended to
-    ``alerts`` too. With ``armed`` (this run wrote the in-progress latch), a
-    clean run removes that latch -- only if it still holds the in-progress
-    text -- and an unclean one replaces its text with the reason."""
+    ALERTS with the reason (NO-HALT, operator 2026-10-09; until then it wrote
+    the executor's ``halted`` latch). Nothing is written to the state dir:
+    the executor keeps trading, and a ticket typed into a form showing the
+    wrong symbol is refused at open / read-back by ``form_names_symbol``.
+    ``armed`` is accepted for older callers and ignored."""
     from src.prop.platform.dxtrade import info_probe_restore_latch_reason
-    st = pe.ExecutorState(state_dir)
     reason = info_probe_restore_latch_reason(got)
-    ours = armed and INFO_PROBE_ARMED in (st.halted() or "")
     if reason:
-        if ours:
-            st.halt_file.unlink()
-        st.halt(reason)
-        got.setdefault("alerts", []).append(f"executor halt latch written: {reason}")
-    elif ours:
-        st.halt_file.unlink()
+        got.setdefault("alerts", []).append(
+            f"linked symbol unverified after the probe (no latch; the order form's symbol check refuses a "
+            f"wrong-symbol ticket): {reason}")
     return reason
 
 
@@ -409,8 +398,8 @@ def run_cycle_and_trail(*, adapter, page, api, cfg, mode, args, state_dir, secre
         # SL. AFTER the cycle and its output, so it never delays a
         # ticket or an alert; same mode (read_only walks to the edit
         # control and stops). Fully contained: an exception here must
-        # not reach the outer handler, whose record_tick_error trips
-        # the entry halt. Its own reports / alerts are emitted after it.
+        # not reach the outer handler (record_tick_error counts it as a
+        # crashed tick). Its own reports / alerts are emitted after it.
         # ACTIONS INCLUDED (ACTIVE-GEOMETRY lane, 2026-10-06): run_trail_step
         # records every per-position decision through ``res.log``
         # (``trail_amend`` / ``trail_skip`` -> res.actions), and res.actions was
@@ -443,7 +432,9 @@ def run_cycle_and_trail(*, adapter, page, api, cfg, mode, args, state_dir, secre
             emit({"report": r}, *secrets)
         for al in res.alerts[n_al:]:
             emit({"alert": al}, *secrets)
-    return EXIT_UNPARSED if res.halted else EXIT_OK
+    # NO-HALT (operator 2026-10-09): a cycle that ran exits 0 whatever it
+    # contained or held; its alerts are what reach a person.
+    return EXIT_OK
 
 
 def run_api_tick(*, args, mode, cfg, cfg_plat, username, password, secrets) -> int:
@@ -477,7 +468,7 @@ def run_api_tick(*, args, mode, cfg, cfg_plat, username, password, secrets) -> i
         emit({"error": f"{type(exc).__name__}: {str(exc)[:300]}"}, *secrets)
         trip = pe.record_tick_error(Path(args.state_dir), mode == "live", type(exc).__name__)
         if trip:
-            emit({"alert": trip + " — new entries halted until cleared"}, *secrets)
+            emit({"alert": trip}, *secrets)
         return EXIT_ERROR
     finally:
         try:
@@ -844,11 +835,11 @@ def main(argv: Optional[list] = None) -> int:
         except Exception as exc:
             emit({"error": f"{type(exc).__name__}: {str(exc)[:300]}"}, *secrets)
             if mode in ("live", "read_only"):
-                # A raised tick is an executor error; two in a row trip the
-                # auto-revert latch (live only), and the alert is pinged.
+                # A raised tick is an executor error: counted, never latched;
+                # the RED_FLAG_AFTER-th in a row raises one red flag (live).
                 trip = pe.record_tick_error(Path(args.state_dir), mode == "live", type(exc).__name__)
                 if trip:
-                    emit({"alert": trip + " — new entries halted until cleared"}, *secrets)
+                    emit({"alert": trip}, *secrets)
             return EXIT_ERROR
         finally:
             browser.close()

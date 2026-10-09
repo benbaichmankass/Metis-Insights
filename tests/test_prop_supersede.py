@@ -215,12 +215,13 @@ def _assert_blocked(env, ad, api, res, needle):
 
 
 def test_block_when_a_position_exists(env):
-    # a position on the venue nobody journaled: the reconcile halts on the
-    # orphan, and supersede never runs while halted
+    # a position on the venue nobody journaled: the reconcile flags the orphan
+    # (NO-HALT 2026-10-09: a failure, not a latch) and supersede's own guard
+    # blocks on the position, so nothing is cancelled
     ad, api = Adapter(positions=[_pos(quantity=0.76, side="long")]), Api([_old(), _new()])
     res = run(ad, api, env)
     _assert_blocked(env, ad, api, res, None)
-    assert res.halted and "would_supersede" not in _whats(res)
+    assert any(a.startswith("FAILED: orphan") for a in res.alerts) and "would_supersede" not in _whats(res)
 
 
 @pytest.mark.parametrize("pos", [_pos(quantity=0.76), _pos(quantity=0.76, side="long"), _pos(quantity=0.3)])
