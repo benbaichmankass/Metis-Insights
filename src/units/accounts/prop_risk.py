@@ -106,6 +106,16 @@ class PropRiskManager(RiskManager):
             account_id=account_name or "",
         )
         self.account_name: Optional[str] = account_name
+        # Daily-DD switch with the FIRM-derived limit: (1 - 20%) x the firm's
+        # daily-loss amount, on the firm's own reset time + amount basis, read
+        # from the account's ``backtest_ruleset`` (operator, 2026-10-09).
+        from src.units.accounts import daily_dd_switch as _dd
+        _risk = config.get("risk") if isinstance(config.get("risk"), dict) else {}
+        self.dd_switch = _dd.DailyDDSwitch(
+            account_name or "",
+            _dd.parse_config(_risk.get("daily_dd_switch"),
+                             prop_terms=_dd.prop_firm_terms(config)),
+        )
         # Nominal account equity (e.g. the $5k 1-Step Classic size). A prop
         # account has NO live broker-balance API — it "executes" by emitting a
         # manual Telegram ticket — so the coordinator cannot supply a live
@@ -285,6 +295,7 @@ class PropRiskManager(RiskManager):
         order: OrderPackage,
         *,
         now: Optional[datetime] = None,
+        opening: bool = True,
     ) -> tuple[bool, Optional[str]]:
         """Mission-aware gate.
 
@@ -293,7 +304,7 @@ class PropRiskManager(RiskManager):
           2. Weekend restriction (prop accounts only).
           3. Overnight restriction (prop accounts only).
           4. Mission-complete skip (evaluation only).
-          5. Base RiskManager checks (daily loss / pos size / drawdown).
+          5. Base RiskManager checks (daily-DD switch / gross exposure).
         """
         if _is_test_order(order):
             return True, None
@@ -307,7 +318,20 @@ class PropRiskManager(RiskManager):
         if self.account_state == "evaluation" and self.mission_complete():
             return False, "SKIP_MISSION_MET"
 
-        return super().evaluate(order)
+        return super().evaluate(order, opening=opening)
+
+    def dd_switch_equity(self) -> Optional[float]:
+        """A prop account's equity is the operator/executor-reported status
+        row (``prop_sizing_balance``: equity preferred over balance), and only
+        when that row is fresh — a stale or absent row is "could not look"."""
+        if not self.account_name:
+            return None
+        try:
+            from src.prop.prop_balance import prop_sizing_balance
+            state, val, _meta = prop_sizing_balance(self.account_name)
+        except Exception:  # noqa: BLE001 — unreadable = could not look
+            return None
+        return val if state == "ok" else None
 
     # ------------------------------------------------------------------
     # State-update hooks (persist through to runtime_state/prop_state.json)

@@ -500,7 +500,7 @@ _PROP_TICKET_RISK_SOAK_LOG = (
 # always the same: "the mechanism stopped firing" and "the mechanism fired and
 # the condition simply persists" are indistinguishable from outside, so a
 # broken cadence looks exactly like a quiet one.
-_DAILY_CAP_ALERT_STATE = runtime_logs_dir() / "daily_cap_alert_state.json"
+_DAILY_DD_SWITCH_STATE = runtime_logs_dir() / "daily_dd_switch_state.json"
 _EXIT_LOOP_HEALTH_ALERT_STATE = (
     runtime_logs_dir() / "exit_loop_health_alert_state.json"
 )
@@ -895,7 +895,7 @@ _LOG_FILES: dict[str, Path] = {
         runtime_logs_dir() / "heartbeat_check_state.json",
     "liveness_watchdog_state":
         runtime_logs_dir() / "liveness_watchdog_state.json",
-    "daily_cap_alert_state": _DAILY_CAP_ALERT_STATE,
+    "daily_dd_switch_state": _DAILY_DD_SWITCH_STATE,
     # THE OPERATOR-ALERT RING (BL-20260901-OPERATOR-ALERTS-HAS-NO-READ-SURFACE).
     # `execution_diagnostics._append_operator_alert` writes every alert that
     # reaches the `/api/bot/notifications` banner feed here -- close_failure,

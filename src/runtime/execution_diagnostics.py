@@ -697,47 +697,51 @@ def enqueue_stuck_package_sweep(
         return None
 
 
-def enqueue_daily_cap_alert(
+def enqueue_daily_dd_switch_alert(
     *,
     account: str,
     kind: str,
-    daily_pnl: Optional[float] = None,
-    cap_usd: Optional[float] = None,
-    demo: bool = False,
+    row: Optional[dict] = None,
+    limit_desc: str = "",
     priority: str = "high",
 ) -> Optional[Path]:
-    """Drop a Telegram ping for a daily-loss-cap state transition.
+    """Drop a Telegram ping for a daily-DD switch transition.
 
-    ``kind`` is ``"exhausted"`` (the account just hit its daily-loss cap
-    and will refuse trades until the next UTC reset) or ``"resumed"`` (the
-    cap cleared — new UTC day or a recovering PnL — and the account is
-    trading again). Fired at most once per transition by the latching
-    state in ``src.runtime.daily_cap_alert``; this function only formats +
-    queues. Never raises.
+    ``kind``: ``"trip"`` (armed switch tripped — NEW entries refused until the
+    next day boundary; open positions keep their brackets), ``"reset"`` (the
+    day rolled over, the account is taking entries again) or ``"unreadable"``
+    (the red flag: equity could not be read for several consecutive checks on
+    an ARMED switch — it cannot trip blind; checks keep running). Sent at most
+    once per transition by ``src.units.accounts.daily_dd_switch``; this only
+    formats + queues. Never raises.
     """
     try:
-        prefix = "*DEMO TRADER* " if demo else ""
-        pnl_str = f"{daily_pnl:+.2f}" if daily_pnl is not None else "?"
-        cap_str = f"{cap_usd:.2f}" if cap_usd is not None else "?"
-        if kind == "exhausted":
-            body = (
-                f"{prefix}⛔ Daily-loss cap hit\n"
-                f"Account: {account}\n"
-                f"Today's PnL: {pnl_str} USD  (cap: -{cap_str} USD)\n"
-                f"No further trades on this account today. Account stays "
-                f"live; it auto-resumes at 00:00 UTC."
-            )[:1024]
-        else:  # resumed
-            body = (
-                f"{prefix}✅ Daily-loss cap reset\n"
-                f"Account: {account}\n"
-                f"Today's PnL: {pnl_str} USD  (cap: -{cap_str} USD)\n"
-                f"Trading resumed."
-            )[:1024]
-        _append_operator_alert("daily_cap", priority, body)
+        r = row or {}
+
+        def _m(v: Any) -> str:
+            return f"${float(v):,.2f}" if v is not None else "—"
+
+        if kind == "trip":
+            head = "⛔ Daily drawdown switch TRIPPED"
+            tail = ("New entries on this account are refused until the daily reset. "
+                    "Open positions keep their SL/TP and run to normal exit.")
+        elif kind == "reset":
+            head = "✅ Daily drawdown switch reset"
+            tail = "New day: the account is taking new entries again."
+        else:
+            head = "🚩 Daily drawdown switch cannot read equity"
+            tail = (f"{r.get('unreadable_streak', '?')} consecutive checks could not read "
+                    "equity. The switch cannot trip blind; it keeps checking. Needs a look.")
+        body = (
+            f"{head}\nAccount: {account}\n"
+            f"Day: {r.get('day', '—')} | day-start equity {_m(r.get('day_start_equity'))}\n"
+            f"Loss today: {_m(r.get('loss_usd'))} | limit {_m(r.get('limit_usd'))} ({limit_desc})\n"
+            f"{tail}"
+        )[:1024]
+        _append_operator_alert("daily_dd_switch", priority, body)
         payload = {"priority": priority, "body": body}
         PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
-        name = f"{int(uuid.uuid4().int % 10**12):012d}-dailycap.json"
+        name = f"{int(uuid.uuid4().int % 10**12):012d}-dailydd.json"
         path = PENDING_PINGS_DIR / name
         tmp = path.with_suffix(".json.tmp")
         with tmp.open("w", encoding="utf-8") as fh:
@@ -746,9 +750,8 @@ def enqueue_daily_cap_alert(
         return path
     except Exception as exc:  # noqa: BLE001
         logger.warning(
-            "execution_diagnostics: daily-cap ping enqueue failed for "
-            "account=%s kind=%s: %s",
-            account, kind, exc,
+            "execution_diagnostics: daily-dd-switch ping enqueue failed for "
+            "account=%s kind=%s: %s", account, kind, exc,
         )
         return None
 

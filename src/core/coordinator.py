@@ -2118,40 +2118,19 @@ class Coordinator:
 
             sized_qty_by_account[account.name] = sized_qty
 
-            # Latching daily-loss-cap notification (operator-approved
-            # 2026-05-28). Fire ONE Telegram when an account first exhausts
-            # its daily-loss cap and ONE when it next clears — not per-tick.
-            # Runs every dispatch (so it catches both the cross-into and the
-            # cross-out-of cap, incl. the 00:00 UTC auto-reset on the next
-            # day's first tick); the latch in daily_cap_alert self-dedups.
-            # The cap-exhaustion check uses the same equity basis the sizer
-            # used. Best-effort — never blocks dispatch.
-            # Skipped for the prop bridge: its balance is a sentinel 0.0 (no
-            # broker API), so the cap math would misfire a spurious exhaustion
-            # alert. Prop daily-loss is governed by the prop ruleset + the
-            # rule-distance panel, not this RiskManager cap.
-            if not _is_prop_bridge:
-                try:
-                    from src.runtime.daily_cap_alert import note_account_cap_state
-                    _equity_basis = (
-                        total_account_usd if total_account_usd is not None else balance
-                    )
-                    note_account_cap_state(
-                        account.name,
-                        exhausted=account.risk_manager.is_daily_cap_exhausted(
-                            _equity_basis
-                        ),
-                        daily_pnl=account.risk_manager.daily_pnl,
-                        cap_usd=account.risk_manager.effective_daily_loss_usd(
-                            _equity_basis
-                        ),
-                        demo=getattr(account, "demo", False),
-                    )
-                except Exception as _cap_exc:  # noqa: BLE001
-                    logger.debug(
-                        "multi_account_execute: daily-cap note failed for %s: %s",
-                        account.name, _cap_exc,
-                    )
+            # Daily-DD switch equity feed (operator directive 2026-10-09). The
+            # latching daily-loss-cap ping that lived here was retired with the
+            # DAILY_LOSS_CAP it reported on; the switch sends its own ONE trip
+            # and ONE reset alert. Only a TOTAL-equity reading is fed (Bybit
+            # linear ``totalEquity``); otherwise the switch reads the balance
+            # snapshot (prop: the reported status row). Best-effort.
+            try:
+                account.risk_manager.note_live_equity(total_account_usd)
+            except Exception as _dd_exc:  # noqa: BLE001
+                logger.debug(
+                    "multi_account_execute: dd-switch equity feed failed for %s: %s",
+                    account.name, _dd_exc,
+                )
 
             # 2. Refuse to forward a zero-qty order. This branch fires
             # for ANY sized_qty <= 0 outcome from the RiskManager —
@@ -2667,7 +2646,16 @@ class Coordinator:
                             f"{pkg.symbol} position — skipping new order"
                         )
 
-                ok, reason = account.risk_manager.evaluate(pkg)
+                # A pure reduce/close (every leg reduce-only) is not a NEW
+                # entry: the daily-DD switch must let a tripped account exit.
+                _opening = not (
+                    intent_legs
+                    and all(bool(_l.get("reduce_only")) for _l in intent_legs)
+                )
+                ok, reason = (
+                    account.risk_manager.evaluate(pkg) if _opening
+                    else account.risk_manager.evaluate(pkg, opening=False)
+                )
                 if not ok:
                     risk_reason = reason or "risk_gate_refused"
                     raise RiskBreach(
