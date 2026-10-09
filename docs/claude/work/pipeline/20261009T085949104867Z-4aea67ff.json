@@ -5,6 +5,11 @@
   },
   "id": "PI-20261009-XQ5RTZKZ-0001",
   "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12T18:00Z",
+    "how_to_check": "GET /api/bot/prop/fills?account_id=velotrade_1 (newest row status) + journalctl ict-prop-executor@velotrade_1 (confirm verdict placed, tick exit 0)",
+    "what": "the next velotrade_1 ticket after #17236 deploys and the latch is cleared reaches status placed or open, not skipped"
+  },
   "origin": {
     "kind": "session",
     "ref": "lane PROP-LATCH session_01AiZHMWhUJ2qQzNXq5RtzkZ, 2026-10-09",
