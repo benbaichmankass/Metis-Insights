@@ -157,7 +157,7 @@ DATE_FIELDS = ("generated_at", "observed_at", "as_of", "updated_at",
 #: sweep run 37659085458: 18 of 20 open automation PRs graded `undated_payload` --
 #: every dispatch-stamp PR (a unit YAML + the receipt) -- so the sweep could never
 #: say whether one was superseded.
-QUEUE_UNIT = re.compile(r"^research/queue/RQ-\d{8}-\d{3}\.yaml$")
+QUEUE_UNIT = re.compile(r"^research/queue/RQ-\d{8}-(?:\d{3}|[0-9a-f]{4}-\d{2})\.yaml$")
 _STAMP_LINE = re.compile(r"^last_dispatched_at:.*\n?", re.M)
 _STAMP_VALUE = re.compile(r"^last_dispatched_at:\s*'?([^'\n]*)'?\s*$", re.M)
 
