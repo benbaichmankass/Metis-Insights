@@ -1,6 +1,7 @@
 """PROP-TRAIL: the leg's declared trail applied by amending the resting SL."""
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
@@ -112,9 +113,9 @@ def test_unmodelled_sl_lever_skips_the_leg():
 
 class Adapter:
     """``guard=True`` behaves like the rollout guard on an armed step: it
-    writes the account's latch (here "verified"), which pauses the trail
-    until the latch is cleared. ``guard=False`` leaves the latch clear, as
-    if a reviewer cleared it after every step (the retry / restore paths)."""
+    writes the account's rollout record (here "verified"), which since
+    NO-HALT (operator 2026-10-09) is evidence only and blocks nothing.
+    ``guard=False`` writes no record."""
     def __init__(self, positions: List[Position], apply: bool = True, guard: bool = True):
         self.positions, self.apply, self.guard, self.calls, self.rollouts = positions, apply, guard, [], []
 
@@ -159,11 +160,18 @@ def cfg(enabled=("SOLUSD",)):
                           symbols={"SOLUSDT": {"venue": "SOLUSD", "price_step": 0.01}})
 
 
-def run(adapter, api, mode, tmp_path, c=None, enabled=("SOLUSD",)):
+def run(adapter, api, mode, tmp_path, c=None, enabled=("SOLUSD",), now=None):
     c = c if c is not None else bars([(110, 99, 109)], forming=(109, 108, 108.5))
     return pt.run_trail_step(adapter=adapter, page=None, api=api, cfg=cfg(enabled), mode=mode,
-                             state_dir=tmp_path, candles_fn=lambda s, tf: c, now=now_after(1),
+                             state_dir=tmp_path, candles_fn=lambda s, tf: c, now=now or now_after(1),
                              legs={"trend_donchian_sol_prop": SOL})
+
+
+def cycles(n, start=None):
+    """``n`` executor cycles, each an hour apart (past the backoff cap), so a
+    failing ticket is due again on every one of them."""
+    t0 = start or now_after(1)
+    return [t0 + timedelta(hours=i) for i in range(n)]
 
 
 def pos(sl=95.0):
@@ -181,7 +189,7 @@ def test_live_amends_one_bounded_sl_step_confirms_and_reports(tmp_path):
     assert "rollout step toward 103" in api.posted[0]["reason"]
     assert not res.alerts
     a.calls.clear()
-    for _ in range(5):                            # latch cleared each time: steps walk to the target
+    for _ in range(5):                            # no latch: steps walk to the target
         run(a, api, "live", tmp_path)
     assert a.positions[0].stop_loss == pytest.approx(103.0)
     n = len(a.calls)
@@ -195,13 +203,44 @@ def test_read_only_walks_disarmed_and_writes_nothing(tmp_path):
     assert a.calls == [("SOLUSD", pytest.approx(103.0), None, False)] and api.posted == []
 
 
-def test_unconfirmed_amend_alerts_and_is_capped(tmp_path):
+def test_unconfirmed_amend_alerts_once_keeps_retrying_and_red_flags_once(tmp_path):
+    # NO-HALT (operator 2026-10-09): never capped. First failure alerts, the
+    # RED_FLAG_AFTER-th raises ONE red flag, every cycle still retries.
     a, api = Adapter([pos()], apply=False, guard=False), Api()
     alerts = []
-    for _ in range(4):
-        alerts += run(a, api, "live", tmp_path).alerts
-    assert len(a.calls) == pt.MAX_ATTEMPTS_PER_TARGET
-    assert api.posted == [] and sum("not confirmed" in x for x in alerts) == 2
+    for t in cycles(8):
+        alerts += run(a, api, "live", tmp_path, now=t).alerts
+    assert len(a.calls) == 8 and api.posted == []
+    assert sum("not confirmed" in x and "retrying next cycle" in x for x in alerts) == 1
+    assert sum("RED FLAG" in x for x in alerts) == 1
+    assert pt.RED_FLAG_AFTER == 3 and any(f"failed {pt.RED_FLAG_AFTER} consecutive" in x for x in alerts)
+
+
+def test_recovery_after_a_red_flag_is_announced_once(tmp_path):
+    a, api = Adapter([pos()], apply=False, guard=False), Api()
+    ts = cycles(6)
+    for t in ts[:3]:
+        run(a, api, "live", tmp_path, now=t)
+    a.apply = True                                       # the venue starts applying the step
+    alerts = run(a, api, "live", tmp_path, now=ts[3]).alerts
+    assert sum("recovered after 3 consecutive failures" in x for x in alerts) == 1 and api.posted
+    st = json.loads((tmp_path / pt.STATE_FILE).read_text())["t1"]
+    assert "fail_streak" not in st and "red_flagged" not in st
+    assert not any("recovered" in x for x in run(a, api, "live", tmp_path, now=ts[4]).alerts)
+
+
+def test_failing_ticket_backs_off_but_never_stops(tmp_path):
+    a, api = Adapter([pos()], apply=False, guard=False), Api()
+    t = now_after(1)
+    for _ in range(3):                                   # streaks 1, 2 retry the next cycle
+        run(a, api, "live", tmp_path, now=t)
+        t += timedelta(minutes=5)
+    assert len(a.calls) == 3
+    run(a, api, "live", tmp_path, now=t)                 # streak 3 -> waits RETRY_BACKOFF_BASE_S
+    assert len(a.calls) == 3
+    run(a, api, "live", tmp_path, now=t + timedelta(seconds=pt.RETRY_BACKOFF_BASE_S))
+    assert len(a.calls) == 4
+    assert [pt.retry_wait_s(n) for n in (1, 2, 3, 4, 5, 6, 50)] == [0, 0, 600, 1200, 2400, 3600, 3600]
 
 
 def test_symbol_not_enabled_is_untouched(tmp_path):
@@ -226,17 +265,20 @@ class LooseningAdapter(Adapter):
         return {"ok": True, "clicked": arm, "why": "x"}
 
 
-def test_loosened_stop_is_not_restored_and_the_ticket_locks(tmp_path):
-    # Manager review of #15316: no second modify_bracket call in this branch
-    # (the rollout latch forbids it); the alert says exactly that.
+def test_loosened_stop_is_not_restored_in_the_same_breath_and_retightens_next_cycle(tmp_path):
+    # Manager review of #15316: no second modify_bracket call in this branch.
+    # NO-HALT (operator 2026-10-09): no lock either -- the next cycle plans
+    # from the looser RESTING SL and re-tightens it with a tighten-only step.
     a, api = LooseningAdapter([pos()], guard=False), Api()
     res = run(a, api, "live", tmp_path)
     assert len(a.calls) == 1                                   # the step only, no "restore"
     assert a.positions[0].stop_loss == 50.0                    # left as the venue has it
-    assert any("SL LOOSENED" in x and "NOT restored" in x and "trail locked" in x for x in res.alerts)
-    assert not any("restore attempted" in x for x in res.alerts) and api.posted == []
+    assert any("SL LOOSENED" in x and "re-tightens" in x for x in res.alerts)
+    assert not any("trail locked" in x for x in res.alerts) and api.posted == []
     run(a, api, "live", tmp_path)
-    assert len(a.calls) == 1                                   # locked
+    assert len(a.calls) == 2                                   # retried: not locked
+    assert a.calls[1][1] > 50.0                                # a TIGHTEN from the resting 50
+    assert a.positions[0].stop_loss > 50.0
 
 
 def test_no_venue_quote_means_no_amend(tmp_path):
@@ -253,16 +295,18 @@ def test_stop_within_buffer_of_venue_bid_is_not_amended(tmp_path):
     assert a.calls == []
 
 
-def test_adapter_refusal_alerts_once_and_counts_nothing(tmp_path):
+def test_adapter_refusal_alerts_once_then_one_red_flag_and_keeps_trying(tmp_path):
     class Refusing(Adapter):
         def modify_bracket(self, page, position, stop_loss, take_profit, *, arm=False, rollout=None):
             self.calls.append((position.symbol, stop_loss, take_profit, arm))
             return {"ok": False, "clicked": False, "why": "refused: the SL/TP edit dialog is unmeasured"}
     a, api = Refusing([pos()]), Api()
     alerts = []
-    for _ in range(3):
-        alerts += run(a, api, "live", tmp_path).alerts
-    assert sum("refused by the adapter" in x for x in alerts) == 1 and api.posted == []
+    for t in cycles(5):
+        alerts += run(a, api, "live", tmp_path, now=t).alerts
+    assert len(a.calls) == 5 and api.posted == []
+    assert sum("refused by the adapter" in x and "RED FLAG" not in x for x in alerts) == 1
+    assert sum("RED FLAG" in x for x in alerts) == 1
 
 
 def test_an_exception_inside_the_step_is_contained(tmp_path):
@@ -306,25 +350,38 @@ def test_forming_leg_does_not_manage_its_signal_bar():
 # ── the rollout guard (manager 2026-10-02 23:30Z) ────────────────────────
 
 
-def test_every_step_carries_the_accounts_rollout_latch(tmp_path):
+def test_every_step_carries_the_accounts_rollout_record(tmp_path):
     a = Adapter([pos()])
     run(a, Api(), "live", tmp_path)
     assert a.rollouts and a.rollouts[0] is not None
-    assert a.rollouts[0].path == tmp_path / "modify_rollout.json"     # the file _contain uses too
+    assert a.rollouts[0].latch_path == tmp_path / "modify_rollout.json"   # the path _contain passes too
+    assert a.rollouts[0].path == tmp_path / "modify_rollout_last.json"    # the non-blocking record
 
 
-def test_one_watched_step_then_paused_until_the_latch_is_cleared(tmp_path):
+def test_a_verified_step_does_not_pause_the_next_one(tmp_path):
+    # NO-HALT (operator 2026-10-09): the old latch paused every ticket after
+    # one step until executor-clear-rollout. Now each cycle steps again.
     a, api = Adapter([pos()]), Api()
-    first = run(a, api, "live", tmp_path)
-    assert len(a.calls) == 1 and not first.alerts
     alerts = []
-    for _ in range(3):
+    for _ in range(4):
         alerts += run(a, api, "live", tmp_path).alerts
-    assert len(a.calls) == 1                                            # paused: no further modify
-    assert sum("trail PAUSED" in x and "executor-clear-rollout" in x for x in alerts) == 1
-    (tmp_path / "modify_rollout.json").unlink()                         # the reviewed clear
-    run(a, api, "live", tmp_path)
-    assert len(a.calls) == 2 and a.calls[1][1] > a.calls[0][1]          # the next bounded step
+    assert len(a.calls) == 4 and not alerts
+    assert all(b[1] > prev[1] for prev, b in zip(a.calls, a.calls[1:]))    # each a further bounded tighten
+    assert not (tmp_path / "modify_rollout.json").exists()
+
+
+def test_a_stale_latch_and_a_stale_ticket_lock_are_ignored_and_removed(tmp_path):
+    (tmp_path / "modify_rollout.json").write_text('{"state": "verify_failed", "at": 1}')
+    (tmp_path / pt.STATE_FILE).write_text(json.dumps({"t1": {"locked": True, "rollout_paused_alerted": True}}))
+    a, api = Adapter([pos()]), Api()
+    res = run(a, api, "live", tmp_path)
+    assert len(a.calls) == 1 and api.posted                             # trailed despite both
+    assert not (tmp_path / "modify_rollout.json").exists()
+    assert len(list(tmp_path.glob("modify_rollout.json.retired-*"))) == 1
+    whats = [x["what"] for x in res.actions]
+    assert "trail_stale_latch_removed" in whats and "trail_stale_lock_removed" in whats
+    st = json.loads((tmp_path / pt.STATE_FILE).read_text())["t1"]
+    assert "locked" not in st and "rollout_paused_alerted" not in st
 
 
 def test_read_only_walks_even_with_the_latch_set(tmp_path):
@@ -334,20 +391,56 @@ def test_read_only_walks_even_with_the_latch_set(tmp_path):
     assert a.calls == [("SOLUSD", pytest.approx(103.0), None, False)]
 
 
-def test_a_guard_verify_failure_locks_the_ticket_without_a_restore(tmp_path):
-    class Failing(Adapter):
-        def modify_bracket(self, page, position, stop_loss, take_profit, *, arm=False, rollout=None):
-            self.calls.append((position.symbol, stop_loss, take_profit, arm))
-            rollout.record("verify_failed", why="next read shows SL 95")
-            return {"ok": False, "clicked": True, "rollout": "verify_failed",
-                    "why": "ROLLOUT VERIFY FAILED after Modify Position: x -- further modifies halted"}
-    a, api = Failing([pos()]), Api()
+class _VerifyFailing(Adapter):
+    """The guard's next-read verify fails on every step; the SL never moves."""
+    def modify_bracket(self, page, position, stop_loss, take_profit, *, arm=False, rollout=None):
+        self.calls.append((position.symbol, stop_loss, take_profit, arm))
+        rollout.record("verify_failed", why="next read shows SL 95")
+        return {"ok": False, "clicked": True, "rollout": "verify_failed",
+                "why": "ROLLOUT VERIFY FAILED after Modify Position: x -- this step failed; the next cycle retries"}
+
+
+def test_a_guard_verify_failure_does_not_stop_the_next_cycle_on_that_ticket(tmp_path):
+    a, api = _VerifyFailing([pos()]), Api()
     res = run(a, api, "live", tmp_path)
-    assert len(a.calls) == 1 and api.posted == []
-    assert any("ROLLOUT VERIFY FAILED" in x and "trail locked" in x for x in res.alerts)
-    (tmp_path / "modify_rollout.json").unlink()
-    run(a, api, "live", tmp_path)
-    assert len(a.calls) == 1                                            # locked for this ticket
+    assert len(a.calls) == 1 and api.posted == []                       # no restore in the same breath
+    assert any("ROLLOUT VERIFY FAILED" in x for x in res.alerts)
+    assert not any("locked" in x for x in res.alerts)
+    res2 = run(a, api, "live", tmp_path)                                # the very next cycle
+    assert len(a.calls) == 2 and a.calls[1][1] == a.calls[0][1]         # same tighten from the resting SL
+    assert not res2.alerts                                              # alerted once, not every tick
+    assert all(sl > 95.0 for _, sl, _, _ in a.calls)                    # never a loosening request
+
+
+def test_a_verify_failure_on_one_ticket_does_not_stop_another_ticket(tmp_path):
+    class TwoApi(Api):
+        def open_fills(self, account_id):
+            return [{"ticket_id": "t1", "symbol": "SOLUSDT", "direction": "long", "status": "open"},
+                    {"ticket_id": "t2", "symbol": "ETHUSDT", "direction": "long", "status": "open"}]
+
+        def all_tickets(self, account_id):
+            return [{"ticket_id": t, "strategy": "trend_donchian_sol_prop", "entry": 100, "sl": 95,
+                     "signal_time": T0.isoformat()} for t in ("t1", "t2")]
+
+    class HalfFailing(Adapter):
+        def modify_bracket(self, page, position, stop_loss, take_profit, *, arm=False, rollout=None):
+            if position.symbol == "SOLUSD":
+                return _VerifyFailing.modify_bracket(self, page, position, stop_loss, take_profit,
+                                                     arm=arm, rollout=rollout)
+            return Adapter.modify_bracket(self, page, position, stop_loss, take_profit, arm=arm, rollout=rollout)
+
+    eth = Position(symbol="ETHUSD", side="long", quantity=1, entry_price=100, stop_loss=95.0, take_profit=130)
+    a, api = HalfFailing([pos(), eth]), TwoApi()
+    two = ExecutorConfig(account_id="breakout_1", enabled_venue_symbols=["SOLUSD", "ETHUSD"],
+                         symbols={"SOLUSDT": {"venue": "SOLUSD", "price_step": 0.01},
+                                  "ETHUSDT": {"venue": "ETHUSD", "price_step": 0.01}})
+    c = bars([(110, 99, 109)], forming=(109, 108, 108.5))
+    for t in cycles(2):
+        pt.run_trail_step(adapter=a, page=None, api=api, cfg=two, mode="live", state_dir=tmp_path,
+                          candles_fn=lambda s, tf: c, now=t, legs={"trend_donchian_sol_prop": SOL})
+    assert [x[0] for x in a.calls].count("SOLUSD") == 2                  # failing ticket retried
+    assert [x[0] for x in a.calls].count("ETHUSD") == 2                  # the other ticket trails on
+    assert eth.stop_loss > 95.0 and api.posted and all(b["ticket_id"] == "t2" for b in api.posted)
 
 
 @pytest.mark.parametrize("side,resting,target,price", [("long", 95.0, 103.0, 109.0),

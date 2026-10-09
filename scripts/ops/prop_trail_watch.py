@@ -5,15 +5,22 @@
 # level + priority, so the existing edge class (breach -> ping, one clear line,
 # unknown never clears) carries it.
 """``prop_trail_paused_<account>`` — does anyone get told when the prop trail
-latches (``modify_rollout.json``) and every ticket stops being trailed until
-``executor-clear-rollout``?  (TRAIL-PAUSE-PULSE, PI-20261006-KX6ZKFNA-0003.)
+latches (``modify_rollout.json``) and every ticket stops being trailed?
+(TRAIL-PAUSE-PULSE, PI-20261006-KX6ZKFNA-0003.)
+
+NO-HALT (operator 2026-10-09, "There is no halting."; PI-20261009-72XUJX8U-0001):
+the latch is RETIRED. Nothing blocks on it, and the trail moves a stale copy
+aside on its next pass, so on a deployed host ``trail_paused_since`` reads null
+every tick. A non-null value that persists therefore means the file is being
+(re)written or not removed -- i.e. the retired code is what is running -- which
+is still worth one page. The three-valued contract is unchanged.
 
 Reads the pulse the executor tick writes each tick
 (``<state dir>/prop_monitor_pulse.json``, ``src.prop.trail_pause``):
 
 * ``trail_paused_since`` null           -> ok (clears a standing alarm)
-* non-null for ONE tick                 -> ok (``waiting``: one watched step is
-  the designed rollout, the first tick after it is expected)
+* non-null for ONE tick                 -> ok (``waiting``: a stale file left by
+  the retired code is moved aside by the next trail pass)
 * non-null for >= ``PAUSED_TICKS_URGENT`` consecutive ticks -> breached/urgent
 * ``"unknown"`` / pulse missing / unreadable / stale (> ``PULSE_MAX_HOURS``) ->
   unknown, which never clears and is never read as "not paused".
@@ -76,7 +83,8 @@ def probe_trail_paused(account: str, now: datetime, state_dir: Path | None = Non
     n = n if isinstance(n, int) and not isinstance(n, bool) else None
     if n is None:
         return _probe(UNKNOWN, f"{account}: latched since {since} but tick count unreadable", since=since)
-    msg = f"{account}: trail PAUSED since {since} for {n} tick(s); review, then executor-clear-rollout"
+    msg = (f"{account}: retired trail latch modify_rollout.json present since {since} for {n} tick(s) — "
+           "the deployed trail moves it aside on its next pass, so the retired code may be running; check the deploy")
     if n >= PAUSED_TICKS_URGENT:
         return _probe(BREACHED, msg, level="urgent", priority="urgent", since=since, ticks=n)
     return _probe(OK, f"{msg} (first tick, not yet urgent)", since=since, ticks=n)

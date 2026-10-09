@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "depends_on_unmerged_pr",
+  "hold_text": "order path: the prop trail's armed SL/TP modify on the live prop terminals (src/prop/prop_trail.py, src/prop/platform/dxtrade.py ModifyRollout / modify_bracket, src/prop/prop_executor.py _repair_or_flatten). Based on claude/no-halt: lands after #17249 merges. The manager merges under the operator's NO-HALT directive 2026-10-09 (\"There is no halting.\") and watches the first live trail cycle on each prop account after deploy.",
+  "why": "Retires the prop trail's modify-rollout latch (modify_rollout.json blocked every armed modify on the account after one step until executor-clear-rollout) and the per-ticket permanent lock (verify_failed / SL loosened set locked=True), plus the per-target and per-ticket attempt caps that stopped a ticket's trail for good. Every armed step still passes the per-step guards (tighten-only bounded rollout_tighten_mismatch, in_progress record before the click, rollout_verify_mismatch after it) and the trail still never requests a looser stop; a failed step alerts once, is retried next cycle (capped backoff from the 3rd consecutive failure, max 60 min), raises ONE red flag after 3 consecutive failures, and announces recovery once. Outcomes go to the non-blocking modify_rollout_last.json; a stale modify_rollout.json is moved aside with a log line, a stale per-ticket locked flag is dropped. Revert = git revert of this PR (the old latch returns; a .retired-* file on disk is inert)."
+}
