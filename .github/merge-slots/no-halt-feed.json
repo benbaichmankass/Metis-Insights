@@ -1,0 +1,6 @@
+{
+  "held_by": "session_016wNjQSovXrhDpd72xUjx8U",
+  "branch": "claude/no-halt-feed",
+  "claimed_at": "2026-10-09T11:47:02Z",
+  "purpose": "NO-HALT: prop feed trip latch replaced by capped backoff; executor no longer skips on the feed"
+}
