@@ -52,3 +52,16 @@ def test_next_rq_id_skips_every_claimed_number():
     # a generated id high in its own band must not push a hand id out of 900-999
     assert n.next_ids({"RQ-20301001-653": "origin/automation"}, "2030-10-01") == ["RQ-20301001-900"]
     assert n.next_ids(claimed, "2030-10-02") == ["RQ-20301002-900"]   # an empty day starts at the hand band
+
+
+def test_hashed_rq_ids_are_minted_distinct_and_accepted_by_validators():
+    from scripts.research import next_rq_id as n
+    from scripts.research import research_queue as rq
+    from scripts.research import script_run as sr
+    a, b = n.session_hash("lane-a"), n.session_hash("lane-b")
+    assert a != b
+    ids = n.next_hashed_ids({}, "2030-10-01", a, 2)
+    assert ids == [f"RQ-20301001-{a}-01", f"RQ-20301001-{a}-02"]
+    assert n.next_hashed_ids({ids[1]: "origin/x"}, "2030-10-01", a) == [f"RQ-20301001-{a}-03"]
+    for uid in (ids[0], "RQ-20260929-914"):
+        assert rq._ID_RE.match(uid) and sr._ID_RE.match(uid)

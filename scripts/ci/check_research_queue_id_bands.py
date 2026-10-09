@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """research-queue-id-bands -- a unit a PR ADDS must have a free id, in the right band.
 
-WHY (PI-20261005-RQ-ID-RACE-0001). ``queue_replenish.py`` (generated units) and hand-authored units
+WHY (PI-20261005-RQ-ID-RACE-0001; hashed scheme RQ-ID-ALLOCATOR 2026-10-09). ``queue_replenish.py`` (generated units) and hand-authored units
 minted ids from one ``RQ-YYYYMMDD-NNN`` counter and neither could see the other's open PR, so a
 long-lived PR collided with main once the generator caught up (2026-10-05, 653..661, renumbered by
 hand). The two now mint in DISJOINT bands: generated 001-899 (``queue_replenish.HAND_FLOOR``), hand
@@ -9,6 +9,8 @@ hand). The two now mint in DISJOINT bands: generated 001-899 (``queue_replenish.
 
   C1  the id must not already exist on the base under that path (a real collision),
   C2  a unit carrying a ``generated:`` block must be < 900,
+  C4  an id may not appear twice (base in another dir, or twice in the PR); hashed ids
+      ``RQ-YYYYMMDD-<h4>-NN`` (next_rq_id.py default) are exempt from the bands but not from C1/C4.
   C3  a unit WITHOUT one (hand-authored) must be >= 900 -- only for ids dated on or after
       ``BAND_FROM_DAY``, so units already in flight on open PRs are not retro-failed.
 
@@ -32,16 +34,32 @@ REPO = Path(__file__).resolve().parents[2]
 HAND_FLOOR = 900            # keep equal to scripts/research/queue_replenish.py::HAND_FLOOR
 BAND_FROM_DAY = "20261008"
 _ID = re.compile(r"^RQ-(\d{8})-(\d{3})$")
+#: New scheme (2026-10-09): session-hash id, collision-free without a shared counter. Exempt from the bands.
+_ID_HASHED = re.compile(r"^RQ-(\d{8})-([0-9a-f]{4})-(\d{2})$")
 _GEN = re.compile(r"^generated:", re.M)
 
 
-def grade(added: Dict[str, str], on_base: set) -> List[str]:
-    """{path: text} for the unit files a PR adds; ``on_base`` = those paths already on the base."""
+def grade(added: Dict[str, str], on_base: set, base_stems: Optional[set] = None) -> List[str]:
+    """{path: text} for the unit files a PR adds; ``on_base`` = those paths already on the base;
+    ``base_stems`` = every unit id on the base in ANY directory (queue/ and queue/blocked/)."""
     out: List[str] = []
+    seen: Dict[str, str] = {}
     for path, text in sorted(added.items()):
         stem = Path(path).stem
+        hashed = _ID_HASHED.match(stem)
         m = _ID.match(stem)
-        if not m:
+        if not (m or hashed):
+            continue
+        # C4: the id is taken elsewhere -- on the base in the other directory, or twice within this PR.
+        if stem in seen:
+            out.append(f"C4 {path}: id {stem} is also added at {seen[stem]} in this PR.")
+            continue
+        seen[stem] = path
+        if path not in on_base and base_stems and stem in base_stems:
+            out.append(f"C4 {path}: id {stem} already exists on the base under another directory -- "
+                       f"two units would share it. Mint a fresh one with `python3 scripts/research/next_rq_id.py --fetch`.")
+            continue
+        if hashed:
             continue
         day, n = m.group(1), int(m.group(2))
         if path in on_base:
@@ -73,6 +91,10 @@ def collect(base: str):
     if names is None:
         return None
     added, on_base = {}, set()
+    ls = _git("ls-tree", "-r", "--name-only", base, "--", "research/queue/")
+    now = _git("ls-tree", "-r", "--name-only", "HEAD", "--", "research/queue/")
+    # only base files that STILL exist at HEAD count: moving queue/X -> blocked/X is not a duplicate
+    stems = {Path(x).stem for x in set((ls or "").split()) & set((now or "").split()) if x.endswith(".yaml")}
     for path in names.split():
         if not path.endswith(".yaml"):
             continue
@@ -83,7 +105,7 @@ def collect(base: str):
         if subprocess.run(["git", "cat-file", "-e", f"{base}:{path}"], cwd=str(REPO),
                           capture_output=True).returncode == 0:
             on_base.add(path)
-    return added, on_base
+    return added, on_base, stems
 
 
 def _self_test() -> int:
@@ -109,6 +131,14 @@ def _self_test() -> int:
     check("units dated before BAND_FROM_DAY keep their ids (no retro-fail)",
           grade({q + "RQ-20261007-700.yaml": hand}, set()), [])
     check("a non-unit file is ignored", grade({q + "README.yaml": hand}, set()), [])
+    check("NEW SCHEME: a hand unit with a hashed id is accepted", grade({q + "RQ-20261009-ab12-01.yaml": hand}, set()), [])
+    check("old ids stay accepted", grade({q + "RQ-20261009-914.yaml": hand}, set(), {"RQ-20261008-001"}), [])
+    r = grade({q + "blocked/RQ-20261009-914.yaml": hand}, set(), {"RQ-20261009-914"})
+    check("PLANTED DUPLICATE in another dir (queue vs blocked) is refused (C4)", len(r) == 1 and r[0].startswith("C4"), True)
+    r = grade({q + "RQ-20261009-ab12-01.yaml": hand, q + "blocked/RQ-20261009-ab12-01.yaml": hand}, set())
+    check("the same hashed id added twice in one PR is refused (C4)", len(r) == 1 and r[0].startswith("C4"), True)
+    r = grade({q + "RQ-20261009-ab12-01.yaml": hand}, set(), {"RQ-20261009-ab12-01"})
+    check("a hashed id already on the base is refused (C4)", len(r) == 1 and r[0].startswith("C4"), True)
     check("HAND_FLOOR matches the generator's",
           HAND_FLOOR, __import__("importlib").import_module("scripts.research.queue_replenish").HAND_FLOOR)
     print("research-queue-id-bands self-test:", "PASS" if ok else "FAIL")
@@ -133,8 +163,8 @@ def main() -> int:
     if got is None:
         print(f"research-queue-id-bands: could not diff against {a.base} (COULD NOT LOOK, not clean)")
         return 2
-    added, on_base = got
-    findings = grade(added, on_base)
+    added, on_base, stems = got
+    findings = grade(added, on_base, stems)
     for f in findings:
         print(f"::error::research-queue-id-bands: {f}")
     print(f"research-queue-id-bands: {len(added)} added unit file(s) graded, {len(findings)} finding(s)")

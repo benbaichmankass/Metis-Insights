@@ -102,7 +102,7 @@ OUT_ROOT = Path("comms") / "research"
 ALLOWED_SCRIPT_RE = re.compile(
     r"^(scripts/research/[A-Za-z0-9_\-]+\.py|scripts/backtest[A-Za-z0-9_\-]*\.py)$")
 _INTERPRETERS = ("python3", "python")
-_ID_RE = re.compile(r"^RQ-\d{8}-\d{3}$")
+_ID_RE = re.compile(r"^RQ-\d{8}-(?:\d{3}|[0-9a-f]{4}-\d{2})$")
 _RUN_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
 
 MIN_TIMEOUT_MIN = 10
