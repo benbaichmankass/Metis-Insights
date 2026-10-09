@@ -224,6 +224,13 @@ jobs:
           #   reason: ...           ← extractor stops at this line
           cmd_raw="$(printf '%s' "${ISSUE_BODY}" | \
             awk '
+              # Normalise CRLF first. An issue body authored in the GitHub web
+              # UI (or pasted from Windows) carries \r\n; a bare "\r" line is
+              # NOT blank to the block-scalar terminator below (it matches
+              # /^[^ \t]/ and NF is 1), so the FIRST blank line inside a
+              # `cmd: |` block silently cut the script and its prefix still ran
+              # (ML-HYGIENE item 5, reproduced 2026-10-09).
+              { sub(/\r$/, "") }
               /^cmd:/{
                 found=1
                 sub(/^cmd:[[:space:]]*/,"")
