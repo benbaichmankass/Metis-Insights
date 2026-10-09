@@ -74,10 +74,21 @@ class TestGuardBaseline:
 
 
 class TestHasOpenTradeForStrategy:
-    def test_no_db_returns_false(self, tmp_path):
+    def test_no_db_is_could_not_look_not_flat(self, tmp_path):
+        """NO-HALT round 2 (2026-10-09): a missing journal is "we could not
+        look" (None), never "no open trade" (False) — reading it as False let
+        a duplicate entry through when the resolver could not find the file."""
         path = str(tmp_path / "trade_journal.db")
         assert has_open_trade_for_strategy(
             "bybit_1", "BTCUSDT", "htf_pullback", db_path=path,
+        ) is None
+
+    def test_empty_strategy_name_is_still_false(self, tmp_path):
+        # No strategy to scope by -> the guard has nothing to look up; this is
+        # not a read and stays False (unchanged).
+        path = str(tmp_path / "trade_journal.db")
+        assert has_open_trade_for_strategy(
+            "bybit_1", "BTCUSDT", None, db_path=path,
         ) is False
 
     def test_matching_open_trade_true(self, tmp_path):

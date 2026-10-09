@@ -299,19 +299,40 @@ def test_open_pkg_meta_picks_the_newest_package(tmp_path):
     assert status == "found" and meta["pair_direction"] == "new"
 
 
-def test_state_unreadable_alert_is_rate_limited(monkeypatch):
-    """The condition can fire every tick. An alert that fires every tick is the
-    desensitized-alarm P1, so it must be deduped per (pair, reason)."""
+def test_state_unreadable_streak_is_bounded_first_plus_one_red_flag(monkeypatch):
+    """NO-HALT (2026-10-09): the condition can repeat every evaluation, so the
+    alert volume is bounded to the FIRST occurrence (WARN) + ONE red flag on
+    the 3rd consecutive one (CRITICAL) — not one per tick, and not one per
+    hour forever (the old cooldown re-paged hourly). Recovery is said once."""
     sent = []
     import src.runtime.outcomes as _out
     monkeypatch.setattr(_out, "report", lambda *a, **k: sent.append((a, k)))
-    px._state_alert_last.clear()
-    for _ in range(5):
-        px._alert_state_unreadable("A/B", "acct", state_read="error")
-    assert len(sent) == 1, f"expected 1 alert, got {len(sent)}"
-    # A DIFFERENT fault on the same pair is a different alarm, not a duplicate.
-    px._alert_state_unreadable("A/B", "acct", state_read="absent")
-    assert len(sent) == 2
+    px._state_streaks.clear()
+    for _ in range(6):
+        px._state_streak("A/B", "acct", "error", failing=True, state_source="rebuilt_full")
+    assert [(s[0][1], s[1]["level"].value) for s in sent] == [
+        ("error", "warn"), ("red_flag", "critical")], sent
+    # A DIFFERENT fault on the same pair is a different streak, not a duplicate.
+    px._state_streak("A/B", "acct", "absent", failing=True, state_source="sidecar")
+    assert sent[-1][0][1] == "absent" and len(sent) == 3
+    # Recovery: announced once for the flagged kind, silent for the unflagged.
+    px._state_streak("A/B", "acct", "error", failing=False)
+    px._state_streak("A/B", "acct", "error", failing=False)
+    px._state_streak("A/B", "acct", "absent", failing=False)
+    assert [s[0][1] for s in sent[3:]] == ["recovered"]
+    # ...and a fresh streak after recovery can flag again.
+    for _ in range(3):
+        px._state_streak("A/B", "acct", "error", failing=True)
+    assert [s[0][1] for s in sent[4:]] == ["error", "red_flag"]
+
+
+def test_state_streak_never_raises_when_the_alert_path_breaks(monkeypatch):
+    import src.runtime.outcomes as _out
+    monkeypatch.setattr(_out, "report",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    px._state_streaks.clear()
+    for i in range(1, 4):
+        assert px._state_streak("A/B", "acct", "error", failing=True) == i
 
 
 def test_unwind_legs_reports_naked_on_failed_close(monkeypatch):
@@ -442,6 +463,7 @@ def test_run_pairs_tick_live_submin_leg_skips_no_placement(tmp_path, monkeypatch
                                                      "risk": {"risk_pct": 0.015}}})
     import src.utils.paths as _paths
     monkeypatch.setattr(_paths, "trade_journal_db_path", lambda: str(tmp_path / "j.db"))
+    _empty_journal(tmp_path / "j.db")   # flat = a READABLE journal with no open legs
     import src.runtime.pairs_soak as _soak
     monkeypatch.setattr(_soak, "record_pairs_soak", lambda rec: captured.append(rec) or True)
 
@@ -497,6 +519,7 @@ def test_run_pairs_tick_shadow_places_nothing(tmp_path, monkeypatch):
                                                      "risk": {"risk_pct": 0.015}}})
     import src.utils.paths as _paths
     monkeypatch.setattr(_paths, "trade_journal_db_path", lambda: str(tmp_path / "j.db"))
+    _empty_journal(tmp_path / "j.db")   # flat = a READABLE journal with no open legs
 
     import src.runtime.pairs_soak as _soak
     monkeypatch.setattr(_soak, "record_pairs_soak", lambda rec: captured.append(rec) or True)
@@ -847,6 +870,7 @@ def _live_open_tick(tmp_path, monkeypatch, *, halted: bool):
                                                      "risk": {"risk_pct": 0.015}}})
     import src.utils.paths as _paths
     monkeypatch.setattr(_paths, "trade_journal_db_path", lambda: str(tmp_path / "j.db"))
+    _empty_journal(tmp_path / "j.db")   # flat = a READABLE journal with no open legs
     import src.runtime.pairs_soak as _soak
     monkeypatch.setattr(_soak, "record_pairs_soak", lambda rec: captured.append(rec) or True)
     flag = tmp_path / "trader_halt.flag"
@@ -870,3 +894,449 @@ def test_halt_flag_refuses_live_pair_open(tmp_path, monkeypatch):
     assert placed == []
     assert len(captured) == 1
     assert captured[0]["event"] == "skip_halted"
+
+
+# ── NO-HALT: unreadable open-state never blocks a pair's exits ──────────────
+# Operator directive 2026-10-09 ("There is no halting."). An unreadable
+# open-state used to SKIP the pair, which also skipped every close-side rule,
+# so an open spread could not be exited by the executor. These run the REAL
+# tick against a REAL sqlite journal (the production `trades` DDL, and NO
+# `order_packages` table, so the bookkeeping read genuinely fails).
+
+def _real_trades_ddl() -> str:
+    src = Path(__file__).resolve().parents[1] / "src/units/db/database.py"
+    text = src.read_text(encoding="utf-8")
+    i = text.index("CREATE TABLE IF NOT EXISTS trades (")
+    return text[i:text.index("''')", i)]
+
+
+def _seed_open_legs(db, *, side_a, side_b, entry_a, entry_b, opened_at):
+    import sqlite3 as _sq
+    conn = _sq.connect(db)
+    conn.execute(_real_trades_ddl())
+    for sym, strat, side, px_ in (("SOLUSDT", "pairs_sol_btc_a", side_a, entry_a),
+                                  ("BTCUSDT", "pairs_sol_btc_b", side_b, entry_b)):
+        conn.execute(
+            "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
+            "position_size, status, is_backtest, strategy_name, account_id) "
+            "VALUES (?,?,?,?,?,?,?,?,?)",
+            (opened_at, sym, side, float(px_), 1.0, "open", 0, strat, "bybit_1"))
+    conn.commit()
+    conn.close()
+
+
+def _empty_journal(db):
+    """A READABLE journal with no open legs — what "flat" means. A missing
+    file is "could not look" (NO-HALT round 2, 2026-10-09), not flat."""
+    import sqlite3 as _sq
+    conn = _sq.connect(db)
+    conn.execute(_real_trades_ddl())
+    conn.commit()
+    conn.close()
+
+
+def _jammed_at(n=120, k=116, seed=3):
+    """A spread series whose bar `k` is jammed high (a short_spread ENTRY fires
+    on the series truncated at k) and then partially reverts."""
+    rng = np.random.default_rng(seed)
+    lb = np.cumsum(rng.normal(0, 0.005, n)) + np.log(50000.0)
+    s = np.zeros(n)
+    for i in range(1, n):
+        s[i] = 0.9 * s[i - 1] + rng.normal(0, 0.01)
+    s[k] = s[k - 1] + 0.15
+    for i in range(k + 1, n):           # stays extended: no revert, no stop
+        s[i] = s[k] - 0.005 * (i - k)
+    return np.exp(lb + s), np.exp(lb)
+
+
+def _unreadable_state_env(tmp_path, monkeypatch, *, ca, cb, bar_keys=None,
+                          execution="live"):
+    """Wire run_pairs_tick for one LIVE pair against a real journal at
+    tmp_path/j.db. Returns (soak, closes, sent, bars)."""
+    soak, closes, sent = [], [], []
+    monkeypatch.setattr(px, "_load_pairs_config", lambda path=None: {
+        "account_id": "bybit_1", "pairs_risk_fraction": 1.0,
+        "pairs": [{"name": "pairs_sol_btc", "symbol_a": "SOLUSDT",
+                   "symbol_b": "BTCUSDT", "execution": execution,
+                   "timeframe": "1h", "hedge_beta": "one"}],
+    })
+    keys = iter(bar_keys or [f"BAR{i}" for i in range(100)])
+    state = {"key": None}
+
+    def _fetch(sym, tf, lim, s):
+        if sym == "SOLUSDT":
+            state["key"] = next(keys)
+            return list(ca), state["key"]
+        return list(cb), state["key"]
+    monkeypatch.setattr(px, "_fetch_leg", _fetch)
+    monkeypatch.setattr(px, "_close_pair",
+                        lambda client, acct, pair, outcome, la, lb_: closes.append(outcome)
+                        or {"closed": True})
+    bars: dict = {}
+    monkeypatch.setattr(px, "_load_decision_bars", lambda: dict(bars))
+    monkeypatch.setattr(px, "_save_decision_bars", lambda st: bars.update(st))
+    monkeypatch.setattr(px, "_rebuilt_state_path", lambda: tmp_path / "rebuilt.json")
+    import src.units.accounts.clients as _clients
+    monkeypatch.setattr(_clients, "bybit_client_for", lambda acct: object())
+    import src.units.accounts.execute as _exec
+    # The balance read FAILS throughout: it sizes entries only, and must not
+    # block an open pair's exit.
+    monkeypatch.setattr(_exec, "_fetch_balance",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("balance down")))
+    monkeypatch.setattr(_exec, "execute_pkg",
+                        lambda *a, **k: (_ for _ in ()).throw(
+                            AssertionError("must not place while a pair is open")))
+    import src.config.accounts_loader as _al
+    monkeypatch.setattr(_al, "load_accounts_dict",
+                        lambda *a, **k: {"bybit_1": {"exchange": "bybit",
+                                                     "account_class": "paper",
+                                                     "risk": {"risk_pct": 0.015}}})
+    import src.utils.paths as _paths
+    monkeypatch.setattr(_paths, "trade_journal_db_path", lambda: str(tmp_path / "j.db"))
+    import src.runtime.pairs_soak as _soak
+    monkeypatch.setattr(_soak, "record_pairs_soak", lambda rec: soak.append(rec) or True)
+    import src.runtime.outcomes as _out
+    monkeypatch.setattr(_out, "report", lambda *a, **k: sent.append((a, k)))
+    px._state_streaks.clear()
+    px._state_alert_last.clear()
+    return soak, closes, sent, bars
+
+
+def _ago(hours, extra_s=600):
+    from datetime import datetime, timedelta, timezone
+    return (datetime.now(timezone.utc) - timedelta(hours=hours, seconds=extra_s)).isoformat()
+
+
+def test_unreadable_state_still_fires_an_exit(tmp_path, monkeypatch):
+    """THE REGRESSION. Legs open on the journal, bookkeeping unreadable
+    (no order_packages table -> state_read 'error'), the position is 25 bars
+    old against max_hold_bars 20, so at least the timeout is due (on this
+    series the rebuilt divergence stop is ALSO breached, and the engine checks
+    the stop first). The old code skipped the pair; an exit must now FIRE —
+    and must not wait on the (failing) balance read either."""
+    ca, cb = _jammed_at()
+    _seed_open_legs(tmp_path / "j.db", side_a="short", side_b="long",
+                    entry_a=ca[-26], entry_b=cb[-26], opened_at=_ago(25))
+    assert px._reconstruct_open_state(
+        {"name": "pairs_sol_btc", "symbol_a": "SOLUSDT", "symbol_b": "BTCUSDT"},
+        "bybit_1", str(tmp_path / "j.db"))[0] == "error"          # precondition
+    soak, closes, sent, _ = _unreadable_state_env(tmp_path, monkeypatch, ca=ca, cb=cb)
+    px.run_pairs_tick({})
+    assert len(closes) == 1 and closes[0] in ("stop", "timeout"), f"no exit: {soak}"
+    assert soak[-1]["event"] == "close" and soak[-1]["bars_held"] == 25
+    assert soak[-1]["state_read"] == "error"
+    assert soak[-1]["state_source"] in ("rebuilt_full", "rebuilt_partial")
+    assert not any(r["event"] == "skip_state_unreadable" for r in soak)
+
+
+def test_unreadable_state_full_rebuild_matches_the_entry_and_is_persisted(
+        tmp_path, monkeypatch):
+    """With the legs' sides identifying the spread and the entry bar inside the
+    candle window, the rebuild reproduces the entry decision's spread/stop and
+    is PERSISTED, so the next evaluation reads it back (state_source=sidecar)."""
+    ca, cb = _jammed_at(n=120, k=116)
+    sig = pe.entry_signal(ca[:117], cb[:117], _params())
+    assert sig is not None and sig["direction"] == "short_spread"   # positive control
+    _seed_open_legs(tmp_path / "j.db", side_a="short", side_b="long",
+                    entry_a=ca[116], entry_b=cb[116], opened_at=_ago(3))
+    soak, closes, sent, _ = _unreadable_state_env(tmp_path, monkeypatch, ca=ca, cb=cb)
+    px.run_pairs_tick({})
+    assert closes == [] and soak[-1]["event"] == "hold", soak
+    assert soak[-1]["state_source"] == "rebuilt_full"
+    import json as _j
+    stored = _j.loads((tmp_path / "rebuilt.json").read_text())["pairs_sol_btc"]
+    assert stored["pair_direction"] == "short_spread"
+    assert abs(stored["entry_spread"] - sig["entry_spread"]) < 1e-5
+    assert abs(stored["stop_spread"] - sig["stop_spread"]) < 1e-5
+    assert len(stored["trade_ids"]) == 2
+    # Next bar: read back from the sidecar, not re-derived.
+    px.run_pairs_tick({})
+    assert soak[-1]["state_source"] == "sidecar"
+    assert soak[-1]["event"] == "hold"
+
+
+def test_rebuilt_stop_fires_the_divergence_exit(tmp_path, monkeypatch):
+    """The stop rule — the protective exit — evaluates off a rebuilt state:
+    the spread runs further against a short_spread past its rebuilt stop."""
+    ca, cb = _jammed_at(n=120, k=116)
+    ca = np.array(ca)
+    ca[-1] = ca[-1] * np.exp(0.5)        # spread blows out upward (adverse for short)
+    _seed_open_legs(tmp_path / "j.db", side_a="short", side_b="long",
+                    entry_a=ca[116], entry_b=cb[116], opened_at=_ago(3))
+    soak, closes, sent, _ = _unreadable_state_env(tmp_path, monkeypatch, ca=ca, cb=cb)
+    px.run_pairs_tick({})
+    assert closes == ["stop"], soak
+    assert soak[-1]["state_source"] == "rebuilt_full"
+
+
+def test_ambiguous_legs_still_evaluate_computable_exits_and_are_not_persisted(
+        tmp_path, monkeypatch):
+    """Both legs LONG: the sides do not identify a spread direction, so the
+    stop cannot be rebuilt. Timeout (from the open time) still fires; nothing
+    is persisted, so the next evaluation retries the rebuild."""
+    ca, cb = _jammed_at()
+    _seed_open_legs(tmp_path / "j.db", side_a="long", side_b="long",
+                    entry_a=ca[-26], entry_b=cb[-26], opened_at=_ago(25))
+    soak, closes, sent, _ = _unreadable_state_env(tmp_path, monkeypatch, ca=ca, cb=cb)
+    px.run_pairs_tick({})
+    assert closes == ["timeout"]
+    assert soak[-1]["state_source"] == "rebuilt_partial"
+    assert soak[-1]["exits_not_computable"] == ["stop_z"]
+    assert not (tmp_path / "rebuilt.json").exists()
+
+
+def test_unreadable_state_one_red_flag_after_three_then_one_recovery(
+        tmp_path, monkeypatch):
+    """Five consecutive evaluations with unreadable bookkeeping: ONE WARN on
+    the first, ONE CRITICAL red flag on the third, nothing after — and the
+    pair keeps being evaluated every time (hold rows, never a skip). When the
+    bookkeeping becomes readable, ONE recovery."""
+    ca, cb = _jammed_at(n=120, k=116)
+    _seed_open_legs(tmp_path / "j.db", side_a="short", side_b="long",
+                    entry_a=ca[116], entry_b=cb[116], opened_at=_ago(3))
+    soak, closes, sent, _ = _unreadable_state_env(tmp_path, monkeypatch, ca=ca, cb=cb)
+    for _ in range(5):
+        px.run_pairs_tick({})
+    flags = [(s[0][1], s[1]["level"].value) for s in sent
+             if s[0][0] == "pairs_state_unreadable"]
+    assert flags == [("error", "warn"), ("red_flag", "critical")], flags
+    assert [r["event"] for r in soak] == ["hold"] * 5
+    # Bookkeeping readable again: stamp a real package.
+    import json as _j
+    _seed_pkg(tmp_path / "j.db", "pairs_sol_btc_a", _j.dumps(
+        {"pair_direction": "short_spread", "entry_spread": 0.1, "stop_spread": 9.9,
+         "opened_at_utc": _ago(3), "bar_seconds": 3600}))
+    px.run_pairs_tick({})
+    px.run_pairs_tick({})
+    tail = [s[0][1] for s in sent if s[0][0] == "pairs_state_unreadable"][2:]
+    assert tail == ["recovered"], tail
+    assert soak[-1]["state_source"] == "journal"
+
+
+def test_unreadable_leg_rows_refuse_entry_this_tick_only(tmp_path, monkeypatch):
+    """The leg rows themselves cannot be read (has_open_trade_for_strategy ->
+    None). An entry signal is live. The pair must NOT open on that tick — and
+    the bar is NOT consumed, so the next tick (same bar, rows readable, flat)
+    opens normally. No latch."""
+    ca, cb = _extended_spread()
+    soak, closes, sent, bars = _unreadable_state_env(
+        tmp_path, monkeypatch, ca=ca, cb=cb, bar_keys=["SAME"] * 10)
+    import src.runtime.positions as _pos
+    reads = {"fail": True}
+    monkeypatch.setattr(_pos, "has_open_trade_for_strategy",
+                        lambda *a, **k: None if reads["fail"] else False)
+    placed = []
+    monkeypatch.setattr(px, "_place_pair",
+                        lambda *a, **k: placed.append(a) or {"placed": True,
+                                                             "trade_ids": ["t1", "t2"]})
+    import src.units.accounts.execute as _exec
+    monkeypatch.setattr(_exec, "_fetch_balance", lambda *a, **k: 100000.0)
+    import src.units.accounts.qty_legalize as _ql
+    monkeypatch.setattr(_ql, "legalize_qty",
+                        lambda qty, **k: _ql.LegalizedQty(qty=qty, ok=True, reason="",
+                                                          venue_min=0.0, step=0.0,
+                                                          source="instrument_profile"))
+    px.run_pairs_tick({})
+    assert placed == []
+    assert soak[-1]["event"] == "skip_state_unreadable"
+    assert soak[-1]["state_read"] == "leg_state_error"
+    assert "pairs_sol_btc" not in bars, "the bar was consumed — that is a latch for the bar"
+    reads["fail"] = False
+    px.run_pairs_tick({})
+    assert len(placed) == 1 and soak[-1]["event"] == "open"
+
+
+def test_unreadable_leg_rows_alert_bounded_across_ticks(tmp_path, monkeypatch):
+    ca, cb = _extended_spread()
+    soak, closes, sent, _ = _unreadable_state_env(
+        tmp_path, monkeypatch, ca=ca, cb=cb, bar_keys=["SAME"] * 20)
+    import src.runtime.positions as _pos
+    monkeypatch.setattr(_pos, "has_open_trade_for_strategy", lambda *a, **k: None)
+    for _ in range(6):
+        px.run_pairs_tick({})
+    flags = [s[0][1] for s in sent if s[0][0] == "pairs_state_unreadable"]
+    assert flags == ["leg_state_error", "red_flag"], flags
+    assert len(soak) == 2, "soak rows must be bounded like the alert"
+
+
+def test_leg_state_read_failure_is_its_own_state(monkeypatch):
+    """A failed leg read is neither flat nor half_open (either reading lets
+    the tick act blind)."""
+    import src.runtime.positions as _pos
+    pair = _leg_state_pair()
+    monkeypatch.setattr(_pos, "has_open_trade_for_strategy",
+                        lambda a, sym, strat, **k: None if sym == "BTCUSDT" else True)
+    assert px._pair_leg_state(pair, "bybit_1", None) == "unreadable"
+    # The concurrency view is conservative: could-not-look counts as possibly
+    # open for this tick (NO-HALT round 2, 2026-10-09).
+    assert px._pair_is_open(pair, "bybit_1", None) is True
+
+
+def test_stale_sidecar_for_other_trades_is_not_reused_and_flat_prunes_it(
+        tmp_path, monkeypatch):
+    import json as _j
+    ca, cb = _jammed_at(n=120, k=116)
+    _seed_open_legs(tmp_path / "j.db", side_a="short", side_b="long",
+                    entry_a=ca[116], entry_b=cb[116], opened_at=_ago(3))
+    soak, closes, sent, _ = _unreadable_state_env(tmp_path, monkeypatch, ca=ca, cb=cb)
+    (tmp_path / "rebuilt.json").write_text(_j.dumps({"pairs_sol_btc": {
+        "pair_direction": "long_spread", "entry_spread": 0.0, "stop_spread": 0.0,
+        "opened_at_utc": _ago(50), "bar_seconds": 3600, "trade_ids": [998, 999]}}))
+    px.run_pairs_tick({})
+    assert soak[-1]["state_source"] == "rebuilt_full"
+    stored = _j.loads((tmp_path / "rebuilt.json").read_text())["pairs_sol_btc"]
+    assert stored["trade_ids"] != [998, 999] and stored["pair_direction"] == "short_spread"
+    # The pair goes flat -> the entry is pruned.
+    import sqlite3 as _sq
+    conn = _sq.connect(tmp_path / "j.db")
+    conn.execute("UPDATE trades SET status='closed'")
+    conn.commit()
+    conn.close()
+    px.run_pairs_tick({})
+    assert "pairs_sol_btc" not in _j.loads((tmp_path / "rebuilt.json").read_text())
+
+
+# ── NO-HALT round 2 (2026-10-09): "could not look" is never folded into flat ─
+
+def test_missing_journal_refuses_entry_this_tick_then_opens_once_readable(
+        tmp_path, monkeypatch):
+    """The REAL leg read (no stub) against a journal file that does not exist:
+    the pair must NOT open — a missing journal used to read as flat — and the
+    bar is NOT consumed, so the next tick, with the journal readable and flat,
+    opens normally. No latch."""
+    ca, cb = _extended_spread()
+    soak, closes, sent, bars = _unreadable_state_env(
+        tmp_path, monkeypatch, ca=ca, cb=cb, bar_keys=["SAME"] * 10)
+    assert not (tmp_path / "j.db").exists()                       # precondition
+    placed = []
+    monkeypatch.setattr(px, "_place_pair",
+                        lambda *a, **k: placed.append(a) or {"placed": True,
+                                                             "trade_ids": ["t1", "t2"]})
+    import src.units.accounts.execute as _exec
+    monkeypatch.setattr(_exec, "_fetch_balance", lambda *a, **k: 100000.0)
+    import src.units.accounts.qty_legalize as _ql
+    monkeypatch.setattr(_ql, "legalize_qty",
+                        lambda qty, **k: _ql.LegalizedQty(qty=qty, ok=True, reason="",
+                                                          venue_min=0.0, step=0.0,
+                                                          source="instrument_profile"))
+    px.run_pairs_tick({})
+    assert placed == []
+    assert soak[-1]["event"] == "skip_state_unreadable"
+    assert soak[-1]["state_read"] == "leg_state_error"
+    assert "pairs_sol_btc" not in bars, "the bar was consumed — that is a latch for the bar"
+    _empty_journal(tmp_path / "j.db")
+    px.run_pairs_tick({})
+    assert len(placed) == 1 and soak[-1]["event"] == "open"
+
+
+def _three_pairs():
+    return [
+        {"name": "p_unread", "symbol_a": "SOLUSDT", "symbol_b": "BTCUSDT"},
+        {"name": "p_flat", "symbol_a": "XRPUSDT", "symbol_b": "ADAUSDT"},
+        {"name": "me", "symbol_a": "SOLUSDT", "symbol_b": "ETHUSDT"},
+    ]
+
+
+def _patch_reads(monkeypatch, unreadable_symbols):
+    import src.runtime.positions as _pos
+    monkeypatch.setattr(
+        _pos, "has_open_trade_for_strategy",
+        lambda account_id, symbol, strategy, **k:
+            None if symbol in unreadable_symbols else False)
+
+
+def test_concurrency_counts_an_unreadable_pair_as_held(monkeypatch):
+    """An unreadable pair's legs are NOT free for another pair this tick:
+    they count as held (disjoint-legs gate) and as an open correlated pair
+    (haircut). A readable flat pair still counts as nothing."""
+    _patch_reads(monkeypatch, {"SOLUSDT", "BTCUSDT"})
+    pairs = _three_pairs()
+    held = px._held_leg_symbols(pairs, "bybit_1", None, exclude_name="me")
+    assert held == {"SOLUSDT", "BTCUSDT"}
+    assert px._count_correlated_open(pairs[2], pairs, "bybit_1", None) == 1
+
+
+def test_concurrency_readable_path_unchanged(monkeypatch):
+    """Positive control: everything readable and flat -> nothing held."""
+    _patch_reads(monkeypatch, set())
+    pairs = _three_pairs()
+    assert px._held_leg_symbols(pairs, "bybit_1", None, exclude_name="me") == set()
+    assert px._count_correlated_open(pairs[2], pairs, "bybit_1", None) == 0
+
+
+def test_unreadable_pair_blocks_a_sharing_pair_entry_this_tick(monkeypatch):
+    """End to end through decide_pair: the sharing pair is refused with
+    skip_concurrency (this tick only — the held set is recomputed every tick)."""
+    _patch_reads(monkeypatch, {"SOLUSDT", "BTCUSDT"})
+    pairs = [{"name": "p_unread", "symbol_a": "SOLUSDT", "symbol_b": "XRPUSDT"},
+             {"name": "me", "symbol_a": "SOLUSDT", "symbol_b": "BTCUSDT"}]
+    held = px._held_leg_symbols(pairs, "bybit_1", None, exclude_name="me")
+    ca, cb = _extended_spread()
+    d = px.decide_pair(_params(), ca, cb, open_state=None, held_symbols=held,
+                       risk_budget_usd=100.0, correlation_open=0)
+    assert d.event == "skip_concurrency" and not d.legs
+    _patch_reads(monkeypatch, set())
+    held = px._held_leg_symbols(pairs, "bybit_1", None, exclude_name="me")
+    d = px.decide_pair(_params(), ca, cb, open_state=None, held_symbols=held,
+                       risk_budget_usd=100.0, correlation_open=0)
+    assert d.event == "open"
+
+
+def test_flagged_streak_ending_because_the_pair_went_flat_is_not_called_recovered(
+        tmp_path, monkeypatch):
+    """Review (c) of #17255: the pair goes flat while its open-state red flag
+    stands. The bookkeeping was never read back, so the closing notice must say
+    the pair is flat (``cleared_flat``) — not ``recovered``."""
+    ca, cb = _jammed_at(n=120, k=116)
+    _seed_open_legs(tmp_path / "j.db", side_a="short", side_b="long",
+                    entry_a=ca[116], entry_b=cb[116], opened_at=_ago(3))
+    soak, closes, sent, _ = _unreadable_state_env(tmp_path, monkeypatch, ca=ca, cb=cb)
+    for _ in range(3):
+        px.run_pairs_tick({})
+    import sqlite3 as _sq
+    conn = _sq.connect(tmp_path / "j.db")
+    conn.execute("UPDATE trades SET status='closed'")
+    conn.commit()
+    conn.close()
+    px.run_pairs_tick({})
+    px.run_pairs_tick({})
+    flags = [s[0][1] for s in sent if s[0][0] == "pairs_state_unreadable"]
+    assert flags == ["error", "red_flag", "cleared_flat"], flags
+
+
+def test_state_streak_readable_clear_still_says_recovered(monkeypatch):
+    sent = []
+    import src.runtime.outcomes as _out
+    monkeypatch.setattr(_out, "report", lambda *a, **k: sent.append(a))
+    px._state_streaks.clear()
+    for _ in range(3):
+        px._state_streak("A/B", "bybit_1", "error", failing=True)
+    px._state_streak("A/B", "bybit_1", "error", failing=False)
+    assert [a[1] for a in sent] == ["error", "red_flag", "recovered"]
+
+
+def test_exit_fires_on_a_readable_open_pair_while_the_budget_is_unavailable(
+        tmp_path, monkeypatch):
+    """Review (d) of #17255: an OPEN pair whose bookkeeping is READABLE
+    (state_source=journal) must exit even though ``_budget_for`` would return
+    None (the balance read fails throughout ``_unreadable_state_env``). The
+    budget sizes entries only; it is never consulted for an open pair."""
+    import json as _j
+    ca, cb = _jammed_at()
+    _seed_open_legs(tmp_path / "j.db", side_a="short", side_b="long",
+                    entry_a=ca[-26], entry_b=cb[-26], opened_at=_ago(25))
+    _seed_pkg(tmp_path / "j.db", "pairs_sol_btc_a", _j.dumps(
+        {"pair_direction": "short_spread", "entry_spread": 0.1, "stop_spread": 9.9,
+         "opened_at_utc": _ago(25), "bar_seconds": 3600}))
+    soak, closes, sent, _ = _unreadable_state_env(tmp_path, monkeypatch, ca=ca, cb=cb)
+    import src.units.accounts.execute as _exec
+    balance_reads = []
+    monkeypatch.setattr(_exec, "_fetch_balance",
+                        lambda *a, **k: balance_reads.append(1) or (_ for _ in ()).throw(
+                            RuntimeError("balance down")))
+    px.run_pairs_tick({})
+    assert closes == ["timeout"], soak
+    assert soak[-1]["event"] == "close"
+    assert soak[-1]["state_source"] == "journal"
+    assert not any(r["event"] == "skip_no_risk_basis" for r in soak)
+    assert balance_reads == [], "the budget must not be derived for an open pair"

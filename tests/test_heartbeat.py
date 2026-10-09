@@ -481,15 +481,28 @@ def test_autoheal_cooldown_blocks_immediate_refire(tmp_path, watchdog_module):
     assert calls == []
 
 
-def test_autoheal_exhausted_after_max_restarts(tmp_path, watchdog_module):
-    """Once --max-restarts attempts are spent (and cooldown elapsed), the
-    watchdog stops restarting and escalates a one-shot EXHAUSTED alert."""
+def _run_stale(watchdog_module, hb, state, *extra):
+    return watchdog_module.main([
+        "--heartbeat", str(hb),
+        "--state", str(state),
+        "--interval", "900", "--grace", "2",
+        "--auto-restart-after", "3",
+        *extra,
+    ])
+
+
+def test_autoheal_keeps_restarting_past_max_restarts_with_one_red_flag(
+    tmp_path, watchdog_module,
+):
+    """NO-HALT (operator 2026-10-09): once --max-restarts are spent the
+    watchdog raises ONE red flag and STILL restarts once the (backed-off)
+    gap has elapsed — it never goes EXHAUSTED / alert-only."""
     hb = _make_stale_hb(tmp_path)
     state = tmp_path / "state.json"
     state.write_text(json.dumps({
         "last_status": "stale", "last_alert_age_s": 3500,
         "stale_streak": 6, "autoheal_attempts": 2,
-        "last_autoheal_ts": 0.0,  # cooldown long elapsed
+        "last_autoheal_ts": 0.0,  # backoff long elapsed
     }))
     msgs = []
     watchdog_module.send_alert = lambda msg: msgs.append(msg) or True
@@ -498,18 +511,118 @@ def test_autoheal_exhausted_after_max_restarts(tmp_path, watchdog_module):
     watchdog_module.try_autoheal_restart = lambda unit: calls.append(unit) or {
         "ran": True, "returncode": 0, "stdout": "", "stderr": "",
     }
-    rc = watchdog_module.main([
-        "--heartbeat", str(hb),
-        "--state", str(state),
-        "--interval", "900", "--grace", "2",
-        "--auto-restart-after", "3",
-        "--max-restarts", "2",
-    ])
-    assert rc == 0
-    assert calls == []  # cap reached → no further restart
-    assert any("EXHAUSTED" in m for m in msgs)
+    assert _run_stale(watchdog_module, hb, state, "--max-restarts", "2") == 0
+    assert calls == ["ict-trader-live.service"]  # still restarts
+    assert sum("[RED FLAG]" in m for m in msgs) == 1
+    assert not any("EXHAUSTED" in m for m in msgs)
+    # The per-restart ping is journal-only once the red flag is up.
+    assert not any("Autoheal dispatched" in m for m in msgs)
     saved = json.loads(state.read_text())
-    assert saved["autoheal_exhausted_alerted"] is True
+    assert saved["autoheal_red_flag_alerted"] is True
+    assert saved["autoheal_attempts"] == 3
+    assert "autoheal_exhausted_alerted" not in saved
+
+    # Next checks: backoff not yet elapsed -> no restart, no second flag.
+    msgs.clear()
+    calls.clear()
+    assert _run_stale(watchdog_module, hb, state, "--max-restarts", "2") == 0
+    assert calls == [] and not any("[RED FLAG]" in m for m in msgs)
+
+    # Backoff elapsed -> restarts AGAIN, still no second red flag.
+    saved = json.loads(state.read_text())
+    saved["last_autoheal_ts"] = time.time() - 10 * 3600
+    state.write_text(json.dumps(saved))
+    assert _run_stale(watchdog_module, hb, state, "--max-restarts", "2") == 0
+    assert calls == ["ict-trader-live.service"]
+    assert not any("[RED FLAG]" in m for m in msgs)
+    assert json.loads(state.read_text())["autoheal_attempts"] == 4
+
+
+def test_autoheal_backoff_doubles_and_is_capped(watchdog_module):
+    """Within the bound: plain cooldown. Past it: doubling, capped."""
+    f = watchdog_module.autoheal_backoff_s
+    cd, cap = 180.0, 3600.0
+    assert [f(a, 5, cd, cap) for a in range(5)] == [cd] * 5
+    assert f(5, 5, cd, cap) == 360.0
+    assert f(6, 5, cd, cap) == 720.0
+    assert f(7, 5, cd, cap) == 1440.0
+    assert f(8, 5, cd, cap) == 2880.0
+    assert f(9, 5, cd, cap) == cap
+    assert f(10_000, 5, cd, cap) == cap  # never overflows, never stops
+
+
+def test_decide_autoheal_never_returns_a_terminal_action(watchdog_module):
+    """Far past the old bound, once the capped backoff elapses the decision is
+    always ``restart`` — there is no exhausted/halt action."""
+    state = {"autoheal_attempts": 500, "autoheal_red_flag_alerted": True,
+             "last_autoheal_ts": 0.0}
+    d = watchdog_module.decide_autoheal(
+        state=state, stale_streak=999, threshold=3, max_restarts=5,
+        cooldown_s=180.0, now=3601.0, seconds_since_active=None,
+        startup_grace_s=180.0, max_backoff_s=3600.0,
+    )
+    assert d["action"] == "restart" and d["red_flag"] is False
+    d2 = watchdog_module.decide_autoheal(
+        state=state, stale_streak=999, threshold=3, max_restarts=5,
+        cooldown_s=180.0, now=3599.0, seconds_since_active=None,
+        startup_grace_s=180.0, max_backoff_s=3600.0,
+    )
+    assert d2["action"] == "none"  # capped gap not yet elapsed
+
+
+def test_autoheal_legacy_exhausted_latch_is_ignored_and_removed(
+    tmp_path, watchdog_module, capsys,
+):
+    """A state file left by the old code with autoheal_exhausted_alerted=True
+    must not stop restarts: the latch is removed with a log line, restarts
+    continue, and no duplicate red flag is sent (the old EXHAUSTED ping
+    already went out for this episode)."""
+    hb = _make_stale_hb(tmp_path)
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({
+        "last_status": "stale", "last_alert_age_s": 3500,
+        "stale_streak": 9, "autoheal_attempts": 5,
+        "autoheal_exhausted_alerted": True, "last_autoheal_ts": 0.0,
+    }))
+    msgs = []
+    watchdog_module.send_alert = lambda msg: msgs.append(msg) or True
+    watchdog_module._seconds_since_unit_active = lambda unit: None
+    calls = []
+    watchdog_module.try_autoheal_restart = lambda unit: calls.append(unit) or {
+        "ran": True, "returncode": 0, "stdout": "", "stderr": "",
+    }
+    assert _run_stale(watchdog_module, hb, state, "--max-restarts", "5") == 0
+    assert calls == ["ict-trader-live.service"]
+    assert not any("[RED FLAG]" in m for m in msgs)
+    saved = json.loads(state.read_text())
+    assert "autoheal_exhausted_alerted" not in saved
+    assert saved["autoheal_red_flag_alerted"] is True
+    assert "ignoring legacy autoheal_exhausted_alerted" in capsys.readouterr().out
+
+
+def test_autoheal_red_flag_recovery_announced_once(tmp_path, watchdog_module):
+    """Recovery after a red-flagged episode: ONE recovery message (folded into
+    the [OK] recovered ping) and the episode counters reset."""
+    hb = tmp_path / "heartbeat.txt"
+    hb.write_text("fresh")
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({
+        "last_status": "stale", "stale_streak": 20,
+        "autoheal_attempts": 8, "autoheal_red_flag_alerted": True,
+        "last_autoheal_ts": time.time(),
+    }))
+    msgs = []
+    watchdog_module.send_alert = lambda msg: msgs.append(msg) or True
+    assert _run_stale(watchdog_module, hb, state) == 0
+    assert len(msgs) == 1
+    assert "recovered" in msgs[0] and "red flag cleared" in msgs[0]
+    saved = json.loads(state.read_text())
+    assert saved["autoheal_attempts"] == 0
+    assert saved["autoheal_red_flag_alerted"] is False
+    # A second fresh check sends nothing more.
+    msgs.clear()
+    assert _run_stale(watchdog_module, hb, state) == 0
+    assert msgs == []
 
 
 def test_autoheal_failed_dispatch_does_not_consume_attempt(tmp_path, watchdog_module):
@@ -571,7 +684,7 @@ def test_autoheal_episode_resets_on_fresh_heartbeat(tmp_path, watchdog_module):
     state = tmp_path / "state.json"
     state.write_text(json.dumps({
         "last_status": "stale", "stale_streak": 6,
-        "autoheal_attempts": 5, "autoheal_exhausted_alerted": True,
+        "autoheal_attempts": 5, "autoheal_red_flag_alerted": True,
         "last_autoheal_ts": time.time(),
     }))
     watchdog_module.send_alert = lambda _msg: True
@@ -584,7 +697,7 @@ def test_autoheal_episode_resets_on_fresh_heartbeat(tmp_path, watchdog_module):
     assert rc == 0
     saved = json.loads(state.read_text())
     assert saved["autoheal_attempts"] == 0
-    assert saved["autoheal_exhausted_alerted"] is False
+    assert saved["autoheal_red_flag_alerted"] is False
 
 
 def test_autoheal_recovered_resets_streak(tmp_path, watchdog_module):

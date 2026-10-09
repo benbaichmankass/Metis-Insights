@@ -312,30 +312,79 @@ def probe_manager(now: datetime) -> dict:
                                     f"(bound {MANAGER_SILENT_HOURS}h — no daily review?)"}
 
 
-PROP_TRIP_MAX_HOURS = 2      # the trip ping fires once; a tripped feed still trading nothing 2h later re-pages
+def _retired_accounts() -> set:
+    """Accounts marked ``retired: true`` in config/accounts.yaml (fail-open: unreadable -> none)."""
+    try:
+        sys.path.insert(0, str(REPO_ROOT))
+        from src.config.accounts_loader import load_accounts_dict
+        from src.prop.prop_identity import is_retired_account
+        return {a for a, c in (load_accounts_dict() or {}).items() if is_retired_account(c)}
+    except Exception:  # noqa: BLE001  # allow-silent: an unreadable config must not hide a live account's trip
+        return set()
+
+
+PROP_BACKOFF_MAX_HOURS = 2   # the red-flag ping fires once; a feed still flagged 2h later re-pages
+
+
+def _read_feed_backoff(path: Path) -> dict:
+    """The key=value backoff state scripts/ops/prop_feed_tick.sh writes."""
+    out = {}
+    for line in path.read_text(errors="replace").splitlines():
+        k, sep, v = line.partition("=")
+        if sep:
+            out[k.strip()] = v.strip()
+    return out
 
 
 def probe_prop_feed(now: datetime) -> dict:
-    """A tripped prop feed means that account's executor places NOTHING (it exits
-    before running while ``feed/tripped`` exists) and the silence probe cannot see
-    it (it keys on fills). Reads the markers scripts/ops/prop_feed_tick.sh writes;
-    no base dir = we could not look (UNKNOWN), never OK."""
+    """A prop feed that keeps failing (red-flagged: 3+ consecutive failures, a
+    feasibility stop, or the relogin ceiling) is retrying on a capped backoff
+    and not refreshing its account's saved session, so that account's executor
+    runs on a session nobody renews; the silence probe cannot see it (it keys
+    on fills). Since NO-HALT (2026-10-09) the feed never stops, so there is no
+    `tripped` marker to read: this reads each ``feed/backoff`` state file.
+    No base dir, or a state file that cannot be read, is UNKNOWN (we could not
+    look), never OK; a backoff below the red-flag threshold is OK (retrying
+    normally)."""
     base = Path(os.environ.get("PROP_BROWSER_BASE") or Path.home() / ".cache" / "metis-prop-browser")
     if not base.is_dir():
         return {"status": UNKNOWN, "detail": f"no prop browser base dir ({base.name})"}
-    marks = [*base.glob("accounts/*/feed/tripped"), base / "feed" / "tripped"]
-    hit = []
-    for m in marks:
-        try:
-            age = (now - datetime.fromtimestamp(m.stat().st_mtime, timezone.utc)).total_seconds() / 3600
-        except OSError:
+    states = [*base.glob("accounts/*/feed/backoff"), base / "feed" / "backoff"]
+    flagged, unreadable = [], []
+    for f in states:
+        name = "breakout_1" if f.parent.parent == base else f.parent.parent.name
+        if not f.exists():
             continue
-        name = "breakout_1" if m.parent.parent == base else m.parent.parent.name
-        hit.append((age, f"{name} ({age:.0f}h: {m.read_text(errors='replace')[:90].strip()})"))
-    old = [d for a, d in hit if a >= PROP_TRIP_MAX_HOURS]
-    return {"status": BREACHED if old else OK,
-            "detail": ("tripped, executor idle: " + "; ".join(old) + " — re-arm: breakout-login-check apply: reset-feed")
-            if old else f"{len(hit)} prop feed(s) tripped under {PROP_TRIP_MAX_HOURS}h" if hit else "no prop feed tripped"}
+        if name in _retired_accounts():
+            continue  # a retired account's stale state must never page (OPS-DECISIONS-1009)
+        try:
+            st = _read_feed_backoff(f)
+        except OSError:
+            unreadable.append(name)
+            continue
+        if st.get("flagged") != "1":
+            continue
+        try:
+            at = datetime.strptime(st.get("flagged_at", ""), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        except ValueError:
+            try:
+                at = datetime.fromtimestamp(f.stat().st_mtime, timezone.utc)
+            except OSError:
+                unreadable.append(name)
+                continue
+        age = (now - at).total_seconds() / 3600
+        flagged.append((age, f"{name} ({age:.0f}h, {st.get('consecutive_failures', '?')} failure(s), "
+                             f"next try {st.get('next_attempt_at_utc', '?')}: {st.get('reason', '')[:90]})"))
+    old = [d for a, d in flagged if a >= PROP_BACKOFF_MAX_HOURS]
+    if old:
+        return {"status": BREACHED,
+                "detail": "feed failing, retrying on backoff: " + "; ".join(old)
+                          + " — fix the cause; to retry sooner: breakout-login-check apply: reset-feed"}
+    if unreadable:
+        return {"status": UNKNOWN, "detail": "could not read the backoff state of: " + ", ".join(unreadable)}
+    return {"status": OK,
+            "detail": f"{len(flagged)} prop feed(s) red-flagged under {PROP_BACKOFF_MAX_HOURS}h" if flagged
+            else "no prop feed red-flagged"}
 
 
 REPORT_MAX_AGE_HOURS = 26     # daily 05:30Z + grace
@@ -496,7 +545,7 @@ PROBE_LABEL = {
     "report": "scheduled work report missing or broken",
     **prop_trail_watch.LABELS,
     **prop_silence.LABELS,
-    "prop_feed": "a prop account feed is tripped (its executor is not trading)",
+    "prop_feed": "a prop account feed keeps failing (red-flagged; retrying on a capped backoff)",
 }
 
 

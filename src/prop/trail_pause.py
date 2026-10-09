@@ -3,15 +3,21 @@
 stdlib only, so both the executor tick (which writes the pulse) and the hourly
 attention watch (which reads it) can import it without pandas.
 
-The latch is ``<executor state dir>/modify_rollout.json`` (``ModifyRollout``):
-its EXISTENCE pauses the trail for every ticket until ``executor-clear-rollout``
-removes it. ``trail_paused_since`` is a THREE-valued field and the three are
-never collapsed:
+The latch was ``<executor state dir>/modify_rollout.json``: until NO-HALT
+(operator 2026-10-09, "There is no halting."; PI-20261009-72XUJX8U-0001) its
+EXISTENCE paused the trail for every ticket until ``executor-clear-rollout``.
+It is RETIRED: nothing writes it and nothing blocks on it, and
+``ModifyRollout`` moves a stale copy aside on the next trail/executor pass. So
+on a deployed host ``trail_paused_since`` reads ``None``; a non-null value
+means the file is there (the retired code is what is running, or the pass that
+removes it has not run yet). The non-blocking record of the last armed step is
+``modify_rollout_last.json`` and is NOT read here. ``trail_paused_since`` is a
+THREE-valued field and the three are never collapsed:
 
 * ``None``       -- we looked, the file is absent: not paused.
-* ISO string     -- latched; the latch's own ``at`` (epoch seconds), else the
-                    file's mtime when ``at`` is missing/garbled (existence is
-                    the fact that blocks; the instant is best-effort).
+* ISO string     -- the retired latch file is present; its own ``at`` (epoch
+                    seconds), else the file's mtime when ``at`` is
+                    missing/garbled (the instant is best-effort).
 * ``"unknown"``  -- we could not look (the directory or file raised something
                     other than "not found"). NEVER read as "not paused".
 """

@@ -2990,7 +2990,7 @@ inputs:
   - src/units/strategies/pairs_executor.py:1241
   - src/units/strategies/pairs_executor.py:206
   timeframe: live
-  freshness: read-only sqlite (mode=ro); unreadable/absent -> skip_state_unreadable soak event + hourly alert (_STATE_ALERT_COOLDOWN_S=3600)
+  freshness: read-only sqlite (mode=ro); unreadable/absent -> state rebuilt from the open leg rows (persisted to runtime_logs/pairs_rebuilt_state.json) so exits keep evaluating; WARN on first, ONE red flag after 3 consecutive (_state_streak, NO-HALT 2026-10-09)
   used_by:
   - pairs_executor
   health:

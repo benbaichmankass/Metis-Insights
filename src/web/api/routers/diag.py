@@ -555,10 +555,12 @@ _ATTENTION_WATCH_RECEIPT = (
 )
 
 # TRAIL-OBSERVABILITY (2026-10-07, PI-20261006-KX6ZKFNA-0003). The prop trail's
-# pause latch (`modify_rollout.json`) and per-ticket replay state
-# (`trail_state.json`) live in the executor's state dir on the VM, outside
-# runtime_logs/, so a relay-bound session could not tell "the trail is paused
-# awaiting executor-clear-rollout" from "the trail is running". The path mirrors
+# former pause latch (`modify_rollout.json`; retired by NO-HALT 2026-10-09, so
+# present only if old code wrote it -- the next trail pass moves it aside), its
+# last armed step's NON-blocking record (`modify_rollout_last.json`) and the
+# per-ticket replay state (`trail_state.json`: fail_streak / next_try_at /
+# red_flagged per ticket) live in the executor's state dir on the VM, outside
+# runtime_logs/, so a relay-bound session could not otherwise read them. The path mirrors
 # the WRITER's resolver (scripts/prop/prop_executor_tick.py::default_state_dir
 # and scripts/ops/prop_executor_tick.sh): breakout_1 keeps `<base>/executor`,
 # every other account is `<base>/accounts/<account>/executor`. Contents carry no
@@ -876,10 +878,12 @@ _LOG_FILES: dict[str, Path] = {
     #
     #   * `heartbeat_check_state.json`  <- scripts/check_heartbeat.py, the EXTERNAL
     #     dead-man switch behind ict-liveness-watchdog.timer. Its state keys are
-    #     `autoheal_attempts`, `autoheal_exhausted_alerted`,
-    #     `last_autoheal_attempt_ts`. THIS is the restart budget. Once exhausted
-    #     the watchdog goes alert-only and stops auto-restarting the trader, so
-    #     without a read surface "the watchdog will restart the trader if it
+    #     `autoheal_attempts`, `autoheal_red_flag_alerted`,
+    #     `autoheal_next_backoff_s`, `last_autoheal_attempt_ts`. THIS is the
+    #     restart pacing. Since 2026-10-09 (NO-HALT) it never stops restarting:
+    #     past --max-restarts it raises one red flag and backs off up to
+    #     --max-backoff-min (until then it went EXHAUSTED and alert-only).
+    #     Without a read surface "the watchdog will restart the trader if it
     #     stalls" is an assumption, not an observation.
     #
     #   * `liveness_watchdog_state.json` <- src/runtime/liveness_watchdog.py, a
@@ -983,18 +987,26 @@ _LOG_FILES: dict[str, Path] = {
         runtime_logs_dir() / "prop_fills_staleness_state.json",
     "prop_trail_latch_breakout_1":
         _prop_executor_state_dir("breakout_1") / "modify_rollout.json",
+    "prop_trail_last_step_breakout_1":
+        _prop_executor_state_dir("breakout_1") / "modify_rollout_last.json",
     "prop_trail_state_breakout_1":
         _prop_executor_state_dir("breakout_1") / "trail_state.json",
     "prop_trail_latch_breakout_2":
         _prop_executor_state_dir("breakout_2") / "modify_rollout.json",
+    "prop_trail_last_step_breakout_2":
+        _prop_executor_state_dir("breakout_2") / "modify_rollout_last.json",
     "prop_trail_state_breakout_2":
         _prop_executor_state_dir("breakout_2") / "trail_state.json",
     "prop_trail_latch_tradeify_1":
         _prop_executor_state_dir("tradeify_1") / "modify_rollout.json",
+    "prop_trail_last_step_tradeify_1":
+        _prop_executor_state_dir("tradeify_1") / "modify_rollout_last.json",
     "prop_trail_state_tradeify_1":
         _prop_executor_state_dir("tradeify_1") / "trail_state.json",
     "prop_trail_latch_velotrade_1":
         _prop_executor_state_dir("velotrade_1") / "modify_rollout.json",
+    "prop_trail_last_step_velotrade_1":
+        _prop_executor_state_dir("velotrade_1") / "modify_rollout_last.json",
     "prop_trail_state_velotrade_1":
         _prop_executor_state_dir("velotrade_1") / "trail_state.json",
     "target_naked_alert_state":

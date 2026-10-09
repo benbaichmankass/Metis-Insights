@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Order-path change in Coordinator.multi_account_execute (prop sizing refusal) on the live trader; the operator directive 'go live ASAP' on breakout_2 via the phone (config/accounts.yaml breakout_2 mode: live, 2026-10-05/06) decided the outcome; the manager merges, then deploy + observe the next trend_donchian_eth_prop/trend_donchian_sol_prop signal emitting a breakout_2 ticket.",
+  "why": "MEASURED (journalctl ict-trader-live): all 7 trend_donchian_eth_prop signals 2026-10-07 01:59..2026-10-08 16:00Z that emitted tradeify_1/velotrade_1 tickets refused breakout_2 with prop_balance_absent (no prop_account_status row). breakout_2's only machine balance source is the phone (kind: account_status), which reads the account panel only while foregrounded on the terminal and foregrounds only for a waiting ticket: a deadlock that can never self-clear. Fix: a PHONE-FLOW bridge account (config/prop_platforms.yaml phone_accounts) still pages the refusal (one red flag, NO-HALT) but emits; the bridge never sized off that number (0.0 basis, ruleset flat sizing). Every other prop account keeps the per-trade refusal unchanged. Revert: git revert of the merge commit + deploy."
+}

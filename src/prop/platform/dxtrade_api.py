@@ -221,6 +221,24 @@ def build_bracket_body(spec: BracketSpec) -> Dict[str, Any]:
     }
 
 
+def _attach_group_children(orders: List[WorkingOrder]) -> None:
+    """PROP-LATCH: when the IF-THEN children of a resting entry are listed,
+    copy their prices onto the entry (``<base>-E`` <- ``<base>-S`` stop,
+    ``<base>-T`` limit; :func:`client_ids`), so the read says what protects
+    it. Children not listed -> fields stay None (never guessed)."""
+    by_id = {o.order_id: o for o in orders if o.order_id}
+    for o in orders:
+        oid = o.order_id or ""
+        if not oid.endswith("-E") or o.raw.get("positionEffect") == "CLOSE":
+            continue
+        base = oid[:-2]
+        sl_o, tp_o = by_id.get(base + "-S"), by_id.get(base + "-T")
+        if o.stop_loss is None and sl_o is not None:
+            o.stop_loss = sl_o.price
+        if o.take_profit is None and tp_o is not None:
+            o.take_profit = tp_o.price
+
+
 @dataclass
 class DXtradeApiAdapter(PropPlatformAdapter):
     """One DXtrade REST session on one account. ``login_url`` is the REST base
@@ -230,6 +248,11 @@ class DXtradeApiAdapter(PropPlatformAdapter):
     # TP doctrine B1: modify_bracket PUTs the TP child's limitPrice (one
     # conditional PUT per leg, spec'd and built for VELOTRADE-GOLIVE).
     TP_AMEND_SUPPORTED = True
+    # PROP-LATCH (2026-10-09): entry + SL + TP go out as ONE IF-THEN group
+    # (``build_bracket_body``), so a resting entry is protected server-side
+    # and the executor's confirmation checks SL/TP on the FILLED position
+    # (``prop_executor.classify_confirmation(atomic_bracket=True)``).
+    ATOMIC_BRACKET = True
     transport: Transport = field(default=urllib_transport)
     sleep: Callable[[float], None] = field(default=time.sleep)
     timeout_s: float = 25.0
@@ -350,6 +373,21 @@ class DXtradeApiAdapter(PropPlatformAdapter):
                 quantity=_f(p.get("quantity")), entry_price=_f(p.get("openPrice")),
                 stop_loss=_f(p.get("stopLossPrice")), take_profit=_f(p.get("takeProfitPrice")),
                 raw={"positionCode": str(p.get("positionCode") or "")}))
+        if any(p.stop_loss is None or p.take_profit is None for p in out):
+            # PROP-LATCH: the spec'd Position carries no SL/TP field; the
+            # protection IS the working CLOSE STOP / CLOSE LIMIT children
+            # (the same orders ``modify_bracket`` re-prices). Read them, so
+            # a protected position is not read as naked. A failed orders
+            # read leaves the fields None (naked until proven otherwise).
+            try:
+                for pos in out:
+                    sl_o, tp_o = self._protection_orders(pos)
+                    if pos.stop_loss is None and sl_o is not None:
+                        pos.stop_loss = sl_o.price
+                    if pos.take_profit is None and tp_o is not None:
+                        pos.take_profit = tp_o.price
+            except Exception:
+                pass
         return out
 
     def read_orders(self, page: Any = None) -> List[WorkingOrder]:
@@ -368,10 +406,12 @@ class DXtradeApiAdapter(PropPlatformAdapter):
             out.append(WorkingOrder(
                 symbol=str(o.get("instrument") or ""), side="long" if o.get("side") == "BUY" else "short",
                 order_type=str(o.get("type") or "").lower(), quantity=_f(leg.get("quantity")),
-                price=_f(leg.get("price")), order_id=str(o.get("clientOrderId") or o.get("orderCode") or ""),
+                price=_f(leg.get("price")) if leg.get("price") is not None else _f(o.get("stopPrice") or o.get("limitPrice")),
+                order_id=str(o.get("clientOrderId") or o.get("orderCode") or ""),
                 raw={"positionEffect": str(leg.get("positionEffect") or ""),
                      "positionCode": str(leg.get("positionCode") or ""),
                      "status": str(o.get("status") or ""), "side": str(o.get("side") or "")}))
+        _attach_group_children(out)
         return out
 
     def read_quote(self, page: Any, venue_symbol: str) -> Optional[Dict[str, float]]:

@@ -101,8 +101,10 @@ def exclude_reset_flat_predicate(prefix: str = "") -> str:
     An ``exchange_reset_flat`` row is a position the position-snapshot
     reconciler closed as part of a **wholesale account RESET** (>= threshold
     positions vanishing from the exchange snapshot in one pass — the 2026-07-07
-    alpaca_paper paper-account reset wiped all 8 at once). Those closes carry a
-    real strategy name and a mark-to-market PnL, but they are NOT strategy exit
+    alpaca_paper paper-account reset wiped all 8 at once). Since 2026-10-09
+    (NO-HALT) such rows are closed only after per-row venue re-verification and
+    carry ``pnl`` NULL declared unmeasured; older rows carry a mark-to-market
+    PnL. Either way they carry a real strategy name but are NOT strategy exit
     decisions — the account was reset externally — so counting them would
     contaminate per-strategy win-rate / PnL. They stay in the journal (audit)
     but are excluded from KPI aggregates. NULL-safe; the literal is hard-coded

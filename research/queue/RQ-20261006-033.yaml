@@ -1,6 +1,6 @@
 id: RQ-20261006-033
 title: 'Stage-0 backtest for a FASTER prop leg: orb harness on SPY 1h (PI-20261006-APBY4NTV-0001 slice 1)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -67,7 +67,7 @@ related:
 - docs/integrations/breakout-instruments-2026-09-27.md
 - RQ-20260929-107
 - research/templates/roster-walkforward.yaml
-last_dispatched_at: null
+last_dispatched_at: '2026-10-09T01:55:58+00:00'
 grading:
   auto: true
   confirmatory_run: 1
@@ -77,7 +77,7 @@ grading:
   first_fail: 1 row(s), all measured, all fail
   graded_at: '2026-10-09'
   grader: scripts/research/queue_grade.py
-  note: 'first FAIL: re-queued for a confirmatory run (last_dispatched_at reset), not killed'
+  note: two consecutive FAIL passes; closed as fail (never on one pass)
   reason: 1 row(s), all measured, all fail
   rows: 1
   verdict: fail
