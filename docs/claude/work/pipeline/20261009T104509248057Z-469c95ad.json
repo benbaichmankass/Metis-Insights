@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-11",
+    "kind": "date"
+  },
+  "id": "PI-20261009-72XUJX8U-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane NO-HALT session_016wNjQSovXrhDpd72xUjx8U, 2026-10-09",
+    "rerun": "grep -n 'quarantin' src/utils/trainer_manifest_health.py scripts/ops/run_training_cycle.sh"
+  },
+  "state": "queued",
+  "what": "NO-HALT fix, trainer: the OOM/timeout manifest quarantine (src/utils/trainer_manifest_health.py ~:190; scripts/ops/run_training_cycle.sh ~:392-400 and :609) stops training a manifest after 3 consecutive OOM/timeouts (exit 124/137) for 7 days unless TRAINER_MANIFEST_QUARANTINE_CLEAR is set. No verbatim operator permission found (docs/claude/trainer-resource-protocol.md Rule 3 carries none), and the operator's directive names training explicitly. Fix: keep retrying the manifest (every cycle, or a short backoff such as every 2nd cycle) with the OOM diagnosis attached, route it to GPU burst automatically where that path exists, and raise ONE red flag on the 3rd consecutive failure instead of quarantining."
+}

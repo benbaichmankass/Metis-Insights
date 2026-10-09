@@ -3446,8 +3446,8 @@ def watchlist_diff(before: Mapping[str, Any], after: Mapping[str, Any]) -> Dict[
 # hover, immediately before the click; a REFUSED panel is never click-closed
 # (one Escape, then abort); record the linked symbol first and RESTORE it on
 # every exit path while no dialog is open -- a skipped or failed restore is an
-# alert, a non-zero exit AND the executor's AUTO-REVERT latch, so no executor
-# tick trades until it is re-selected and cleared; the watchlist symbol set
+# alert and a non-zero exit (never a latch since NO-HALT 2026-10-09: the
+# order form's symbol check refuses a wrong-symbol ticket); the watchlist symbol set
 # must read the same before and after. A DOUBLE-click on a watchlist row
 # opens the order ticket (open_order_ticket): this probe only ever issues a
 # single click, on the Symbol cell, never on a Bid/Ask cell.
@@ -4552,11 +4552,11 @@ def info_probe_one_click_off(one_click: Optional[Mapping[str, Any]]) -> bool:
 
 
 def info_probe_restore_latch_reason(got: Mapping[str, Any]) -> Optional[str]:
-    """The AUTO-REVERT latch reason to write when the probe may have left
-    the terminal's linked symbol changed, else None. Written by the tick
-    into the executor's own ``halted`` latch, which every executor tick
-    reads before trading (refuses every new entry, alerts) until the
-    manager/operator clears it with ``executor-clear-halt``."""
+    """The ALERT text when the probe may have left the terminal's linked
+    symbol changed, else None. NO-HALT (operator 2026-10-09): it is alerted
+    only; until then the tick wrote it into the executor's ``halted`` latch.
+    A wrong linked symbol cannot place a wrong order: the order form checks
+    the symbol at open and at read-back (:func:`form_names_symbol`)."""
     rest = got.get("restore") or {}
     if got.get("mode") != "click" or not rest:
         return None
@@ -4568,14 +4568,14 @@ def info_probe_restore_latch_reason(got: Mapping[str, Any]) -> Optional[str]:
     # tick's ``fresh_page_check``, manager-approved 2026-09-30 18:00Z) reads
     # the original symbol with no dialog open, the run alerts only and no
     # latch is written. Anything else -- no check, unreadable, another
-    # symbol, a dialog -- latches as before.
+    # symbol, a dialog -- alerts (NO-HALT 2026-10-09: never a latch).
     fp = got.get("fresh_page_check") or {}
     if (fp.get("readable") is True and rest.get("original")
             and fp.get("linked_symbol") == rest.get("original") and fp.get("dialogs") == 0):
         return None
-    return ("AUTO-REVERT: instrument-info-probe left the linked symbol unverified "
+    return ("PROBE-RESTORE-UNVERIFIED: instrument-info-probe left the linked symbol unverified "
             f"(should be {rest.get('original')!r}; restore attempted={rest.get('attempted')}); "
-            "re-select it on the terminal, then executor-clear-halt")
+            "re-select it on the terminal")
 
 
 #: A quote whose spread is wider than this is not believed (a mis-aligned
@@ -6162,9 +6162,9 @@ class DXtradeAdapter(PropPlatformAdapter):
         close it and confirm it is gone. On EVERY exit path (success, abort,
         exception) it re-selects the originally linked symbol and verifies
         it, unless a dialog is open. ``alerts`` is non-empty whenever the
-        terminal may have been left changed; an unverified restore is also
-        the executor's AUTO-REVERT latch (info_probe_restore_latch_reason,
-        written by the tick).
+        terminal may have been left changed; an unverified restore is
+        alerted by the tick (info_probe_restore_latch_reason; never a latch
+        since NO-HALT 2026-10-09).
         """
         want = list(dict.fromkeys(s.strip().upper() for s in symbols if s and s.strip()))
         out: Dict[str, Any] = {"mode": "click" if click else "dry", "symbols": want,

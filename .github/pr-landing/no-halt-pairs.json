@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Touches the LIVE M22 pairs order path (src/units/strategies/pairs_executor.py run_pairs_tick: unreadable open-state handling, exit evaluation, entry refusal); the manager merges under the operator's NO-HALT directive 2026-10-09 (\"There is no halting.\")",
+  "why": "An unreadable pair open-state (order_packages bookkeeping error/absent) used to SKIP the pair every bar, which also skipped every close-side rule (exit_z, stop_z, max_hold_bars), so an open spread could not be exited by the executor while it lasted, and re-paged a CRITICAL hourly forever. Now the state is rebuilt from the open leg journal rows (direction from the legs' sides, bars_held from the open time, entry/stop spread from the legs' entry prices with the engine's beta/std at the entry bar), persisted to runtime_logs/pairs_rebuilt_state.json and read back next bar; an ambiguous rebuild still evaluates the exits it can (revert, timeout). A failed leg-row read (has_open_trade_for_strategy -> None) now refuses new entries for that tick only (bar not consumed) instead of reading as flat/half_open. A balance-read failure no longer blocks an open pair's exit. Alerts: WARN on first, ONE CRITICAL red flag after 3 consecutive, one recovered. No sizing, threshold or strategy-param change. Revert: git revert the merge commit; the sidecar file is then ignored (delete runtime_logs/pairs_rebuilt_state.json optionally)."
+}

@@ -312,6 +312,17 @@ def probe_manager(now: datetime) -> dict:
                                     f"(bound {MANAGER_SILENT_HOURS}h — no daily review?)"}
 
 
+def _retired_accounts() -> set:
+    """Accounts marked ``retired: true`` in config/accounts.yaml (fail-open: unreadable -> none)."""
+    try:
+        sys.path.insert(0, str(REPO_ROOT))
+        from src.config.accounts_loader import load_accounts_dict
+        from src.prop.prop_identity import is_retired_account
+        return {a for a, c in (load_accounts_dict() or {}).items() if is_retired_account(c)}
+    except Exception:  # noqa: BLE001  # allow-silent: an unreadable config must not hide a live account's trip
+        return set()
+
+
 PROP_BACKOFF_MAX_HOURS = 2   # the red-flag ping fires once; a feed still flagged 2h later re-pages
 
 
@@ -344,6 +355,8 @@ def probe_prop_feed(now: datetime) -> dict:
         name = "breakout_1" if f.parent.parent == base else f.parent.parent.name
         if not f.exists():
             continue
+        if name in _retired_accounts():
+            continue  # a retired account's stale state must never page (OPS-DECISIONS-1009)
         try:
             st = _read_feed_backoff(f)
         except OSError:

@@ -1766,6 +1766,7 @@ accounts:
                                        # gate EV used (the EV engine reads it).
     account_size_usd: 5000             # 1-Step Classic $5k.
     strategies: []                     # RETIRED 2026-10-07 — see the note below.
+    retired: true                      # 2026-10-09 (OPS-DECISIONS-1009): src.prop.prop_identity.is_retired_account — hourly snapshot / prop-feed alarm skip it.
       # ── RETIRED 2026-10-07 (Tier-3, roster cleared; operator-approved) ──
       # OPERATOR DECISION 2026-10-07 (popup, manager session_01MM8o5js6TcDFeNAPBY4Ntv),
       # verbatim label: "Dead: clear its roster, retire the row (Recommended)".

@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-11",
+    "kind": "date"
+  },
+  "id": "PI-20261009-72XUJX8U-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane NO-HALT session_016wNjQSovXrhDpd72xUjx8U, 2026-10-09",
+    "rerun": "grep -n 'def blocked' src/prop/platform/dxtrade.py; grep -n 'locked.. = True' src/prop/prop_trail.py"
+  },
+  "state": "queued",
+  "what": "NO-HALT fix, prop trail: the modify-rollout latch (src/prop/platform/dxtrade.py ModifyRollout; <state dir>/modify_rollout.json) blocks EVERY further armed SL modify on the account after one step until executor-clear-rollout, and src/prop/prop_trail.py sets a per-ticket `locked` on verify_failed / a loosened SL that stops trailing that ticket until it closes. No verbatim operator permission for either halt (only 'Merge and switch on together', 2026-10-03, for the EDIT_DIALOG_MEASURED flip). Fix: ModifyRollout records the last step but never blocks (keep tighten-only + bounded step + post-modify verify as per-step checks); verify_failed / loosened = that step failed, retried next cycle, one red flag after 3 consecutive failures; stale modify_rollout.json removed on start so the trail_pause pulse reads null. Tests: tests/test_prop_trail.py and the rollout cases in tests/test_prop_platform_dxtrade.py."
+}

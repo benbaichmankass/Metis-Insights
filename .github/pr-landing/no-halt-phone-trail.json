@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "src/prop/phone_trail.py (breakout_2 phone trail amend state: the live prop order path's SL amends); the manager merges under the operator's NO-HALT directive 2026-10-09 (\"There is no halting.\")",
+  "why": "The phone trail used to LOCK a ticket's trail for good after a claimed amend with no report, a second pre-click refusal, or an unverified (mismatch) amend, and to END it after a no_position read, so only a human could restart it. Now each of those fails THAT attempt only: the ticket backs off 1, 2, 4, 8 (cap) closed bars and is re-planned; the first failure of a streak pings, 3 consecutive failures raise ONE red flag, the first success after it announces recovery once. no_position is a miss re-checked with backoff, never an end. Kept exactly: human_moved holds the trail until the human's {kind: amend} report (the trail never fights a human's stop), the phone's pre-click from_sl check, and tighten-only planning. A stale locked/ended state from the old code is ignored on load with a log line (an old human-moved lock carries over as the hold). Revert: git revert of this PR's commit restores the lock behaviour; no data migration (state lives in prop_tickets.meta.phone_trail)."
+}

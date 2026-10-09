@@ -133,6 +133,8 @@ def test_prop_feed_probe_unreadable_state_is_unknown_not_ok(tmp_path, monkeypatc
     from datetime import datetime, timezone
     now = datetime(2026, 10, 7, 21, 0, tzinfo=timezone.utc)
     monkeypatch.setenv("PROP_BROWSER_BASE", str(tmp_path))
-    (tmp_path / "feed" / "backoff").mkdir(parents=True)          # a dir: read_text raises
+    # tradeify_1, not breakout_1: breakout_1 is retired (OPS-DECISIONS-1009) and a
+    # retired account's feed state is skipped, never paged.
+    (tmp_path / "accounts" / "tradeify_1" / "feed" / "backoff").mkdir(parents=True)  # a dir: read_text raises
     r = a.probe_prop_feed(now)
-    assert r["status"] == a.UNKNOWN and "breakout_1" in r["detail"]
+    assert r["status"] == a.UNKNOWN and "tradeify_1" in r["detail"]

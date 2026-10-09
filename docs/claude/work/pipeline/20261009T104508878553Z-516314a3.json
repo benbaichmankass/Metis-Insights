@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-11",
+    "kind": "date"
+  },
+  "id": "PI-20261009-72XUJX8U-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane NO-HALT session_016wNjQSovXrhDpd72xUjx8U, 2026-10-09",
+    "rerun": "grep -n 'TRIP_FILE\\|tripped' scripts/ops/prop_feed_tick.sh scripts/ops/prop_executor_tick.sh"
+  },
+  "state": "queued",
+  "what": "NO-HALT fix, prop feed: scripts/ops/prop_feed_tick.sh writes <feed dir>/tripped after PROP_FEED_MAX_FAILURES=3 consecutive login failures, the first feasibility stop, or >12 relogins a day. While it exists the feed never logs in again AND scripts/ops/prop_executor_tick.sh exits 0 without running, so the executor halts with it, until 'breakout-login-check apply: reset-feed'. No verbatim operator permission for the halt (commit a1b3d383e quotes only 'Feed now on schedule'). Real constraint: repeated credential logins can lock the prop account, so the retry must back off rather than spin. Fix: replace the permanent trip with exponential backoff (5 min up to a 1 h cap) that keeps retrying, ONE red-flag ping on the 3rd consecutive failure, and let the executor tick run on a reusable session whatever the feed's backoff state."
+}

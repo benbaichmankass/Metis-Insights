@@ -1,8 +1,10 @@
-"""``breakout-login-check apply: executor-clear-halt`` (manager decision,
-2026-09-28): clears the executor's AUTO-REVERT latch only with a reason, only
-when a latch with a recorded reason exists; logs the prior reason, appends a
-record, and moves the latch aside (never deletes it). Runs the real script's
-branch against a stub ``_lib.sh`` in a temporary HOME."""
+"""``breakout-login-check apply: executor-clear-halt`` / ``executor-clear-rollout``.
+
+NO-HALT (operator directive 2026-10-09): the executor no longer latches, so
+clear-halt is a HARMLESS NO-OP. Either action moves its file aside when it is
+present (recording it in halt_clears.jsonl, never deleting it) and exits 0;
+absent, it logs and exits 0. It never refuses. Runs the real script's branch
+against a stub ``_lib.sh`` in a temporary HOME."""
 from __future__ import annotations
 
 import json
@@ -53,25 +55,25 @@ def test_clears_with_reason_and_records_the_prior(sandbox):
     rec = json.loads((halt.parent / "halt_clears.jsonl").read_text().splitlines()[-1])
     assert rec["actor"] == "mgr" and rec["issue"] == "42" and "cause fixed" in rec["reason"]
     assert "partial_no_sl_tp" in rec["prior"]
-    assert "prior latch: 2026-09-28T21:00Z AUTO-REVERT" in p.stdout
+    assert "2026-09-28T21:00Z AUTO-REVERT" in p.stdout
 
 
-def test_refuses_without_a_reason(sandbox):
+def test_a_blank_reason_is_not_refused(sandbox):
     script, home = sandbox
     p, halt = _run(script, home, reason="  ", latch="AUTO-REVERT: x\n")
-    assert p.returncode == 1 and halt.exists() and "reason is required" in p.stdout
+    assert p.returncode == 0 and not halt.exists()
 
 
-def test_refuses_when_no_latch_is_set(sandbox):
+def test_no_latch_is_a_no_op_that_exits_0(sandbox):
     script, home = sandbox
     p, _ = _run(script, home)
-    assert p.returncode == 1 and "nothing to clear" in p.stdout
+    assert p.returncode == 0 and "no-op" in p.stdout
 
 
-def test_refuses_a_latch_with_no_recorded_reason(sandbox):
+def test_an_empty_latch_file_is_moved_aside_too(sandbox):
     script, home = sandbox
     p, halt = _run(script, home, latch="  \n")
-    assert p.returncode == 1 and halt.exists() and "no recorded reason" in p.stdout
+    assert p.returncode == 0 and not halt.exists()
 
 
 def test_the_workflow_allows_the_apply_and_requires_a_reason():
@@ -82,9 +84,10 @@ def test_the_workflow_allows_the_apply_and_requires_a_reason():
     assert "executor-clear-halt requires a 'reason:' line" in wf
 
 
-def test_the_executor_never_clears_its_own_latch():
+def test_the_executor_never_writes_a_halt_latch():
+    # NO-HALT: the executor only ever REMOVES a stale `halted` file.
     src = (REPO / "src" / "prop" / "prop_executor.py").read_text()
-    assert "halt_file.unlink" not in src and "halted.cleared" not in src
+    assert "def halt(" not in src and "halt_file.write_text" not in src
 
 
 def _roll(home, text='{"state": "verified", "sl": 2710.0}'):
@@ -131,14 +134,14 @@ def test_clear_halt_with_only_the_rollout_latch_set_clears_nothing(sandbox):
     script, home = sandbox
     roll = _roll(home)
     p, _ = _run(script, home)
-    assert p.returncode == 1 and "nothing to clear" in p.stdout and roll.exists()
+    assert p.returncode == 0 and "no-op" in p.stdout and roll.exists()
 
 
-def test_clear_rollout_refuses_without_a_reason(sandbox):
+def test_clear_rollout_without_a_reason_still_moves_it_aside(sandbox):
     script, home = sandbox
     roll = _roll(home)
     p, _ = _run(script, home, reason=" ", apply="executor-clear-rollout")
-    assert p.returncode == 1 and roll.exists() and "reason is required" in p.stdout
+    assert p.returncode == 0 and not roll.exists()
 
 
 def test_the_workflow_allows_clear_rollout_and_requires_its_reason():

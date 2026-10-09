@@ -1170,6 +1170,37 @@ decides whether to intervene.
    - **Why no account changed mode:** every entry read `dry_run: false` on main and on the VM at retirement.
    - **Result:** the two gates above are the only execution gates, and `canonical-doc-coherence` requires any such fold that returns to be named here.
 
+7. **There is no halting (operator directive 2026-10-09, binding).** The
+   operator, verbatim:
+
+   > "I never asked for a functionality for it to halt myself, nor was it made clear to me in any design spec that that's something that would happen. There is no halting. If something doesn't work, it tries to figure it out and try again. If it consistently is incapable, then yes, it obviously needs to raise a red flag so that somebody knows to help it. But there is, this is going back to the same thing as adding more and more gates that don't need to be there. Under absolutely no circumstances does any pipeline halt training on its own without getting verbatim permission from me, the operator. That should not happen under any circumstances. There is no halting. There's no halting."
+
+   What it means, for **every** pipeline — trading, prop execution,
+   training, research and data:
+   - **No pipeline halts itself.** No latch, breaker, kill-switch file, trip
+     marker, quarantine or "gave up" state that makes a pipeline stop doing
+     its job until a person clears it. This is rule 2 extended from account
+     mode to every pipeline.
+   - **A failure is retried, with diagnosis.** Contain the specific bad item
+     (cancel an unprotected resting order; protect or flatten a genuinely
+     naked position, every cycle until it is resolved), mark THAT item failed
+     with its cause, and try again on the next cycle. A refusal is per item,
+     as in rule 3.
+   - **Persistent failure raises a red flag and keeps trying.** When the same
+     failure repeats (e.g. three consecutive cycles or items), ONE red flag
+     reaches the operator with the evidence. The pipeline keeps running and
+     keeps retrying; the flag asks for help, it does not stop anything.
+   - **Any self-halt needs the operator's verbatim permission, recorded in
+     the repo** (a quoted sentence on a checklist row, a PR body or this
+     file) naming that halt. A paraphrase, a manager decision, a PR-level
+     "merge it" or a design-doc label is not that permission.
+   - **What this changed.** The prop executor's AUTO-REVERT `halted` latch
+     (`src/prop/prop_executor.py`) is gone: failures are per ticket, entries
+     are held for the one cycle whose read predates a containment, a stale
+     `halted` file is removed on start, and `executor-clear-halt` is a
+     harmless no-op. The inventory of the other self-halts, and which carry
+     verbatim permission, is on checklist row `NO-HALT`.
+
 ### What this rules out (queued for the safeguards PR follow-on)
 
 The doc-level contract is in this commit; the code-level deletions

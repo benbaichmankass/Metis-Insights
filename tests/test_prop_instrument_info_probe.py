@@ -192,7 +192,7 @@ def test_restore_latch_reason_is_set_only_for_an_unverified_click_mode_restore()
     assert info_probe_restore_latch_reason({"mode": "click", "restore": {"verified": True}}) is None
     why = info_probe_restore_latch_reason({"mode": "click", "restore": {
         "original": "SOLUSD", "attempted": False, "verified": False}})
-    assert why.startswith("AUTO-REVERT") and "'SOLUSD'" in why and "executor-clear-halt" in why
+    assert why.startswith("PROBE-RESTORE-UNVERIFIED") and "'SOLUSD'" in why and "executor-clear-halt" not in why
 
 
 # ── dry mode clicks nothing ────────────────────────────────────────────────
@@ -327,7 +327,7 @@ def test_a_dialog_after_a_row_click_aborts_and_restore_is_skipped_loudly(browser
     assert "AVAXUSD" not in got["results"]
     assert got["restore"]["attempted"] is False and got["restore"]["verified"] is False
     assert any("restore NOT attempted" in a for a in got["alerts"])
-    assert info_probe_restore_latch_reason(got).startswith("AUTO-REVERT")
+    assert info_probe_restore_latch_reason(got).startswith("PROBE-RESTORE-UNVERIFIED")
     never_traded(st)
 
 
@@ -362,7 +362,7 @@ def test_r3a_a_not_found_panel_with_a_new_element_left_gets_no_restore_click_and
     assert got["restore"]["attempted"] is False and "unverified" in got["restore"]["why"]
     _no_restore_click(st)
     never_traded(st)
-    assert latch_info_probe(got, tmp_path) and (tmp_path / "halted").exists()
+    assert latch_info_probe(got, tmp_path) and not (tmp_path / "halted").exists()
 
 
 def test_step5_a_not_found_panel_with_nothing_left_restores_and_does_not_latch(browser, tmp_path):
@@ -418,7 +418,7 @@ def test_r3b_an_exception_in_the_close_step_gets_no_restore_click_and_latches(br
     assert got["results"]["BTCUSD"]["panel_open"] is True and "ETHUSD" not in got["results"]
     assert got["restore"]["attempted"] is False
     assert clicks == ["sym", "instrument_info_button"], clicks
-    assert latch_info_probe(got, tmp_path) and (tmp_path / "halted").exists()
+    assert latch_info_probe(got, tmp_path) and not (tmp_path / "halted").exists()
 
 
 def test_an_unclosed_panel_skips_the_restore_and_latches(browser):
@@ -427,20 +427,19 @@ def test_an_unclosed_panel_skips_the_restore_and_latches(browser):
     got, st = run(browser, page_html(no_close=True), symbols=("BTCUSD", "ETHUSD"))
     assert any("did not close" in a for a in got["alerts"]) and "ETHUSD" not in got["results"]
     assert got["restore"]["attempted"] is False and "unclosed" in got["restore"]["why"]
-    assert info_probe_restore_latch_reason(got).startswith("AUTO-REVERT")
+    assert info_probe_restore_latch_reason(got).startswith("PROBE-RESTORE-UNVERIFIED")
     assert st["clicks"].count("sym") == 1                      # no restore click
 
 
-def test_fix3_a_failed_restore_writes_the_executor_halt_latch(browser, tmp_path):
+def test_fix3_a_failed_restore_alerts_and_writes_no_latch(browser, tmp_path):
     from scripts.prop.prop_executor_tick import latch_info_probe
     from src.prop import prop_executor as pe
     got, st = run(browser, page_html(link_breaks_for="SOLUSD"), symbols=("BTCUSD",))
     assert got["restore"]["verified"] is False
     assert any(a.startswith("RESTORE FAILED") for a in got["alerts"])
     reason = latch_info_probe(got, tmp_path)
-    halted = pe.ExecutorState(tmp_path).halted()
-    assert reason and halted and "AUTO-REVERT: instrument-info-probe" in halted
-    assert any(a.startswith("executor halt latch written") for a in got["alerts"])
+    assert reason and "instrument-info-probe" in reason and not pe.ExecutorState(tmp_path).halt_file.exists()
+    assert any(a.startswith("linked symbol unverified") for a in got["alerts"])
     # a verified restore writes nothing
     ok, _ = run(browser, page_html(), symbols=("BTCUSD",))
     assert latch_info_probe(ok, tmp_path / "clean") is None
@@ -456,7 +455,7 @@ def test_fix4_a_panel_naming_another_symbol_is_escaped_never_click_closed(browse
     # a REFUSED panel stops all further clicks, the restore included (re-review A)
     assert got["restore"]["attempted"] is False and st["panels"] == 0
     assert st["clicks"] == ["sym", "instrument_info_button"], st["clicks"]
-    assert info_probe_restore_latch_reason(got).startswith("AUTO-REVERT")
+    assert info_probe_restore_latch_reason(got).startswith("PROBE-RESTORE-UNVERIFIED")
 
 
 def test_fix4_a_panel_with_a_confirm_button_is_refused_and_its_buttons_never_clicked(browser):
@@ -505,7 +504,7 @@ def test_reA_a_non_dialog_buy_sell_panel_that_ignores_escape_gets_no_further_cli
     assert got["restore"]["attempted"] is False and "ETHUSD" not in got["results"]
     never_traded(st)
     assert latch_info_probe(got, tmp_path)
-    assert "AUTO-REVERT: instrument-info-probe" in pe.ExecutorState(tmp_path).halted()
+    assert not pe.ExecutorState(tmp_path).halt_file.exists()
 
 
 def test_reB_the_one_click_dump_masks_ids_beside_the_toggle(browser):
@@ -517,36 +516,24 @@ def test_reB_the_one_click_dump_masks_ids_beside_the_toggle(browser):
     assert '"data-state": "off"' in dump and "########" in dump      # still useful, just masked
 
 
-def test_pre_click_latch_is_armed_then_removed_or_replaced(tmp_path):
-    from scripts.prop.prop_executor_tick import INFO_PROBE_ARMED, arm_info_probe_latch, latch_info_probe
+def test_the_probe_never_latches_the_executor(tmp_path):
+    # NO-HALT (operator 2026-10-09): no in-progress latch, no restore latch.
+    from scripts.prop.prop_executor_tick import arm_info_probe_latch, latch_info_probe
     from src.prop import prop_executor as pe
     st = pe.ExecutorState(tmp_path)
-    # clean run: armed before the click, removed after a verified restore
-    assert arm_info_probe_latch(tmp_path) is True and INFO_PROBE_ARMED in st.halted()
+    assert arm_info_probe_latch(tmp_path) is False and not st.halt_file.exists()
     assert latch_info_probe({"mode": "click", "restore": {"verified": True}}, tmp_path, armed=True) is None
-    assert st.halted() is None
-    # unverified: the in-progress text is REPLACED by the reason
-    arm_info_probe_latch(tmp_path)
-    why = latch_info_probe({"mode": "click", "restore": {"original": "SOLUSD", "verified": False}},
-                           tmp_path, armed=True)
-    assert why and why in st.halted() and INFO_PROBE_ARMED not in st.halted()
-    # a killed run never reaches latch_info_probe: the in-progress latch stays
-    st.halt_file.unlink()
-    arm_info_probe_latch(tmp_path)
-    assert INFO_PROBE_ARMED in st.halted()
-    # a REAL executor trip already present is never touched or removed
-    st.halt_file.write_text("2026-09-30T00:00:00+00:00 AUTO-REVERT: real trip\n")
-    assert arm_info_probe_latch(tmp_path) is False
-    assert latch_info_probe({"mode": "click", "restore": {"verified": True}}, tmp_path, armed=False) is None
-    assert "real trip" in st.halted()
+    got = {"mode": "click", "restore": {"original": "SOLUSD", "verified": False}}
+    why = latch_info_probe(got, tmp_path, armed=True)
+    assert why and not st.halt_file.exists()
+    assert any("linked symbol unverified" in a and "no latch" in a for a in got["alerts"])
 
 
-def test_tick_docstring_names_the_latch_exception():
+def test_tick_docstring_says_the_probe_alerts_instead_of_latching():
     from scripts.prop.prop_executor_tick import resolve_mode
-    # Whitespace-normalised: Python >= 3.13 dedents docstrings at compile time,
-    # so a literal "\n    " indent match passes on CI's 3.11 and fails on 3.13.
-    assert "writes the executor's AUTO-REVERT ``halted`` latch" in " ".join(
-        resolve_mode.__doc__.split())
+    # Whitespace-normalised: Python >= 3.13 dedents docstrings at compile time.
+    doc = " ".join(resolve_mode.__doc__.split())
+    assert "it ALERTS instead and writes nothing" in doc
 
 
 SPEC_VALUES = ["100000", "Max qty 10000", "0.00001", "25.00000", "0.01-1000.00", "1000000.00", "tick 0.01"]
@@ -660,12 +647,13 @@ def test_fresh_page_recheck_reading_the_original_alerts_and_writes_no_latch(tmp_
     assert latch_info_probe(got, tmp_path) is None and not (tmp_path / "halted").exists()
 
 
-def test_fresh_page_recheck_reading_another_symbol_still_latches(tmp_path):
+def test_fresh_page_recheck_reading_another_symbol_still_alerts(tmp_path):
     from scripts.prop.prop_executor_tick import fresh_page_recheck, latch_info_probe
     got = _unverified()
     fresh_page_recheck(got, _FakeAdapter({"readable": True, "linked_symbol": "BTCUSD", "dialogs": 0}),
                        object(), _FakePage(), "https://x/")
-    assert latch_info_probe(got, tmp_path).startswith("AUTO-REVERT") and (tmp_path / "halted").exists()
+    assert latch_info_probe(got, tmp_path).startswith("PROBE-RESTORE-UNVERIFIED")
+    assert not (tmp_path / "halted").exists()
 
 
 def test_fresh_page_recheck_is_skipped_after_a_verified_restore():
