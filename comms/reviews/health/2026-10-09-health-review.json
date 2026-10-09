@@ -35,7 +35,7 @@
   "security_check": {
     "status": "watch",
     "sources_checked": [
-      "interaction: orphan_events log",
+      
       "accounts/balances reachability"
     ],
     "signals": [],
@@ -96,7 +96,7 @@
     "closed_stale": 0,
     "kept_open": 2,
     "count_untriaged": 72,
-    "note": "GATE NOT MET and stated: only the 4 items the manager named were driven to a disposition. The other 72 due items are all routed to an owner row (0 unrouted per pipeline.py --stats) and were not re-validated this run (budget ceiling \$12). A later review or the manager must walk them."
+    "note": "GATE NOT MET and stated: only the 4 items the manager named were driven to a disposition. The other 72 due items are all routed to an owner row (0 unrouted per pipeline.py --stats) and were not re-validated this run (budget ceiling $12). A later review or the manager must walk them."
   },
   "sprint_doc_review": [],
   "recommended_action": "Manager: merge PR claude/health-review-w41 (hold, landing machinery). Operator: approve/decline the Tier-3 per-tick daily-DD observe (PI-20261009-VQIPJE2H-0001).",
