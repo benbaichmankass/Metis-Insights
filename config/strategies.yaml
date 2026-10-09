@@ -2973,6 +2973,16 @@ strategies:
     min_confidence: 0.0
     vol_skip_below_pctl: 0.1   # M21 E-2 round 4 vol_lo10 (wf 4/6, 2026-07-14) — skip entries whose trigger-bar ATR sits in the dead-vol bottom decile (trailing 200-bar pctl); IS net_R 31.0 -> 32.3 (dd 16.1 -> 15.1), OOS 5.4 -> 7.4 (dd 12.0 -> 10.9). Rollback = delete this line.
     adx_min: 28             # ADX>=28 regime gate (Tier-3, operator-approved 2026-07-20; raised from 25). Per-year OOS walk-forward: 28 wins 2024/25/26, ties 2023, ~flat 2022; lowers maxDD 4/5 yrs, halves the worst year (2025 net -7.6->-2.2, dd 13.1->7.2). Filters ADA marginal-trend fakeouts (ADX just-over-25 entries that fail). XRP stays 25 (grid showed raising it degrades). ROLLBACK: set back to 25.
+    # vol_trail declare (Tier-3 PROPOSAL, HELD): tighten the chandelier trail 5.0 -> 2.5 on bars whose
+    # trailing-200 ATR percentile is > 0.9. Evidence: RQ-20261007-040 third-window confirmation, run
+    # 37729696957 (2026-10-08), cell vt_hot90_t2.5: e5 gate PASS IS dNetR +2.2949 / dMaxDD -2.6062 and
+    # OOS +1.7239 / -0.6524, base n OOS 49, walk-forward 4/6 (losing folds 2024, 2025), net of fee 7.5 +
+    # slippage 3.0 bps + funding. Record: docs/research/evidence/exit-evidence-folds-2026-10-09/.
+    # strategies.yaml keys are account-wide: this arms bybit_2 (real money), bybit_portfolio (mirror) and
+    # bybit_1 together, so mirror equality holds by construction. ROLLBACK: delete these 3 lines.
+    trail_vol_above_pctl: 0.9
+    trail_vol_tight_mult: 2.5
+    vol_pctl_window: 200
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
   avax_pullback_2h:
