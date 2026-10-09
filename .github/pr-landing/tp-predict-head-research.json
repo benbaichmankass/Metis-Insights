@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research authoring only: two pre-registered units under research/queue/blocked/ (RQ-20261009-900, RQ-20261009-901). Both are status blocked with run.workflow null, so the dispatcher cannot fire them; load_queue() globs research/queue/ non-recursively. No code, config, workflow, order path, model training or live change."
+}
