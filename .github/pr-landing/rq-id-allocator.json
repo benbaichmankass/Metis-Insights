@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research-queue tooling and one CI guard only: next_rq_id.py now mints session-hashed ids (RQ-YYYYMMDD-<h4>-NN), the research-queue-id-bands guard gains a duplicate-id check (C4) and accepts the new scheme, and six id regexes accept both spellings. No order path, strategy config, risk cap, src/, deploy/ or live-VM file."
+}

@@ -9,6 +9,8 @@ recurring planning session does.
   operator's Google Doc. That file is the manager's; the planning session reads it and does not create or reshape it.
   Each row there is triaged to a `research/queue` unit (a question) or a checklist row (a build). This file
   is only the research half.
+- **Mint the id with `python3 scripts/research/next_rq_id.py --fetch`** (`RQ-YYYYMMDD-<h4>-NN`, session-hashed; never
+  hand-pick a number or a `9xx` band). See `README.md` § Allocating a unit id.
 - **The manager drafts the unit.** `theme` and `priority` are required (the validator refuses a queued unit
   without them). **A decision rule is registered before any run** (`decision_rule.registered_before_run: true`,
   committed in the same PR that adds the unit); `check_research_queue_decision_rule.py` enforces it.
