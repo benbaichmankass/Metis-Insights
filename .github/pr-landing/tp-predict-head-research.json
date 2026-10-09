@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "Lane TP-PREDICT-HEAD: research authoring only -- two pre-registered units under research/queue/blocked/ (RQ-20261009-900, RQ-20261009-901; status blocked, run.workflow null, so the dispatcher cannot fire them) plus one checklist note. No code, config, workflow, order path, model training or live change. Self-land REFUSED by pr-landing-guard R5 (a new research/queue unit is a registration, not a stamp), so landing is hold: the manager merges.",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Two new research/queue/blocked unit files are registrations, not stamps; pr-landing-guard R5 cannot vouch for them, so the manager reads and merges this Tier-1 lane PR by hand (same disposition as .github/pr-landing/arb-research-20261007.json)."
+}

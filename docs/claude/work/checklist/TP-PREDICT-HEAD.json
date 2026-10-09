@@ -11,8 +11,8 @@
   "tier": 3,
   "prs": [],
   "blocked_on": [],
-  "note": "[2026-10-08T06:55Z manager] Manager proposal accepted onto the roadmap 2026-10-08. After research; eng backlog by capacity.",
-  "updated_at": "2026-10-08T06:54:19Z",
-  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "note": "[2026-10-08T06:55Z manager] Manager proposal accepted onto the roadmap 2026-10-08. After research; eng backlog by capacity. [2026-10-09 lane 10] Research authored (no run, no training): RQ-20261009-900 (entry-time MFE-quantile head vs fixed tp_r / class default / ATR-scaled / per-leg train quantile, per stratum: bybit_2 Donchian 4h, bybit_2 pullback 2h, prop Donchian 1h; PASS needs >=3/5 quantiles sharper than ALL four baselines at 3 splits, eval n>=88) and RQ-20261009-901 (net-of-cost per-trade TP overlay vs best naive TP policy, gated by 900 PASS). Both in research/queue/blocked/. ML-2 (docs/research/ml2-predictive-bracket-2026-09-06.md) already refuted six entry-bar features at 15m, so these test live timeframes + adx_at_entry/regime_weight. LEVERS MISSING, no checklist row yet: (a) ml2-live-leg-corpus (keep config-exact emit for 6 legs; add adx_at_entry+regime_weight to ml2_bracket_corpus FEATURE_NAMES; --outcome mfe_r and baselines B1/B2/B4 in ml2_bracket_train_eval) -> unblocks 900; (b) tp-policy-overlay (per-trade TP overlay + be_floor_sweep fold gate) -> unblocks 901. Manager: add build rows for (a) and (b). 1d alpaca_live sentinels excluded: 34-44 trades per leg, no head can be powered.",
+  "updated_at": "2026-10-09T00:59:36Z",
+  "updated_by": "session_01GXRgjfL3Gf9EiTPrxcjkth",
   "_seq": 352
 }
