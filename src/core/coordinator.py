@@ -2259,6 +2259,7 @@ class Coordinator:
                         current_net_position_qty,
                         get_existing_position_info,
                         has_open_trade_for_strategy,
+                        note_open_trade_read,
                         position_netting_guard_active_for,
                     )
                     current_signed_qty = current_net_position_qty(
@@ -2274,6 +2275,10 @@ class Coordinator:
                             "[coordinator] net position unreadable for %s/%s "
                             "— refusing package (not treating as flat)",
                             account.name, pkg.symbol,
+                        )
+                        note_open_trade_read(
+                            account.name, pkg.symbol, pkg.strategy,
+                            unreadable=True,
                         )
                         from src.units.accounts.execute import log_rejection_to_journal
                         log_rejection_to_journal(
@@ -2351,10 +2356,22 @@ class Coordinator:
                         and delta.action in ("open", "increase")
                         else False
                     )
+                    # NO-HALT round 2 (2026-10-09): a missing OR unreadable
+                    # journal is "could not look" (None). Refuse THIS add for
+                    # THIS dispatch only — the next dispatch re-reads; one red
+                    # flag after 3 consecutive "could not look" refusals on
+                    # either read (net position above, or this one), no latch.
+                    # Reaching here with a non-None read clears the streak.
+                    note_open_trade_read(
+                        account.name, pkg.symbol, pkg.strategy,
+                        unreadable=_holds_open is None,
+                    )
                     if _holds_open is None:
                         logger.warning(
-                            "[coordinator] open-trade read unreadable for "
-                            "%s/%s/%s — refusing %s (not treating as flat)",
+                            "[coordinator] open-trade read unreadable "
+                            "(journal missing or read failed) for "
+                            "%s/%s/%s — refusing %s this dispatch (not "
+                            "treating as flat; next dispatch re-reads)",
                             account.name, pkg.symbol, pkg.strategy, delta.action,
                         )
                         from src.units.accounts.execute import log_rejection_to_journal
