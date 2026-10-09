@@ -11,8 +11,16 @@ Event kinds (``event``):
   * ``skip_concurrency`` — entry signalled but a leg is already held by another
     open pair (disjoint-legs gate blocked it).
   * ``skip_size``      — entry signalled but sizing refused (sub-min qty / no funds).
-  * ``skip_state_unreadable`` — both legs open but the durable spread bookkeeping
-    couldn't be read (skip this tick; the per-leg backstop SL/TP protects).
+  * ``skip_state_unreadable`` — the pair could not be evaluated this time:
+    ``state_read: leg_state_error`` = the leg rows could not be read (new
+    entries refused THIS tick only; written on the 1st and 3rd consecutive
+    tick, not every tick), or the spread bookkeeping AND the leg rows were
+    both unreadable (``state_source: none``). Since NO-HALT (2026-10-09) an
+    unreadable bookkeeping with readable leg rows is NOT a skip: the state is
+    rebuilt from the leg rows and the row is the normal ``hold`` / ``close``,
+    carrying ``state_read`` + ``state_source`` (``journal`` / ``sidecar`` /
+    ``rebuilt_full`` / ``rebuilt_partial``) and, when partial,
+    ``exits_not_computable``.
   * ``shadow_open`` / ``shadow_close`` — the would-be open/close under
     ``execution: shadow`` (computed + logged, placed NOTHING).
   * ``open``           — both legs placed (atomic 2-leg entry).
