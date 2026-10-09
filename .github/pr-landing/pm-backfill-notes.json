@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "Checklist notes and one new checklist row, plus blocked_on text in a blocked research-queue unit (decision rule unchanged, unit stays blocked). No code, config, order path, strategy, risk or deploy file."
+  "why": "Checklist notes and one new checklist row. No code, config, order path, strategy, risk or deploy file."
 }
