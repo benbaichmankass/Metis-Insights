@@ -17,10 +17,12 @@
 # the audit (runtime_logs/operator_actions/*-prop-feed.json).
 #
 # The wrapper owns the lock (shared with the system-action), the hard timeout,
-# and the trip-on-failure backoff (a feasibility stop — challenge, CAPTCHA,
-# 2FA, rejected login — trips it on the FIRST occurrence and pings; it never
-# retries a login the terminal refused). Re-arm: system-action
-# `breakout-login-check` with `apply: reset-feed`.
+# and a capped retry backoff that never stops the feed (NO-HALT, 2026-10-09:
+# "There is no halting."): a feasibility stop — challenge, CAPTCHA, 2FA,
+# rejected login — backs off to the 2 h cap at once, other failures from the
+# 3rd consecutive one; one red-flag ping, one recovery ping. State:
+# <feed dir>/backoff. To retry sooner: system-action `breakout-login-check`
+# with `apply: reset-feed`.
 #
 # Browser: the isolated venv under ~/.cache/metis-prop-browser that the
 # system-action builds — never the trader's Python. The resource caps below

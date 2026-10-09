@@ -44,8 +44,8 @@ def test_other_accounts_never_touch_breakout_1_state():
     assert 'FEED_DIR="${BASE}/accounts/${ACCOUNT}/feed"' in CODE
     assert 'X_STATE_DIR="${BASE}/accounts/${ACCOUNT}/executor"' in CODE
     assert 'MODE_KEY="PROP_EXECUTOR_MODE_' in CODE
-    # reset-feed clears the ACCOUNT's own feed dir, never a hardcoded ${BASE}/feed
-    assert 'rm -f "${FEED_DIR}/tripped"' in CODE and 'rm -f "${BASE}/feed/tripped"' not in CODE
+    # reset-feed clears the ACCOUNT's own feed backoff, never a hardcoded ${BASE}/feed
+    assert 'rm -f "${FEED_DIR}/backoff"' in CODE and 'rm -f "${BASE}/feed/' not in CODE
     # executor modes reuse the account's own session + state dir
     assert '--storage-state "${FEED_DIR}/session_state.json"' in CODE
     assert '--state-dir "${X_STATE_DIR}"' in CODE

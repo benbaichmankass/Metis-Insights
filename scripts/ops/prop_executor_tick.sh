@@ -16,8 +16,12 @@
 #     session is not accepted the tick exits 6 and waits for the feed's next
 #     tick (<= 5 min) to log in again. So the executor adds ZERO credential
 #     logins: the feed's relogin ceiling stays the only counter that matters.
-#   - a TRIPPED feed means nobody is maintaining the session: the executor
-#     does not run either.
+#   - the feed's BACKOFF never stops the executor (NO-HALT, operator
+#     directive 2026-10-09: "There is no halting."; PI-20261009-72XUJX8U-0002).
+#     Until then a `feed/tripped` marker made this tick exit 0 without
+#     running. Now it always runs on the saved session; if that session is
+#     no longer accepted it exits 6 (harmless) and the feed's next allowed
+#     login refreshes it. A `feed/backoff` state is only logged here.
 #
 # Alerts the cycle prints ({"alert": ...}) are pinged once per tick.
 #
@@ -27,7 +31,7 @@
 # breakout_1 EVERY path and key is that account's own, the SAME ones its
 # feed (ict-prop-feed@<account>) and breakout-login-check use:
 #   - session  ${BASE}/accounts/<account>/feed/session_state.json
-#   - trip     ${BASE}/accounts/<account>/feed/tripped
+#   - backoff  ${BASE}/accounts/<account>/feed/backoff (logged, never a stop)
 #   - state    ${BASE}/accounts/<account>/executor
 #   - lock     ${BASE}/accounts/<account>/login.lock (never breakout_1's)
 #   - kill switch PROP_EXECUTOR_MODE_<ACCOUNT> (never the global
@@ -92,9 +96,8 @@ if [ "${!MODE_KEY:-read_only}" = "off" ]; then
     exit 0
 fi
 
-if [ -f "${FEED_DIR}/tripped" ]; then
-    log "feed is TRIPPED ($(head -c 200 "${FEED_DIR}/tripped")); the executor does not run without a maintained session"
-    exit 0
+if [ -f "${FEED_DIR}/backoff" ]; then
+    log "feed is backing off ($(sed -n 's/^reason=//p' "${FEED_DIR}/backoff" 2>/dev/null | head -c 200)); running on the saved session anyway (exit 6 if it is not accepted)"
 fi
 
 exec 9>"${LOCK_FILE}"
