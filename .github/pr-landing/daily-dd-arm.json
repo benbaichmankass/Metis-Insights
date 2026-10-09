@@ -1,7 +1,7 @@
 {
   "tier": 3,
   "landing": "hold",
-  "hold_reason": "depends_on_unmerged_pr",
-  "hold_text": "Must land after #17281 (the switch itself; this branch is stacked on it). Tier-3 risk change (config/accounts.yaml risk blocks): arms the account-level daily drawdown switch on all 13 non-retired accounts. Operator, 2026-10-09, verbatim: \"We'll arm all of them\". The manager merges, immediately after #17281, so the window with no daily-loss off (the old caps retire in #17281) is minimal.",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-3 risk change (config/accounts.yaml risk blocks): arms the account-level daily drawdown switch on all 13 non-retired accounts. The switch itself landed in #17281 (merged 2026-10-09); since that merge the old DAILY_LOSS_CAP / INTRADAY_DRAWDOWN refusals are retired, so no account has a daily-loss off until this lands. Approval sought: the manager merges under the operator directive of 2026-10-09, verbatim: \"We'll arm all of them\".",
   "why": "Checklist row DAILY-DD-SWITCH, step 2 of 2. One-field flip per account: risk.daily_dd_switch.armed false -> true. Non-prop: 3% of day-start equity, UTC-midnight reset. Prop (breakout_2, tradeify_1, velotrade_1): 0.8 x the firm's daily limit at the firm's reset time. breakout_1 is retired and untouched. Revert = flip armed back to false (or git revert this PR); no state to undo."
 }
