@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "RESEARCH-READOUT 2026-10-09: two pre-registered units added under research/queue/blocked/ (not dispatched, no workflow, no config) plus checklist notes recording result reads. No code, config, runtime or order-path change."
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Adds two new queue units, research/queue/blocked/RQ-20261009-902.yaml and RQ-20261009-903.yaml; R5 refuses self-landing a new queue unit (a registration, not a stamp). The manager merges. No code, config or order-path change.",
+  "why": "RESEARCH-READOUT 2026-10-09: two pre-registered units under research/queue/blocked/ (not dispatched) plus checklist notes recording result reads."
 }
