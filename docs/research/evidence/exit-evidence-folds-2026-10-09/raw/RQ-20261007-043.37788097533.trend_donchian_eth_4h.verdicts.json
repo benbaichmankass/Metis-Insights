@@ -1,0 +1,447 @@
+{
+ "generated_at": "2026-10-08T13:57:54.629712+00:00",
+ "grading_census": {
+  "run_state": "graded",
+  "legs_total": 1,
+  "legs_harness_error": 0,
+  "cells_total": 4,
+  "cells_ungraded": 0,
+  "cells_graded": 4,
+  "per_leg": {
+   "trend_donchian_eth_4h": {
+    "cells": 4,
+    "ungraded": 0,
+    "harness_error": false
+   }
+  }
+ },
+ "split_fallback_date": "2025-07-01",
+ "split_mode": "oos-trades",
+ "split_target_oos": 50,
+ "tp_cap_pct": 0.099,
+ "regime_router": "off",
+ "min_oos_trades_floor": 25,
+ "fee_bps_roundtrip": null,
+ "min_confidence_override": null,
+ "without_declared_levers": [],
+ "regime_policy_readable": true,
+ "regime_policy_off_legs": [
+  "fade_breakout_4h",
+  "fvg_range_15m",
+  "gld_pullback_1h",
+  "htf_pullback_trend_2h",
+  "ict_scalp_5m",
+  "squeeze_breakout_4h",
+  "trend_donchian",
+  "vwap"
+ ],
+ "skipped": [],
+ "verdicts": {
+  "trend_donchian_eth_4h": {
+   "proxy": false,
+   "family": "donchian",
+   "levers": {
+    "momentum_stale": [
+     {
+      "cell": "ms8_a20",
+      "is_oos_pass": false,
+      "gate": {
+       "IS": {
+        "passed": false,
+        "reason": "net_r_worse",
+        "d_net_r": -3.0281,
+        "d_max_dd": -1.0456
+       },
+       "OOS": {
+        "passed": true,
+        "reason": null,
+        "d_net_r": 2.4822,
+        "d_max_dd": -1.6783
+       }
+      },
+      "capital": {
+       "IS": {
+        "cell_net_r_per_capital_day": 0.0784,
+        "base_net_r_per_capital_day": 0.0808,
+        "d_net_r_per_capital_day": -0.0024,
+        "cell_net_r_per_position_day": 0.0784,
+        "base_net_r_per_position_day": 0.0808,
+        "d_net_r_per_position_day": -0.0024,
+        "cell_mean_bars_held": 16.114,
+        "base_mean_bars_held": 18.051,
+        "d_mean_bars_held": -1.937,
+        "cell_capital_days": 448.5,
+        "base_capital_days": 472.3333,
+        "d_capital_days": -23.8333,
+        "d_net_total_r": -3.0281,
+        "net_r_retained_frac": 0.9207
+       },
+       "OOS": {
+        "cell_net_r_per_capital_day": 0.1059,
+        "base_net_r_per_capital_day": 0.0787,
+        "d_net_r_per_capital_day": 0.0272,
+        "cell_net_r_per_position_day": 0.1059,
+        "base_net_r_per_position_day": 0.0787,
+        "d_net_r_per_position_day": 0.0272,
+        "cell_mean_bars_held": 14.26,
+        "base_mean_bars_held": 15.714,
+        "d_mean_bars_held": -1.454,
+        "cell_capital_days": 118.8333,
+        "base_capital_days": 128.3333,
+        "d_capital_days": -9.5,
+        "d_net_total_r": 2.4822,
+        "net_r_retained_frac": 1.2456
+       }
+      },
+      "base_trades_oos": 49,
+      "min_oos_trades_floor": 25,
+      "split": "2025-05-18",
+      "split_mode": "oos-trades",
+      "split_target_oos": 50,
+      "split_lifetime_trades": 207,
+      "split_fallback": null,
+      "split_target_clamped_from": null,
+      "split_target_clamped_to": null,
+      "verdict": "is_oos_fail"
+     },
+     {
+      "cell": "ms8_a25",
+      "is_oos_pass": false,
+      "gate": {
+       "IS": {
+        "passed": false,
+        "reason": "net_r_worse",
+        "d_net_r": -2.7177,
+        "d_max_dd": -0.9633
+       },
+       "OOS": {
+        "passed": true,
+        "reason": null,
+        "d_net_r": 4.5536,
+        "d_max_dd": -1.7676
+       }
+      },
+      "capital": {
+       "IS": {
+        "cell_net_r_per_capital_day": 0.0826,
+        "base_net_r_per_capital_day": 0.0808,
+        "d_net_r_per_capital_day": 0.0018,
+        "cell_net_r_per_position_day": 0.0826,
+        "base_net_r_per_position_day": 0.0808,
+        "d_net_r_per_position_day": 0.0018,
+        "cell_mean_bars_held": 15.249,
+        "base_mean_bars_held": 18.051,
+        "d_mean_bars_held": -2.802,
+        "cell_capital_days": 429.5,
+        "base_capital_days": 472.3333,
+        "d_capital_days": -42.8333,
+        "d_net_total_r": -2.7177,
+        "net_r_retained_frac": 0.9288
+       },
+       "OOS": {
+        "cell_net_r_per_capital_day": 0.1208,
+        "base_net_r_per_capital_day": 0.0787,
+        "d_net_r_per_capital_day": 0.0421,
+        "cell_net_r_per_position_day": 0.1208,
+        "base_net_r_per_position_day": 0.0787,
+        "d_net_r_per_position_day": 0.0421,
+        "cell_mean_bars_held": 14.275,
+        "base_mean_bars_held": 15.714,
+        "d_mean_bars_held": -1.439,
+        "cell_capital_days": 121.3333,
+        "base_capital_days": 128.3333,
+        "d_capital_days": -7.0,
+        "d_net_total_r": 4.5536,
+        "net_r_retained_frac": 1.4506
+       }
+      },
+      "base_trades_oos": 49,
+      "min_oos_trades_floor": 25,
+      "split": "2025-05-18",
+      "split_mode": "oos-trades",
+      "split_target_oos": 50,
+      "split_lifetime_trades": 207,
+      "split_fallback": null,
+      "split_target_clamped_from": null,
+      "split_target_clamped_to": null,
+      "verdict": "is_oos_fail"
+     },
+     {
+      "cell": "ms12_a20",
+      "is_oos_pass": true,
+      "gate": {
+       "IS": {
+        "passed": true,
+        "reason": null,
+        "d_net_r": 0.9423,
+        "d_max_dd": -1.0456
+       },
+       "OOS": {
+        "passed": true,
+        "reason": null,
+        "d_net_r": 2.3972,
+        "d_max_dd": -0.9434
+       }
+      },
+      "capital": {
+       "IS": {
+        "cell_net_r_per_capital_day": 0.0886,
+        "base_net_r_per_capital_day": 0.0808,
+        "d_net_r_per_capital_day": 0.0078,
+        "cell_net_r_per_position_day": 0.0886,
+        "base_net_r_per_position_day": 0.0808,
+        "d_net_r_per_position_day": 0.0078,
+        "cell_mean_bars_held": 15.868,
+        "base_mean_bars_held": 18.051,
+        "d_mean_bars_held": -2.183,
+        "cell_capital_days": 441.6667,
+        "base_capital_days": 472.3333,
+        "d_capital_days": -30.6666,
+        "d_net_total_r": 0.9423,
+        "net_r_retained_frac": 1.0247
+       },
+       "OOS": {
+        "cell_net_r_per_capital_day": 0.1042,
+        "base_net_r_per_capital_day": 0.0787,
+        "d_net_r_per_capital_day": 0.0255,
+        "cell_net_r_per_position_day": 0.1042,
+        "base_net_r_per_position_day": 0.0787,
+        "d_net_r_per_position_day": 0.0255,
+        "cell_mean_bars_held": 14.4,
+        "base_mean_bars_held": 15.714,
+        "d_mean_bars_held": -1.314,
+        "cell_capital_days": 120.0,
+        "base_capital_days": 128.3333,
+        "d_capital_days": -8.3333,
+        "d_net_total_r": 2.3972,
+        "net_r_retained_frac": 1.2372
+       }
+      },
+      "base_trades_oos": 49,
+      "min_oos_trades_floor": 25,
+      "split": "2025-05-18",
+      "split_mode": "oos-trades",
+      "split_target_oos": 50,
+      "split_lifetime_trades": 207,
+      "split_fallback": null,
+      "split_target_clamped_from": null,
+      "split_target_clamped_to": null,
+      "walkforward": "3/6",
+      "walkforward_folds": [
+       {
+        "fold": "2021",
+        "usable": true,
+        "ok": false,
+        "d_net_r": -0.5892,
+        "d_max_dd": 0.4487
+       },
+       {
+        "fold": "2022",
+        "usable": true,
+        "ok": false,
+        "d_net_r": -1.5181,
+        "d_max_dd": 0.0
+       },
+       {
+        "fold": "2023",
+        "usable": true,
+        "ok": false,
+        "d_net_r": -3.0966,
+        "d_max_dd": 0.0
+       },
+       {
+        "fold": "2024",
+        "usable": true,
+        "ok": true,
+        "d_net_r": 2.1127,
+        "d_max_dd": -0.72
+       },
+       {
+        "fold": "2025",
+        "usable": true,
+        "ok": true,
+        "d_net_r": 1.4882,
+        "d_max_dd": -1.0536
+       },
+       {
+        "fold": "2026",
+        "usable": true,
+        "ok": true,
+        "d_net_r": 0.9091,
+        "d_max_dd": -0.1835
+       }
+      ],
+      "walkforward_effective": "3/6",
+      "walkforward_inert_wins": 0,
+      "verdict": "wf_fail"
+     },
+     {
+      "cell": "ms12_a25",
+      "is_oos_pass": true,
+      "gate": {
+       "IS": {
+        "passed": true,
+        "reason": null,
+        "d_net_r": 2.524,
+        "d_max_dd": -0.757
+       },
+       "OOS": {
+        "passed": true,
+        "reason": null,
+        "d_net_r": 4.5811,
+        "d_max_dd": -1.0326
+       }
+      },
+      "capital": {
+       "IS": {
+        "cell_net_r_per_capital_day": 0.0956,
+        "base_net_r_per_capital_day": 0.0808,
+        "d_net_r_per_capital_day": 0.0148,
+        "cell_net_r_per_position_day": 0.0956,
+        "base_net_r_per_position_day": 0.0808,
+        "d_net_r_per_position_day": 0.0148,
+        "cell_mean_bars_held": 15.202,
+        "base_mean_bars_held": 18.051,
+        "d_mean_bars_held": -2.849,
+        "cell_capital_days": 425.6667,
+        "base_capital_days": 472.3333,
+        "d_capital_days": -46.6666,
+        "d_net_total_r": 2.524,
+        "net_r_retained_frac": 1.0661
+       },
+       "OOS": {
+        "cell_net_r_per_capital_day": 0.1192,
+        "base_net_r_per_capital_day": 0.0787,
+        "d_net_r_per_capital_day": 0.0405,
+        "cell_net_r_per_position_day": 0.1192,
+        "base_net_r_per_position_day": 0.0787,
+        "d_net_r_per_position_day": 0.0405,
+        "cell_mean_bars_held": 14.49,
+        "base_mean_bars_held": 15.714,
+        "d_mean_bars_held": -1.224,
+        "cell_capital_days": 123.1667,
+        "base_capital_days": 128.3333,
+        "d_capital_days": -5.1666,
+        "d_net_total_r": 4.5811,
+        "net_r_retained_frac": 1.4533
+       }
+      },
+      "base_trades_oos": 49,
+      "min_oos_trades_floor": 25,
+      "split": "2025-05-18",
+      "split_mode": "oos-trades",
+      "split_target_oos": 50,
+      "split_lifetime_trades": 207,
+      "split_fallback": null,
+      "split_target_clamped_from": null,
+      "split_target_clamped_to": null,
+      "walkforward": "3/6",
+      "walkforward_folds": [
+       {
+        "fold": "2021",
+        "usable": true,
+        "ok": false,
+        "d_net_r": -0.8777,
+        "d_max_dd": 0.7372
+       },
+       {
+        "fold": "2022",
+        "usable": true,
+        "ok": false,
+        "d_net_r": -0.9856,
+        "d_max_dd": 0.0
+       },
+       {
+        "fold": "2023",
+        "usable": true,
+        "ok": false,
+        "d_net_r": -3.6522,
+        "d_max_dd": 0.0
+       },
+       {
+        "fold": "2024",
+        "usable": true,
+        "ok": true,
+        "d_net_r": 2.2369,
+        "d_max_dd": -0.72
+       },
+       {
+        "fold": "2025",
+        "usable": true,
+        "ok": true,
+        "d_net_r": 3.5828,
+        "d_max_dd": -1.7625
+       },
+       {
+        "fold": "2026",
+        "usable": true,
+        "ok": true,
+        "d_net_r": 0.9983,
+        "d_max_dd": -0.2727
+       }
+      ],
+      "walkforward_effective": "3/6",
+      "walkforward_inert_wins": 0,
+      "verdict": "wf_fail"
+     }
+    ]
+   },
+   "split_mode": "oos-trades",
+   "split_target_oos": 50,
+   "split_lifetime_trades": 207,
+   "split": "2025-05-18",
+   "inert_cells": [],
+   "declared_levers_present": [],
+   "declared_levers_dropped": [],
+   "live_tp_reach_r": {
+    "IS": {
+     "n": 157,
+     "median": 2.334,
+     "min": 0.903,
+     "max": 8.038
+    },
+    "OOS": {
+     "n": 49,
+     "median": 2.58,
+     "min": 0.957,
+     "max": 6.365
+    }
+   },
+   "base_book": {
+    "IS": {
+     "net_total_r": 38.1765,
+     "max_drawdown_r": 12.0796,
+     "net_r_per_drawdown_r": 3.1604,
+     "rate_ungradeable_why": null,
+     "total_trades": 157,
+     "net_r_per_capital_day": 0.0808,
+     "capital_days": 472.3333,
+     "mean_bars_held": 18.051
+    },
+    "OOS": {
+     "net_total_r": 10.1061,
+     "max_drawdown_r": 12.0079,
+     "net_r_per_drawdown_r": 0.8416,
+     "rate_ungradeable_why": null,
+     "total_trades": 49,
+     "net_r_per_capital_day": 0.0787,
+     "capital_days": 128.3333,
+     "mean_bars_held": 15.714
+    }
+   },
+   "selection": {
+    "cells_tried": 4,
+    "cells_ungraded": 0,
+    "cells_withheld_inert": 0,
+    "path_a_pass": 0,
+    "path_b_candidates": 0,
+    "path_b_wf_pass": 0,
+    "path_b_wf_pass_rate_ok": 0,
+    "path_b_wf_pass_rate_failed": 0,
+    "path_b_wf_pass_rate_ungradeable": 0
+   },
+   "p80_arm_reach": {},
+   "regime_gate_delta": "none"
+  }
+ }
+}
