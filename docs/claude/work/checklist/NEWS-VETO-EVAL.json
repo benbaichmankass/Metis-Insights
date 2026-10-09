@@ -11,8 +11,8 @@
   "tier": 1,
   "prs": [],
   "blocked_on": [],
-  "note": "[2026-10-08T10:40Z manager] Operator 2026-10-08 (verbatim): \"Ok, lets do that - I want us to add the bigger build out to the roadmap, gated on the system successfully passing milestones (POCs that prove trust worthy and add value)\". POC 1 of the WEPE gate. Authored as a research unit by the daily RESEARCH-READOUT lane (existing journal + news data, no new build). Pass/fail rule registered before the run: veto rows' counterfactual R vs taken trades, net of cost; calibration of the adjustment.",
-  "updated_at": "2026-10-08T11:19:31Z",
-  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "note": "[2026-10-08T10:40Z manager] Operator 2026-10-08 (verbatim): \"Ok, lets do that - I want us to add the bigger build out to the roadmap, gated on the system successfully passing milestones (POCs that prove trust worthy and add value)\". POC 1 of the WEPE gate. Authored as a research unit by the daily RESEARCH-READOUT lane (existing journal + news data, no new build). Pass/fail rule registered before the run: veto rows' counterfactual R vs taken trades, net of cost; calibration of the adjustment. [2026-10-09T03Z readout] Authored as blocked unit research/queue/blocked/RQ-20261009-902.yaml. MEASURED (diag log_aggregate over the whole news_decisions log, 13,173 rows, 121 UTC days 2026-06-11..2026-10-09): neutral 12,791 / reduce 206 / boost 163 / veto 13, veto on 5 days only. The veto arm is UNDERPOWERED BY CONSTRUCTION (13 rows <25 floor; 25 reachable ~2027-01-29, 39 ~2027-06-08 at 0.107/day, upper bound since rows repeat per tick). The log carries no entry/sl/tp so a counterfactual needs a harness replay; no script joins log to journal. Lever to build (Tier-1): scripts/research/news_veto_eval.py. Arm A (rank IC of adjustment vs taken-trade net R, floor n 49) is the only arm that can be graded soon; its distinct-taken n is unknown until the join exists. G1 stays OPEN.",
+  "updated_at": "2026-10-09T02:56:49Z",
+  "updated_by": "session_01TnZWQsErtv774gkX4brvWv",
   "_seq": 356
 }
