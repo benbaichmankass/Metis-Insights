@@ -3,9 +3,11 @@
 Covers the two pure functions that carry the logic:
   * classify_probe() — maps an ib_connect_check JSON payload to healthy/wedged,
     including the key wedge signature (connected but net_liquidation=None).
-  * decide() — the detect / restart / cooldown / max-restarts / recover state
-    machine, including the alert-only (auto_restart=False) path and the
-    no-restart-loop guard rails.
+  * decide() — the detect / restart / cooldown / capped-backoff / red-flag /
+    recover state machine, including the alert-only (auto_restart=False) path
+    and the no-tight-loop guard rails. NO-HALT (operator 2026-10-09): there
+    is no exhausted state — past --max-restarts it red-flags ONCE and keeps
+    restarting on a capped backoff.
 """
 from __future__ import annotations
 
@@ -156,11 +158,11 @@ def test_local_probe_no_docker_is_inconclusive(lp):
 
 def _decide(wd, *, healthy, state, auto_restart=True, now=10_000.0,
             restart_after=2, max_restarts=3, cooldown_s=1200.0,
-            exhaustion_reset_s=0.0, actionable=True, in_window=False):
+            max_backoff_s=3600.0, actionable=True, in_window=False):
     return wd.decide(healthy=healthy, state=state, restart_after=restart_after,
                      max_restarts=max_restarts, cooldown_s=cooldown_s, now=now,
                      auto_restart=auto_restart,
-                     exhaustion_reset_s=exhaustion_reset_s,
+                     max_backoff_s=max_backoff_s,
                      actionable=actionable, in_window=in_window)
 
 
@@ -240,59 +242,114 @@ def test_cooldown_elapsed_allows_restart(wd):
     assert d["new_state"]["restart_attempts"] == 2
 
 
-def test_max_restarts_exhausts_then_silent(wd):
+def test_past_max_restarts_red_flags_once_and_keeps_restarting(wd):
+    """NO-HALT: the old bound no longer ends the episode. First eligible check
+    past it raises ONE red flag AND restarts (backoff elapsed); per-restart
+    alerts stop; later checks restart again after the capped backoff without
+    a second flag."""
     state = {"last_status": "wedged", "wedged_streak": 8,
              "restart_attempts": 3, "last_restart_ts": 0.0}
-    d1 = _decide(wd, healthy=False, state=state, max_restarts=3)
-    assert d1["action"] == "exhausted" and d1["alert"] is True
-    # Next run with the exhausted flag set stays silent.
-    d2 = _decide(wd, healthy=False, state=d1["new_state"], max_restarts=3)
+    d1 = _decide(wd, healthy=False, state=state, max_restarts=3, now=10_000.0)
+    assert d1["action"] == "restart"
+    assert d1["red_flag"] is True
+    assert d1["alert"] is False  # per-restart ping is journal-only now
+    assert d1["new_state"]["restart_attempts"] == 4
+    assert d1["new_state"]["red_flag_alerted"] is True
+
+    # Inside the backoff (4 attempts, bound 3 -> 1200 * 2**2 = 4800s, capped
+    # at max_backoff_s=3600s): wait.
+    d2 = _decide(wd, healthy=False, state=d1["new_state"], max_restarts=3,
+                 now=10_000.0 + 3_000.0)
+    assert d2["action"] == "none" and d2["red_flag"] is False
+    assert d2["new_state"]["restart_attempts"] == 4
+
+    # Capped backoff elapsed: restart again, no second red flag.
+    d3 = _decide(wd, healthy=False, state=d2["new_state"], max_restarts=3,
+                 now=10_000.0 + 3_600.0)
+    assert d3["action"] == "restart" and d3["red_flag"] is False
+    assert d3["new_state"]["restart_attempts"] == 5
+
+
+def test_red_flag_raised_even_while_in_backoff(wd):
+    # The check right after the last bounded restart is inside the backoff:
+    # the red flag still goes out then (once), the restart waits.
+    state = {"last_status": "wedged", "wedged_streak": 8,
+             "restart_attempts": 3, "last_restart_ts": 9_900.0}
+    d = _decide(wd, healthy=False, state=state, max_restarts=3, now=10_000.0)
+    assert d["action"] == "none" and d["red_flag"] is True
+    d2 = _decide(wd, healthy=False, state=d["new_state"], max_restarts=3,
+                 now=10_100.0)
+    assert d2["red_flag"] is False
+
+
+def test_restart_backoff_doubles_and_is_capped(wd):
+    f = wd.restart_backoff_s
+    cd, cap = 1200.0, 3600.0
+    assert [f(a, 3, cd, cap) for a in range(3)] == [cd] * 3
+    assert f(3, 3, cd, cap) == 2400.0
+    assert f(4, 3, cd, cap) == cap
+    assert f(10_000, 3, cd, cap) == cap
+
+
+def test_never_terminal_far_past_bound(wd):
+    state = {"last_status": "wedged", "wedged_streak": 999,
+             "restart_attempts": 400, "red_flag_alerted": True,
+             "last_restart_ts": 0.0}
+    d = _decide(wd, healthy=False, state=state, now=3_601.0)
+    assert d["action"] == "restart" and d["red_flag"] is False
+
+
+def test_recovery_after_red_flag_announces_once_and_resets(wd):
+    state = {"last_status": "wedged", "restart_attempts": 6,
+             "red_flag_alerted": True}
+    d = _decide(wd, healthy=True, state=state)
+    assert d["action"] == "recovered" and d["alert"] is True
+    assert d["red_flag_cleared"] is True
+    assert d["new_state"]["restart_attempts"] == 0
+    assert d["new_state"]["red_flag_alerted"] is False
+    msg = wd.render("recovered", account="ib_paper", reason="ok", streak=0,
+                    attempt=0, max_restarts=3, restart=None,
+                    red_flag_cleared=True)
+    assert "red flag cleared" in msg
+    d2 = _decide(wd, healthy=True, state=d["new_state"])
     assert d2["action"] == "none" and d2["alert"] is False
 
 
-def test_recovery_clears_exhausted_flag(wd):
-    state = {"last_status": "wedged", "restart_attempts": 3, "exhausted_alerted": True}
-    d = _decide(wd, healthy=True, state=state)
-    assert d["action"] == "recovered"
-    assert d["new_state"]["exhausted_alerted"] is False
+def test_legacy_exhausted_latch_ignored_and_removed(wd, capsys):
+    # State from the old code: budget spent, exhausted latch set. It must not
+    # block restarts; it is dropped with a log line, and carries over as the
+    # red flag having been raised (the old EXHAUSTED page already went out).
+    state = {"last_status": "wedged", "wedged_streak": 8,
+             "restart_attempts": 3, "last_restart_ts": 0.0,
+             "exhausted_alerted": True}
+    d = _decide(wd, healthy=False, state=state, now=10_000.0)
+    assert d["action"] == "restart"
+    assert d["red_flag"] is False
+    assert "exhausted_alerted" not in d["new_state"]
+    assert d["new_state"]["red_flag_alerted"] is True
+    assert "ignoring legacy exhausted_alerted" in capsys.readouterr().out
 
 
-# --------------------------------------------------------------------------
-# decide — exhaustion re-arm (BL-20260605-004: a wedge spanning IBKR's reset
-# window must not strand MES for the whole episode after the budget is spent)
-# --------------------------------------------------------------------------
-
-
-def test_exhausted_stays_silent_when_rearm_disabled(wd):
-    # exhaustion_reset_s=0 (default) → original give-up-for-the-episode.
-    state = {"last_status": "wedged", "wedged_streak": 8, "restart_attempts": 3,
-             "last_restart_ts": 0.0, "exhausted_alerted": True}
-    d = _decide(wd, healthy=False, state=state, now=10_000.0,
-                max_restarts=3, exhaustion_reset_s=0.0)
-    assert d["action"] == "none" and d["alert"] is False
-    assert d["new_state"]["restart_attempts"] == 3  # not re-armed
-
-
-def test_exhausted_stays_silent_within_reset_window(wd):
-    # Budget spent and only 1h since the last restart < 2h reset → still silent.
-    state = {"last_status": "wedged", "wedged_streak": 8, "restart_attempts": 3,
-             "last_restart_ts": 6_400.0, "exhausted_alerted": True}
-    d = _decide(wd, healthy=False, state=state, now=10_000.0,  # 3600s elapsed
-                max_restarts=3, exhaustion_reset_s=7_200.0)
-    assert d["action"] == "none" and d["alert"] is False
-    assert d["new_state"]["restart_attempts"] == 3  # not yet re-armed
-
-
-def test_exhausted_rearms_after_reset_window_and_restarts(wd):
-    # Budget spent and >2h since the last restart → re-arm and restart again.
-    state = {"last_status": "wedged", "wedged_streak": 30, "restart_attempts": 3,
-             "last_restart_ts": 0.0, "exhausted_alerted": True}
-    d = _decide(wd, healthy=False, state=state, now=10_000.0,  # >7200s elapsed
-                max_restarts=3, cooldown_s=1200.0, exhaustion_reset_s=7_200.0)
-    assert d["action"] == "restart" and d["alert"] is True
-    assert d["new_state"]["restart_attempts"] == 1  # re-armed (0) then +1
-    assert d["new_state"]["exhausted_alerted"] is False
-    assert d["new_state"]["last_restart_ts"] == 10_000.0
+def test_main_past_bound_sends_one_red_flag_and_restarts(wd, tmp_path):
+    """End-to-end through main(): probe wedged, budget spent, backoff elapsed
+    -> exactly one Telegram (the red flag) and the restart still runs."""
+    state = tmp_path / "s.json"
+    state.write_text(json.dumps({"last_status": "wedged", "wedged_streak": 5,
+                                 "restart_attempts": 3, "last_restart_ts": 0.0}))
+    wd.run_probe = lambda *a, **k: {"healthy": False, "actionable": True,
+                                    "reason": "net_liquidation=None"}
+    restarts = []
+    wd.try_restart = lambda *a, **k: restarts.append(1) or {
+        "ran": True, "returncode": 0, "login_completed": False, "tail": ""}
+    sent = []
+    wd.send_alert = lambda m: sent.append(m) or True
+    rc = wd.main(["--state", str(state), "--auto-restart", "--max-restarts", "3",
+                  "--exhaustion-reset-min", "120"])  # deprecated flag still parses
+    assert rc == 0
+    assert restarts == [1]
+    assert len(sent) == 1 and "[RED FLAG]" in sent[0]
+    saved = json.loads(state.read_text())
+    assert saved["restart_attempts"] == 4 and saved["red_flag_alerted"] is True
 
 
 # --------------------------------------------------------------------------

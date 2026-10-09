@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Watchdog service behaviour on the live trader VM (ict-liveness-watchdog: scripts/check_heartbeat.py + unit ExecStart) and the gateway VM (ict-ib-gateway-watchdog: scripts/check_ib_gateway.py + unit ExecStart); the manager merges under the operator's NO-HALT directive 2026-10-09 (\"There is no halting.\")",
+  "why": "Both auto-heal watchdogs used to go EXHAUSTED after --max-restarts (5 for the trader, 3 for the IB gateway) and stop restarting for the rest of the episode until a person intervened or health returned. Now, past that bound, each raises ONE [RED FLAG] Telegram per episode and keeps restarting with the gap doubling from --cooldown-min up to --max-backoff-min 60 (never a tight loop, never a stop); per-restart pings past the flag are journal-only, and one recovery line is sent when health returns. The cooldown, startup-grace, dispatch-failure retry, inconclusive-probe hold and IBKR suppression window are unchanged. A legacy exhausted latch in either state file is ignored and removed on load with a log line. --exhaustion-reset-min is kept as an accepted, ignored no-op so an older unit file still parses. Revert: git revert of this PR's merge commit, then redeploy (the old code ignores the new state keys)."
+}
