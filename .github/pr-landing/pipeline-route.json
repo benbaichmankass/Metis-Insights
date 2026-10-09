@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline/checklist bookkeeping (new pipeline records, 4 new checklist rows) plus one test made whitespace-robust (tests/test_prop_instrument_info_probe.py). No runtime, config, order-path or strategy file touched."
+}

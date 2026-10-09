@@ -46,6 +46,16 @@ issue. Poll `mcp__github__issue_read` (`get_comments`) for the
 | **Live VM** (`vm-diag-snapshot.yml`) | `vm-diag-request` | **title** = the path: `[diag-request] <path>` (body ignored) |
 | **Trainer VM** (`trainer-vm-diag.yml`) | `trainer-vm-diag-request` | **body** = `cmd: <bash>` or a `cmd: |` block (arbitrary bash) |
 
+⚠️ **`cmd: |` parse pitfall (trainer-vm-diag).** The parse step runs the YAML
+block-scalar rule: in an UNFENCED `cmd: |` block, the first non-indented,
+non-blank line ENDS the command — and the prefix before it still runs and
+exits 0. A column-0 heredoc body/terminator (`python3 - <<'PY'` … `import os` …
+`PY`) is cut at the first column-0 line, silently. **Wrap any script that has
+column-0 lines in a ``` fence** (closing fence ends the block; `word:` lines are
+safe inside it). Two more silent cuts: a ``` line INSIDE a heredoc closes the
+fence early, and (until 2026-10-09) CRLF bodies from the web UI cut at the first
+blank line (now normalised). Tests: `tests/test_trainer_diag_cmd_extraction.py`.
+
 Common live-VM `<path>` values (full list in `docs/claude/diag-relay.md`):
 `snapshot?limit=5` (packages/trades/health — keep limit small; GitHub
 truncates comments ~55 kB), `audit?limit=600` (signal_audit tail),

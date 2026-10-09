@@ -1,0 +1,8 @@
+{
+  "leg_verdicts": {
+    "p2_trend_uniusdt": "pass"
+  },
+  "grade": "pass_all_seeds",
+  "overall": "all",
+  "cells": 10
+}

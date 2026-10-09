@@ -543,7 +543,10 @@ def test_pre_click_latch_is_armed_then_removed_or_replaced(tmp_path):
 
 def test_tick_docstring_names_the_latch_exception():
     from scripts.prop.prop_executor_tick import resolve_mode
-    assert "writes the executor's\n    AUTO-REVERT ``halted`` latch" in resolve_mode.__doc__
+    # Whitespace-normalised: Python >= 3.13 dedents docstrings at compile time,
+    # so a literal "\n    " indent match passes on CI's 3.11 and fails on 3.13.
+    assert "writes the executor's AUTO-REVERT ``halted`` latch" in " ".join(
+        resolve_mode.__doc__.split())
 
 
 SPEC_VALUES = ["100000", "Max qty 10000", "0.00001", "25.00000", "0.01-1000.00", "1000000.00", "tick 0.01"]

@@ -14,5 +14,12 @@
     14255
   ],
   "note": "2026-09-29 ~16:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): merged 57e2e80, 6 of 6 checks green. Closes when a PR-branch push touching the workflow's paths produces no TRAINING-RESULTS commit (PI-20260929-SASEC-0003). 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14255 on main as 57e2e80a. I found no record of a PR-branch push touching training-rerun-5m.yml's paths that started no run or produced no TRAINING-RESULTS commit, and PI-20260929-SASEC-0003 is still queued. Stays landed_unproven on that observation.",
+  "observation": {
+    "what": "A PR-branch push touching training-rerun-5m paths produces no TRAINING-RESULTS commit",
+    "how_to_check": "PI-20260929-SASEC-0003; needs a natural PR touching those paths",
+    "due_by": "2026-10-30T00:00Z"
+  },
+  "updated_at": "2026-10-09T04:36:52Z",
+  "updated_by": "session_015WZhDbDdZTbgTzGXeDzjqe",
   "_seq": 220
 }

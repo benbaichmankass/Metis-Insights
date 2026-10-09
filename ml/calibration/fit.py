@@ -166,3 +166,39 @@ def expected_calibration_error(
         return 0.0
     curve = reliability_curve(y_true, y_pred, bins=bins)
     return sum(b.count / n * abs(b.frac_pos - b.mean_pred) for b in curve)
+
+
+# --------------------------------------------------------------------------- #
+# ECE with an explicit read state (ML-HYGIENE item 4, 2026-10-09)
+# --------------------------------------------------------------------------- #
+#: Average observations per bin below which an ECE is noise, not a measurement.
+#: 10 equal-width bins -> n >= 100. (A bin of 3 rows is 0/3, 1/3, ... wide.)
+ECE_MIN_PER_BIN = 10
+
+
+def ece_with_read_state(
+    y_true: Sequence[int], y_pred: Sequence[float], *, bins: int = 10
+) -> dict:
+    """ECE that says WHY it is (not) a number.
+
+    ``expected_calibration_error`` returns ``0.0`` for n == 0 and silently drops
+    predictions outside [0, 1] (the bin edges do not cover them) while still
+    dividing by the full n -- so "we could not look" and an under-stated ECE both
+    read as a good score. This returns ``ece=None`` with a ``read_state``:
+
+    * ``empty``           -- n == 0
+    * ``out_of_range``    -- any prediction outside [0, 1] (wrong scale; the
+                             bins do not partition the input)
+    * ``insufficient_n``  -- n < ECE_MIN_PER_BIN * bins
+    * ``ok``              -- ``ece`` is a float
+    """
+    n = len(y_true)
+    out = {"ece": None, "n": n, "bins": bins, "min_n": ECE_MIN_PER_BIN * bins}
+    if n == 0:
+        return {**out, "read_state": "empty"}
+    if any(not (0.0 <= float(p) <= 1.0) for p in y_pred):
+        return {**out, "read_state": "out_of_range"}
+    if n < ECE_MIN_PER_BIN * bins:
+        return {**out, "read_state": "insufficient_n"}
+    return {**out, "read_state": "ok",
+            "ece": expected_calibration_error(y_true, y_pred, bins=bins)}

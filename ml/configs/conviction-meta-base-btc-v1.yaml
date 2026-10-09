@@ -30,10 +30,13 @@ trainer_config:
     - vol_regime
     - direction
     - strategy_name
-  # Expected-optional (MB-20260719-DATASET-AUDIT-NOISE option a): the c_reg
-  # conviction lens is not a real signal yet (MB-20260618-XA-D2B), so it reads
-  # dead in the dataset. The audit records this but must NOT alarm until the lens
-  # is wired. Remove once c_reg carries a real value.
+  # c_reg is expected-optional: it reads dead in the dataset because no
+  # regime_alignment calibrator feeds it (src/runtime/conviction_inputs.py drops
+  # c_reg unless one exists; MB-20260618-XA-D2B). The training audit prints
+  # `manifest_stale_optional_declaration` for any column declared here that is
+  # populated -- delete the entry the cycle that warning names it. This model is
+  # PARKED (docs/plans/ml-producers-milestones-2026-10-08.md); no producer is
+  # being built for it, so the declaration is documentation, not a to-do.
   expected_optional_features:
     - c_reg
   categorical_columns:

@@ -61,7 +61,7 @@ sys.path.insert(0, str(_REPO))
 WORKFLOW = "research-script-run.yml"
 WORKFLOW_NAME = "research-script-run"
 RECORD_INPUTS = "record-inputs.json"
-_ARTIFACT_RE = re.compile(r"^research-script-run-(RQ-\d{8}-\d{3})-(\d+)$")
+_ARTIFACT_RE = re.compile(r"^research-script-run-(RQ-\d{8}-(?:\d{3}|[0-9a-f]{4}-\d{2}))-(\d+)$")
 _EMIT_FIELDS = ("research_unit", "power_state", "decision_rule_id", "decision_rule_registered_at",
                 "verdict", "read_state", "population", "n", "tool", "measurement_file",
                 "records_file", "artifact_store", "artifact_locator", "note")

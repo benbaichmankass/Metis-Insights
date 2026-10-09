@@ -22,16 +22,19 @@
   "updated_at": "2026-10-07T18:50:00Z",
   "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
   "last_review": {
-    "report_id": "WR-20261008-1537Z",
-    "reviewed_at": "2026-10-08T18:02:00Z",
+    "report_id": "WR-20261009-0530Z",
+    "reviewed_at": "2026-10-09T05:58:00Z",
     "by": "session_01Uq7MrjPQDRWqbhCjwuMava",
     "counts": {
-      "due": 52,
-      "unrouted": 11,
+      "due": 78,
+      "unrouted": 29,
       "ask_operator_open": 26,
-      "alarms_breached": []
+      "alarms_breached": [
+        "phone_hb_breakout_2"
+      ],
+      "routing_alarm": "oldest unrouted 15d (PI-20260924-2S8DXGTZ-0003) > 7d"
     },
-    "note": "17:52Z review run late (the routine fired into the retired manager). New since 05:55Z: (1) breakout_2 phone heartbeat missing 14:00-17:00Z, cleared 17:02Z (the app was closed; no breakout_2 ticket was affected). (2) RQ-20260929-017 needs_review (verdict wiring_only) -> routed to the 10-09 02:47Z research readout. Counts unchanged from the morning review, so no new dispositions. Today: tradeify_1 stale-limit incident, PROP-CANCEL-FIX #17158 + PROP-REISSUE #17156 in CI."
+    "note": "05:52Z review. New since 18:02Z: (1) ask_operator PI-20261008-3QRUJSYR-0001 already DECIDED (operator approved cancel-replace 10-08 ~20:03Z; built+merged #17176, deployed 98d682db); the item should be closed by the routing lane. (2) 4 research units needs_review (RQ-20260929-018, RQ-20261005-016, RQ-20261005-812 unresolvable_at_current_n, +1) -> 10-10 02:47Z readout. (3) breakout_2 phone heartbeat missing 05:01Z (urgent) -> operator told (phone app). due 52->78 and unrouted 11->29 overnight (lanes filed items) + routing alarm (oldest unrouted 15d) -> PIPELINE-ROUTE lane queued next to disposition unrouted + classify the 26 ask_operator items per manager SKILL (most are data tasks, not decisions)."
   },
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",

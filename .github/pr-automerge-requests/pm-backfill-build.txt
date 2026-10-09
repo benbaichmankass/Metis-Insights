@@ -1,0 +1,1 @@
+armed for claude/pm-backfill-build (Tier-1 self-land, auto-merge)

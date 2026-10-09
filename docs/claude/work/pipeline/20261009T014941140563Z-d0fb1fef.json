@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "no shadow baseline reports score_read_state=constant, or each remaining one has a stage decision (soft-off/fix) recorded by the ML review",
+    "kind": "observation"
+  },
+  "id": "PI-20261009-01FXMMUG-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane ML-HYGIENE session_01FxmMUG6xTvooBvr8w3xuW9, trainer-vm-diag #17184",
+    "rerun": "GET /api/bot/shadow/stats and list rows with score_read_state == 'constant' (after this PR deploys); or trainer-vm-diag the min==max scan in issue #17184"
+  },
+  "routed_to": "ML-HYGIENE",
+  "severity": "low",
+  "state": "queued",
+  "tier": 1,
+  "what": "Constant shadow scorers (ML-HYGIENE item 2, MEASURED trainer-vm-diag #17184 run 37871465155 over runtime_logs/shadow_predictions.jsonl, 36 model-stage keys, n>=30): 4 emit ONE score for every row -- execution-quality-baseline-v0 (n=2656, -0.2017), setup-quality-audit-baseline-v0 (n=2656, -0.0572), mes-setup-quality-baseline-v0 (n=268, 0.8378), mes-trade-outcome-winrate-baseline-v0 (n=268, 0.6667). Reporting is fixed in this lane (shadow stats score_read_state, ModelAttribution.constant_scorer, live_agreement gate = insufficient_data); the cause is NOT fixed: the audit baseline keys on audit_pattern (never served), execution-quality's per_group_rate table matches no live strategy, the MES pair is not diagnosed. Stages untouched (Sunday ML review owns them)."
+}
