@@ -15,5 +15,12 @@
   "blocked_on": [],
   "note": "2026-09-28 ~12:15Z: operator popups: exits \"Re-measure, then build\"; scalp holds \"Re-measure now\"; 5m scalps \"Demote 3, re-test XRP\"; donchian 4h \"Demote all 3\"; eth_4h \"Move it to shadow\"; AVAX \"Fix risk sizing now\". SCHA strip already on main (09-24). || 2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13607 (6 bybit_1 paper legs to shadow; verified none on a real-money roster) and #13617 (ict_scalp_avax_5m atr_sl_buffer_mult 0.20->0.50, 365d raw backtest -8.21R -> +7.03R) reviewed by manager; combined merge verified; auto-merge armed pending pytest-run. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): state corrected in_flight -> landed_unproven: lane is ARCHIVED (status_bucket COMPLETED) and #13607/#13617 are on main (git log --grep). Deploy/observation not verified by this session; the lane's own pipeline items carry the observation that closes it.",
   "id": "EXIT-OPS",
+  "observation": {
+    "what": "Running config shows 6 bybit_1 paper legs execution=shadow and ict_scalp_avax_5m atr_sl_buffer_mult 0.50",
+    "how_to_check": "GET /api/bot/runtime-config loaded.strategies_yaml for those legs; #13607 and #13617 are merged and live sha b4b29f960 descends from them (deploy half). Running-process read not made by this sweep",
+    "due_by": "2026-10-16T00:00Z"
+  },
+  "updated_at": "2026-10-09T04:36:51Z",
+  "updated_by": "session_015WZhDbDdZTbgTzGXeDzjqe",
   "_seq": 179
 }
