@@ -11,8 +11,8 @@
   "tier": 2,
   "prs": [],
   "blocked_on": [],
-  "note": "PR #17249 opened (not draft, HELD for manager merge); CI pending.",
-  "updated_at": "2026-10-09T10:53:20Z",
+  "note": "[2026-10-09 12:30Z] Round 2 (manager trig_01T9kCGtMLYgT3bEoeeU4SeR): all filed halts converted, one HELD PR each, all open non-draft: #17250 phone-trail lock (PI-...72XUJX8U-0004), #17251 trainer OOM quarantine (-0003), #17252 liveness+IB gateway watchdog restart caps, #17253 prop feed trip (-0002), #17254 trail modify-rollout latch + per-ticket lock (-0001; depends on #17249), #17255 pairs state-unreadable exits, #17256 reconciler RESET-SUSPECT auto re-verify. -0005 risk caps left to the operator. #17249 CI green; round-2 CI: guards green on all, pytest-run pending on 6.",
+  "updated_at": "2026-10-09T12:25:24Z",
   "updated_by": "session_016wNjQSovXrhDpd72xUjx8U",
   "_seq": 367
 }
