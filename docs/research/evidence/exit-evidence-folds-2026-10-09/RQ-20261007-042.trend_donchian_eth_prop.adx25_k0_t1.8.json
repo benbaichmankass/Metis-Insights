@@ -1,0 +1,131 @@
+{
+ "schema": "exit-evidence-record/1",
+ "research_unit": "RQ-20261007-042",
+ "decision_rule_id": "RULE-RQ1007-042-ADX-CONDITIONED-TRAIL",
+ "leg": "trend_donchian_eth_prop",
+ "lever": "momentum_trail",
+ "cell": "adx25_k0_t1.8",
+ "harness": "scripts/research/m20_fleet_exit_sweep.py via m20-exit-lever-sweep.yml (family harness: scripts/backtest_trend.py)",
+ "run_id": "37774149064",
+ "artifact": "exit-lever-sweep-trend_donchian_eth_prop",
+ "generated": "2026-10-08",
+ "split": "2026-03-01",
+ "split_mode": "oos-trades",
+ "population": "leg trend_donchian_eth_prop; OOS n=49 base trades (split 2026-03-01, lifetime trades 948); folds 2021..2026",
+ "n_oos_base": 49,
+ "cost_stack": {
+  "basis": "net of fee + venue slippage + funding via execution_costs.resolve_cost_policy as resolved in the harness main",
+  "per_window": {
+   "IS": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0,
+    "total_trades": 943,
+    "net_total_r": 24.9098
+   },
+   "OOS": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0,
+    "total_trades": 51,
+    "net_total_r": 2.0205
+   }
+  }
+ },
+ "deltas": {
+  "IS": {
+   "passed": true,
+   "reason": null,
+   "d_net_r": 10.9098,
+   "d_max_dd": -6.6825
+  },
+  "OOS": {
+   "passed": true,
+   "reason": null,
+   "d_net_r": 1.5311,
+   "d_max_dd": -1.8463
+  }
+ },
+ "clauses": {
+  "e5_gate_IS_and_OOS": {
+   "result": "pass",
+   "detail": {
+    "IS": {
+     "passed": true,
+     "reason": null,
+     "d_net_r": 10.9098,
+     "d_max_dd": -6.6825
+    },
+    "OOS": {
+     "passed": true,
+     "reason": null,
+     "d_net_r": 1.5311,
+     "d_max_dd": -1.8463
+    }
+   }
+  },
+  "base_trades_OOS_ge_25": {
+   "result": "pass",
+   "detail": 49
+  },
+  "walkforward_ge_4_of_6_effective": {
+   "result": "pass",
+   "detail": {
+    "raw": "4/6",
+    "effective": "4/6",
+    "inert_wins": 0,
+    "folds": [
+     {
+      "fold": "2021",
+      "usable": true,
+      "ok": false,
+      "d_net_r": -2.2252,
+      "d_max_dd": -1.1647
+     },
+     {
+      "fold": "2022",
+      "usable": true,
+      "ok": true,
+      "d_net_r": 5.6151,
+      "d_max_dd": -1.7314
+     },
+     {
+      "fold": "2023",
+      "usable": true,
+      "ok": true,
+      "d_net_r": 9.0766,
+      "d_max_dd": -8.0702
+     },
+     {
+      "fold": "2024",
+      "usable": true,
+      "ok": false,
+      "d_net_r": -4.9173,
+      "d_max_dd": 1.7068
+     },
+     {
+      "fold": "2025",
+      "usable": true,
+      "ok": true,
+      "d_net_r": 5.4034,
+      "d_max_dd": -0.9988
+     },
+     {
+      "fold": "2026",
+      "usable": true,
+      "ok": true,
+      "d_net_r": 1.4875,
+      "d_max_dd": -1.8463
+     }
+    ]
+   }
+  },
+  "attribution_adx_tightened_exits_net_nonnegative": {
+   "result": "NOT_EVIDENCED",
+   "detail": "per-trade trail_adx_tightened/adx_at_exit are emitted by scripts/backtest_trend.py (_mom_attribution) only under --emit-trades; the sweep artifacts and corpus rows carry cell aggregates only, and the candle frames live on the trainer VM (no key in this lane). Clause cannot be read from existing records."
+  }
+ },
+ "clauses_note": "RULE-RQ1007-042: a cell passes only with the ADX-exit attribution read (tightened exits must not net negative). Unread = not passed.",
+ "verdict": "NEEDS_DATA",
+ "raw": "raw/RQ-20261007-042.37774149064.trend_donchian_eth_prop.verdicts.json"
+}

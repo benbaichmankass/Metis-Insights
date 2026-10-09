@@ -11,8 +11,8 @@
   "tier": 3,
   "prs": [],
   "blocked_on": [],
-  "note": "[2026-10-08T06:55Z manager] Roadmap 2026-10-08; gated on the cross-signal research results. [2026-10-08T16:00Z manager session_01Uq7MrjPQDRWqbhCjwuMava] RQ-20261007-042 INCONCLUSIVE: only eth_4h measured, n_OOS=49, 1/4 cells pass IS/OOS (adx20_k0_t2.5), WF and attribution absent. RQ-043 (#17140) provisional: 2/6 legs clear IS/OOS (eth_4h ms12_a20/a25, eth_prop ms8_a25), WF and swap-base(b) unverified. Model build stays gated.",
-  "updated_at": "2026-10-08T15:55:32Z",
-  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
+  "note": "[2026-10-08T06:55Z manager] Roadmap 2026-10-08; gated on the cross-signal research results. [2026-10-08T16:00Z manager session_01Uq7MrjPQDRWqbhCjwuMava] RQ-20261007-042 INCONCLUSIVE: only eth_4h measured, n_OOS=49, 1/4 cells pass IS/OOS (adx20_k0_t2.5), WF and attribution absent. RQ-043 (#17140) provisional: 2/6 legs clear IS/OOS (eth_4h ms12_a20/a25, eth_prop ms8_a25), WF and swap-base(b) unverified. Model build stays gated. [2026-10-09 lane EXIT-EVIDENCE-FOLDS] Gate input: RQ-043 momentum_stale = 0 of 3 e5 cells survive folds (3/6 each). RQ-042 momentum_trail = 0 cells disproven except xrp_4h adx20_k0_t2.5 (2/6 eff); 5 cells await the ADX-exit attribution read (PI-20261009-NKGUCEDN-0001). Model build stays gated; the attribution read is the deciding datum.",
+  "updated_at": "2026-10-09T03:07:18Z",
+  "updated_by": "session_01VsnuLCmU96p2DknkgUcEdN",
   "_seq": 353
 }

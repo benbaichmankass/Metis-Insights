@@ -1,0 +1,131 @@
+{
+ "schema": "exit-evidence-record/1",
+ "research_unit": "RQ-20261007-043",
+ "decision_rule_id": "RULE-RQ1007-043-MOMENTUM-STALE-STOP",
+ "leg": "trend_donchian_eth_prop",
+ "lever": "momentum_stale",
+ "cell": "ms8_a25",
+ "harness": "scripts/research/m20_fleet_exit_sweep.py via m20-exit-lever-sweep.yml (family harness: scripts/backtest_trend.py)",
+ "run_id": "37788097533",
+ "artifact": "exit-lever-sweep-trend_donchian_eth_prop",
+ "generated": "2026-10-08",
+ "split": "2026-03-01",
+ "split_mode": "oos-trades",
+ "population": "leg trend_donchian_eth_prop; OOS n=49 base trades (split 2026-03-01, lifetime trades 948); folds 2021..2026",
+ "n_oos_base": 49,
+ "cost_stack": {
+  "basis": "net of fee + venue slippage + funding via execution_costs.resolve_cost_policy as resolved in the harness main",
+  "per_window": {
+   "IS": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0,
+    "total_trades": 912,
+    "net_total_r": 15.5683
+   },
+   "OOS": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0,
+    "total_trades": 50,
+    "net_total_r": 0.5988
+   }
+  }
+ },
+ "deltas": {
+  "IS": {
+   "passed": true,
+   "reason": null,
+   "d_net_r": 1.5683,
+   "d_max_dd": -6.1792
+  },
+  "OOS": {
+   "passed": true,
+   "reason": null,
+   "d_net_r": 0.1094,
+   "d_max_dd": -0.546
+  }
+ },
+ "clauses": {
+  "e5_gate_IS_and_OOS": {
+   "result": "pass",
+   "detail": {
+    "IS": {
+     "passed": true,
+     "reason": null,
+     "d_net_r": 1.5683,
+     "d_max_dd": -6.1792
+    },
+    "OOS": {
+     "passed": true,
+     "reason": null,
+     "d_net_r": 0.1094,
+     "d_max_dd": -0.546
+    }
+   }
+  },
+  "base_trades_OOS_ge_25": {
+   "result": "pass",
+   "detail": 49
+  },
+  "walkforward_ge_4_of_6_effective": {
+   "result": "fail",
+   "detail": {
+    "raw": "3/6",
+    "effective": "3/6",
+    "inert_wins": 0,
+    "folds": [
+     {
+      "fold": "2021",
+      "usable": true,
+      "ok": true,
+      "d_net_r": 0.2334,
+      "d_max_dd": -0.6573
+     },
+     {
+      "fold": "2022",
+      "usable": true,
+      "ok": true,
+      "d_net_r": 3.2103,
+      "d_max_dd": -2.8852
+     },
+     {
+      "fold": "2023",
+      "usable": true,
+      "ok": true,
+      "d_net_r": 3.9974,
+      "d_max_dd": -3.3619
+     },
+     {
+      "fold": "2024",
+      "usable": true,
+      "ok": false,
+      "d_net_r": -4.8203,
+      "d_max_dd": -0.0371
+     },
+     {
+      "fold": "2025",
+      "usable": true,
+      "ok": false,
+      "d_net_r": -1.1013,
+      "d_max_dd": -0.6041
+     },
+     {
+      "fold": "2026",
+      "usable": true,
+      "ok": false,
+      "d_net_r": -0.0218,
+      "d_max_dd": -0.546
+     }
+    ]
+   }
+  },
+  "base_b_stale_swapped_comparison": {
+   "result": "NOT_REACHED",
+   "detail": "only meaningful once the fold clause passes; trend_donchian_eth_prop ships stale12 so (b) would apply there"
+  }
+ },
+ "clauses_note": "RULE-RQ1007-043: needs >=4 of 6 effective folds against base (b) where a stale stop ships, else base (a).",
+ "verdict": "FAIL_ON_FOLDS",
+ "raw": "raw/RQ-20261007-043.37788097533.trend_donchian_eth_prop.verdicts.json"
+}

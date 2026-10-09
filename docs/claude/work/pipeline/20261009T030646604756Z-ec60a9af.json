@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "due_date": "2026-10-16",
+    "kind": "date"
+  },
+  "id": "PI-20261009-NKGUCEDN-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane EXIT-EVIDENCE-FOLDS session_01VsnuLCmU96p2DknkgUcEdN; docs/research/evidence/exit-evidence-folds-2026-10-09/",
+    "rerun": "python3 -I -c over docs/research/evidence/exit-evidence-folds-2026-10-09/RQ-20261007-042.*.json and read clauses.attribution_adx_tightened_exits_net_nonnegative.result; it must read pass/fail rather than NOT_EVIDENCED"
+  },
+  "routed_to": "manager",
+  "severity": "medium",
+  "state": "queued",
+  "tier": 1,
+  "what": "RQ-20261007-042 ADX-exit ATTRIBUTION read is unobtainable from committed records, so 5 e5-passing momentum_trail cells cannot be passed or failed (lane EXIT-EVIDENCE-FOLDS 2026-10-09). Folds ARE settled (eth_4h adx20_k0_t2.5 4/6; xrp_4h adx25_k0_t2.5 4/6 effective [2 inert]; eth_prop adx25_k0_t1.8 4/6 and adx25_k3_t1.8 5/6 pass; xrp_4h adx20_k0_t2.5 FAILS at 2/6 effective). Missing: per-cell split of net_R between trades whose final stop was last moved on an ADX-tightened bar (trail_adx_tightened, emitted per trade by scripts/backtest_trend.py _mom_attribution under --emit-trades) and all other trades. The sweep (m20_fleet_exit_sweep.py) records cell aggregates only and the frames live on the trainer, so the data task is: have the sweep (or a one-off run with --emit-trades on the 4 cells' legs) aggregate that attribution per cell and land it in the result record. Rule: a cell whose tightened exits net NEGATIVE does not pass; any cell that passes becomes a Tier-3 declare proposal (prop legs in their own PR)."
+}
