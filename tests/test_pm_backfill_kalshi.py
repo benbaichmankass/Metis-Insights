@@ -105,3 +105,8 @@ def test_limiter_spacing_and_429_backoff():
 def test_max_markets_cap(tmp_path):
     st, _ = mk(tmp_path, max_markets=1)
     assert st["fetched_markets"] == 1
+
+
+def test_ticker_with_reserved_chars_is_escaped():
+    m = {"ticker": "FEDDECISION-23JUN-C>25", "close_time": "2023-06-14T18:00:00Z", "_endpoint": "historical"}
+    assert "/historical/markets/FEDDECISION-23JUN-C%3E25/candlesticks" in bf.candle_url("https://k.test", "KXFEDDECISION", m, 24, 60)

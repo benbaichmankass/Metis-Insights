@@ -102,9 +102,10 @@ def candle_url(base: str, series: str, m: Dict[str, Any], hours_before: int, per
     close = _epoch(m["close_time"])
     q = urllib.parse.urlencode({"start_ts": close - hours_before * 3600, "end_ts": close + 3600,
                                 "period_interval": period_min})
+    tk = urllib.parse.quote(m["ticker"], safe="")  # tickers like FEDDECISION-23JUN-C>25 need escaping
     if m["_endpoint"] == "historical":
-        return f"{base}/historical/markets/{m['ticker']}/candlesticks?{q}"
-    return f"{base}/series/{series}/markets/{m['ticker']}/candlesticks?{q}"
+        return f"{base}/historical/markets/{tk}/candlesticks?{q}"
+    return f"{base}/series/{series}/markets/{tk}/candlesticks?{q}"
 
 
 def _ohlc(d: Optional[Dict[str, Any]], pfx: str) -> Dict[str, Optional[float]]:
