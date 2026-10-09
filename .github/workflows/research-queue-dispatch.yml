@@ -432,7 +432,12 @@ jobs:
     # / PI-20261004-FOJGFIZF-0003): the shared wait default moved 30 -> 50
     # because pytest-run alone now takes ~35-37 min; 165 = 3 x 50 + 15. Pinned
     # by tests/test_commit_to_main_callers.py::test_budget_covers_every_wait_in_the_job.
-    timeout-minutes: 165
+    # ⚠️ RAISED 165 -> 255 and the three waits pinned to 80 (HEALTH-REVIEW-W41,
+    # 2026-10-09, RQ-COLLECTOR residual): pytest-run is now 29-64 min on main
+    # (MEASURED, 20 completed pushes 2026-10-09), so run 37965310081's batch PR
+    # #17287 (pytest-run 44 min) outlived the 50 min wait and the cycle read red
+    # with the collector innocent. 255 = 3 x 80 + 15.
+    timeout-minutes: 255
     env:
       # Read from the dispatch job, which owns THE ONE FIRE DECISION (see its env).
       # `inputs` is deliberately not consulted here: on a schedule event it is empty.

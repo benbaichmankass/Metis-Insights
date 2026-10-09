@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-16",
+    "kind": "date"
+  },
+  "id": "PI-20261009-VQIPJE2H-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "checklist HEALTH-REVIEW-W41 item 4, 2026-10-09",
+    "rerun": "Actions: pytest-run.yml runs on branch main, compare run_started_at..updated_at (median/max); see run 37965653213 (44 min) and the 20 completed main pushes of 2026-10-09 (29-64 min)"
+  },
+  "state": "queued",
+  "what": "pytest-run now takes 29-64 min (MEASURED 2026-10-09, 20 completed main pushes; 12 of 20 >44 min). The fixed commit-to-main verify wait was 12.9 -> 18 -> 30 -> 50 min and outgrown each time; HEALTH-REVIEW-W41 raised it to 80 (+30 on every caller budget) as a stopgap. Real fix: make the suite faster (shard pytest-run with xdist/matrix, drop duplicate collection) so the wait can come back down; every research/stamp/receipt landing and every PR merge pays this latency. Also decide whether the wait should EXTEND while the PR's required checks are still running instead of a fixed number."
+}

@@ -17,15 +17,20 @@ The class-based interface tracks per-account state:
     drawdown (PM § 8 #6 — resets at UTC midnight on the next approve()
     or update_equity() call).
 
-Hard limits (from accounts.yaml ``risk`` section):
-  - max_dd_pct: max intra-day equity drawdown from today's high (S-012 PR E3a)
-  - daily_usd: max daily loss in USD (S-010)
+The ONE account-level automatic off (operator directive 2026-10-09):
+  - ``daily_dd_switch`` — see ``src.units.accounts.daily_dd_switch``. Default
+    DISARMED; when armed and today's equity drawdown from the day start
+    reaches the limit, NEW entries are refused (``DAILY_DD_SWITCH``) until
+    the next day boundary. It replaced the always-on DAILY_LOSS_CAP /
+    INTRADAY_DRAWDOWN refusals and the daily-loss sizing clamp, which were
+    folded into it the same day. ``max_dd_pct`` / ``daily_usd`` /
+    ``daily_loss_pct`` remain as REPORTED figures only.
 
 There is NO position-notional ceiling: the removed ``pos_size`` /
 ``POSITION_SIZE_CAP`` capped a correctly risk-sized trade on a number
 unrelated to account capacity, so it does not exist (operator directive
-2026-06-24). Size is bounded only by the risk budget, the daily-loss
-budget, the margin/buying-power ceiling, and the exchange's lot size.
+2026-06-24). Size is bounded only by the risk budget, the margin/buying-power
+ceiling, the gross-exposure ceiling, and the exchange's lot size.
 
 Sizing inputs (also from the ``risk`` section):
   - risk_pct: fraction of balance risked per trade (operator default 0.01)
@@ -62,6 +67,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from src.core.coordinator import OrderPackage
 from src.units.accounts import exposure as _exposure
+from src.units.accounts import daily_dd_switch as _dd
 
 
 _DEFAULT_MIN_QTY = 0.001    # BTC minimum lot size (exchange lot floor)
@@ -373,7 +379,18 @@ class RiskManager:
         # trade through; ``enforce`` (default) keeps them as refusals. Dry-run
         # and GROSS_EXPOSURE_CAP are not breach guards and never change.
         self.breach_guards: str = breach_guards_mode(config)
-        self.last_breach_report: Optional[str] = None
+        # The ONE account-level automatic off (operator directive 2026-10-09,
+        # src/units/accounts/daily_dd_switch.py). DISARMED unless the account's
+        # ``risk.daily_dd_switch.armed`` is literally ``true``. PropRiskManager
+        # rebuilds it with the firm-derived limit.
+        self.dd_switch: _dd.DailyDDSwitch = _dd.DailyDDSwitch(
+            account_id, _dd.parse_config(config.get("daily_dd_switch")),
+        )
+        # Live TOTAL equity the coordinator read this dispatch (Bybit linear
+        # ``totalEquity``); None = use the balance snapshot. Never a free /
+        # available balance: the switch's day-start and current readings must
+        # share one basis or margin use would read as a loss.
+        self._live_equity: Optional[float] = None
         self.risk_pct: float = float(config.get("risk_pct", 0.01))
         # ── Per-account EXPOSURE ceiling (2026-08-07, operator-directed) ────
         # Gross open notional, as a MULTIPLE OF EQUITY, that this account may
@@ -844,21 +861,50 @@ class RiskManager:
             return self.daily_loss_pct * float(eq)
         return self.max_daily_loss_usd
 
-    def is_daily_cap_exhausted(self, equity: Optional[float] = None) -> bool:
-        """True when today's realized loss has met/exceeded the daily cap.
-
-        Rolls the day + reconciles from the journal first so the answer
-        reflects the same state the sizing gates see. Used by the latching
-        daily-cap notification in ``Coordinator.multi_account_execute``.
-        """
-        self._maybe_roll_daily()
-        return self.daily_pnl <= -self.effective_daily_loss_usd(equity)
-
     def approve(self, order: OrderPackage) -> bool:
         ok, _reason = self.evaluate(order)
         return ok
 
-    def evaluate(self, order: OrderPackage) -> tuple[bool, Optional[str]]:
+    def note_live_equity(self, equity_usd: Optional[float]) -> None:
+        """Feed this dispatch's live TOTAL equity to the daily-DD switch."""
+        try:
+            v = float(equity_usd) if equity_usd is not None else None
+        except (TypeError, ValueError):
+            v = None
+        self._live_equity = v if (v is not None and v > 0) else None
+
+    def _snapshot_equity_fresh(self, max_age_hours: float = 2.0) -> Optional[float]:
+        """Balance-snapshot equity, or None when absent or older than
+        ``max_age_hours`` (the hourly writer's cadence plus slack). A stale
+        reading is "could not look", never a figure."""
+        return _dd.snapshot_equity_reading(self.account_id, max_age_hours=max_age_hours)[0]
+
+    def dd_switch_reading(self) -> "_dd.Reading":
+        """``(equity, read_at)`` the daily-DD switch folds in. The dispatch's
+        live total (read now) wins; else the fresh balance snapshot, stamped
+        with ITS time so an older snapshot never regresses a live read."""
+        if self._live_equity is not None:
+            return self._live_equity, None
+        return _dd.snapshot_equity_reading(self.account_id)
+
+    def dd_switch_equity(self) -> Optional[float]:
+        """The equity reading the daily-DD switch folds in (None = could not look)."""
+        return self.dd_switch_reading()[0]
+
+    def check_dd_switch(self) -> bool:
+        """Observe equity into the switch; True when it blocks NEW entries."""
+        try:
+            equity, read_at = self.dd_switch_reading()
+            row = self.dd_switch.observe(equity, reading_ts=read_at)
+            return self.dd_switch.blocks_new_entries(row)
+        except Exception as exc:  # noqa: BLE001 — a switch bug must not refuse or halt
+            logger.warning("daily_dd_switch: check failed for %s: %s", self.account_id, exc)
+            return False
+
+    def evaluate(self, order: OrderPackage, *, opening: bool = True) -> tuple[bool, Optional[str]]:
+        """Per-trade gate. ``opening=False`` marks a reduce-only order (an
+        intent-mode reduce/close): the daily-DD switch never refuses it, so a
+        tripped account can still exit (operator: "Keep open, block new")."""
         if _is_test_order(order):
             return True, None
 
@@ -867,12 +913,13 @@ class RiskManager:
 
         self._maybe_roll_daily()
 
-        self.last_breach_report = None
-        # Percentage-based when daily_loss_pct is set (uses current equity);
-        # absolute daily_usd otherwise / on equity-unavailable fallback.
-        if self.daily_pnl < -self.effective_daily_loss_usd():
-            if not self._breach_reported("DAILY_LOSS_CAP", order):
-                return False, "DAILY_LOSS_CAP"
+        # The ONE account-level automatic off (daily_dd_switch). Observed on
+        # every evaluation — opening or not — so trip / reset / could-not-look
+        # are seen; it refuses only NEW exposure. DAILY_LOSS_CAP and
+        # INTRADAY_DRAWDOWN were folded into it on 2026-10-09 (operator: "the
+        # only place I want there to be like a automatic off switch").
+        if self.check_dd_switch() and opening:
+            return False, _dd.REASON
 
         # NOTE: there is intentionally NO position-notional ceiling here.
         # Position size is a pure function of (available balance + margin) and
@@ -880,53 +927,17 @@ class RiskManager:
         # arbitrary max-notional cap (the removed POSITION_SIZE_CAP / pos_size)
         # would gate a correctly risk-sized trade on a number unrelated to the
         # account's actual capacity, so it does not exist (operator directive
-        # 2026-06-24). The only sizing constraints are the risk budget, the
-        # daily-loss budget, the margin/buying-power ceiling, and the exchange's
-        # own minimum lot size.
-
-        dd = self.intraday_drawdown()
-        if dd is not None and dd >= self.max_dd_pct:
-            if not self._breach_reported("INTRADAY_DRAWDOWN", order):
-                return False, "INTRADAY_DRAWDOWN"
+        # 2026-06-24).
 
         # Gross-exposure ceiling (2026-08-07). Only refuses when the account is
         # ALREADY at/over its declared multiple — the partial case is handled
         # in position_size(), which downsizes into the remaining headroom
-        # instead of rejecting. That split is the point: a risk policy should
-        # shape size on the way up and only refuse at the boundary, which is
-        # exactly what delegating to the broker's available-margin wall did not
-        # do. An undeclared ceiling and an unmeasurable exposure both resolve to
-        # ALLOW inside exposure_verdict(), before any comparison runs — so
-        # neither can refuse here even by accident.
+        # instead of rejecting. An undeclared ceiling and an unmeasurable
+        # exposure both resolve to ALLOW inside exposure_verdict().
         if self.exposure_verdict().action == _exposure.REFUSE:
             return False, "GROSS_EXPOSURE_CAP"
 
         return True, None
-
-    def _breach_reported(self, reason: str, order: OrderPackage) -> bool:
-        """``True`` in ``report`` mode: log the breach loudly, keep it on
-        ``last_breach_report``, and let the trade through. ``False`` =
-        enforce: the caller refuses."""
-        if self.breach_guards != "report":
-            return False
-        self.last_breach_report = reason
-        dd = self.intraday_drawdown()
-        logger.warning(
-            "BREACH GUARD REPORT-ONLY: %s would refuse %s %s on %s "
-            "(daily_pnl=%.2f, drawdown=%s); breach_guards=report, placing anyway",
-            reason, getattr(order, "strategy", "?"), getattr(order, "symbol", "?"),
-            self.account_id or "?", self.daily_pnl, dd,
-        )
-        record_breach_accepted({
-            "account_id": self.account_id or None, "reason": reason,
-            "strategy": getattr(order, "strategy", None), "symbol": getattr(order, "symbol", None),
-            "direction": getattr(order, "direction", None),
-            "order_package_id": (getattr(order, "meta", None) or {}).get("order_package_id"),
-            "daily_pnl": round(self.daily_pnl, 2), "intraday_drawdown": dd,
-            "daily_loss_budget_usd": round(self.effective_daily_loss_usd(), 2),
-            "max_dd_pct": self.max_dd_pct,
-        })
-        return True
 
     def record_trade_result(self, pnl_usd: float) -> None:
         self._maybe_roll_daily()
@@ -1150,28 +1161,11 @@ class RiskManager:
             # smallest tradeable unit and its stop risk is budget-checked first.
             return 0.0
 
-        # S-026 G3: daily-loss-budget gate. USD loss at SL is
-        # qty × risk_distance × contract_value_usd (cvu=1.0 for crypto).
-        # The budget is percentage-based (``daily_loss_pct × equity``) when
-        # configured, else the absolute ``daily_usd``. ``gate_balance`` (the
-        # account equity basis resolved above — total_account_usd when
-        # supplied, else balance_usd) is the equity figure; this is what lets
-        # a large-balance account (e.g. the bybit demo) stop tripping a
-        # hardcoded $100 cap on every signal.
-        self._maybe_roll_daily()
-        loss_budget_remaining = (
-            self.effective_daily_loss_usd(gate_balance) + self.daily_pnl
-        )
-        if loss_budget_remaining <= 0:
-            return 0.0
-
-        risk_distance = abs(package.entry - package.sl)
-        max_loss_at_sl = qty * risk_distance * cvu
-        if max_loss_at_sl > loss_budget_remaining:
-            scaled = loss_budget_remaining / (risk_distance * cvu)
-            qty = _floor_to_step(scaled, eff_precision)
-            if qty < eff_min_qty:
-                return 0.0
+        # The S-026 G3 daily-loss-budget clamp (downsize to the remaining
+        # daily budget; size 0 once it was spent) was REMOVED 2026-10-09: at
+        # zero budget it was an always-on daily off switch spelled as sizing,
+        # and the operator's directive makes the account-level daily_dd_switch
+        # "the only place" for that (src/units/accounts/daily_dd_switch.py).
 
         # === 2026-05-12 margin pre-flight cap ===
         # Crypto-specific: caps qty by notional/leverage using price as the
@@ -1382,6 +1376,10 @@ class RiskManager:
         #   multiple         0.0  -> we looked, the account is flat
         _obs = self.observe_exposure()
         _policy = self.exposure_policy()
+        try:
+            _dd_status = self.dd_switch.status()
+        except Exception as exc:  # noqa: BLE001 — reporting never raises
+            _dd_status = {"armed": self.dd_switch.cfg.armed, "error": str(exc)}
         exposure = {
             "policy_declared": _policy is not None,
             # Key name retained for back-compat with existing consumers; null
@@ -1419,8 +1417,9 @@ class RiskManager:
                 round(self.daily_high_equity, 2) if self.daily_high_equity is not None else None
             ),
             "intraday_drawdown_pct": round(dd, 4) if dd is not None else None,
-            "halted": (
-                self.daily_pnl < -eff_daily_loss
-                or (dd is not None and dd >= self.max_dd_pct)
-            ),
+            # The ONE automatic off. ``halted`` is kept for existing consumers
+            # and now means exactly "the armed daily-DD switch is tripped for
+            # today" — reported figures above no longer refuse anything.
+            "daily_dd_switch": _dd_status,
+            "halted": bool(_dd_status.get("tripped")),
         }

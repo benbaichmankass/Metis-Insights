@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01FFwi1Fff49ryncBkkVrsvQ",
+  "branch": "claude/daily-dd-arm",
+  "claimed_at": "2026-10-09T15:57:11Z",
+  "purpose": "DAILY-DD-SWITCH PR 2: arm the daily drawdown switch on every non-retired account (HELD, manager merges after #17281)"
+}

@@ -69,10 +69,11 @@ class TestRiskManager:
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 100, "pos_size": 500})
         assert rm.approve(_pkg()) is True
 
-    def test_approve_rejects_daily_loss_exceeded(self):
+    def test_approve_daily_loss_figure_reported_not_refused(self):
+        # DAILY_LOSS_CAP folded into the daily_dd_switch (2026-10-09).
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 100, "pos_size": 500})
         rm.daily_pnl = -101.0
-        assert rm.approve(_pkg()) is False
+        assert rm.approve(_pkg()) is True
 
     def test_approve_large_estimated_value_no_longer_rejected(self):
         """Position-notional cap removed 2026-06-24 — a large
@@ -92,19 +93,25 @@ class TestRiskManager:
         rm.reset_daily()
         assert rm.daily_pnl == 0.0
 
-    def test_report_shows_halted_true_when_exceeded(self):
+    def test_report_halted_only_when_dd_switch_tripped(self):
         rm = RiskManager({"daily_usd": 100})
         rm.daily_pnl = -101.0
-        assert rm.report()["halted"] is True
+        assert rm.report()["halted"] is False   # a reported figure, not a halt
+        armed = RiskManager({"daily_dd_switch": {"armed": True}}, account_id="s010_dd")
+        armed.note_live_equity(1_000.0)
+        armed.check_dd_switch()
+        armed.note_live_equity(900.0)
+        armed.check_dd_switch()
+        assert armed.report()["halted"] is True
 
     def test_report_shows_halted_false_when_ok(self):
         rm = RiskManager({"daily_usd": 100})
         assert rm.report()["halted"] is False
 
-    def test_prop_account_stricter_defaults(self):
+    def test_prop_style_figures_reported_not_refused(self):
         rm = RiskManager({"max_dd_pct": 0.02, "daily_usd": 50, "pos_size": 200})
         rm.daily_pnl = -51.0
-        assert rm.approve(_pkg()) is False
+        assert rm.approve(_pkg()) is True
 
 
 # ---------------------------------------------------------------------------

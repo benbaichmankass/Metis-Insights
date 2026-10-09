@@ -1,0 +1,216 @@
+{
+  "verdict": "fail",
+  "read_state": "measured",
+  "population": "1 leg(s) [trend_donchian_eth_prop], 355 committed trades in total; grade=pass_all_seeds, overall=all",
+  "n": 355,
+  "measurement": {
+    "leg_verdicts": {
+      "trend_donchian_eth_prop": "fail"
+    },
+    "grade": "pass_all_seeds",
+    "overall": "all",
+    "cells": 15
+  },
+  "note": "trend_donchian_eth_prop: FAIL: ev_net_usd_per_life <= 0 on at least one seed | RQ-20261007-222: book mixed6 under tradeify, flat 0.5% / 0.75% / 1.0% per leg of balance",
+  "records": [
+    {
+      "verdict": "fail",
+      "read_state": "measured",
+      "population": "trend_donchian_eth_prop: 355 committed trades from comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl (pinned by --leg); prop_ev_sim path-mode over 3 arm(s) x 5 seed(s), --trades trend_donchian_sol_prop=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop__trades.jsonl --trades p2_trend_xrpusdt=comms/research/RQ-20261007-222/37965472160/screen_xrpusdt/p2_trend_xrpusdt__trades.jsonl --trades p2_ict15_ondousdt=comms/research/RQ-20261007-222/37965472160/screen_ondousdt/p2_ict15_ondousdt__trades.jsonl --trades p2_ict15_aaveusdt=comms/research/RQ-20261007-222/37965472160/screen_aaveusdt/p2_ict15_aaveusdt__trades.jsonl --trades p2_ict15_suiusdt=comms/research/RQ-20261007-222/37965472160/screen_suiusdt/p2_ict15_suiusdt__trades.jsonl --ruleset config/prop_rulesets/tradeify_247_1step.yaml --costs breakout --swap-model prorated --no-hedge --funded-start fresh --lev-cap trend_donchian_eth_prop=5 --lev-cap trend_donchian_sol_prop=2 --lev-cap p2_trend_xrpusdt=2 --lev-cap p2_ict15_ondousdt=2 --lev-cap p2_ict15_aaveusdt=2 --lev-cap p2_ict15_suiusdt=2",
+      "n": 355,
+      "measurement": {
+        "leg": "trend_donchian_eth_prop",
+        "trades_file": "comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": 93.78,
+              "ev_se": 7.7,
+              "p_net_positive": 0.2675,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.01,
+                "90": 0.227,
+                "180": 0.3513
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 89.69,
+              "ev_se": 7.71,
+              "p_net_positive": 0.2512,
+              "p_alive_at_horizon": 0.0003,
+              "p_pass_by_days": {
+                "30": 0.009,
+                "90": 0.2185,
+                "180": 0.3342
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 97.31,
+              "ev_se": 7.71,
+              "p_net_positive": 0.2665,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.0095,
+                "90": 0.2213,
+                "180": 0.3417
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 88.92,
+              "ev_se": 7.75,
+              "p_net_positive": 0.2525,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.0105,
+                "90": 0.2107,
+                "180": 0.3337
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 82.34,
+              "ev_se": 7.54,
+              "p_net_positive": 0.2532,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.0143,
+                "90": 0.216,
+                "180": 0.3377
+              },
+              "rule_v2_verdict": "indeterminate"
+            }
+          },
+          "B": {
+            "1": {
+              "ev": 48.57,
+              "ev_se": 6.94,
+              "p_net_positive": 0.204,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.1373,
+                "90": 0.304,
+                "180": 0.319
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 48.42,
+              "ev_se": 7.18,
+              "p_net_positive": 0.2005,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.1288,
+                "90": 0.2968,
+                "180": 0.3132
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 51.66,
+              "ev_se": 7.39,
+              "p_net_positive": 0.2005,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.1187,
+                "90": 0.294,
+                "180": 0.3103
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 56.41,
+              "ev_se": 7.11,
+              "p_net_positive": 0.2107,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.1285,
+                "90": 0.3088,
+                "180": 0.3252
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 55.87,
+              "ev_se": 7.34,
+              "p_net_positive": 0.2122,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.1235,
+                "90": 0.3075,
+                "180": 0.3232
+              },
+              "rule_v2_verdict": "indeterminate"
+            }
+          },
+          "C": {
+            "1": {
+              "ev": -9.3,
+              "ev_se": 5.73,
+              "p_net_positive": 0.1427,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.202,
+                "90": 0.2323,
+                "180": 0.2333
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": -4.51,
+              "ev_se": 5.86,
+              "p_net_positive": 0.1542,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.2042,
+                "90": 0.24,
+                "180": 0.2402
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": -16.36,
+              "ev_se": 5.33,
+              "p_net_positive": 0.1447,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.1965,
+                "90": 0.2343,
+                "180": 0.2343
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": -6.16,
+              "ev_se": 5.97,
+              "p_net_positive": 0.147,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.2023,
+                "90": 0.2333,
+                "180": 0.2335
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": -17.66,
+              "ev_se": 5.51,
+              "p_net_positive": 0.135,
+              "p_alive_at_horizon": 0.0,
+              "p_pass_by_days": {
+                "30": 0.1855,
+                "90": 0.2182,
+                "180": 0.2182
+              },
+              "rule_v2_verdict": "indeterminate"
+            }
+          }
+        }
+      },
+      "note": "FAIL: ev_net_usd_per_life <= 0 on at least one seed | RQ-20261007-222: book mixed6 under tradeify, flat 0.5% / 0.75% / 1.0% per leg of balance"
+    }
+  ]
+}

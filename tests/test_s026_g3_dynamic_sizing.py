@@ -106,62 +106,34 @@ class TestDailyLossBudgetGate:
         assert qty > 0
         assert qty * 500 <= 100 + 1e-6  # within budget
 
-    def test_gate_scales_down_when_trade_would_bust_budget(self):
-        """Big balance + small daily budget → qty scaled to fit budget."""
-        rm = RiskManager({
-            "risk_pct": 0.01,
-            "min_balance_usd": 50,
-            "daily_usd": 50,  # very tight
-        })
+    # 2026-10-09: the S-026 G3 daily-loss-budget clamp was REMOVED (operator
+    # directive, rule 7 exception): at zero budget it was an always-on daily
+    # off spelled as sizing; the account-level daily_dd_switch is "the only
+    # place". The tests below pin that the risk-based size is NOT clipped:
+    # it equals a control sizer with an effectively unlimited daily_usd.
+    @staticmethod
+    def _unclipped(pkg):
+        ctl = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50, "daily_usd": 1e12})
+        return ctl.position_size(pkg, balance_usd=10_000.0)
+
+    def test_tight_daily_usd_no_longer_scales_size_down(self):
+        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50, "daily_usd": 50})
         pkg = _pkg(entry=50_000.0, sl=49_500.0)  # distance=500
+        want = self._unclipped(pkg)
+        assert want * 500 > 50   # the old clamp WOULD have cut this size
+        assert rm.position_size(pkg, balance_usd=10_000.0) == pytest.approx(want)
 
-        # Balance=$10k → raw qty=0.2 → loss-at-SL=$100 (>$50 budget).
-        # Scaled to fit: qty = 50/500 = 0.1.
-        qty = rm.position_size(pkg, balance_usd=10_000.0)
-        # Floored to step-size (precision=3): 0.1 exactly.
-        assert qty == pytest.approx(0.1, abs=1e-6)
-        # Realised max loss must NOT exceed budget.
-        assert qty * 500 <= 50 + 1e-6
-
-    def test_gate_refuses_when_min_qty_busts_budget(self):
-        """When even min_qty would bust the budget, qty=0 (refuse)."""
-        rm = RiskManager({
-            "risk_pct": 0.01,
-            "min_balance_usd": 50,
-            "daily_usd": 0.01,   # nearly zero budget
-            "min_qty": 0.001,
-        })
-        pkg = _pkg(entry=50_000.0, sl=49_500.0)  # distance=500
-        # min_qty * distance = 0.001 * 500 = $0.50 > $0.01 budget → refuse.
-        qty = rm.position_size(pkg, balance_usd=10_000.0)
-        assert qty == 0.0
-
-    def test_gate_refuses_when_already_past_daily_loss(self):
-        """If daily_pnl is already past -max_daily_loss_usd, refuse."""
-        rm = RiskManager({
-            "risk_pct": 0.01,
-            "min_balance_usd": 50,
-            "daily_usd": 100,
-        })
-        # Push daily_pnl past the cap.
+    def test_past_daily_loss_no_longer_zeroes_size(self):
+        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50, "daily_usd": 100})
         rm.daily_pnl = -150.0
         pkg = _pkg(entry=50_000.0, sl=49_500.0)
-        assert rm.position_size(pkg, balance_usd=10_000.0) == 0.0
+        assert rm.position_size(pkg, balance_usd=10_000.0) == pytest.approx(self._unclipped(pkg))
 
-    def test_gate_uses_remaining_budget_when_partially_drawn(self):
-        """If half the budget is already used, sizer scales to the half left."""
-        rm = RiskManager({
-            "risk_pct": 0.01,
-            "min_balance_usd": 50,
-            "daily_usd": 100,
-        })
-        rm.daily_pnl = -60.0  # $40 budget remaining
-        pkg = _pkg(entry=50_000.0, sl=49_500.0)  # distance=500
-
-        # Raw qty (no gate) = 100/500 = 0.2 → loss-at-SL = $100.
-        # Budget remaining = $40 → scaled qty = 40/500 = 0.08.
-        qty = rm.position_size(pkg, balance_usd=10_000.0)
-        assert qty == pytest.approx(0.08, abs=1e-6)
+    def test_partially_drawn_budget_no_longer_scales(self):
+        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50, "daily_usd": 100})
+        rm.daily_pnl = -60.0
+        pkg = _pkg(entry=50_000.0, sl=49_500.0)
+        assert rm.position_size(pkg, balance_usd=10_000.0) == pytest.approx(self._unclipped(pkg))
 
 
 # ---------------------------------------------------------------------------

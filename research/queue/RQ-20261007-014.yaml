@@ -73,11 +73,22 @@ lands:
   store: research/results/
   assert_field: read_state
   min_rows: 1
-grading:
-  auto: true
 related:
 - RQ-20260929-105
 - RQ-20260922-011
 - docs/research/relative-value-families-2026-10-07.md
 - PI-20261006-APBY4NTV-0005
 last_dispatched_at: null
+grading:
+  auto: true
+  confirmatory_run: 1
+  decision_rule_id: RULE-RQ1007-014-PAIRS-SLV-GLD-1D
+  evidence:
+  - research/results/RQ-20261007-014/37970314217.jsonl
+  first_fail: 1 row(s), all measured, all fail
+  graded_at: '2026-10-09'
+  grader: scripts/research/queue_grade.py
+  note: 'first FAIL: re-queued for a confirmatory run (last_dispatched_at reset), not killed'
+  reason: 1 row(s), all measured, all fail
+  rows: 1
+  verdict: fail

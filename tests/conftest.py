@@ -302,6 +302,17 @@ def _isolate_decision_bar_ledger(tmp_path):
     ledger._PATH_OVERRIDE = None
 
 
+# The daily-DD switch keeps its day state ON DISK (accounts are rebuilt every
+# dispatch tick), so every test gets its own empty file — otherwise one test's
+# trip or day-start equity leaks into the next and into runtime_logs/.
+@pytest.fixture(autouse=True)
+def _isolate_daily_dd_switch_state(tmp_path):
+    from src.units.accounts import daily_dd_switch as dd
+    dd._PATH_OVERRIDE = tmp_path / "daily_dd_switch_state.json"
+    yield
+    dd._PATH_OVERRIDE = None
+
+
 # ---------------------------------------------------------------------------
 # Test-isolation audit (Lane A, 2026-08-28).
 #

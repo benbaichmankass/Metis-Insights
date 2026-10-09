@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Edits claude-pr-automerge.yml (stale-run guard before native arming) and the shared commit-to-main wait + 25 caller budgets (50->80). Landing machinery: manager merges.",
+  "why": "HEALTH-REVIEW-W41 items 2 and 4: a queued stale relay run re-armed native auto-merge on held #17038; research-queue-dispatch lands red because pytest-run (29-64 min) outlives the 50 min wait."
+}
