@@ -1,0 +1,20 @@
+{
+  "based_on": "20261009T043702280895Z-6bd9be28.json",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "no bybit_1 OVER-COVER TRIP line in 12 sampled 10-min trader journal windows over 24h, or the hedge-mode opposite-book case logs below ERROR / does not page",
+    "kind": "observation"
+  },
+  "id": "PI-20261009-GXEDZJQE-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane UNPROVEN-SWEEP session_015WZhDbDdZTbgTzGXeDzjqe; 10-02 scan finding 'bybit_1 OVER-COVER errors on a live account'",
+    "rerun": "python3 - sampling scripts/ops/diag_fetch.sh 'journalctl?unit=ict-trader-live&lines=2000&since=..&until=..' every 2h for 24h and count 'OVER-COVER TRIP'; plus scripts/ops/diag_fetch.sh 'bybit_open_orders?account_id=bybit_1' to compare SL leg qty with position size"
+  },
+  "routed_to": "PROTECTION-HARDENING | [PIPELINE-ROUTE 2026-10-09] owner row for order-path protection/orphan hardening; residual is a log-level/paging decision on the hedge-mode opposite-book over-cover trip.",
+  "severity": "low",
+  "state": "routed",
+  "tier": 2,
+  "what": "bybit_1 OVER-COVER TRIP, verified 2026-10-09: NOT a live over-protection. Trips were logged at ERROR 2026-10-08 ~04:32-04:41Z (4 lines in one 10-min window) for bybit_1/ETHUSDT: position size 0.13 long, side-blind SL total 7.63 (5869%) across 2 legs, but the line itself states THIS position is 100% covered by its own 0.13 leg and the other 7.5 rest on the opposite hedge book (a 7.5 ETH short, position_idx 2). Sampled 12 other 10-min windows over the following 24h: 0 trips. Venue read now (bybit_open_orders): XRPUSDT short 7486.3 covered by SL+TP of 7486.3; ETHUSDT short 7.5 covered by SL+TP of 7.5; no long book. Residual defect: the side-blind trip fires logger.error (and the page path _emit_bybit_over_cover_alert) when a hedge-mode opposite book exists even though the description grades the position as not over-protected; decide whether that case should be below ERROR / not page. bybit_1 is account_class paper, mode live (demo)."
+}

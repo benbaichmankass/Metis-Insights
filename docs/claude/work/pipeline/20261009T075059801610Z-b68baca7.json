@@ -1,0 +1,17 @@
+{
+  "based_on": "20261007T185009808711Z-lane0001.json",
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261007-5ZFJCTNR-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane API-COLLAPSED-STATES session_01LTcc4ccHr2rcL85zFjcTnR, diag 'services' 2026-10-07T18:43Z",
+    "rerun": "scripts/ops/diag_fetch.sh services | python3 -c \"import sys,json;print([x for x in json.load(sys.stdin) if x['state'] not in ('active','inactive')])\""
+  },
+  "routed_to": "IB-GATEWAY-DOWN | [PIPELINE-ROUTE 2026-10-09] owner row's title names this exact pair (stale non-templated ict-prop-executor unit + ib_paper could_not_look). Rerun today: diag services still lists ict-prop-executor.service failed (journal: No entries) AND ict-prop-executor@velotrade_1.service failed because the executor exits 3 on a halted AUTO-REVERT latch (partial_no_sl_tp, set 2026-10-08T15:28Z) - see PROP-EXEC.",
+  "state": "routed",
+  "what": "ict-prop-executor.service (the NON-templated unit; its .timer is inactive) reads state 'failed' on the live VM as of 2026-10-07T18:43Z, while the templated ict-prop-executor@tradeify_1 / @velotrade_1 timers are active. Establish whether this is a stale legacy unit (then disable+reset-failed it) or a real executor outage; journalctl?unit=ict-prop-executor first. Also: ib_paper (mode live) reads could_not_look on /api/diag/ib_open_orders at the same instant, i.e. the IB gateway is not answering for the one IB account that IS meant to be read (ict-ib-gateway-watchdog.timer is inactive)."
+}
