@@ -580,13 +580,24 @@ def match_terminal(spec: Mapping[str, Any], positions: Sequence[Position],
     return {"orders": om, "positions": pm}
 
 
-def classify_confirmation(spec: Mapping[str, Any], found: Mapping[str, Any], rel: float = 0.02) -> str:
-    """``placed`` / ``open`` / ``partial_no_sl_tp`` / ``duplicate`` / ``not_found``. Pure."""
+def classify_confirmation(spec: Mapping[str, Any], found: Mapping[str, Any], rel: float = 0.02,
+                          atomic_bracket: bool = False) -> str:
+    """``placed`` / ``open`` / ``partial_no_sl_tp`` / ``duplicate`` / ``not_found``. Pure.
+
+    ``atomic_bracket`` (PROP-LATCH, 2026-10-09): the adapter places the entry
+    and its SL/TP as ONE server-side contingent group (DXtrade REST IF-THEN,
+    ``DXtradeApiAdapter.ATOMIC_BRACKET``). A RESTING entry then holds no
+    position and carries no SL/TP of its own -- the children are separate
+    orders the server arms on the fill -- so its missing SL/TP is not a naked
+    leg and the check moves to the filled position. Without this, velotrade_1's
+    first live REST ticket (2026-10-08 15:28Z, a protected resting LIMIT) read
+    as ``partial_no_sl_tp``; the "repair" cancelled the executor's own order
+    and the AUTO-REVERT latch halted the account for ~17h."""
     om, pm = list(found.get("orders") or []), list(found.get("positions") or [])
     if len(om) + len(pm) > 1:
         return "duplicate"
     sl, tp = _f(spec.get("stop_loss")), _f(spec.get("take_profit"))
-    for leg in om + pm:
+    for leg in (pm if atomic_bracket else om + pm):
         if not (_close(leg.stop_loss, sl, rel) and _close(leg.take_profit, tp, rel)):
             return "partial_no_sl_tp"
     if pm:
@@ -594,6 +605,12 @@ def classify_confirmation(spec: Mapping[str, Any], found: Mapping[str, Any], rel
     if om:
         return "placed"
     return "not_found"
+
+
+def _atomic(adapter: Any) -> bool:
+    """True when ``adapter`` places entry + SL/TP as one server-side contingent
+    group (see :func:`classify_confirmation`)."""
+    return bool(getattr(adapter, "ATOMIC_BRACKET", False))
 
 
 def open_from_fills(fills: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
@@ -957,7 +974,7 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         handled.add(tid)
         spec = row.get("spec") or {}
         found = match_terminal(spec, positions, orders, cfg.confirm_rel_tol)
-        verdict = classify_confirmation(spec, found, cfg.confirm_rel_tol)
+        verdict = classify_confirmation(spec, found, cfg.confirm_rel_tol, _atomic(adapter))
         claimed_keys.add((str(spec.get("venue_symbol") or "").upper(), spec.get("side")))
         # A partial fill can land before the first confirm re-read, on a row
         # still `submitted`/`unconfirmed` (round-4 review): the same check
@@ -1344,7 +1361,7 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         return res
     row = ledger.latest()[spec.ticket_id]
     found = match_terminal(spec.as_dict(), positions, orders, cfg.confirm_rel_tol)
-    verdict = classify_confirmation(spec.as_dict(), found, cfg.confirm_rel_tol)
+    verdict = classify_confirmation(spec.as_dict(), found, cfg.confirm_rel_tol, _atomic(adapter))
     trip = _contain(res, adapter, page, live, post, ledger, cfg, spec.ticket_id, row, spec.as_dict(), found, verdict)
     if trip:
         res.halted = _trip(res, state, live, trip)
@@ -1548,7 +1565,7 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
             res.alerts.append(f"{tid}: re-read failed ({type(exc).__name__})")
             continue
         found = match_terminal(confirm_spec, positions, orders, cfg.confirm_rel_tol)
-        verdict = classify_confirmation(confirm_spec, found, cfg.confirm_rel_tol)
+        verdict = classify_confirmation(confirm_spec, found, cfg.confirm_rel_tol, _atomic(adapter))
         if verdict != "not_found":
             break
     res.log("confirm_entry", ticket_id=tid, verdict=verdict)
@@ -2276,7 +2293,7 @@ def _supersede_block(res: CycleResult, adapter: Any, page: Any, cfg: ExecutorCon
     if any(str(j.get("symbol") or "").upper() == bot_sym for j in journal_open):
         return f"the journal holds an open position on {bot_sym}", None
     found = match_terminal(spec, positions, orders, cfg.confirm_rel_tol)
-    if classify_confirmation(spec, found, cfg.confirm_rel_tol) != "placed" or len(found["orders"]) != 1:
+    if classify_confirmation(spec, found, cfg.confirm_rel_tol, _atomic(adapter)) != "placed" or len(found["orders"]) != 1:
         return "the resting entry does not match exactly one working order with its bracket", None
     others = [o for o in orders if o.symbol.upper() == venue and o is not found["orders"][0]]
     if others:
