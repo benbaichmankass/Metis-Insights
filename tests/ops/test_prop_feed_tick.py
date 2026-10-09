@@ -6,9 +6,12 @@ no login and no real ping happen. What is pinned:
 
 - the exact read-only invocation (``--emit-status --symbols=`` and nothing else
   that could widen it, e.g. no ``--dump-dir``);
-- a feasibility stop (exit 4) trips on the FIRST occurrence and pings once;
-- other failures trip only after N consecutive, and a success resets the count;
-- a tripped feed never invokes python again;
+- NO-HALT (operator directive 2026-10-09, "There is no halting.";
+  PI-20261009-72XUJX8U-0002): nothing stops the feed. A feasibility stop
+  (exit 4) backs off to the cap on the FIRST occurrence; other failures back
+  off from the N-th consecutive one, exponentially up to the cap. ONE red-flag
+  ping per episode, ONE recovery ping, and a tick after the backoff always
+  attempts again. A stale ``tripped`` marker from the old code is removed;
 - a held lock skips the tick without invoking python;
 - a missing venv is an environment failure, never a pip install.
 """
@@ -53,7 +56,7 @@ def _setup(tmp_path, *, venv=True):
     return repo, base, calls, pings
 
 
-def _tick(tmp_path, repo, base, rc=0, max_failures=3, session="", max_relogins=12):
+def _tick(tmp_path, repo, base, rc=0, max_failures=3, session="", max_relogins=12, **extra):
     env = {
         "PATH": "/usr/bin:/bin",
         "HOME": str(tmp_path),
@@ -65,8 +68,25 @@ def _tick(tmp_path, repo, base, rc=0, max_failures=3, session="", max_relogins=1
         "STUB_RC": str(rc),
         "STUB_SESSION": session,
         "PROP_FEED_MAX_RELOGINS_PER_DAY": str(max_relogins),
+        **{k: str(v) for k, v in extra.items()},
     }
     return subprocess.run(["bash", str(TICK)], capture_output=True, text=True, env=env)
+
+
+def _state(base, sub="feed"):
+    """The feed's key=value backoff state, or None when there is none."""
+    f = base / sub / "backoff"
+    if not f.exists():
+        return None
+    return dict(ln.split("=", 1) for ln in f.read_text().splitlines() if "=" in ln)
+
+
+def _elapse(base, sub="feed"):
+    """Simulate the backoff interval passing: make the next attempt due now."""
+    f = base / sub / "backoff"
+    f.write_text("\n".join(
+        "next_attempt_at=0" if ln.startswith("next_attempt_at=") else ln
+        for ln in f.read_text().splitlines()) + "\n")
 
 
 def _lines(p: pathlib.Path):
@@ -84,38 +104,86 @@ def test_success_invokes_the_read_only_check_exactly(tmp_path):
     # breakout_1's feed never asks for the layout canary (TRADEIFY-GOLIVE #15354).
     assert all("--layout-canary" not in c for c in _lines(calls))
     assert not (base / "feed" / "tripped").exists()
-    assert (base / "feed" / "consecutive_failures").read_text().strip() == "0"
+    assert _state(base) is None              # no backoff state on a clean tick
     assert _lines(pings) == []
 
 
-def test_feasibility_stop_trips_on_first_occurrence_and_pings_once(tmp_path):
+def test_feasibility_stop_backs_off_to_the_cap_and_never_stops(tmp_path):
     repo, base, calls, pings = _setup(tmp_path)
     r = _tick(tmp_path, repo, base, rc=4)
     assert r.returncode == 4
-    assert (base / "feed" / "tripped").exists()
-    assert len(_lines(pings)) == 1 and "TRIPPED" in _lines(pings)[0]
-    # Every later tick skips without logging in, and does not ping again.
+    assert not (base / "feed" / "tripped").exists()          # no latch any more
+    st = _state(base)
+    assert st["flagged"] == "1" and st["delay_s"] == "7200" and "feasibility stop" in st["reason"]
+    assert len(_lines(pings)) == 1 and "BACKING OFF" in _lines(pings)[0]
+    assert "keeps retrying" in _lines(pings)[0]
+    # Ticks inside the backoff do not log in (a refused login is not hammered)
+    # and do not ping again.
     for _ in range(3):
         r = _tick(tmp_path, repo, base, rc=0)
-        assert r.returncode == 0
-    assert len(_lines(calls)) == 1
-    assert len(_lines(pings)) == 1
+        assert r.returncode == 0 and "backing off" in r.stderr
+    assert len(_lines(calls)) == 1 and len(_lines(pings)) == 1
+    # Once the backoff has elapsed the feed tries again by itself.
+    _elapse(base)
+    assert _tick(tmp_path, repo, base, rc=4).returncode == 4
+    assert len(_lines(calls)) == 2
+    assert len(_lines(pings)) == 1                           # still one red flag
+    _elapse(base)
+    assert _tick(tmp_path, repo, base, rc=0).returncode == 0
+    assert len(_lines(calls)) == 3
+    assert len(_lines(pings)) == 2 and "RECOVERED" in _lines(pings)[1]
+    assert _state(base) is None
 
 
-def test_other_failures_trip_after_n_consecutive_and_success_resets(tmp_path):
+def test_other_failures_back_off_after_n_consecutive_and_success_resets(tmp_path):
     repo, base, calls, pings = _setup(tmp_path)
     assert _tick(tmp_path, repo, base, rc=1).returncode == 1
     assert _tick(tmp_path, repo, base, rc=3).returncode == 3
-    assert not (base / "feed" / "tripped").exists()
+    # Below the threshold: retried on the very next tick, no flag.
+    assert _state(base)["consecutive_failures"] == "2" and _state(base)["delay_s"] == "0"
     assert _tick(tmp_path, repo, base, rc=0).returncode == 0  # resets
+    assert _state(base) is None and _lines(pings) == []      # nothing was flagged: no recovery ping
     assert _tick(tmp_path, repo, base, rc=1).returncode == 1
     assert _tick(tmp_path, repo, base, rc=1).returncode == 1
-    assert not (base / "feed" / "tripped").exists()
+    assert _lines(pings) == []
     assert _tick(tmp_path, repo, base, rc=5).returncode == 5
-    assert (base / "feed" / "tripped").exists()
-    assert len(_lines(pings)) == 1
-    _tick(tmp_path, repo, base, rc=0)
-    assert len(_lines(calls)) == 6  # the tripped tick did not log in
+    st = _state(base)
+    assert st["consecutive_failures"] == "3" and st["flagged"] == "1" and st["delay_s"] == "300"
+    assert len(_lines(pings)) == 1 and "3 consecutive failures" in _lines(pings)[0]
+    r = _tick(tmp_path, repo, base, rc=0)                    # inside the backoff
+    assert r.returncode == 0 and len(_lines(calls)) == 6       # no login
+    _elapse(base)
+    assert _tick(tmp_path, repo, base, rc=0).returncode == 0  # after it: attempts
+    assert len(_lines(calls)) == 7
+    assert len(_lines(pings)) == 2 and "RECOVERED" in _lines(pings)[1]
+
+
+def test_backoff_doubles_up_to_the_cap_with_one_red_flag(tmp_path):
+    repo, base, calls, pings = _setup(tmp_path)
+    delays = []
+    for _ in range(9):
+        _tick(tmp_path, repo, base, rc=1)
+        delays.append(int(_state(base)["delay_s"]))
+        _elapse(base)
+    assert delays == [0, 0, 300, 600, 1200, 2400, 4800, 7200, 7200]
+    assert len(_lines(calls)) == 9                           # every due tick attempted
+    assert len(_lines(pings)) == 1                           # exactly one red flag
+    st = _state(base)
+    assert st["consecutive_failures"] == "9" and st["flagged"] == "1"
+    assert st["next_attempt_at_utc"].endswith("Z") and st["since"].endswith("Z")
+
+
+def test_a_stale_trip_marker_is_ignored_and_removed(tmp_path):
+    repo, base, calls, pings = _setup(tmp_path)
+    (base / "feed").mkdir(parents=True)
+    (base / "feed" / "tripped").write_text("2026-10-06T18:27:45Z rc=4 feasibility stop\n")
+    (base / "feed" / "consecutive_failures").write_text("3\n")
+    r = _tick(tmp_path, repo, base, rc=0)
+    assert r.returncode == 0, r.stderr
+    assert len(_lines(calls)) == 1                           # it logged in
+    assert not (base / "feed" / "tripped").exists()
+    assert not (base / "feed" / "consecutive_failures").exists()
+    assert "stale trip marker" in r.stderr
 
 
 def test_held_lock_skips_without_logging_in(tmp_path):
@@ -214,7 +282,7 @@ def test_a_planted_session_token_reaches_no_output_channel(tmp_path):
     channels += [p.read_text() for p in _audits(repo)]
     channels += [p.read_text() for p in (base / "feed").iterdir()
                  if p.name != "session_state.json"]
-    assert (base / "feed" / "tripped").exists()  # the rc=4 tick tripped it
+    assert _state(base)["flagged"] == "1"  # the rc=4 tick put it on the backoff
     for text in channels:
         assert token not in text
 
@@ -229,16 +297,23 @@ def _plant_counter(base, name, value):
     (base / "feed" / name).write_text(f"{value}\n")
 
 
-def test_relogin_ceiling_trips_like_a_feasibility_stop(tmp_path):
+def test_relogin_ceiling_backs_off_to_the_cap_and_never_stops(tmp_path):
     repo, base, calls, pings = _setup(tmp_path)
     _plant_counter(base, f"relogins-{_today()}", 11)
     r = _tick(tmp_path, repo, base, rc=0, session="relogin")
     assert r.returncode == 0  # the read itself was fine
-    assert (base / "feed" / "tripped").exists()
-    assert "relogin ceiling" in (base / "feed" / "tripped").read_text()
-    assert len(_lines(pings)) == 1 and "TRIPPED" in _lines(pings)[0]
-    _tick(tmp_path, repo, base, rc=0, session="relogin")  # tripped: no login
+    st = _state(base)
+    assert "relogin ceiling" in st["reason"] and st["delay_s"] == "7200"
+    assert st["consecutive_failures"] == "0"                 # the read succeeded
+    assert len(_lines(pings)) == 1 and "BACKING OFF" in _lines(pings)[0]
+    _tick(tmp_path, repo, base, rc=0, session="relogin")  # inside the backoff: no login
     assert len(_lines(calls)) == 1 and len(_lines(pings)) == 1
+    # After the cap interval it runs again; the day is still at the ceiling,
+    # so even a reused-session tick goes back on the backoff, with no new ping.
+    _elapse(base)
+    assert _tick(tmp_path, repo, base, rc=0, session="reused").returncode == 0
+    assert len(_lines(calls)) == 2 and len(_lines(pings)) == 1
+    assert "relogin ceiling" in _state(base)["reason"]
 
 
 def test_relogin_ceiling_quiet_control_below_the_ceiling(tmp_path):
@@ -246,13 +321,13 @@ def test_relogin_ceiling_quiet_control_below_the_ceiling(tmp_path):
     _plant_counter(base, f"relogins-{_today()}", 10)
     assert _tick(tmp_path, repo, base, rc=0, session="relogin").returncode == 0
     assert (base / "feed" / f"relogins-{_today()}").read_text().strip() == "11"
-    assert not (base / "feed" / "tripped").exists()
+    assert _state(base) is None
     assert _lines(pings) == []
     # Reused ticks never move the relogin counter, however many there are.
     for _ in range(3):
         _tick(tmp_path, repo, base, rc=0, session="reused")
     assert (base / "feed" / f"relogins-{_today()}").read_text().strip() == "11"
-    assert not (base / "feed" / "tripped").exists()
+    assert _state(base) is None
 
 
 def test_failed_credential_attempts_count_toward_the_ceiling(tmp_path):
@@ -265,7 +340,7 @@ def test_failed_credential_attempts_count_toward_the_ceiling(tmp_path):
     recs = [_json.loads(p.read_text()) for p in _audits(repo)]
     assert recs and all(r["succeeded"] is False for r in recs)
     r = _tick(tmp_path, repo, base, rc=1, session="attempt", max_failures=99, max_relogins=3)
-    assert "relogin ceiling" in (base / "feed" / "tripped").read_text()
+    assert "relogin ceiling" in _state(base)["reason"]
     assert r.returncode == 1
 
 
@@ -278,7 +353,7 @@ def test_a_day_with_no_reused_session_pings_once_ever(tmp_path):
     assert (base / "feed" / "noreuse-pinged").exists()
     assert not (base / "feed" / "ticks-20000101").exists()      # rolled over
     assert not (base / "feed" / "relogins-20000101").exists()
-    assert not (base / "feed" / "tripped").exists()
+    assert _state(base) is None
     _plant_counter(base, "ticks-20000102", 288)                   # a second such day
     _tick(tmp_path, repo, base, rc=0, session="reused")
     assert len(_lines(pings)) == 1                                # one-time only
@@ -300,11 +375,11 @@ def test_reset_feed_rearms_only_after_a_clean_check_under_the_lock():
     code = "\n".join(ln for ln in action.splitlines() if not ln.lstrip().startswith("#"))
     lock = code.index('exec 9>"${BASE}/login.lock"')
     run = code.index("scripts/prop/breakout_login_check.py")
-    clear = code.index('rm -f "${FEED_DIR}/tripped"')
+    clear = code.index('rm -f "${FEED_DIR}/backoff"')
     assert lock < run < clear  # after the check, while fd 9 (the lock) is still held
     guard = code.rindex('if [ "${rc}" = "0" ]', 0, clear)
     assert run < guard < clear
-    assert code.count('rm -f "${FEED_DIR}/tripped"') == 1
+    assert code.count('rm -f "${FEED_DIR}/backoff"') == 1
     # breakout_1's feed dir is the one it always had (TRADEIFY-WIRE made it per account)
     assert 'FEED_DIR="${BASE}/feed"' in code
 
@@ -356,8 +431,9 @@ def test_corrupt_relogin_counter_fails_closed(tmp_path):
     repo, base, calls, pings = _setup(tmp_path)
     _plant_counter(base, f"relogins-{_today()}", "3x")
     _tick(tmp_path, repo, base, rc=0, session="relogin")
-    trip = (base / "feed" / "tripped").read_text()
-    assert "relogin counter corrupt" in trip and "failing closed" in trip
+    reason = _state(base)["reason"]
+    assert "relogin counter corrupt" in reason and "failing closed" in reason
+    assert _state(base)["delay_s"] == "7200"
     assert len(_lines(pings)) == 1
 
 
@@ -365,13 +441,14 @@ def test_non_file_relogin_counter_fails_closed(tmp_path):
     repo, base, calls, pings = _setup(tmp_path)
     (base / "feed" / f"relogins-{_today()}").mkdir(parents=True)
     _tick(tmp_path, repo, base, rc=0, session="relogin")
-    assert "not a regular file" in (base / "feed" / "tripped").read_text()
+    assert "not a regular file" in _state(base)["reason"]
     assert len(_lines(pings)) == 1
 
 
 def test_unwritable_relogin_counter_fails_closed(tmp_path):
     """Simulate a failed write (as on a full disk) with a failing `mv` shim
-    on PATH; the counter must trip the feed, never read as 0 or stick at 1."""
+    on PATH; the counter must put the feed on the capped backoff, never read
+    as 0 or stick at 1."""
     repo, base, calls, pings = _setup(tmp_path)
     shim = tmp_path / "shim"
     _exe(shim / "mv", 'exit 1')
@@ -382,15 +459,16 @@ def test_unwritable_relogin_counter_fails_closed(tmp_path):
         "PROP_FEED_TIMEOUT_S": "20", "STUB_RC": "0", "STUB_SESSION": "relogin",
     }
     subprocess.run(["bash", str(TICK)], capture_output=True, text=True, env=env)
-    assert "write failed" in (base / "feed" / "tripped").read_text()
-    assert len(_lines(pings)) == 1
+    # the backoff state itself falls back to a direct write when mv fails
+    assert "write failed" in _state(base)["reason"]
+    assert len(_lines(pings)) == 1 and "write failed" in _lines(pings)[0]
 
 
-def test_best_effort_counters_never_trip(tmp_path):
+def test_best_effort_counters_never_back_off(tmp_path):
     repo, base, calls, pings = _setup(tmp_path)
     _plant_counter(base, f"ticks-{_today()}", "garbage")
     assert _tick(tmp_path, repo, base, rc=0, session="reused").returncode == 0
-    assert not (base / "feed" / "tripped").exists()
+    assert _state(base) is None
     assert _lines(pings) == []
 
 
@@ -403,7 +481,7 @@ def test_unit_runs_python_unbuffered():
 # ── second prop account (TRADEIFY-WIRE, 2026-09-30) ───────────────────────
 
 
-def _tick_account(tmp_path, repo, base, account, keys_rc=0):
+def _tick_account(tmp_path, repo, base, account, keys_rc=0, stub_rc=0):
     (repo / "scripts" / "prop").mkdir(parents=True, exist_ok=True)
     (repo / "scripts" / "prop" / "prop_env_keys.py").write_text(
         "import sys\n"
@@ -413,7 +491,7 @@ def _tick_account(tmp_path, repo, base, account, keys_rc=0):
     env = {
         "PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "REPO_DIR": str(repo),
         "PROP_BROWSER_BASE": str(base), "PROP_FEED_PING_PY": str(tmp_path / "ping_py"),
-        "PROP_FEED_TIMEOUT_S": "20", "STUB_RC": "0", "STUB_SESSION": "",
+        "PROP_FEED_TIMEOUT_S": "20", "STUB_RC": str(stub_rc), "STUB_SESSION": "",
         "PROP_FEED_ACCOUNT": account,
     }
     return subprocess.run(["bash", str(TICK)], capture_output=True, text=True, env=env)
@@ -428,8 +506,21 @@ def test_second_account_uses_its_own_state_dir(tmp_path):
         "-u scripts/prop/breakout_login_check.py --account tradeify_1 --emit-status --symbols= "
         f"--storage-state {sdir}/session_state.json --layout-canary"
     ]
-    assert (sdir / "consecutive_failures").read_text().strip() == "0"
+    assert _state(base, "accounts/tradeify_1/feed") is None
     assert not (base / "feed").exists()   # breakout_1's dir is never touched
+
+
+def test_second_account_backoff_lives_in_its_own_dir(tmp_path):
+    repo, base, calls, pings = _setup(tmp_path)
+    sdir = base / "accounts" / "tradeify_1" / "feed"
+    sdir.mkdir(parents=True)
+    (sdir / "tripped").write_text("old")                       # stale, from the old code
+    _tick_account(tmp_path, repo, base, "tradeify_1", stub_rc=4)
+    assert not (sdir / "tripped").exists()
+    st = _state(base, "accounts/tradeify_1/feed")
+    assert st["flagged"] == "1" and st["delay_s"] == "7200"
+    assert "account: tradeify_1 apply: reset-feed" in _lines(pings)[0]
+    assert not (base / "feed").exists()
 
 
 def test_second_account_without_platform_entry_never_logs_in(tmp_path):

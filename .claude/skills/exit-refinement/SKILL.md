@@ -148,14 +148,33 @@ graded unfloored and graded at 25 can carry different verdicts, and `None` means
 
 **This is a THIRD threshold, and it does not set the other two.**
 
-⚠️ **Path B's two original thresholds ("improves materially", "the net_R floor") are
-NOT yet set, and MUST NOT be invented.** No sweep has yet reported the
-`net_r_per_capital_day` distribution, and a threshold with no distribution
-behind it is the exposure-ceiling mistake
-(`gross-exposure-governance-DESIGN.md` § 6–7: a ceiling below normal operation
-silently throttles correct work). The first pullback-family stale/giveback
-sweep REPORTS the distribution; the operator sets the two values from it, and
-until then Path B **surfaces candidates for review rather than shipping them**.
+### The PATH-B BAR — DECIDED (operator, 2026-10-09: "Adopt as written")
+
+**DECIDED 2026-10-09 (operator).** A soak-tested exit cell **ships** under Path B
+when it passes **at least 5 of 6 walk-forward folds AND its max drawdown stays
+within 0.35x of the baseline's** — the thresholds of `MD-SOAK-EXIT-CELL-PATHB`
+(`config/mandates.yaml`, `bar.min_wf_usable: 5`, `bar.min_wf_win_fraction: 0.8`,
+`bar.max_dd_worsening_frac_of_base: 0.35`). This replaces the earlier rule that
+Path B only *surfaces candidates for review* because its two thresholds were
+unset. Reverse it only through the operator.
+
+⚠️ **What the 0.35 measures — read the field, not this sentence.** The mandate
+enforces `d_max_dd / base_max_dd <= 0.35` (the drawdown may *worsen* by at most
+35% of the baseline's; clause 6 of `fires_when`), and the walk-forward clause as
+`wins / usable >= 0.8` with `usable >= 5` (so 5 of 6, or 4 of 5). **INFERRED:**
+the decision's "max drawdown <= 0.35x the baseline's" is that worsening fraction;
+read as an absolute ceiling (drawdown at most 35% *of* baseline) it would be a far
+stricter bar than the one the runner applies. The wording difference was reported to
+the manager (PI-20260930-39SDYWCO-0003); if the operator meant the stricter
+reading, `config/mandates.yaml` is what changes — never this paragraph alone.
+
+**Scope of the shipping rule — unchanged around it.** It applies to a cell the
+sweep marks `path_b_wf_pass` (net_r_per_capital_day up in BOTH IS and OOS, the
+`MIN_OOS_TRADES` floor met, the GRANT CAP respected). It does not touch Path A,
+does not skip the walk-forward, and the mandate still fires only on a leg that sits
+ONLY on Stage-1 soak rosters (a mirror, real-money or prop leg goes to a person) and
+opens a human-merge PR (no auto-land). Every cell still needs the TP-doctrine
+check below.
 
 **Path B is a second door, never a lower bar.** It does not relax Path A, and
 it does not skip the walk-forward — relaxing a gate to admit a lever is exactly

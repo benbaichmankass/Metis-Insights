@@ -1,7 +1,7 @@
 id: RQ-20261006-041
 title: 'Breakout 1-Step Turbo prop fit on the 730d record: eth_pullback_2h at flat 0.5% of balance, with days-to-target reported
   (PI-20261006-APBY4NTV-0001 slice 1)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -83,8 +83,6 @@ lands:
   store: research/results/
   assert_field: read_state
   min_rows: 1
-grading:
-  auto: true
 related:
 - PI-20261006-APBY4NTV-0001
 - config/prop_rulesets/breakout_turbo_1step.yaml
@@ -92,3 +90,16 @@ related:
 - RQ-20261005-801
 - RQ-20261005-851
 last_dispatched_at: '2026-10-09T05:59:26+00:00'
+grading:
+  auto: true
+  awaiting: more_data
+  decision_rule_id: RULE-RQ1006-041-BRK-TURBO-FIT-eth_pullback_2h-f050
+  evidence:
+  - research/results/RQ-20261006-041/37886298548.jsonl
+  graded_at: '2026-10-09'
+  grader: scripts/research/queue_grade.py
+  note: 'indeterminate is the pre-registered under-powered/null outcome: complete, but NOT a pass and
+    NOT a kill'
+  reason: 1 row(s), all measured, all indeterminate
+  rows: 1
+  verdict: indeterminate

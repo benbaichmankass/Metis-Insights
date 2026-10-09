@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; changes the prop executor's post-submit SL/TP confirmation for the DXtrade REST adapter (velotrade_1)",
+  "why": "PROP-LATCH 2026-10-09: velotrade_1's first live REST ticket (2026-10-08 15:28Z, a resting LIMIT IF-THEN bracket) read as partial_no_sl_tp because the REST adapter's WorkingOrder never carries SL/TP (they are separate child orders); the repair cancelled the executor's own protected order and the AUTO-REVERT latch halted entries ~17h. Fix: ATOMIC_BRACKET adapters check SL/TP on the filled position, and the adapter reads SL/TP from the listed CLOSE children."
+}

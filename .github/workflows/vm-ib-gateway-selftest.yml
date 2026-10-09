@@ -107,7 +107,7 @@ jobs:
               --probe-script scripts/ops/ib_gateway_local_probe.py \
               --state runtime_logs/ib_gateway_watchdog_state.json \
               --auto-restart --restart-after 2 --max-restarts 3 \
-              --cooldown-min 0 --exhaustion-reset-min 120 2>&1)"
+              --cooldown-min 0 --max-backoff-min 60 2>&1)"
             echo "$out" | grep -E 'probe:|action|restart|login_completed|IBC: Login has completed' | tail -8 || true
             if echo "$out" | grep -q 'IB Gateway auto-healed'; then restarted=yes; fi
             # once the watchdog has restarted it, give it a moment then stop looping

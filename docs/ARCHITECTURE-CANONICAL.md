@@ -578,7 +578,9 @@ measured from the CURRENT price, saying so in the reason. Consumers:
 - **prop, API adapter** — `prop_trail._tp_step` calls the same
   `plan_tp_revision` on a tick with no SL step due, sends a TP-only
   `modify_bracket(page, p, None, tp)`, confirms on re-read and alerts on a
-  refusal or an unconfirmed amend (capped at `MAX_ATTEMPTS_PER_TARGET`). Asked
+  refusal or an unconfirmed amend (alert on the first failure, retried every
+  cycle on a capped backoff, one red flag after `RED_FLAG_AFTER` in a row —
+  never given up on, NO-HALT 2026-10-09). Asked
   only of an adapter declaring `TP_AMEND_SUPPORTED = True` — today
   `dxtrade_api` (velotrade_1).
 - **prop, browser `dxtrade`** (breakout_1, tradeify_1) — `TP_AMEND_SUPPORTED =
@@ -654,9 +656,12 @@ passed.
 
 tradeify_1 is `browser` on MEASURED evidence: every `ict-prop-executor@tradeify_1`
 tick logged `env_mode: live` until its feed tripped at 2026-10-06 18:27:45Z
-(rc=4 feasibility stop, never retried). While the trip holds, its tickets are
-notify-only and expire unplaced; a human placing one reports it by pasting the
-fill with its ticket id.
+(rc=4 feasibility stop, never retried). While that trip held, its tickets were
+notify-only and expired unplaced; a human placing one reports it by pasting the
+fill with its ticket id. The trip latch itself is gone (NO-HALT, operator
+directive 2026-10-09, PI-20261009-72XUJX8U-0002): the feed now retries on a
+capped backoff (`<feed dir>/backoff`, one red flag, one recovery notice) and
+the executor tick no longer skips because of the feed's state.
 
 ### The rules
 

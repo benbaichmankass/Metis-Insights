@@ -1,0 +1,6 @@
+{
+  "held_by": "session_016wNjQSovXrhDpd72xUjx8U",
+  "branch": "claude/no-halt-trail",
+  "claimed_at": "2026-10-09T11:42:37Z",
+  "purpose": "NO-HALT: retire the prop trail modify-rollout latch and per-ticket lock (retry + one red flag)"
+}

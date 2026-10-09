@@ -1,0 +1,6 @@
+{
+  "held_by": "session_016wNjQSovXrhDpd72xUjx8U",
+  "branch": "claude/no-halt",
+  "claimed_at": "2026-10-09T10:45:33Z",
+  "purpose": "NO-HALT: remove the prop executor AUTO-REVERT latch; record the operator directive (HELD, manager merges)"
+}

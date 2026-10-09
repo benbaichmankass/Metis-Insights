@@ -12,15 +12,15 @@
 # the manual vm-ib-gateway-recover dispatches).
 #
 # Safety: --restart-after 2 (need ~10 min of wedge before acting),
-# --max-restarts 3 + --cooldown-min 20 so a genuinely bad credential /
-# IBKR lockout can NEVER turn into a restart loop (every restart is a fresh
-# IBKR login). Once exhausted the watchdog alert-only escalates — but
-# --exhaustion-reset-min 120 re-arms that budget after 2h of no restart, so a
-# multi-hour wedge whose first 3 restarts all land inside IBKR's overnight
-# server-reset window (when a re-login can't yet re-establish the session) is
-# retried once IBKR recovers, instead of stranding MES for the whole episode
-# (the 2026-06-09 incident, BL-20260605-004). Still loop-proof: the re-arm
-# only fires after a long quiet gap.
+# --cooldown-min 20 between restarts, so a genuinely bad credential /
+# IBKR lockout can NEVER turn into a tight login loop (every restart is a
+# fresh IBKR login). NO-HALT (operator directive 2026-10-09: "There is no
+# halting."): after --max-restarts 3 the watchdog does NOT give up — it sends
+# ONE [RED FLAG] alert for the episode and keeps restarting with the gap
+# doubling from 20 min up to --max-backoff-min 60. (Until 2026-10-09 it went
+# EXHAUSTED/alert-only, softened by a 2h --exhaustion-reset-min re-arm,
+# BL-20260605-004 — the capped backoff supersedes both; that flag is now an
+# ignored no-op.)
 #
 # Requires passwordless sudo for `docker restart` (same as the
 # vm-ib-gateway-recover workflow path) and ib_insync importable under the
@@ -79,16 +79,15 @@ Nice=-10
 # vm-ib-gateway-recover dispatch restored it). Re-arming the SAME bounded guards
 # closes that gap while staying loop-proof:
 #   --restart-after 2      need ~10 min of sustained wedge before acting
-#   --max-restarts 3       cap per episode (a bad credential / IBKR lockout can
-#                          never become a restart loop — every restart is a
-#                          fresh IBKR login)
-#   --cooldown-min 20      min gap between restarts
-#   --exhaustion-reset-min 120  re-arm the budget after 2h quiet, so a multi-hour
-#                          wedge whose first restarts land inside IBKR's reset
-#                          window is retried once IBKR recovers (BL-20260605-004)
-# Once the budget is exhausted the watchdog falls back to alert-only until the
-# session recovers. The manual vm-ib-gateway-recover workflow remains as the
-# operator escape hatch. The reactive cadence lives in the sibling .timer.
+#   --max-restarts 3       restarts at the plain cooldown; past this ONE red
+#                          flag is raised and restarts CONTINUE (NO-HALT)
+#   --cooldown-min 20      min gap between restarts (anti-lockout: every
+#                          restart is a fresh IBKR login)
+#   --max-backoff-min 60   past --max-restarts the gap doubles from 20 min up
+#                          to this cap — never a tight loop, never a stop
+# The watchdog never falls back to alert-only. The manual vm-ib-gateway-recover
+# workflow remains as the operator escape hatch. The reactive cadence lives in
+# the sibling .timer.
 #
 # DEP-FREE LOCAL PROBE (--probe-script, BL-20260622-GATEWAY-LOCAL-PROBE): the
 # gateway VM is a MINIMAL box with no bot venv, so the account probe
@@ -113,7 +112,7 @@ ExecStart=/usr/bin/python3 -u scripts/check_ib_gateway.py --probe-account ib_pap
   --probe-script scripts/ops/ib_gateway_local_probe.py \
   --state runtime_logs/ib_gateway_watchdog_state.json \
   --auto-restart --restart-after 2 --max-restarts 3 \
-  --cooldown-min 20 --exhaustion-reset-min 120 \
+  --cooldown-min 20 --max-backoff-min 60 \
   --suppress-window-utc 03:45-05:45
 StandardOutput=journal
 StandardError=journal

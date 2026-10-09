@@ -8,6 +8,7 @@ on a TP-capable adapter, confirmed on re-read.
 """
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any, Dict, List
 
 import pytest
@@ -186,10 +187,10 @@ def _pos(sl=99.0, tp=130.0):
     return Position(symbol="SOLUSD", side="long", quantity=1, entry_price=100, stop_loss=sl, take_profit=tp)
 
 
-def _run(adapter, api, mode, tmp_path, leg):
+def _run(adapter, api, mode, tmp_path, leg, now=None):
     c = bars([(101.5, 99.5, 101)], forming=(101.2, 100.8, 101.0))
     return pt.run_trail_step(adapter=adapter, page=None, api=api, cfg=cfg(), mode=mode,
-                             state_dir=tmp_path, candles_fn=lambda s, tf: c, now=now_after(1),
+                             state_dir=tmp_path, candles_fn=lambda s, tf: c, now=now or now_after(1),
                              legs={"trend_donchian_sol_prop": leg})
 
 
@@ -226,14 +227,20 @@ def test_prop_read_only_builds_but_does_not_arm(tmp_path, fixed_rule):
 
 
 def test_prop_refused_tp_amend_alerts_once_and_keeps_the_resting_tp(tmp_path, fixed_rule):
+    # NO-HALT (operator 2026-10-09): never capped -- retried every due cycle,
+    # alerted on the first failure, ONE red flag at RED_FLAG_AFTER in a row.
     a, api = TpAdapter([_pos()], ok=False), Api()
     res = _run(a, api, "live", tmp_path, {**SOL, **fixed_rule})
     assert any("TP amend to 107.5 refused" in x for x in res.alerts)
     res2 = _run(a, api, "live", tmp_path, {**SOL, **fixed_rule})
     assert not any("refused" in x for x in res2.alerts)
-    res3 = _run(a, api, "live", tmp_path, {**SOL, **fixed_rule})     # capped at MAX_ATTEMPTS_PER_TARGET
-    assert len(a.calls) == pt.MAX_ATTEMPTS_PER_TARGET
-    assert a.positions[0].take_profit == 130.0 and not res3.alerts
+    alerts = []
+    for h in range(1, 5):                                            # an hour apart: past any backoff
+        alerts += _run(a, api, "live", tmp_path, {**SOL, **fixed_rule},
+                       now=now_after(1) + timedelta(hours=h)).alerts
+    assert len(a.calls) == 6                                         # still trying
+    assert sum("RED FLAG" in x and "TP" in x for x in alerts) == 1
+    assert a.positions[0].take_profit == 130.0
 
 
 def test_prop_unconfirmed_tp_amend_alerts(tmp_path, fixed_rule):

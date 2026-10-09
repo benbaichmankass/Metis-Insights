@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Only blocked_on/clears_when text of blocked unit RQ-20261009-903 changes (decision_rule untouched, unit stays in blocked/). research/queue/ is outside the Tier-1 self-land surface, so the manager merges by hand.",
+  "why": "Edits only blocked_on / clears_when text of the blocked research-queue unit RQ-20261009-903 to record that the accrual blocker is cleared and only the PM-surprise lever remains."
+}

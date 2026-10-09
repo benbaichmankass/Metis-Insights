@@ -109,3 +109,15 @@ def declared_prop_account_ids(
 
 
 __all__ = ["is_prop_account", "declared_prop_account_ids"]
+
+
+def is_retired_account(account: Mapping[str, Any]) -> bool:
+    """True when *account* is explicitly marked ``retired: true`` in accounts.yaml.
+
+    THE one switch for "this account is gone; nothing may ping, alert or brief
+    on it" (operator 2026-10-09 on breakout_1: it "shouldn't be coming up
+    again"). Field-only and fail-open: a missing/non-bool value is NOT retired,
+    so a typo can never silence a live account. History and journal rows are
+    untouched -- this only gates operator-facing live surfaces.
+    """
+    return isinstance(account, Mapping) and account.get("retired") is True

@@ -12,14 +12,16 @@ What one cycle does (:func:`run_cycle`):
    ``read_only``; an unparseable value is ``read_only`` (a typo can never arm
    ``live``). ``off`` returns before touching the page.
 2. **Read** balance/equity, positions and working orders off the terminal, in
-   THIS cycle. A read that does not parse halts new entries (selector drift).
+   THIS cycle. A read that does not parse holds new entries for THIS cycle
+   only (selector drift); the next cycle reads again (NO-HALT, 2026-10-09).
 3. **Reconcile the intent ledger**: every ticket we clicked for is confirmed
    by RE-READ (never by click success), contained per § 3.5, or after
    ``unconfirmed_reads`` cycles reported ``skipped: unconfirmed_submit``.
 4. **Reconcile the journal** (open ``prop_fills``) against the terminal by
    ``prop_position_identity`` (account + bot symbol + direction): closed on the
    terminal on two consecutive reads → ``closed``; a terminal position nobody
-   placed → orphan: alert, HALT, never touch it; SL/TP differs → ``amend``.
+   placed → orphan: alert (red flag if it persists), never touch it; SL/TP
+   differs → ``amend``. Nothing in a cycle ever latches (NO-HALT 2026-10-09).
 5. **Intake**: ``GET /api/bot/prop/tickets?status=emitted``. The ticket id is
    the idempotency key; a ticket already in the ledger is never acted on again.
 6. **Guards** (:func:`evaluate_guards`), local and fail-closed, from the
@@ -455,7 +457,7 @@ def evaluate_guards(*, ticket: Mapping[str, Any], spec: Optional[BracketSpec], f
     """§ 3.3, pure. Every check runs (so the report names every reason), and
     the verdict fits only when NONE refused. "Could not look" refuses.
 
-    Two kinds of "no". HARD, in every mode: halt, structure, expiry, balance/
+    Two kinds of "no". HARD, in every mode: structure, expiry, balance/
     equity not read, open risk not readable, and the risk gate's
     ``cushion_unknown`` (could not look), and a risk above the flat $-cap
     (the sizing decision). BREACH, whose outcome depends on
@@ -580,13 +582,34 @@ def match_terminal(spec: Mapping[str, Any], positions: Sequence[Position],
     return {"orders": om, "positions": pm}
 
 
-def classify_confirmation(spec: Mapping[str, Any], found: Mapping[str, Any], rel: float = 0.02) -> str:
-    """``placed`` / ``open`` / ``partial_no_sl_tp`` / ``duplicate`` / ``not_found``. Pure."""
+def classify_confirmation(spec: Mapping[str, Any], found: Mapping[str, Any], rel: float = 0.02,
+                          atomic_bracket: bool = False, group_accepted: bool = False) -> str:
+    """``placed`` / ``open`` / ``partial_no_sl_tp`` / ``duplicate`` / ``not_found``. Pure.
+
+    ``atomic_bracket`` (PROP-LATCH, 2026-10-09): the adapter places the entry
+    and its SL/TP as ONE server-side contingent group (DXtrade REST IF-THEN,
+    ``DXtradeApiAdapter.ATOMIC_BRACKET``), so a RESTING entry carries no SL/TP
+    of its own -- the children are separate orders. Protection must still be
+    PROVEN, never assumed. A resting entry passes when:
+      * its own ``-S`` / ``-T`` children are listed (the adapter copies their
+        prices onto it) and match the spec -- the normal check; or
+      * NO child is listed at all, the order is OUR entry
+        (``client_ids(ticket)["entry"]``), and ``group_accepted`` (the
+        ledger's submit recorded the IF-THEN POST as ``http 200``).
+    Anything else (one child listed, a mismatching child, a foreign id, an
+    unknown POST outcome) is ``partial_no_sl_tp``. Positions always get the
+    full check. Without this, velotrade_1's first live REST ticket
+    (2026-10-08 15:28Z, a resting LIMIT IF-THEN) read as ``partial_no_sl_tp``;
+    the "repair" cancelled the executor's own order and the AUTO-REVERT latch
+    halted the account for ~17h."""
     om, pm = list(found.get("orders") or []), list(found.get("positions") or [])
     if len(om) + len(pm) > 1:
         return "duplicate"
     sl, tp = _f(spec.get("stop_loss")), _f(spec.get("take_profit"))
     for leg in om + pm:
+        if (atomic_bracket and leg in om and leg.stop_loss is None and leg.take_profit is None
+                and group_accepted and _is_own_entry(spec, leg)):
+            continue  # protected server-side: the accepted IF-THEN group's own entry
         if not (_close(leg.stop_loss, sl, rel) and _close(leg.take_profit, tp, rel)):
             return "partial_no_sl_tp"
     if pm:
@@ -594,6 +617,23 @@ def classify_confirmation(spec: Mapping[str, Any], found: Mapping[str, Any], rel
     if om:
         return "placed"
     return "not_found"
+
+
+def _is_own_entry(spec: Mapping[str, Any], order: Any) -> bool:
+    """True when ``order`` carries this ticket's own entry client id."""
+    from src.prop.platform.dxtrade_api import client_ids
+    tid = str(spec.get("ticket_id") or "")
+    return bool(tid) and (getattr(order, "order_id", None) or "") == client_ids(tid)["entry"]
+
+
+def _atomic(adapter: Any, row: Optional[Mapping[str, Any]] = None) -> Dict[str, bool]:
+    """``classify_confirmation`` keywords for ``adapter``: ``atomic_bracket``
+    when it places entry + SL/TP as one server-side contingent group, and
+    ``group_accepted`` when the ticket's ledger row recorded that POST as
+    ``http 200`` (``place_bracket``'s detail; ``latest()`` keeps it)."""
+    atomic = bool(getattr(adapter, "ATOMIC_BRACKET", False))
+    return {"atomic_bracket": atomic,
+            "group_accepted": atomic and str((row or {}).get("detail") or "") == "http 200"}
 
 
 def open_from_fills(fills: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
@@ -765,53 +805,118 @@ class ExecutorState:
         os.replace(tmp, self.file)
 
     def halted(self) -> Optional[str]:
-        if self.halt_file.exists():
-            try:
-                return self.halt_file.read_text().strip() or "halted (no reason recorded)"
-            except Exception:
-                return "halted (marker unreadable)"
+        """Always None: the executor has no latch (NO-HALT, operator directive
+        2026-10-09, docs/CLAUDE-RULES-CANONICAL.md § Prime Directive rule 7).
+        Kept so older callers read "not halted" instead of raising."""
         return None
 
-    def halt(self, reason: str) -> None:
-        self.dir.mkdir(parents=True, exist_ok=True)
+    def clear_stale_latch(self) -> Optional[str]:
+        """Remove a ``halted`` file left by an executor that still latched,
+        appending its text to ``halt_clears.jsonl``. Returns the prior text,
+        or None when there was none. Never raises: a file that cannot be
+        removed is still ignored, because nothing reads it any more."""
         if not self.halt_file.exists():
-            self.halt_file.write_text(f"{datetime.now(timezone.utc).isoformat()} {reason}\n")
+            return None
+        try:
+            prior = self.halt_file.read_text().strip() or "(empty)"
+        except Exception:
+            prior = "(unreadable)"
+        try:
+            self.halt_file.unlink()
+            with open(self.dir / "halt_clears.jsonl", "a") as fh:
+                fh.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(), "latch": "halted",
+                                     "actor": "prop_executor", "reason": "NO-HALT: stale latch removed on start",
+                                     "prior": prior[:500]}) + "\n")
+        except Exception:
+            pass
+        return prior
 
 
-# ── auto-revert: permanent trip conditions (operator go-live criteria,
-# 2026-09-28, checklist row PROP-EXEC) ─────────────────────────────────────
-# Each one writes the ``halted`` latch, which refuses every new entry (HARD
-# in every mode) until a person clears it, while reconcile and containment
-# keep running, and raises an alert the tick pings. The latch is the
-# in-process revert; the env / timer revert is the system-action run on the
-# alert.
-TRIP_CONSECUTIVE_ERRORS = 2
-TRIP_READBACK_REFUSALS = 2
+# ── failures: per-ticket, retried, red-flagged — never a halt ─────────────
+# NO-HALT (operator directive 2026-10-09, verbatim in
+# docs/CLAUDE-RULES-CANONICAL.md § Prime Directive rule 7). Until then each of
+# these conditions wrote a ``halted`` latch that refused every new entry until
+# a person ran executor-clear-halt; velotrade_1 sat halted ~17h on a false
+# positive (PI-20261009-XQ5RTZKZ-0001). Now:
+# - the bad ticket is still contained (cancel the unprotected order, protect
+#   or flatten the naked position, every cycle until it is resolved);
+# - entries are held for THIS cycle only (its read predates the containment)
+#   and the next cycle decides fresh;
+# - the failure is alerted the first time it is seen, and when the same kind
+#   repeats on RED_FLAG_AFTER consecutive cycles ONE red flag is raised with
+#   the evidence. Nothing stops; the cycle exits 0.
+RED_FLAG_AFTER = 3
+_FAILURE_KEY = "failure_streaks"
+_TOKEN_RE = re.compile(r"\b(?=[\w-]*\d)[\w-]{6,}\b|\b\d+(?:\.\d+)?\b")
 
 
-def _trip(res: "CycleResult", state: "ExecutorState", live: bool, why: str) -> str:
-    """Latch ``why`` (live only: a read_only cycle never writes state that a
-    live one would obey) and alert. Returns ``why`` for the caller's halt."""
-    reason = f"AUTO-REVERT: {why}"
-    if live:
-        state.halt(reason)
-    res.alerts.append(reason + " — new entries halted until cleared")
-    return reason
+def failure_kind(why: str) -> str:
+    """The failure's KIND: ticket ids, sizes and prices masked, so the same
+    failure on three different tickets counts as one repeating kind."""
+    return _TOKEN_RE.sub("#", str(why or ""))[:160]
+
+
+def _fail(res: "CycleResult", why: str) -> str:
+    """Record one failure of this cycle. No latch, no state: the alert and the
+    red flag are decided once per cycle by :func:`settle_failures`."""
+    res.failures.append(why)
+    return why
+
+
+def settle_failures(state: "ExecutorState", res: "CycleResult", live: bool, *, complete: bool = True,
+                    now: Optional[datetime] = None) -> None:
+    """Update the per-kind streaks from this cycle's ``res.failures`` and add
+    the alerts: the FIRST cycle a kind fails alerts, the RED_FLAG_AFTER-th
+    consecutive one raises ONE red flag, a kind that stops failing on a
+    ``complete`` cycle is dropped (and says it recovered when it had been
+    red-flagged). An incomplete cycle (its read failed) only adds. Read-only
+    cycles alert but keep no streak (they never write state a live cycle
+    would read)."""
+    now = now or datetime.now(timezone.utc)
+    kinds: Dict[str, str] = {}
+    for why in res.failures:
+        kinds.setdefault(failure_kind(why), why)
+    if not live:
+        for why in kinds.values():
+            res.alerts.append(f"FAILED: {why} — contained; retrying next cycle, nothing halted")
+        return
+    st = state.load()
+    streaks: Dict[str, Any] = dict(st.get(_FAILURE_KEY) or {})
+    for kind, why in kinds.items():
+        s = dict(streaks.get(kind) or {})
+        n = int(s.get("n") or 0) + 1
+        s.update(n=n, last=why, last_at=now.isoformat())
+        s.setdefault("first_at", now.isoformat())
+        if n == 1:
+            res.alerts.append(f"FAILED: {why} — contained; retrying next cycle, nothing halted")
+        elif n >= RED_FLAG_AFTER and not s.get("flagged"):
+            s["flagged"] = True
+            res.alerts.append(f"🚩 RED FLAG: the same failure on {n} consecutive cycles since {s['first_at']} "
+                              f"(last: {why}) — the executor keeps running and retrying; it needs a look")
+        else:
+            res.log("failure_repeats", kind=kind, n=n, why=why)
+        streaks[kind] = s
+    if complete:
+        for kind in [k for k in streaks if k not in kinds]:
+            s = streaks.pop(kind)
+            if s.get("flagged"):
+                res.alerts.append(f"RECOVERED: {s.get('last')} — no longer failing after {s.get('n')} cycles")
+    st[_FAILURE_KEY] = streaks
+    state.save(st)
 
 
 def record_tick_error(state_dir: Path, live: bool, why: str) -> Optional[str]:
-    """A tick that raised before its cycle finished counts as an executor
-    error; ``TRIP_CONSECUTIVE_ERRORS`` in a row trips the latch. Returns the
-    trip reason, or None."""
+    """A tick that raised before its cycle finished. Counted, never latched:
+    returns ONE red-flag line on the RED_FLAG_AFTER-th consecutive one (live
+    only), else None. The next tick retries."""
     state = ExecutorState(Path(state_dir))
     st = state.load()
     n = int(st.get("consecutive_errors") or 0) + 1
     st["consecutive_errors"] = n
     state.save(st)
-    if n >= TRIP_CONSECUTIVE_ERRORS and live:
-        reason = f"AUTO-REVERT: executor errors on {n} consecutive ticks (last: {why})"
-        state.halt(reason)
-        return reason
+    if n == RED_FLAG_AFTER and live:
+        return (f"🚩 RED FLAG: executor errors on {n} consecutive ticks (last: {why}) — "
+                "still running and retrying every tick; it needs a look")
     return None
 
 
@@ -852,7 +957,11 @@ class CycleResult:
     actions: List[Dict[str, Any]] = field(default_factory=list)
     reports: List[Dict[str, Any]] = field(default_factory=list)
     alerts: List[str] = field(default_factory=list)
+    # Why new entries are held THIS cycle (a failed read, a containment whose
+    # read predates it). Never persisted: the next cycle decides fresh.
     halted: Optional[str] = None
+    # This cycle's failures; settle_failures turns them into alerts/red flags.
+    failures: List[str] = field(default_factory=list)
 
     def log(self, what: str, **kw: Any) -> None:
         self.actions.append({"what": what, **kw})
@@ -897,7 +1006,35 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     ``walk_form`` (dry run only): when a ticket FITS, also open the order form,
     type it and read it back (``place_bracket(arm=False)``), then close it.
     ``max_lots`` / ``only_ticket_id``: the watched step-3 test (minimum size,
-    one named or newest ticket)."""
+    one named or newest ticket).
+
+    NO-HALT (operator 2026-10-09): a ``halted`` file left by an older executor
+    is removed (live) or ignored (read_only) with a log line, and this cycle's
+    failures are settled into first-time alerts and one red flag per
+    repeating kind (:func:`settle_failures`). Nothing here ever stops the
+    executor."""
+    if mode == "off":
+        return _run_cycle(adapter=adapter, page=page, api=api, cfg=cfg, mode=mode, ledger=ledger,
+                          state=state, now=now, walk_form=walk_form, max_lots=max_lots,
+                          only_ticket_id=only_ticket_id, sleep=sleep)
+    live = mode == "live"
+    # read_only never writes state, so it only reports a stale file.
+    stale = state.clear_stale_latch() if live else ("present" if state.halt_file.exists() else None)
+    res = _run_cycle(adapter=adapter, page=page, api=api, cfg=cfg, mode=mode, ledger=ledger,
+                     state=state, now=now, walk_form=walk_form, max_lots=max_lots,
+                     only_ticket_id=only_ticket_id, sleep=sleep)
+    if stale:
+        res.log("stale_latch_ignored", prior=stale[:300], removed=live,
+                why="NO-HALT (operator 2026-10-09): the executor never latches; an old halted file is ignored")
+    settle_failures(state, res, live, complete=res.reads.get("reconciled") is True, now=now)
+    return res
+
+
+def _run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: str,
+               ledger: IntentLedger, state: ExecutorState, now: Optional[datetime] = None,
+               walk_form: bool = False, max_lots: Any = None,
+               only_ticket_id: Optional[str] = None,
+               sleep: Callable[[float], None] = lambda s: None) -> CycleResult:
     now = now or datetime.now(timezone.utc)
     res = CycleResult(mode=mode)
     if mode == "off":
@@ -914,14 +1051,11 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         orders = adapter.read_orders(page)
     except Exception as exc:
         why = f"terminal read failed ({type(exc).__name__}: {exc}) — selector drift or expired session"
-        res.alerts.append(why)
-        res.halted = why
+        res.halted = _fail(res, why)
         n = int(st.get("consecutive_errors") or 0) + 1
         st["consecutive_errors"] = n
         state.save(st)
-        if n >= TRIP_CONSECUTIVE_ERRORS:
-            res.halted = _trip(res, state, live, f"executor errors on {n} consecutive ticks ({why})")
-        res.log("halt_no_entries", why=res.halted)
+        res.log("no_entries_this_cycle", why=why, consecutive=n)
         return res
     prior_errors = int(st.get("consecutive_errors") or 0)
     st["consecutive_errors"] = 0
@@ -929,25 +1063,20 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     if acct.balance is None or acct.equity is None:
         res.alerts.append("balance/equity did not parse this cycle")
 
-    halted = state.halted()
+    # Why entries are held THIS cycle (never persisted; NO-HALT 2026-10-09).
+    halted: Optional[str] = None
     # A failed journal read is an executor error like a failed terminal read
-    # (PI-20260930-KMYJ5XC7-0011): it counts toward TRIP_CONSECUTIVE_ERRORS and
-    # blocks entries THIS cycle only. It used to latch on the first failure, so
-    # one ict-web-api restart by the deploy (16:05:05-07Z on 2026-09-30) halted
-    # the executor until a person cleared it. The terminal-side containment in
-    # step 3 still runs; the journal reconcile (step 4) is skipped, so a failed
-    # read never counts as "flat".
+    # (PI-20260930-KMYJ5XC7-0011): it blocks entries THIS cycle only. The
+    # terminal-side containment in step 3 still runs; the journal reconcile
+    # (step 4) is skipped, so a failed read never counts as "flat".
     journal_error = None
     try:
         journal_open = api.open_fills(cfg.account_id)
     except Exception as exc:
         journal_open = None
         journal_error = f"journal read failed ({type(exc).__name__})"
-        n = prior_errors + 1
-        st["consecutive_errors"] = n
-        res.alerts.append(f"{journal_error}; no entries this cycle")
-        if n >= TRIP_CONSECUTIVE_ERRORS:
-            halted = halted or _trip(res, state, live, f"executor errors on {n} consecutive ticks ({journal_error})")
+        st["consecutive_errors"] = prior_errors + 1
+        _fail(res, f"{journal_error}; no entries this cycle")
 
     # 3. reconcile the ledger (confirm by re-read, contain per § 3.5)
     claimed_keys = set()
@@ -957,7 +1086,7 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         handled.add(tid)
         spec = row.get("spec") or {}
         found = match_terminal(spec, positions, orders, cfg.confirm_rel_tol)
-        verdict = classify_confirmation(spec, found, cfg.confirm_rel_tol)
+        verdict = classify_confirmation(spec, found, cfg.confirm_rel_tol, **_atomic(adapter, row))
         claimed_keys.add((str(spec.get("venue_symbol") or "").upper(), spec.get("side")))
         # A partial fill can land before the first confirm re-read, on a row
         # still `submitted`/`unconfirmed` (round-4 review): the same check
@@ -968,7 +1097,7 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
                 and verdict in ("placed", "not_found")):
             why = _suspected_partial_fill(res, ledger, live, tid, spec, found, positions)
             if why:
-                halted = halted or _trip(res, state, live, why)
+                halted = halted or _fail(res, why)
                 continue
         if verdict == "placed" and row.get("state") == "placed":
             if _expire_resting(res, adapter, page, live, ledger, tid, row, spec, found, positions, now):
@@ -976,7 +1105,7 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
             row = ledger.latest().get(tid, row)
         trip = _contain(res, adapter, page, live, post, ledger, cfg, tid, row, spec, found, verdict)
         if trip:
-            halted = halted or _trip(res, state, live, trip)
+            halted = halted or _fail(res, trip)
 
     # 3b. resolve the closes that did not confirm (review of #14388): the
     #     position may still be live under its bracket, so the row HOLDS new
@@ -1003,19 +1132,55 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         if live:
             ledger.record(tid, "close_confirmed", reason="flat_on_terminal")
 
+    # 3c. NO-HALT (operator 2026-10-09): a naked position of OURS that step 3
+    #     closed (state `contained`) but that is still on the terminal with no
+    #     SL/TP is flattened again, every cycle, until it is gone. Only rows
+    #     contained in the last day, and only a position with no stop or no
+    #     target on the ticket's own symbol+side: a protected position, or a
+    #     manual one long after, is never touched here.
+    for tid, row in ledger.latest().items():
+        if (row.get("state") != "contained" or row.get("verdict") != "partial_no_sl_tp"
+                or not row.get("close_attempts") or tid in handled):
+            continue
+        ts = _parse_ts(row.get("ts"))
+        if ts is None or now - ts > timedelta(hours=24):
+            continue
+        spec = row.get("spec") or {}
+        venue, side = str(spec.get("venue_symbol") or "").upper(), spec.get("side")
+        still = [p for p in positions if p.symbol.upper() == venue and p.side == side
+                 and (p.stop_loss is None or p.take_profit is None) and _bracket_columns_read(p)]
+        if not still:
+            continue
+        claimed_keys.add((venue, side))
+        handled.add(tid)
+        res.log("naked_still_open", ticket_id=tid, venue=venue, side=side, why="closing it again")
+        _repair_or_flatten(res, adapter, page, live, ledger, tid, {**row, "leg_fix_tried": True}, still[0],
+                           spec.get("stop_loss"), spec.get("take_profit"),
+                           retry_state="contained", verdict="partial_no_sl_tp")
+        halted = halted or _fail(res, f"{tid}: partial_no_sl_tp still naked on the terminal")
+
     # 4. reconcile the journal against the terminal
     if journal_open is not None:
         reader = getattr(adapter, "read_trade_history", None)
         naked: List[Tuple[Mapping[str, Any], Position, List[str], int]] = []
-        halted = _reconcile_journal(res, cfg, st, positions, journal_open, ledger, claimed_keys, post,
+        # An orphan / unmappable terminal position is a failure (alerted,
+        # red-flagged if it persists) but holds NO entries: it is not ours to
+        # touch, and every ticket still passes the busy-symbol and open-risk
+        # guards, which see it.
+        orphan = _reconcile_journal(res, cfg, st, positions, journal_open, ledger, claimed_keys, post,
                                     read_history=(lambda: reader(page)) if reader else None,
-                                    now=now, naked=naked) or halted
+                                    now=now, naked=naked)
+        if orphan:
+            _fail(res, orphan)
         for j, p, missing, n_reads in naked:
-            why, alert = _contain_naked_open(res, adapter, page, live, ledger, j, p, missing, n_reads, handled)
+            why, acted = _contain_naked_open(res, adapter, page, live, ledger, j, p, missing, n_reads, handled)
             if why:
-                halted = halted or (_trip(res, state, live, why) if alert else f"AUTO-REVERT: {why}")
-    if halted and not state.halted() and live:
-        state.halt(halted)
+                _fail(res, why)
+                if acted:
+                    # This cycle's read predates the repair/close: decide
+                    # entries on the next read.
+                    halted = halted or why
+        res.reads["reconciled"] = True
     res.halted = halted
 
     ds = day_start_balance(st, acct, now, cfg.daily_reset_utc, cfg.daily_loss_reset_basis)
@@ -1029,7 +1194,7 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         # Before intake, so no ticket reaches the guards and is refused: it is
         # taken in by the next clean cycle.
         res.halted = res.halted or journal_error
-        res.log("halt_no_entries", why=journal_error)
+        res.log("no_entries_this_cycle", why=journal_error)
         return res
 
     # 4b. PROP-SUPERSEDE (operator 2026-10-08): a newer same-strategy signal
@@ -1211,6 +1376,12 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         res.log("hold", ticket_id=candidate["ticket_id"],
                 why=f"an earlier close did not confirm and its position may still be live: {sorted(pending_close)}")
         return res
+    if halted:
+        # NO-HALT: a containment ran this cycle, so this cycle's read predates
+        # it. Nothing is recorded: the ticket is decided on the next read
+        # (until 2026-10-09 it was REFUSED here, final, "executor halted").
+        res.log("hold", ticket_id=candidate["ticket_id"], why=f"contained this cycle ({halted}); deciding on the next read")
+        return res
 
     # 6. guards
     orisk, ostate = open_risk(positions, orders, cfg)
@@ -1238,7 +1409,7 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
                        f"on the terminal; one bracket per symbol")
     v = evaluate_guards(ticket=candidate, spec=spec, facts=facts, refusal=refusal, account=acct,
                         day_start_balance=ds, open_risk_usd=orisk, open_risk_state=ostate,
-                        cfg=cfg, now=now, halted=halted)
+                        cfg=cfg, now=now)
     res.log("guards", ticket_id=candidate["ticket_id"], **v.as_dict(), facts=dict(facts))
     for b in v.breach_reports:
         res.alerts.append(f"{candidate['ticket_id']}: breach_guards=report, placing anyway — {b}")
@@ -1328,8 +1499,11 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
             n = int(st.get("readback_refusals") or 0) + 1
             st["readback_refusals"] = n
             state.save(st)
-            if n >= TRIP_READBACK_REFUSALS:
-                res.halted = _trip(res, state, live, f"{n} consecutive read-back refusals (last: {att.detail})")
+            if n == RED_FLAG_AFTER:
+                # Each refused ticket already alerted and stays retryable; ONE
+                # red flag when it keeps happening. Nothing is halted.
+                res.alerts.append(f"🚩 RED FLAG: {n} consecutive read-back refusals (last: {att.detail}) — "
+                                  "the executor keeps taking tickets; the order form needs a look")
         return res
     st["readback_refusals"] = 0
     state.save(st)
@@ -1344,10 +1518,10 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         return res
     row = ledger.latest()[spec.ticket_id]
     found = match_terminal(spec.as_dict(), positions, orders, cfg.confirm_rel_tol)
-    verdict = classify_confirmation(spec.as_dict(), found, cfg.confirm_rel_tol)
+    verdict = classify_confirmation(spec.as_dict(), found, cfg.confirm_rel_tol, **_atomic(adapter, row))
     trip = _contain(res, adapter, page, live, post, ledger, cfg, spec.ticket_id, row, spec.as_dict(), found, verdict)
     if trip:
-        res.halted = _trip(res, state, live, trip)
+        res.halted = _fail(res, trip)
     return res
 
 
@@ -1548,7 +1722,7 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
             res.alerts.append(f"{tid}: re-read failed ({type(exc).__name__})")
             continue
         found = match_terminal(confirm_spec, positions, orders, cfg.confirm_rel_tol)
-        verdict = classify_confirmation(confirm_spec, found, cfg.confirm_rel_tol)
+        verdict = classify_confirmation(confirm_spec, found, cfg.confirm_rel_tol, **_atomic(adapter, ledger.latest().get(tid)))
         if verdict != "not_found":
             break
     res.log("confirm_entry", ticket_id=tid, verdict=verdict)
@@ -2085,7 +2259,8 @@ def _suspected_partial_fill(res: CycleResult, ledger: IntentLedger, live: bool, 
     position to a ticket) -- that is filed as its own build. Until it does,
     this case FAILS CLOSED instead of being handled silently: the row is
     ``contained`` (so it no longer claims the symbol+side and the orphan
-    check sees the position), new entries halt through the AUTO-REVERT latch,
+    check sees the position), entries are held THIS cycle (never latched,
+    NO-HALT 2026-10-09),
     and the alert names the position sizes, whether each carries a stop and
     a target, and that any remaining entry order is NOT cancelled. Nothing
     is reported to the journal: it is never written off as ``skipped``.
@@ -2276,7 +2451,7 @@ def _supersede_block(res: CycleResult, adapter: Any, page: Any, cfg: ExecutorCon
     if any(str(j.get("symbol") or "").upper() == bot_sym for j in journal_open):
         return f"the journal holds an open position on {bot_sym}", None
     found = match_terminal(spec, positions, orders, cfg.confirm_rel_tol)
-    if classify_confirmation(spec, found, cfg.confirm_rel_tol) != "placed" or len(found["orders"]) != 1:
+    if classify_confirmation(spec, found, cfg.confirm_rel_tol, **_atomic(adapter, row)) != "placed" or len(found["orders"]) != 1:
         return "the resting entry does not match exactly one working order with its bracket", None
     others = [o for o in orders if o.symbol.upper() == venue and o is not found["orders"][0]]
     if others:
@@ -2476,14 +2651,15 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
         # Cancel every duplicate WORKING order beyond the first (all of them
         # when a position already filled). Two FILLED positions are never
         # auto-closed: a flatten cannot pick one of two rows, so the excess is
-        # left to the operator and new entries halt.
+        # left to the operator; the busy-symbol guard refuses tickets on it.
         extra_orders = found["orders"][1:] if not found["positions"] else found["orders"]
         for o in extra_orders:
             r = adapter.cancel_order(page, o, arm=live)
             res.log("cancel_duplicate", ticket_id=tid, order_id=o.order_id, result=r)
         if len(found["positions"]) > 1:
             res.alerts.append(f"{tid}: {len(found['positions'])} positions filled for one ticket — "
-                              f"operator must close the excess; executor halted")
+                              f"operator must close the excess (new tickets on the symbol are refused "
+                              f"while it is busy; nothing else is halted)")
         if live:
             ledger.record(tid, "contained", verdict=verdict)
         return trip
@@ -2509,7 +2685,7 @@ def _repair_or_flatten(res: CycleResult, adapter: Any, page: Any, live: bool, le
     resting entry): ONE repair, then close at market / cancel.
 
     OA-05/06 (PI-20261004-GCFA5DOR-0003): the repair under the account's
-    modify-rollout latch types SL AND TP, so the guard refuses it before any
+    modify-rollout guard types SL AND TP, so the guard refuses it before any
     click ("current stop loss not readable" when the SL is the missing leg).
     A repair that did NOT click changed nothing on the venue, so the close
     runs in the SAME cycle rather than a tick later. A close that did not
@@ -2518,11 +2694,12 @@ def _repair_or_flatten(res: CycleResult, adapter: Any, page: Any, live: bool, le
     it parked ``contained`` with an alert saying it gave up."""
     if not row.get("leg_fix_tried"):
         if isinstance(leg, Position):
-            # The account's modify-rollout latch (DIALOG-MEASURE): with the
-            # edit surface armed, the guard allows ONE watched tighten-only
-            # SL step per reviewed clear. This repair types SL AND TP, so
-            # under the guard it is refused before any click and the close
-            # below takes over in this same cycle.
+            # The account's modify-rollout guard (DIALOG-MEASURE): with the
+            # edit surface armed, it admits only a bounded tighten-only SL
+            # step (no latch since NO-HALT 2026-10-09; the record is evidence
+            # only, and constructing it moves a stale latch file aside). This
+            # repair types SL AND TP, so under the guard it is refused before
+            # any click and the close below takes over in this same cycle.
             from src.prop.platform.dxtrade import ModifyRollout
             r = adapter.modify_bracket(page, leg, sl, tp, arm=live,
                                        rollout=ModifyRollout(Path(ledger.path).parent / "modify_rollout.json"))
@@ -2551,13 +2728,16 @@ def _repair_or_flatten(res: CycleResult, adapter: Any, page: Any, live: bool, le
         ledger.record(tid, "contained", verdict=verdict, close_attempts=n)
         return
     why = r.get("why") if isinstance(r, dict) else r
-    if n >= NAKED_CLOSE_MAX_ATTEMPTS:
-        res.alerts.append(f"{tid}: ⚠️ NAKED leg NOT closed after {n} attempts ({why}); executor gave up — "
-                          "close or protect it on the terminal by hand")
-        ledger.record(tid, "contained", verdict=verdict, close_attempts=n, close_gave_up=True)
-        return
-    res.alerts.append(f"{tid}: ⚠️ close of the naked leg did not click ({why}); attempt "
-                      f"{n}/{NAKED_CLOSE_MAX_ATTEMPTS}, retrying next cycle")
+    # NO-HALT (operator 2026-10-09): never give up on a naked leg. It is
+    # retried EVERY cycle until it is closed; the first failures alert, the
+    # NAKED_CLOSE_MAX_ATTEMPTS-th says it keeps trying, then it is quiet (the
+    # cycle's failure streak raises the red flag).
+    if n < NAKED_CLOSE_MAX_ATTEMPTS:
+        res.alerts.append(f"{tid}: ⚠️ close of the naked leg did not click ({why}); attempt {n}, "
+                          "retrying next cycle")
+    elif n == NAKED_CLOSE_MAX_ATTEMPTS:
+        res.alerts.append(f"{tid}: ⚠️ NAKED leg NOT closed after {n} attempts ({why}); still retrying every "
+                          "cycle — close or protect it on the terminal if you can")
     ledger.record(tid, retry_state, leg_fix_tried=True, close_attempts=n)
 
 
@@ -2585,9 +2765,10 @@ def _contain_naked_open(res: CycleResult, adapter: Any, page: Any, live: bool, l
     terminal row has no SL (or no TP the journal expects) is NAKED. Routed
     into the same § 3.5 containment the watched states use
     (:func:`_repair_or_flatten`: one repair, else close at market), keyed on
-    the ledger row of the ticket that opened it. Returns ``(halt_reason,
-    alert)``: ``alert`` says whether the caller trips the latch WITH an alert
-    this cycle (False: still halted, already said)."""
+    the ledger row of the ticket that opened it. Returns ``(failure,
+    acted)``: ``acted`` says a repair/close ran THIS cycle, so the caller holds
+    entries for this cycle only. A row contained earlier whose position is
+    still naked is closed again, every cycle (NO-HALT 2026-10-09)."""
     tid = str(j.get("ticket_id") or "")
     venue = p.symbol.upper()
     what = f"{venue} {p.side} open with NO {'/'.join(missing)} on the terminal"
@@ -2598,16 +2779,23 @@ def _contain_naked_open(res: CycleResult, adapter: Any, page: Any, live: bool, l
                           "containment acts if the next read agrees")
         return None, False
     row = ledger.latest().get(tid) if tid else None
+    if row and row.get("state") == "contained":
+        # Ours, contained earlier, and STILL naked (the close did not take, or
+        # a pre-NO-HALT executor gave up): flatten again, every cycle.
+        res.log("naked_open_contained", ticket_id=tid, why=what, close_attempts=row.get("close_attempts"))
+        _repair_or_flatten(res, adapter, page, live, ledger, tid, {**row, "leg_fix_tried": True}, p,
+                           _f(j.get("sl")), _f(j.get("tp")), retry_state="contained", verdict="naked_open")
+        return f"{tid}: naked_open ({what})", True
     if not row or row.get("state") != "open":
         why = f"{tid or venue}: naked_open ({what})"
-        if row and row.get("state") == "contained":
-            res.log("naked_open_contained", ticket_id=tid, why=what, close_attempts=row.get("close_attempts"))
-            return why, False
         if n_reads == NAKED_OPEN_READS:
             res.alerts.append(f"{why}: no executor ledger row for this position (state "
                               f"{(row or {}).get('state')!r}) — not touched; close or protect it by hand")
-        return why, n_reads == NAKED_OPEN_READS
-    res.alerts.append(f"{tid}: ⚠️ NAKED position — {what}; containing it (one repair, else close at market)")
+        return why, False  # not ours: nothing clicked, entries are not held
+    if not row.get("close_attempts"):
+        # Once per position: a close that keeps failing is retried every
+        # cycle, and its own alerts (then the red flag) say so.
+        res.alerts.append(f"{tid}: ⚠️ NAKED position — {what}; containing it (one repair, else close at market)")
     _repair_or_flatten(res, adapter, page, live, ledger, tid, row, p, _f(j.get("sl")), _f(j.get("tp")),
                        retry_state="open", verdict="naked_open")
     return f"{tid}: naked_open ({what})", True
@@ -2688,7 +2876,8 @@ def _reconcile_journal(res: CycleResult, cfg: ExecutorConfig, st: Dict[str, Any]
                        now: Optional[datetime] = None,
                        naked: Optional[List[Tuple[Mapping[str, Any], Position, List[str], int]]] = None
                        ) -> Optional[str]:
-    """§ 3.2 step 4. Returns a halt reason, or None.
+    """§ 3.2 step 4. Returns a failure (orphan / unmappable position), or None.
+    It is alerted and red-flagged if it persists; it never holds entries.
 
     ``naked`` (OA-05/06): every journal-open position the terminal shows with
     NO stop loss, or NO take profit while the journal holds one, is appended
@@ -2781,7 +2970,7 @@ def _reconcile_journal(res: CycleResult, cfg: ExecutorConfig, st: Dict[str, Any]
         venue_key = (p.symbol.upper(), p.side)
         if key not in jr and venue_key not in claimed_keys:
             why = f"orphan: terminal position {key[0]} {key[1]} has no journal row and no ledger intent"
-            res.alerts.append(why + " — not touched; new entries halted")
+            res.log("orphan", why=why + " — not touched")
             halt = halt or why
     return halt
 

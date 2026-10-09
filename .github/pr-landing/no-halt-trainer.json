@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Trainer-VM training cycle (scripts/ops/run_training_cycle.sh + src/utils/trainer_manifest_health.py): retires the 3-OOM 7-day manifest quarantine; the manager merges under the operator's NO-HALT directive 2026-10-09 (\"There is no halting.\")",
+  "why": "The trainer cycle used to QUARANTINE a manifest after 3 consecutive OOM/timeouts (exit 124/137) and skip it for 7 days unless TRAINER_MANIFEST_QUARANTINE_CLEAR was set: a self-halt of training. Now the manifest is attempted every cycle (each attempt still bounded by the 30-min per-manifest cap), each failure records its diagnosis (exit-code meaning, cap, stderr tail), ONE manifest_oom_red_flag cycle event is raised on the 3rd consecutive failure, recovery is announced once (manifest_oom_recovered), and a stale quarantine left by the old code (state file or same-day progress row) is ignored and removed with a log line. No reduced-resource lever exists in the trainer CLI, so the retry is a plain retry. Never touches the live order path. Revert: git revert of this PR's merge commit restores the quarantine; no state migration is needed (the old code treats the new rows as unquarantined)."
+}

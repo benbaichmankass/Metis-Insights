@@ -134,3 +134,80 @@ class TestStrategyReadUnreadableRefusesOnlyAnAdd:
         assert pkg.meta["execution_delta"]["action"] == "open"
         assert captured == []
         assert results[0]["error"] == "net_position_unreadable"
+
+
+class TestMissingJournalRefusesThisDispatchOnly:
+    """NO-HALT round 2 (2026-10-09, operator: "There is no halting."): a
+    MISSING journal used to read as "no open trade" (False) and let an add
+    through. It is now "could not look": THIS add is refused with a logged
+    cause, the next dispatch re-reads and proceeds once the journal is
+    readable (no latch), and 3 consecutive refusals raise exactly ONE red
+    flag."""
+
+    def _run(self, coord, accounts_yaml):
+        pkg = _intent_pkg(direction="long", aggregated_target_qty=0.0)
+        return pkg, coord.multi_account_execute(
+            pkg, accounts_path=accounts_yaml,
+            balance_fetcher=lambda account: 10_000.0,
+        )
+
+    def test_refused_this_dispatch_then_allowed_once_readable(
+        self, coord, accounts_yaml, tmp_path, monkeypatch, caplog,
+    ):
+        missing = str(tmp_path / "nowhere" / "trade_journal.db")
+        monkeypatch.setenv("TRADE_JOURNAL_DB", missing)
+        monkeypatch.setenv("BYBIT_API_KEY_2", "test-key")
+        monkeypatch.setenv("BYBIT_API_SECRET_2", "test-secret")
+        positions_mod._open_trade_read_streaks.clear()
+        captured: list = []
+        _patch_dispatch_deps(monkeypatch, captured)
+
+        _pkg, results = self._run(coord, accounts_yaml)
+        assert captured == [], "a missing journal must not read as 'no open trade'"
+        assert results[0]["error"] == "net_position_unreadable"
+        assert "journal missing or read failed" in caplog.text
+
+        # Journal readable on the next dispatch -> the add proceeds.
+        readable = str(tmp_path / "trade_journal.db")
+        _init_trade_journal(readable)
+        monkeypatch.setenv("TRADE_JOURNAL_DB", readable)
+        pkg, results = self._run(coord, accounts_yaml)
+        assert pkg.meta["execution_delta"]["action"] == "open"
+        assert len(captured) == 1, "no standing block: the next dispatch must place"
+        assert results[0].get("error") in (None, "")
+
+    def test_three_consecutive_refusals_raise_exactly_one_red_flag(
+        self, coord, accounts_yaml, tmp_path, monkeypatch,
+    ):
+        monkeypatch.setenv("TRADE_JOURNAL_DB",
+                           str(tmp_path / "nowhere" / "trade_journal.db"))
+        monkeypatch.setenv("BYBIT_API_KEY_2", "test-key")
+        monkeypatch.setenv("BYBIT_API_SECRET_2", "test-secret")
+        # Keep the refusal's rejection row from creating the missing file.
+        import src.units.accounts.execute as execute_mod
+        monkeypatch.setattr(execute_mod, "log_rejection_to_journal",
+                            lambda *a, **k: True)
+        positions_mod._open_trade_read_streaks.clear()
+        sent: list = []
+        import src.runtime.outcomes as outcomes_mod
+        monkeypatch.setattr(outcomes_mod, "report",
+                            lambda *a, **k: sent.append((a, k)))
+        captured: list = []
+        _patch_dispatch_deps(monkeypatch, captured)
+
+        for _ in range(5):
+            _pkg, results = self._run(coord, accounts_yaml)
+            assert results[0]["error"] == "net_position_unreadable"
+        flags = [a[1] for a, _k in sent if a[0] == "open_trade_read_unreadable"]
+        assert flags == ["red_flag"], flags
+        assert captured == []
+
+        # Readable again -> ONE recovery notice, and the add goes through.
+        readable = str(tmp_path / "trade_journal.db")
+        _init_trade_journal(readable)
+        monkeypatch.setenv("TRADE_JOURNAL_DB", readable)
+        self._run(coord, accounts_yaml)
+        self._run(coord, accounts_yaml)
+        flags = [a[1] for a, _k in sent if a[0] == "open_trade_read_unreadable"]
+        assert flags == ["red_flag", "recovered"], flags
+        assert len(captured) >= 1
