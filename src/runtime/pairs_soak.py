@@ -18,7 +18,8 @@ Event kinds (``event``):
     both unreadable (``state_source: none``). Since NO-HALT (2026-10-09) an
     unreadable bookkeeping with readable leg rows is NOT a skip: the state is
     rebuilt from the leg rows and the row is the normal ``hold`` / ``close``,
-    carrying ``state_read`` + ``state_source`` (``journal`` / ``sidecar`` /
+    carrying ``state_read`` (the bookkeeping read: ``found`` / ``absent`` =
+    looked, no package / ``error`` = could not look) + ``state_source`` (``journal`` / ``sidecar`` /
     ``rebuilt_full`` / ``rebuilt_partial``) and, when partial,
     ``exits_not_computable``.
   * ``shadow_open`` / ``shadow_close`` — the would-be open/close under
@@ -120,6 +121,11 @@ def read_soak_records(*, limit: int = 100, pair: Optional[str] = None,
     try:
         raw = path.read_text(encoding="utf-8").splitlines()
     except OSError as exc:
+        # collapsed-state: error — FALSE POSITIVE against
+        # `pairs_executor.open_state_read`. This module never branches on a
+        # row's `state_read`: it only mentions the field in its docstring and
+        # passes records through verbatim. The quoted "error" below is this
+        # reader's own envelope key for a failed log read, not that state.
         return {"present": True, "log_path": str(path), "count": 0, "records": [],
                 "error": str(exc), "summary": {"total_scanned": 0, "by_event": {}}}
     recs: List[Dict[str, Any]] = []
