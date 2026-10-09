@@ -1,0 +1,20 @@
+{
+  "based_on": "20261009T060428248962Z-31232cd1.json",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "vol_trail_shadow.jsonl shows atr_pctl_closed non-null on every row whose raw_last_bar_open_ts != closed_bar_open_ts (monitor candle fetch deep enough that the closed frame still has >= vol_pctl_window bars), measured over >= 20 rows after the fix is deployed",
+    "kind": "observation"
+  },
+  "id": "PI-20261009-AMMAZHNZ-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane VOLTRAIL-P5-PARITY-2 (PR #17193 ada_pullback_2h vol_trail P5 parity)",
+    "rerun": "scripts/ops/diag_fetch.sh 'log_file?name=vol_trail_shadow&lines=2000' | python3 -c \"import sys,json;r=[json.loads(l) for l in json.load(sys.stdin)['lines']];print(len(r),sum(x['atr_pctl_closed'] is None for x in r),sum(x['atr_pctl_closed'] is None and x['closed_bar_open_ts']!=x['raw_last_bar_open_ts'] for x in r))\""
+  },
+  "routed_to": "PR #17216 (lane VOLTRAIL-FETCH-FIX, Tier-2 held; manager merges)",
+  "severity": "medium",
+  "state": "routed",
+  "tier": 2,
+  "what": "SKEW: vol_trail live path returns window-unfilled (fail-permissive, never fires) whenever the monitor's candle frame ends on a forming bar. src/main.py:623 fetches limit=200; trail_vol.resolve_vol_trail_mult and trail_vol_shadow drop the forming bar -> 199 closed bars < vol_pctl_window 200 -> atr_pctl_closed null. MEASURED 2026-10-05..08, ada_pullback_2h, 76 shadow rows / 26 closed bars / 2 packages: 56 of 76 rows (73.7%) null-closed, and 56 of 56 coincide with raw_last_bar_open_ts != closed_bar_open_ts; 20 of 20 non-null rows are the same-bar ticks. 7 null rows had raw pctl > 0.9 and an offline closed pctl > 0.9 (harness would tighten, live would not); 6 of 26 closed bars never got a closed-bar evaluation. Declared lever would fire only on ticks where no forming bar is visible, not on every closed bar as the backtest assumes. Proposed fix (Tier-2 order/monitor path): fetch limit >= vol_pctl_window+2 (e.g. 210) for monitors of legs declaring vol_trail, or let resolve_vol_trail_mult request more history. Fix before or with #17193."
+}
