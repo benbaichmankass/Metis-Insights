@@ -1,0 +1,18 @@
+{
+  "id": "ICT-SCALP-EVIDENCE",
+  "title": "ict_scalp evidence integrity: tiny-stop outlier (xrp_15m 54.6R cost trade), MGC HTF-filter evidence needs a futures feed, evidence records carry no harness revision",
+  "phase": "W6",
+  "state": "queued",
+  "owner": "unassigned",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "2026-10-09 PIPELINE-ROUTE: created to own PI-20261001-JWZSVYVS-0002 (is there a min stop-distance guard in the harness and in live sizing; would live ever take a ~0.002%-stop trade), PI-20261001-JWZSVYVS-0005 (ict_scalp_mgc_15m measured OFF vs ON on the causal harness; needs a futures feed since Yahoo 15m serves ~60d) and PI-20261002-EXI7AXXN-0001 (build_strategy_evidence.py stamps a harness revision; mandate_resolver and check_roster_promotion_evidence refuse unstamped ict_scalp records; MEASURED today: grep -c harness_revision comms/strategy_evidence/ict_scalp_*.json = 0 on every file). Parts 1 and 3 are Tier-1 research tooling; any live sizing guard is Tier-3 and goes to the operator with the exact change.",
+  "updated_at": "2026-10-09T07:50:29Z",
+  "updated_by": "session_01QwgzukpNwXp9m42kFvBX4p",
+  "_seq": 363
+}
