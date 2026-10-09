@@ -28,8 +28,9 @@ Risk-layer invariant
 --------------------
 This module decides **what** to do (which strategy's entry / what
 target). It does not decide **how much** — the per-account RiskManager
-in ``src/units/accounts/risk.py`` still owns sizing and the daily-loss /
-margin / position-size caps. The aggregated signal carries a
+in ``src/units/accounts/risk.py`` still owns sizing and the per-trade
+margin / exposure caps (the daily-loss / drawdown caps were removed
+2026-10-09). The aggregated signal carries a
 ``meta["aggregated_target_qty"]`` hint (the winning intent's target) but
 the RiskManager is free to ignore or trim it.
 """

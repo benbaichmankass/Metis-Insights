@@ -23,8 +23,11 @@ CONTRACT (a $150 cash account; see the research memo Section 0)
   the refusal with a logged cause, exactly like the equity path.
 - The **max-loss budget** is the operator's per-trade risk allowance in USD. On the
   $150 test account the risk knobs are deliberately loose (a single spread is a large
-  fraction of the account) so trades actually fire; the floor that protects the
-  account is the **account-level daily-loss cap**, which still applies downstream.
+  fraction of the account) so trades actually fire. ⚠️ There is NO account-level
+  daily-loss cap downstream any more: it was removed for every account
+  2026-10-09 (operator decision, "Remove them" — "No account-wide daily stop at
+  all; only per-trade sizing and the prop-firm floors apply."), so this per-trade
+  max-loss budget is the only loss bound when this module is wired.
 
 This module is **pure** (no I/O, no broker calls) and is unit-tested. It is not yet
 wired into any executor — Phase-1 foundation only.

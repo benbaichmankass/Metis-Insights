@@ -47,8 +47,8 @@ Risk-layer invariant
 This module produces **targets**, not orders. The per-account
 ``RiskManager.position_size`` / ``RiskManager.evaluate`` gates in
 ``src/units/accounts/risk.py`` remain the only sites that decide actual
-qty and the only sites that enforce daily-loss / margin / position-size
-caps. ``compute_execution_delta`` reports the *intended* delta; the
+qty and the only sites that enforce the per-trade margin / exposure caps
+(the daily-loss / drawdown caps were removed 2026-10-09). ``compute_execution_delta`` reports the *intended* delta; the
 dispatcher still routes that intent through the per-account risk gates
 before any order leaves the process.
 
