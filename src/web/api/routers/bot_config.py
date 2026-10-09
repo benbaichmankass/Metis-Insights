@@ -215,7 +215,25 @@ def _public_account(name: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
     # `account_state_dry_run` (FIX-CA-32) was removed 2026-09-29 with the
     # config/account_state.yaml fold it surfaced — operator decision
     # JC-CA-06 retired that fold. The dashboard SPA never read the field.
+    out["daily_dd_switch"] = _dd_switch_status(name, cfg)
     return out
+
+
+def _dd_switch_status(name: str, cfg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """The account-level daily-DD switch (operator directive 2026-10-09):
+    armed, limit, day-start equity, tripped. Config is read from the YAML
+    this API sees; day state from ``runtime_logs/daily_dd_switch_state.json``
+    the trading process writes. ``read_state: not_observed`` = the trader has
+    not folded an equity reading for this account yet (we did not look), not
+    "no loss". ``None`` for a retired account (it has no switch)."""
+    if cfg.get("retired") is True:
+        return None
+    try:
+        from src.units.accounts.daily_dd_switch import switch_for_account
+        return switch_for_account(name, cfg).status()
+    except Exception as exc:  # noqa: BLE001 — a status bug never fails /config
+        logger.warning("bot_config: daily_dd_switch status failed for %s: %s", name, exc)
+        return {"error": f"{type(exc).__name__}: {exc}"}
 
 
 def build_config(

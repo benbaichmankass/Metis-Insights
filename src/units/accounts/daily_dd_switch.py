@@ -188,7 +188,14 @@ def day_boundary(day: date, reset_utc: str) -> datetime:
     return datetime(day.year, day.month, day.day, tzinfo=timezone.utc) + _parse_hhmm(reset_utc)
 
 
+# Test seam: tests/conftest.py points this at a per-test tmp file so no test
+# reads another's day state or writes the real runtime_logs/.
+_PATH_OVERRIDE: Optional[Path] = None
+
+
 def _state_path() -> Path:
+    if _PATH_OVERRIDE is not None:
+        return _PATH_OVERRIDE
     from src.utils.paths import runtime_logs_dir
     return runtime_logs_dir() / _STATE_FILENAME
 

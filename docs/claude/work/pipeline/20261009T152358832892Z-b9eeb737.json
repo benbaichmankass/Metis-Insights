@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-16",
+    "kind": "date"
+  },
+  "id": "PI-20261009-BKKVRSVQ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "checklist DAILY-DD-SWITCH, branch claude/daily-dd-switch (lane session_01FFwi1Fff49ryncBkkVrsvQ), 2026-10-09",
+    "rerun": "grep -n '_fetch_linear_total_equity\\|total_account_usd =' src/core/coordinator.py (is total equity fed for non-Bybit exchanges?); grep -n 'balance_snapshots' src/units/accounts/risk.py src/runtime/hourly_report.py (cadence of the fallback)"
+  },
+  "state": "queued",
+  "what": "DAILY-DD-SWITCH equity resolution gap on NON-Bybit accounts (alpaca_live is real money): the coordinator feeds a live TOTAL equity only for Bybit linear (totalEquity, coordinator _fetch_linear_total_equity); alpaca_*/ib_*/oanda fall back to runtime_logs/balance_snapshots.json, written HOURLY by hourly_report, accepted up to 2h old. So (a) intraday the switch can see a 3% loss up to ~1h late and trip well past 3%, (b) day-start equity is the last hourly reading within 2h before 00:00 UTC, (c) the reset alert fires on the first evaluation of the new day, not at the boundary. Fix: feed each broker's live account equity (Alpaca /v2/account equity, IB NetLiquidation) into RiskManager.note_live_equity per dispatch, same basis day-start and current; add a per-tick observe so the reset/trip alerts do not wait for a signal."
+}

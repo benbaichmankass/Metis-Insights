@@ -231,15 +231,15 @@ class TestRoundUpToOneShare:
                              available_usd=120.0, whole_units=True)
         assert q == 0.0
 
-    def test_round_up_still_subject_to_daily_loss_budget(self):
-        """The rounded-up share must still fit the remaining daily-loss budget:
-        a tiny daily_usd cap re-floors it to 0."""
+    def test_round_up_no_longer_clamped_by_daily_loss_figure(self):
+        """2026-10-09: the daily-loss sizing clamp was removed (folded into the
+        account-level daily_dd_switch), so a tiny daily_usd no longer
+        re-floors the rounded-up share."""
         rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 100,
                           "daily_usd": 1.0, "pos_size": 100_000})  # $1 daily cap
-        # 1 share risks $1.50 > $1 daily budget → scaled down → floor 0
         q = rm.position_size(self._pkg300(1.5), 150.0, market_type="spot",
                              available_usd=10_000.0, whole_units=True)
-        assert q == 0.0
+        assert q == 1.0
 
     def test_futures_not_rounded_up(self):
         """Futures (force_whole via market_type, NOT whole_units) keep strict

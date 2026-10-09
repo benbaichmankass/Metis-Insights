@@ -105,13 +105,15 @@ def test_recompute_populates_daily_pnl_and_persists_row(journal_env):
     assert rows[0][2] == pytest.approx(-110.0)
 
 
-def test_daily_loss_cap_engages_from_journal(journal_env):
+def test_daily_loss_rebuilt_from_journal_is_reported_not_refused(journal_env):
     _seed_closed_trade(journal_env, "acc2", -150.0)  # past the 100 cap
     rm = RiskManager({"daily_usd": 100.0}, account_id="acc2")
 
-    ok, reason = rm.evaluate(_order())
-    assert ok is False
-    assert reason == "DAILY_LOSS_CAP"
+    # The journal-rebuilt figure is still tracked and reported; since
+    # 2026-10-09 it no longer refuses (DAILY_LOSS_CAP was folded into the
+    # account-level daily_dd_switch, operator directive).
+    assert rm.daily_pnl == pytest.approx(-150.0)
+    assert rm.evaluate(_order()) == (True, None)
 
 
 def test_within_cap_allows(journal_env):
@@ -193,10 +195,9 @@ def test_cross_day_loss_counts_today(journal_env):
     )
     assert rm._recompute_daily_pnl_from_db() == pytest.approx(-6000.0)
 
-    rm.current_equity = 50_000.0  # 5% budget = 2500 < 6000 realized today
-    ok, reason = rm.evaluate(_order())
-    assert ok is False
-    assert reason == "DAILY_LOSS_CAP"
+    rm.current_equity = 50_000.0  # 5% figure = 2500 < 6000 realized today
+    assert rm.daily_pnl == pytest.approx(-6000.0)
+    assert rm.report()["daily_pnl"] == pytest.approx(-6000.0)
 
 
 def test_loss_realized_yesterday_not_counted_today(journal_env):
