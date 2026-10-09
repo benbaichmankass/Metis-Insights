@@ -19,6 +19,27 @@ GitHub API, reads each one's `.github/pr-landing/<slug>.json` declaration
 the operator via the `send-ping` system-action (docs/claude/system-actions.md)
 when a tier 2/3 `hold` PR merged with no human `APPROVED` review recorded.
 
+**Recorded decisions are accepted (operator 2026-10-09, "Accept recorded
+decisions"; pipeline item PI-20261004-GCFA5DOR-0005).** A human APPROVED review
+was never how the manager merges: it merges Tier-2/3 PRs under a recorded
+operator decision, or under the 2026-09-27 data-backed standing authorization
+(CLAUDE.md § "Permission tiers"), and the alarm paged for every one (84 holds
+in one week). A landing declaration may therefore carry::
+
+    "recorded_decision": {
+        "kind": "operator_decision" | "standing_authorization",
+        "ref": "<checklist row id | pipeline id | repo path> ...",
+        "evidence": "<repo path of the evidence record>"   # required for standing_authorization
+    }
+
+It is accepted only if it RESOLVES -- a presence-only field would be cheaper
+to lie to than to satisfy (docs/CLAUDE-RULES-CANONICAL.md § "WHAT ENFORCES THIS
+RULE"). ``ref`` must contain at least one token naming a checklist row, a
+pipeline item or an existing repo file; a ``standing_authorization`` must cite
+2026-09-27 in ``ref`` and an ``evidence`` path that exists in the tree. A
+citation that does not resolve is an ALARM like no citation at all. Anything
+uncited still pages.
+
 **Pure decision logic only — no network calls in this module.** The workflow
 does every GitHub API call (finding the PR for a pushed commit, fetching the
 declaration blob, fetching the reviews list) and hands the results to this
@@ -47,8 +68,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 CLEAN = "clean"
 ALARM = "alarm"
@@ -95,6 +118,70 @@ def _is_human_approval(review: Dict[str, Any]) -> bool:
     return not login.endswith("[bot]")
 
 
+_DECISION_KINDS = ("operator_decision", "standing_authorization")
+_STANDING_AUTH_DATE = "2026-09-27"
+_EVIDENCE_ROOTS = ("comms/", "docs/", "research/", "runtime_logs/")
+
+
+def make_resolver(root: str = ".") -> Callable[[str], bool]:
+    """Default resolver: does a token name a checklist row, a pipeline item
+    or an existing repo file? Reads the tree under ``root`` only."""
+    pipeline_ids: Optional[set] = None
+
+    def _pipeline_ids() -> set:
+        nonlocal pipeline_ids
+        if pipeline_ids is None:
+            pipeline_ids = set()
+            d = os.path.join(root, "docs/claude/work/pipeline")
+            try:
+                for name in os.listdir(d):
+                    with open(os.path.join(d, name), encoding="utf-8") as fh:
+                        m = re.search(r'"id":\s*"([^"]+)"', fh.read())
+                    if m:
+                        pipeline_ids.add(m.group(1))
+            except OSError:
+                pass
+        return pipeline_ids
+
+    def resolve(token: str) -> bool:
+        token = token.strip().strip(".,;:()[]\"'`")
+        if not token or ".." in token or token.startswith("/"):
+            return False
+        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", token) and os.path.isfile(
+                os.path.join(root, "docs/claude/work/checklist", token + ".json")):
+            return True
+        if re.fullmatch(r"(PI|BL|OI)-[A-Za-z0-9-]+", token) and token in _pipeline_ids():
+            return True
+        return "/" in token and os.path.isfile(os.path.join(root, token))
+
+    return resolve
+
+
+def _recorded_decision(decl: Dict[str, Any],
+                       resolve: Callable[[str], bool]) -> "tuple[bool, str]":
+    """(accepted, why). ``why`` explains a rejection, or names the accepted citation."""
+    rd = decl.get("recorded_decision")
+    if rd is None:
+        return False, ""
+    if not isinstance(rd, dict) or rd.get("kind") not in _DECISION_KINDS:
+        return False, f"recorded_decision.kind must be one of {_DECISION_KINDS}"
+    ref = rd.get("ref")
+    if not isinstance(ref, str) or not ref.strip():
+        return False, "recorded_decision.ref is empty"
+    if not any(resolve(t) for t in re.split(r"[\s,;]+", ref)):
+        return False, (f"recorded_decision.ref {ref!r} names no checklist row, "
+                       "pipeline item or repo file that exists")
+    if rd["kind"] == "standing_authorization":
+        if _STANDING_AUTH_DATE not in ref:
+            return False, (f"a standing_authorization must cite the {_STANDING_AUTH_DATE} "
+                           "data-backed authorization in ref")
+        ev = rd.get("evidence")
+        if not (isinstance(ev, str) and ev.startswith(_EVIDENCE_ROOTS) and resolve(ev)):
+            return False, ("a standing_authorization needs recorded_decision.evidence "
+                           "= an existing evidence record path under comms/ docs/ research/ runtime_logs/")
+    return True, f"{rd['kind']} {ref.strip()!r}"
+
+
 def grade(
     decl: Optional[Dict[str, Any]],
     *,
@@ -103,6 +190,7 @@ def grade(
     reviews_unreadable: bool,
     pr_number: Optional[int] = None,
     pr_title: Optional[str] = None,
+    resolve: Optional[Callable[[str], bool]] = None,
 ) -> Verdict:
     """The whole policy. Pure — every input is already fetched.
 
@@ -135,6 +223,13 @@ def grade(
             "\"mandate\" carry their own pre-merge separation checks)",
             pr_number, pr_title,
         )
+    # A resolving recorded decision needs no review, so check it BEFORE the
+    # reviews list: an unreadable reviews fetch must not hide a valid citation.
+    accepted, why = _recorded_decision(decl, resolve or make_resolver())
+    if accepted:
+        return Verdict(CLEAN, f"tier {tier} landing=hold, merged under a recorded {why}",
+                       pr_number, pr_title)
+    reject = why  # "" when no recorded_decision was supplied
     if reviews_unreadable:
         return Verdict(UNREADABLE, "could not read the merged PR's reviews list",
                         pr_number, pr_title)
@@ -149,7 +244,9 @@ def grade(
     return Verdict(
         ALARM,
         f"tier {tier} PR declared landing: \"hold\" merged with no human "
-        "APPROVED review recorded",
+        "APPROVED review recorded"
+        + (f" and its recorded_decision was rejected: {reject}" if reject else
+           " and no resolving recorded_decision"),
         pr_number, pr_title,
     )
 
@@ -228,6 +325,54 @@ def _self_test(quiet: bool = False) -> "tuple[bool, List[str]]":
           "silently CLEAN just because no APPROVED review was SEEN)",
           v.state == UNREADABLE)
 
+    # --- recorded decisions (operator 2026-10-09): accepted ONLY if they resolve
+    known = {"BREAKOUT1-RETIRE", "PI-20261004-GCFA5DOR-0005",
+             "comms/strategy_evidence/x.json"}
+    rs = lambda t: t.strip(".,;:()") in known  # noqa: E731
+    hold3 = {"tier": 3, "landing": "hold"}
+
+    def rd(**kw: Any) -> Dict[str, Any]:
+        return dict(hold3, recorded_decision=kw)
+
+    v = grade(rd(kind="operator_decision", ref="BREAKOUT1-RETIRE popup 2026-10-07"),
+              decl_unreadable=False, reviews=no_reviews, reviews_unreadable=False, resolve=rs)
+    check("operator_decision citing a real checklist row, zero reviews -> CLEAN", v.state == CLEAN)
+
+    v = grade(rd(kind="operator_decision", ref="BREAKOUT1-RETIRE"), decl_unreadable=False,
+              reviews=None, reviews_unreadable=True, resolve=rs)
+    check("valid recorded decision + unreadable reviews -> still CLEAN (citation needs no review)",
+          v.state == CLEAN)
+
+    v = grade(rd(kind="operator_decision", ref="NO-SUCH-ROW"), decl_unreadable=False,
+              reviews=no_reviews, reviews_unreadable=False, resolve=rs)
+    check("operator_decision citing nothing that exists -> ALARM (presence-only is not enough)",
+          v.state == ALARM and "rejected" in v.reason)
+
+    v = grade(rd(kind="operator_decision", ref="   "), decl_unreadable=False,
+              reviews=no_reviews, reviews_unreadable=False, resolve=rs)
+    check("empty ref -> ALARM", v.state == ALARM)
+
+    v = grade(rd(kind="standing_authorization", ref="2026-09-27 PI-20261004-GCFA5DOR-0005",
+                 evidence="comms/strategy_evidence/x.json"),
+              decl_unreadable=False, reviews=no_reviews, reviews_unreadable=False, resolve=rs)
+    check("standing_authorization + 2026-09-27 + existing evidence record -> CLEAN", v.state == CLEAN)
+
+    v = grade(rd(kind="standing_authorization", ref="PI-20261004-GCFA5DOR-0005"),
+              decl_unreadable=False, reviews=no_reviews, reviews_unreadable=False, resolve=rs)
+    check("standing_authorization without the 2026-09-27 date or evidence -> ALARM", v.state == ALARM)
+
+    v = grade(rd(kind="standing_authorization", ref="2026-09-27 PI-20261004-GCFA5DOR-0005",
+                 evidence="comms/missing.json"),
+              decl_unreadable=False, reviews=no_reviews, reviews_unreadable=False, resolve=rs)
+    check("standing_authorization whose evidence path does not exist -> ALARM", v.state == ALARM)
+
+    v = grade(rd(kind="vibes", ref="BREAKOUT1-RETIRE"), decl_unreadable=False,
+              reviews=no_reviews, reviews_unreadable=False, resolve=rs)
+    check("unknown recorded_decision.kind -> ALARM", v.state == ALARM)
+
+    v = grade(hold3, decl_unreadable=False, reviews=no_reviews, reviews_unreadable=False, resolve=rs)
+    check("uncited hold + zero reviews still ALARMS (the detector is intact)", v.state == ALARM)
+
     # --- the ping message names the PR and the reason -----------------------
     v = grade({"tier": 3, "landing": "hold"}, decl_unreadable=False,
               reviews=no_reviews, reviews_unreadable=False,
@@ -279,6 +424,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                      "declaration JSON, or the literal MISSING / UNREADABLE")
     ap.add_argument("--reviews-json", help="path to the fetched PR reviews JSON "
                      "array, or the literal UNREADABLE")
+    ap.add_argument("--repo-root", default=".", help="tree the recorded_decision "
+                     "citation is resolved against (default: cwd)")
     ap.add_argument("--pr-number", type=int, default=None)
     ap.add_argument("--pr-title", default=None)
     args = ap.parse_args(argv)
@@ -296,6 +443,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         decl, decl_unreadable=decl_unreadable,
         reviews=reviews, reviews_unreadable=reviews_unreadable,
         pr_number=args.pr_number, pr_title=args.pr_title,
+        resolve=make_resolver(args.repo_root),
     )
     print(f"pr-landing-hold-merge-alarm: state={verdict.state} reason={verdict.reason}")
     if verdict.state == ALARM:

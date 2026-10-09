@@ -143,3 +143,41 @@ def test_mutation_missing_declaration_reading_as_clean_is_load_bearing(monkeypat
     assert v.state == pla.CLEAN, "sanity: the mutation took"
     ok, _ = pla._self_test(quiet=True)
     assert not ok, "the self-test must go RED on this mutation"
+
+
+# --- recorded decisions resolve against the REAL tree (PI-20261004-GCFA5DOR-0005) ---
+_ROOT = str(Path(__file__).resolve().parents[1])
+
+
+def _grade_rd(rd, reviews=()):
+    return pla.grade({"tier": 3, "landing": "hold", "recorded_decision": rd},
+                     decl_unreadable=False, reviews=list(reviews), reviews_unreadable=False,
+                     resolve=pla.make_resolver(_ROOT))
+
+
+def test_real_checklist_row_and_pipeline_item_resolve():
+    r = pla.make_resolver(_ROOT)
+    assert r("BREAKOUT1-RETIRE")                      # docs/claude/work/checklist/BREAKOUT1-RETIRE.json
+    assert r("PI-20261004-GCFA5DOR-0005")             # a pipeline item id
+    assert r("scripts/ops/pr_landing_hold_alarm.py")  # a repo file
+    assert not r("PI-99999999-NOPE-0001")
+    assert not r("../etc/passwd") and not r("/etc/passwd")
+
+
+def test_operator_decision_with_real_ref_is_clean_and_fake_ref_alarms():
+    assert _grade_rd({"kind": "operator_decision", "ref": "BREAKOUT1-RETIRE"}).state == pla.CLEAN
+    assert _grade_rd({"kind": "operator_decision", "ref": "MADE-UP-ROW"}).state == pla.ALARM
+
+
+def test_standing_authorization_needs_the_date_and_an_existing_evidence_record():
+    ok = {"kind": "standing_authorization",
+          "ref": "2026-09-27 standing authorization BREAKOUT1-RETIRE",
+          "evidence": "docs/claude/work/checklist/BREAKOUT1-RETIRE.json"}
+    assert _grade_rd(ok).state == pla.CLEAN
+    assert _grade_rd(dict(ok, evidence="comms/does-not-exist.json")).state == pla.ALARM
+    assert _grade_rd(dict(ok, ref="BREAKOUT1-RETIRE")).state == pla.ALARM  # no 2026-09-27
+
+
+def test_uncited_hold_still_alarms():
+    assert pla.grade({"tier": 2, "landing": "hold"}, decl_unreadable=False, reviews=[],
+                     reviews_unreadable=False, resolve=pla.make_resolver(_ROOT)).state == pla.ALARM

@@ -1,0 +1,154 @@
+{
+  "verdict": "pass",
+  "read_state": "measured",
+  "population": "1 leg(s) [p2_trend_suiusdt], 352 committed trades in total; grade=pass_all_seeds, overall=all",
+  "n": 352,
+  "measurement": {
+    "leg_verdicts": {
+      "p2_trend_suiusdt": "pass"
+    },
+    "grade": "pass_all_seeds",
+    "overall": "all",
+    "cells": 10
+  },
+  "note": "p2_trend_suiusdt: PASS: ev > 0 and P(net>0) >= 0.0 on all 10 seeds | RQ-20261007-208: p2_trend_suiusdt Velotrade fit, flat 0.5% (A) and 1.0% (B) of balance, pace read from sims/",
+  "records": [
+    {
+      "verdict": "pass",
+      "read_state": "measured",
+      "population": "p2_trend_suiusdt: 352 committed trades from comms/research/RQ-20261007-208/37908214727/screen_suiusdt/p2_trend_suiusdt__trades.jsonl (pinned by --leg); prop_ev_sim path-mode over 2 arm(s) x 5 seed(s), --ruleset config/prop_rulesets/velotrade_classic_1step.yaml --costs breakout --commission-bps-rt 6 --slippage-bps-rt 3 --swap-daily 0.0005 --swap-model dxtrade --no-hedge --funded-start fresh --lev-cap p2_trend_suiusdt=2",
+      "n": 352,
+      "measurement": {
+        "leg": "p2_trend_suiusdt",
+        "trades_file": "comms/research/RQ-20261007-208/37908214727/screen_suiusdt/p2_trend_suiusdt__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": 46.61,
+              "ev_se": 2.84,
+              "p_net_positive": 0.3277,
+              "p_alive_at_horizon": 0.5675,
+              "p_pass_by_days": {
+                "30": 0.0,
+                "90": 0.006,
+                "180": 0.0788
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 43.72,
+              "ev_se": 2.8,
+              "p_net_positive": 0.322,
+              "p_alive_at_horizon": 0.5643,
+              "p_pass_by_days": {
+                "30": 0.0,
+                "90": 0.0018,
+                "180": 0.0665
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 47.83,
+              "ev_se": 2.85,
+              "p_net_positive": 0.3392,
+              "p_alive_at_horizon": 0.5495,
+              "p_pass_by_days": {
+                "30": 0.0,
+                "90": 0.0035,
+                "180": 0.075
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 46.63,
+              "ev_se": 2.87,
+              "p_net_positive": 0.3292,
+              "p_alive_at_horizon": 0.5545,
+              "p_pass_by_days": {
+                "30": 0.0,
+                "90": 0.0032,
+                "180": 0.0735
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 47.7,
+              "ev_se": 2.89,
+              "p_net_positive": 0.3345,
+              "p_alive_at_horizon": 0.5747,
+              "p_pass_by_days": {
+                "30": 0.0,
+                "90": 0.003,
+                "180": 0.07
+              },
+              "rule_v2_verdict": "indeterminate"
+            }
+          },
+          "B": {
+            "1": {
+              "ev": 129.22,
+              "ev_se": 5.36,
+              "p_net_positive": 0.3525,
+              "p_alive_at_horizon": 0.0135,
+              "p_pass_by_days": {
+                "30": 0.0,
+                "90": 0.1903,
+                "180": 0.3905
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 134.61,
+              "ev_se": 5.54,
+              "p_net_positive": 0.3483,
+              "p_alive_at_horizon": 0.017,
+              "p_pass_by_days": {
+                "30": 0.0,
+                "90": 0.183,
+                "180": 0.376
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 119.79,
+              "ev_se": 5.22,
+              "p_net_positive": 0.3387,
+              "p_alive_at_horizon": 0.0127,
+              "p_pass_by_days": {
+                "30": 0.0,
+                "90": 0.189,
+                "180": 0.3748
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 128.94,
+              "ev_se": 5.47,
+              "p_net_positive": 0.3392,
+              "p_alive_at_horizon": 0.0155,
+              "p_pass_by_days": {
+                "30": 0.0,
+                "90": 0.1898,
+                "180": 0.3855
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 128.36,
+              "ev_se": 5.51,
+              "p_net_positive": 0.3352,
+              "p_alive_at_horizon": 0.0155,
+              "p_pass_by_days": {
+                "30": 0.0,
+                "90": 0.1812,
+                "180": 0.368
+              },
+              "rule_v2_verdict": "indeterminate"
+            }
+          }
+        }
+      },
+      "note": "PASS: ev > 0 and P(net>0) >= 0.0 on all 10 seeds | RQ-20261007-208: p2_trend_suiusdt Velotrade fit, flat 0.5% (A) and 1.0% (B) of balance, pace read from sims/"
+    }
+  ]
+}

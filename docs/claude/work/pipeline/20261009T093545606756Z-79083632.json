@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-16",
+    "kind": "date"
+  },
+  "id": "PI-20261009-KR9P9ZKE-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "PI-20261004-GCFA5DOR-0005 / lane OPS-DECISIONS-1009",
+    "rerun": "gh issue list -l system-action --state open --search 'hold-merge alarm (JC-CA-04)' ; python3 scripts/ops/pr_landing_hold_alarm.py --self-test"
+  },
+  "state": "queued",
+  "what": "HOLD-ALARM FOLLOW-UP (from PI-20261004-GCFA5DOR-0005, closed 2026-10-09). (1) OBSERVE: after the first Tier-2/3 landing:hold PR merges whose declaration carries recorded_decision, the pr-landing-hold-merge-alarm run for that push must grade it clean and open no send-ping issue; an uncited one must still open one. Until seen, the change is MERGED, not OBSERVED. (2) CLEAN UP: the alarm has left open, unprocessed 'send-ping: PR #N hold-merge alarm (JC-CA-04)' issues (19 found by search 2026-10-09, e.g. #17148 #17067 #17054; the 2026-10-04 audit counted 171) - close them as moot with a comment naming the 2026-10-09 operator decision. (3) Landing authors (manager) must start adding recorded_decision to held Tier-2/3 declarations; documenting the field in .github/pr-landing/README.md was refused by the session classifier ('CI Bypass') and is left to the manager."
+}
