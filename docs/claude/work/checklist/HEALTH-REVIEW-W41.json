@@ -16,5 +16,10 @@
   "note": "[2026-10-09 lane] started; ceiling $12 [2026-10-09T20:10Z lane] Review JSON comms/reviews/health/2026-10-09-health-review.json. Items: 1 IB resolved; 2 relay native-arm path fixed in PR (hold); 3 flake: no pytest-run failure on main since #17230; 4 RQ-COLLECTOR: collector fixed, landing wait 50->80 stopgap in PR; 5 NO-HALT ancestors YES + prop executors halted null; 6 DD-switch not_observed root-caused (observe only on evaluate), Tier-3 fix proposed PI-20261009-VQIPJE2H-0001. Sweep gate NOT met: 72 of 76 due pipeline items not walked (all routed). Closes when the PR merges.",
   "updated_at": "2026-10-09T19:50:20Z",
   "updated_by": "session_01NKM3sZW9tLkpciVQiPjE2h",
-  "_seq": 371
+  "_seq": 371,
+  "observation": {
+    "what": "PR #17297 merged; then a research-queue-dispatch cycle reads conclusion=success with the land job's commit-to-main wait under 80 min, and no relay run arms auto-merge on a PR whose head moved",
+    "how_to_check": "Actions: research-queue-dispatch.yml runs on main after the merge (conclusion); claude-pr-automerge logs for 'STALE RUN' notices",
+    "due_by": "2026-10-12"
+  }
 }
