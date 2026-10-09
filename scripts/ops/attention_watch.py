@@ -312,6 +312,17 @@ def probe_manager(now: datetime) -> dict:
                                     f"(bound {MANAGER_SILENT_HOURS}h — no daily review?)"}
 
 
+def _retired_accounts() -> set:
+    """Accounts marked ``retired: true`` in config/accounts.yaml (fail-open: unreadable -> none)."""
+    try:
+        sys.path.insert(0, str(REPO_ROOT))
+        from src.config.accounts_loader import load_accounts_dict
+        from src.prop.prop_identity import is_retired_account
+        return {a for a, c in (load_accounts_dict() or {}).items() if is_retired_account(c)}
+    except Exception:  # noqa: BLE001  # allow-silent: an unreadable config must not hide a live account's trip
+        return set()
+
+
 PROP_TRIP_MAX_HOURS = 2      # the trip ping fires once; a tripped feed still trading nothing 2h later re-pages
 
 
@@ -331,6 +342,8 @@ def probe_prop_feed(now: datetime) -> dict:
         except OSError:
             continue
         name = "breakout_1" if m.parent.parent == base else m.parent.parent.name
+        if name in _retired_accounts():
+            continue  # a retired account's stale marker must never page (OPS-DECISIONS-1009)
         hit.append((age, f"{name} ({age:.0f}h: {m.read_text(errors='replace')[:90].strip()})"))
     old = [d for a, d in hit if a >= PROP_TRIP_MAX_HOURS]
     return {"status": BREACHED if old else OK,
