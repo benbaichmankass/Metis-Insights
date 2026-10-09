@@ -85,7 +85,8 @@ def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
              pat: str = "", pat_create_fails: bool = False,
              checks_raise: bool = False, cwd=None,
              merge_base_sha: str = "main",
-             compare_commits_raises: bool = False) -> dict:
+             compare_commits_raises: bool = False,
+             current_head=None, pulls_get_raises: bool = False) -> dict:
     """Evaluate the real script against a mocked API; return every call it made.
 
     `blobs` maps (ref, path) -> blob sha, modelling the two `getContent` reads.
@@ -188,6 +189,9 @@ def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
                                 return { data: { number: 999, node_id: 'N', draft: false,
                                                  head: { sha: '%(sha)s' } } }; },
           merge: async () => { CALLS.push({ call: 'pulls.merge' }); return {}; },
+          get: async () => { CALLS.push({ call: 'pulls.get' });
+                             if (%(get_raises)s) { const e = new Error('get failed'); e.status = 500; throw e; }
+                             return { data: { state: 'open', head: { sha: '%(cur_head)s' } } }; },
         },
         checks: { listForRef: async () => { CALLS.push({ call: 'checks' });
                                             if (CHECKS_RAISE) { const e = new Error('checks read failed'); e.status = 500; throw e; }
@@ -222,6 +226,8 @@ def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
         "compare_raises": "true" if compare_commits_raises else "false",
         "branch": branch,
         "sha": head_sha,
+        "cur_head": current_head or head_sha,
+        "get_raises": "true" if pulls_get_raises else "false",
         "script": textwrap.indent(_script(), " " * 8),
     }
     # The script writes the gate's input file and shells out to
@@ -538,3 +544,33 @@ def test_a_failed_read_is_not_treated_as_absence():
     kinds = _kinds(res)
     assert "threw" in kinds, "a 500 must propagate and fail the run, not read as 'no request'"
     assert not (ACTING & set(kinds))
+
+
+# --------------------------------------------------------------------------
+# STALE-RUN GUARD (PI-20261008-APBY4NTV-0003) -- #17038 run 37710372952 sat
+# queued while a newer `hold` push landed, then armed NATIVE auto-merge from
+# its old head. #17124 only guarded the poll-merge path.
+# --------------------------------------------------------------------------
+
+def test_stale_run_does_not_arm_when_pr_head_has_moved():
+    res = run_gate(
+        branch="claude/some-branch", head_sha="d" * 40, current_head="e" * 40,
+        blobs={f"main|{REQ}/some-branch.txt": "old",
+               f"{'d'*40}|{REQ}/some-branch.txt": "new"},
+        existing_pr={"number": 42, "node_id": "N", "draft": False,
+                     "head": {"sha": "e" * 40}},
+    )
+    kinds = _kinds(res)
+    assert "pulls.get" in kinds
+    assert not (set(kinds) & ACTING), f"a stale run must act on nothing: {kinds}"
+
+
+def test_unreadable_current_head_does_not_arm():
+    res = run_gate(
+        branch="claude/some-branch", head_sha="d" * 40, pulls_get_raises=True,
+        blobs={f"main|{REQ}/some-branch.txt": "old",
+               f"{'d'*40}|{REQ}/some-branch.txt": "new"},
+        existing_pr={"number": 42, "node_id": "N", "draft": False,
+                     "head": {"sha": "d" * 40}},
+    )
+    assert "enableAutoMerge" not in _kinds(res)

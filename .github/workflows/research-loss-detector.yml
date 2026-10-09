@@ -48,7 +48,7 @@ jobs:
   detect:
     runs-on: ubuntu-latest
     # MUST OUTLAST commit-to-main's verify-merged wait (30m default).
-    timeout-minutes: 80
+    timeout-minutes: 110  # was 80: shared commit-to-main wait 50->80 (W41)
     steps:
       - uses: actions/checkout@v4
         with:
