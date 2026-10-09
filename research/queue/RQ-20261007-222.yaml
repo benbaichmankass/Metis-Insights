@@ -183,8 +183,6 @@ lands:
   store: research/results/
   assert_field: read_state
   min_rows: 1
-grading:
-  auto: true
 related:
 - PI-20261006-APBY4NTV-0001
 - config/prop_rulesets/tradeify_247_1step.yaml
@@ -195,4 +193,17 @@ related:
 - RQ-20261007-201
 - scripts/research/prop_ev_grid.py
 - scripts/research/p2_breakout_symbol_screen.py
-last_dispatched_at: '2026-10-09T18:00:35+00:00'
+last_dispatched_at: null
+grading:
+  auto: true
+  confirmatory_run: 1
+  decision_rule_id: RULE-RQ1007-222-BOOK-MIXED6-TRADEIFY
+  evidence:
+  - research/results/RQ-20261007-222/37965472160.jsonl
+  first_fail: 1 row(s), all measured, all fail
+  graded_at: '2026-10-09'
+  grader: scripts/research/queue_grade.py
+  note: 'first FAIL: re-queued for a confirmatory run (last_dispatched_at reset), not killed'
+  reason: 1 row(s), all measured, all fail
+  rows: 1
+  verdict: fail

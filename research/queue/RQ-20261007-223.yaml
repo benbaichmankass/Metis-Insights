@@ -1,7 +1,7 @@
 id: RQ-20261007-223
 title: 'PROP BOOK COMPOSITION under Breakout 1-Step Turbo $5k: book ''mixed6'' (6 legs) at flat 0.5% / 0.75% / 1.0% per leg
   -- does stacking raise pace to +target in <= 60 d without breaching (PI-20261006-APBY4NTV-0001 batch 2)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 1
@@ -182,8 +182,6 @@ lands:
   store: research/results/
   assert_field: read_state
   min_rows: 1
-grading:
-  auto: true
 related:
 - PI-20261006-APBY4NTV-0001
 - config/prop_rulesets/breakout_turbo_1step.yaml
@@ -195,3 +193,13 @@ related:
 - scripts/research/prop_ev_grid.py
 - scripts/research/p2_breakout_symbol_screen.py
 last_dispatched_at: '2026-10-09T18:00:37+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-RQ1007-223-BOOK-MIXED6-BREAKOUT_TURBO
+  evidence:
+  - research/results/RQ-20261007-223/37965474945.jsonl
+  graded_at: '2026-10-09'
+  grader: scripts/research/queue_grade.py
+  reason: 1 row(s), all measured, all pass
+  rows: 1
+  verdict: pass
