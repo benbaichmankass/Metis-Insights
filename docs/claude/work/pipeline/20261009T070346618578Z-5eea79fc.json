@@ -7,6 +7,11 @@
   },
   "id": "PI-20261009-AMMAZHNZ-0001",
   "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-16",
+    "how_to_check": "scripts/ops/diag_fetch.sh 'log_file?name=vol_trail_shadow&lines=2000' | python3 -c \"import sys,json;r=[json.loads(l) for l in json.load(sys.stdin)['lines']];print(len(r),sum(x['atr_pctl_closed'] is None for x in r),sum(x['atr_pctl_closed'] is None and x['closed_bar_open_ts']!=x['raw_last_bar_open_ts'] for x in r))\"",
+    "what": "after PR #17216 deploys: every vol_trail_shadow row with raw_last_bar_open_ts != closed_bar_open_ts has atr_pctl_closed non-null and atr_pctl_closed_read_state == 'ok', over >= 20 post-deploy rows (n_bars_raw == 215)"
+  },
   "origin": {
     "kind": "session",
     "ref": "lane VOLTRAIL-P5-PARITY-2 (PR #17193 ada_pullback_2h vol_trail P5 parity)",
