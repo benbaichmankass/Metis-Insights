@@ -41,10 +41,9 @@ power:
   feasibility:
     source: trainer-resident pm_snapshots (collector) + comms/macro/econ_calendar_snapshots*.jsonl (consensus)
     accrual_basis: >-
-      2.7 pooled releases a month from 2026-10-08. FASTER ROUTE, UNVERIFIED: settled Kalshi markets may expose
-      price history that would backfill point-in-time implied expectations for past releases and remove the wait;
-      whether the history is deep enough, point-in-time, and permitted by the unread third-party terms is NOT
-      established -- verify the source before building (macro-research invariant 3).
+      2.7 pooled releases a month from 2026-10-08. FASTER ROUTE, VERIFIED 2026-10-09 for Kalshi depth and
+      granularity (hourly, from 2021-07 CPI); point-in-time anchoring to scheduled_for and the unread third-party
+      terms are NOT established -- see blocked_on.
 decision_rule:
   id: RULE-RQ1009-903-PM-SURPRISE-VS-CONSENSUS
   registered_at: '2026-10-09'
@@ -80,6 +79,11 @@ routing:
 blocked_on:
   - what: >-
       (1) Accrual: paired n is about 5-6 at 2026-11-07 and reaches 49 only ~2028-04-20 by collection alone.
+      BACKFILL LEVER VERIFIED 2026-10-09 (lane PM-BACKFILL-VERIFY): Kalshi's public unauthenticated
+      /historical/markets/{ticker}/candlesticks (hourly bid/ask) covers KXCPI 61 events from 2021-07, KXPAYROLLS 41
+      from 2023-04, KXFEDDECISION 28 from 2023-05; paired-n ceiling ~124 pooled (CPI alone ~59, above the 49 floor),
+      upper bound until the release-date join is run. Needs a trainer-side backfill script (not built; data stays
+      off-repo, Kalshi terms unreadable). Polymarket is Fed-only n~12, not the route.
       (2) Lever: scripts/macro/econ_event_study.py has no PM-surprise input (grep for pm_ / prediction finds
       nothing), and nothing joins pm_snapshots to resolved releases.
     ref: >-
@@ -87,8 +91,8 @@ blocked_on:
       docs/claude/work/checklist/PM-SURPRISE-EVAL.json
     clears_when: >-
       Stage-1 quality read runs on or after 2026-11-07 (trainer-side, no new code beyond a counting script).
-      Stage 2 is eligible when EITHER paired n >= 49 (~2028-04-20 by collection) OR a verified point-in-time
-      history source (Kalshi settled-market price history) is backfilled and the pm-surprise extension of
+      Stage 2 is eligible when EITHER paired n >= 49 (~2028-04-20 by collection) OR the verified Kalshi
+      settled-market candlestick history (see backfill lever above) is backfilled trainer-side and the pm-surprise extension of
       econ_event_study.py exists. Then git mv to research/queue/, status queued, route via the trainer relay.
 run:
   workflow: null
