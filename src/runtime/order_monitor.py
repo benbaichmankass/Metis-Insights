@@ -2646,11 +2646,14 @@ _DEFAULT_SNAPSHOT_MIN_FILL_AGE_SECONDS = 300
 # strategy+symbol until a human closed it. Each suspect row is now RE-VERIFIED
 # against the venue on every pass (``_RESET_SUSPECT_ROWS`` below): venue shows
 # it → it stays open and is managed normally; venue confirms flat on
-# ``_RESET_SUSPECT_CONFIRM_READS`` consecutive clean reads → it is closed as
-# ``exchange_reset_flat`` with its PnL DECLARED unmeasured (never priced from a
-# mark); a read failure resolves nothing and is retried next pass. A row still
-# suspect after ``_RESET_SUSPECT_FLAG_AFTER`` passes raises ONE red flag per
-# account; recovery is announced once.
+# ``_RESET_SUSPECT_CONFIRM_READS`` consecutive clean reads (plus, on venues
+# with no per-symbol check, a ``_RESET_SUSPECT_MIN_SPAN_INTERVALS`` span or a
+# populated snapshot) → it is closed as ``exchange_reset_flat`` with its PnL
+# DECLARED unmeasured (never priced from a mark) and ONLY its own protection
+# cancelled; a read failure resolves nothing and is retried next pass. A row
+# with ``_RESET_SUSPECT_FLAG_AFTER`` failed passes raises ONE red flag per
+# account; recovery is announced once. The suspect status survives a restart
+# via ``trades.notes`` (fresh streak on re-hydration).
 _ACCOUNT_RESET_SNAPSHOT_THRESHOLD = 3
 
 # Consecutive clean venue-flat reads (each >= _close_confirm_seconds() after the
@@ -2659,12 +2662,34 @@ _ACCOUNT_RESET_SNAPSHOT_THRESHOLD = 3
 # observations (arm + confirm), so a resolved row has read flat on >= 4.
 _RESET_SUSPECT_CONFIRM_READS = 2
 
-# Counted passes a row may stay RESET-SUSPECT (detection pass included) before
-# ONE red flag is raised for its account. A row resolving normally is suspect
-# for 2 counted passes (detection + first clean read) and resolves on the 3rd,
-# so the flag fires only when re-verification failed to settle (read failures /
-# unconfirmed per-symbol reads).
+# False-flat hardening for integrations WITHOUT a per-symbol presence check
+# (IB, OANDA read the whole portfolio in one call, so a partial-but-persistent
+# snapshot would otherwise satisfy _RESET_SUSPECT_CONFIRM_READS in ~3-4 min).
+# On those, a suspect row resolves only when, in addition to the consecutive
+# clean flat reads, EITHER
+#   * the streak of counted flat reads spans >= this many x
+#     ``_close_confirm_seconds()`` (first counted flat read → the resolving
+#     read), OR
+#   * at least one counted flat read came from a POPULATED account snapshot
+#     (>= 1 position on the account) — proof the venue answered with real
+#     book data rather than an empty/blank portfolio.
+# Integrations WITH a per-symbol presence check (alpaca) are unchanged: every
+# counted read there is already a broker-confirmed flat for that symbol.
+_RESET_SUSPECT_MIN_SPAN_INTERVALS = 5
+
+# FAILED verification passes (venue read failed / per-symbol presence could not
+# be confirmed / the resolve write failed) a RESET-SUSPECT row may accumulate
+# before ONE red flag is raised for its account. Passes spent waiting on the
+# clean-read streak or the span requirement above are normal progress and do
+# not count, so a row that is settling never raises the flag.
 _RESET_SUSPECT_FLAG_AFTER = 3
+
+# Key in ``trades.notes`` that persists a row's RESET-SUSPECT status across a
+# process restart. On restart the row is re-hydrated from this marker with a
+# FRESH streak (flat_reads=0, no span credit), so a restart can only lengthen
+# the resolution requirement, never shorten it — and the row can never fall
+# through to the weaker individual (< threshold) 2-observation close path.
+_RESET_SUSPECT_NOTES_KEY = "reset_suspect"
 
 # Exit-coverage reattach-or-close (2026-06-15): an open ``orphan_adopt`` trade
 # with NO recoverable order package has no rational exit strategy and is
@@ -2797,12 +2822,15 @@ _PENDING_SNAPSHOT_DISAPPEAR_CONFIRM: Dict[int, datetime] = {}
 _RESET_ALERT_LATCHED: set = set()
 
 # NO-HALT (2026-10-09): per-row RESET-SUSPECT re-verification state, keyed by
-# trades.id → {"account", "symbol", "side", "since", "passes", "flat_reads",
-# "last_flat_at"}. ``passes`` counts counted verification passes the row has
-# stayed suspect (detection = 1); ``flat_reads`` counts CONSECUTIVE clean
-# venue-flat reads since detection (any read failure / unconfirmed read resets
-# it to 0). In-process: a restart drops it and a still-vanished set is simply
-# re-detected through the normal arm → confirm path (never closes early).
+# trades.id → {"account", "symbol", "side", "since", "passes", "fail_passes",
+# "flat_reads", "first_flat_at", "last_flat_at", "populated_flat"}. ``passes``
+# counts verification passes the row has stayed suspect (detection = 1);
+# ``fail_passes`` counts the FAILED ones (drives the red flag); ``flat_reads``
+# counts CONSECUTIVE clean venue-flat reads since detection (any read failure /
+# unconfirmed read resets it, ``first_flat_at`` and ``populated_flat`` to their
+# empty values). The dict is in-process, but the suspect STATUS is persisted in
+# ``trades.notes[_RESET_SUSPECT_NOTES_KEY]``: a restart re-hydrates the row
+# with a fresh streak (never closes early, never takes the individual path).
 _RESET_SUSPECT_ROWS: Dict[int, Dict[str, Any]] = {}
 
 # Accounts that have had their ONE "reset-suspect not settling" red flag this
@@ -3638,7 +3666,10 @@ def _alert_account_reset(account_id: str, symbols: List[str]) -> None:
         "are NOT mass-closed on this one read. Each is re-verified against the "
         f"venue every pass: it closes (exit_reason=exchange_reset_flat, PnL "
         f"declared unmeasured) only after {_RESET_SUSPECT_CONFIRM_READS} more "
-        "consecutive clean flat reads, and stays open if the venue shows it. "
+        "consecutive clean flat reads (on venues without a per-symbol check, "
+        f"also spanning >= {_RESET_SUSPECT_MIN_SPAN_INTERVALS} confirm intervals "
+        "or seen in a populated account snapshot), and stays open if the venue "
+        "shows it. "
         "No action needed unless a follow-up red flag says re-verification is "
         "not settling. If this recurs, check who/what has reset access to the "
         "account."
@@ -3658,7 +3689,7 @@ def _alert_reset_suspect_stuck(account_id: str, items: List[Dict[str, Any]]) -> 
     msg = (
         f"\U0001F6A9 [RED FLAG] Reset-suspect rows not settling: {account_id}\n"
         f"{len(items)} row(s) still RESET-SUSPECT after "
-        f"{_RESET_SUSPECT_FLAG_AFTER}+ verification passes: {desc}. The venue "
+        f"{_RESET_SUSPECT_FLAG_AFTER}+ failed verification passes: {desc}. The venue "
         "read keeps failing or cannot confirm flat, so nothing has been closed. "
         "The reconciler keeps re-reading every pass and will resolve on its own "
         "once the venue answers; please check the broker connection / account. "
@@ -3678,22 +3709,79 @@ def _alert_reset_suspect_recovered(account_id: str) -> None:
     _send_reset_alert(msg, caller="_alert_reset_suspect_recovered")
 
 
-def _reset_suspect_bump(tid: int, state: Dict[str, Any], last_read: str) -> None:
-    """Count one more verification pass for a still-suspect row."""
+def _reset_suspect_bump(tid: int, state: Dict[str, Any], last_read: str,
+                        *, failed: bool = False) -> None:
+    """Count one more verification pass for a still-suspect row (and, when
+    *failed*, one more FAILED pass toward the red flag)."""
     state["passes"] = int(state.get("passes", 0)) + 1
+    if failed:
+        state["fail_passes"] = int(state.get("fail_passes", 0)) + 1
     state["last_read"] = last_read
 
 
+def _reset_suspect_break_streak(state: Dict[str, Any]) -> None:
+    """A failed / unconfirmed read: the clean-read streak, its span credit and
+    its populated-snapshot credit all start over."""
+    state["flat_reads"] = 0
+    state["first_flat_at"] = None
+    state["last_flat_at"] = None
+    state["populated_flat"] = False
+
+
+def _new_reset_suspect_state(aid: str, sym: str, side: str, since: str,
+                             last_read: str) -> Dict[str, Any]:
+    return {
+        "account": aid, "symbol": sym, "side": side, "since": since,
+        "passes": 1, "fail_passes": 0, "flat_reads": 0,
+        "first_flat_at": None, "last_flat_at": None, "populated_flat": False,
+        "last_read": last_read,
+    }
+
+
+def _set_reset_suspect_marker(db, tid: int, marker: Optional[Dict[str, Any]]) -> bool:
+    """Persist (``marker`` dict) or clear (``None``) the RESET-SUSPECT marker in
+    ``trades.notes`` so the status survives a restart. Re-reads the row's notes
+    by id right before writing so a concurrent notes update is not clobbered by
+    the stale copy from the pass's batch read. Best-effort — never raises;
+    returns whether the write landed."""
+    try:
+        conn = db.connect()
+        try:
+            got = conn.execute(
+                "SELECT notes FROM trades WHERE id=?", (int(tid),),
+            ).fetchone()
+        finally:
+            conn.close()
+        if got is None:
+            return False
+        notes = _decode_notes(got[0])
+        if marker is None:
+            if _RESET_SUSPECT_NOTES_KEY not in notes:
+                return True
+            notes.pop(_RESET_SUSPECT_NOTES_KEY, None)
+        else:
+            notes[_RESET_SUSPECT_NOTES_KEY] = marker
+        db.update_trade(int(tid), {"notes": dump_capped(notes, 2000)})
+        return True
+    except Exception as exc:  # noqa: BLE001 — degrade to in-process state only
+        logger.warning(
+            "_reconcile_orphan_exchange_positions: RESET-SUSPECT marker %s "
+            "failed for trade_id=%s: %s (in-process state still holds it)",
+            "write" if marker is not None else "clear", tid, exc,
+        )
+        return False
+
+
 def _reset_suspect_maybe_flag(aid: str) -> None:
-    """Raise the account's ONE red flag when any of its suspect rows has stayed
-    suspect for ``_RESET_SUSPECT_FLAG_AFTER`` counted passes."""
+    """Raise the account's ONE red flag when any of its suspect rows has
+    accumulated ``_RESET_SUSPECT_FLAG_AFTER`` FAILED verification passes."""
     if aid in _RESET_SUSPECT_FLAGGED:
         return
     stuck = [
         {"trade_id": tid, **st}
         for tid, st in _RESET_SUSPECT_ROWS.items()
         if st.get("account") == aid
-        and int(st.get("passes", 0)) >= _RESET_SUSPECT_FLAG_AFTER
+        and int(st.get("fail_passes", 0)) >= _RESET_SUSPECT_FLAG_AFTER
     ]
     if not stuck:
         return
@@ -3737,9 +3825,8 @@ def _reset_suspect_note_read_failure(aid: str) -> None:
     for tid, st in _RESET_SUSPECT_ROWS.items():
         if st.get("account") != aid:
             continue
-        st["flat_reads"] = 0
-        st["last_flat_at"] = None
-        _reset_suspect_bump(tid, st, "snapshot_read_failed")
+        _reset_suspect_break_streak(st)
+        _reset_suspect_bump(tid, st, "snapshot_read_failed", failed=True)
         touched = True
     if touched:
         _reset_suspect_maybe_flag(aid)
@@ -3750,18 +3837,25 @@ def _reverify_reset_suspect_row(
     canonical: str, exchange_positions: set, now_dt: datetime, now_iso: str,
     summary: Dict[str, int], supports_presence: bool,
     position_present: Callable[[Any, str], Optional[bool]],
+    snapshot_populated: bool = False,
 ) -> str:
     """Re-read the venue for one RESET-SUSPECT row (NO-HALT, 2026-10-09).
 
     Returns ``"present"`` (venue shows the position → kept open, managed
-    normally), ``"resolved"`` (venue confirmed flat on
-    ``_RESET_SUSPECT_CONFIRM_READS`` consecutive clean reads → closed), or
+    normally), ``"resolved"`` (venue confirmed flat → closed), or
     ``"suspect"`` (still verifying / venue could not confirm → retried next
     pass). Evidence standard is the reconciler's own: absent from a SUCCESSFUL
     batch snapshot AND, where the integration supports it, a per-symbol
     broker-confirmed flat (``False``); consecutive counted reads must be at
     least ``_close_confirm_seconds()`` apart. An unconfirmed (``None``)
     per-symbol read resolves nothing and breaks the streak.
+
+    Resolution needs ``_RESET_SUSPECT_CONFIRM_READS`` consecutive counted flat
+    reads. Where there is NO per-symbol check (IB, OANDA) it additionally needs
+    the streak to span ``_RESET_SUSPECT_MIN_SPAN_INTERVALS`` x
+    ``_close_confirm_seconds()`` OR one counted read whose account snapshot was
+    populated (*snapshot_populated*: >= 1 position) — a blank-but-"successful"
+    portfolio read that persists for a few minutes cannot resolve the row.
     """
     tid_int = int(r["id"])
     if (sym, canonical) in exchange_positions:
@@ -3789,9 +3883,8 @@ def _reverify_reset_suspect_row(
             return "present"
         if present is not False:
             # Could not confirm — resolve nothing; streak broken; retry.
-            state["flat_reads"] = 0
-            state["last_flat_at"] = None
-            _reset_suspect_bump(tid_int, state, "presence_unconfirmed")
+            _reset_suspect_break_streak(state)
+            _reset_suspect_bump(tid_int, state, "presence_unconfirmed", failed=True)
             summary["snapshot_reset_suspect"] = (
                 summary.get("snapshot_reset_suspect", 0) + 1
             )
@@ -3806,9 +3899,36 @@ def _reverify_reset_suspect_row(
             summary.get("snapshot_reset_suspect", 0) + 1
         )
         return "suspect"
+    if int(state.get("flat_reads", 0)) == 0 or state.get("first_flat_at") is None:
+        state["first_flat_at"] = now_dt
     state["flat_reads"] = int(state.get("flat_reads", 0)) + 1
     state["last_flat_at"] = now_dt
+    if snapshot_populated:
+        state["populated_flat"] = True
     if state["flat_reads"] >= _RESET_SUSPECT_CONFIRM_READS:
+        _span_needed = _RESET_SUSPECT_MIN_SPAN_INTERVALS * _close_confirm_seconds()
+        _span = (now_dt - state["first_flat_at"]).total_seconds()
+        _evidence_ok = (
+            supports_presence
+            or bool(state.get("populated_flat"))
+            or _span >= _span_needed
+        )
+        if not _evidence_ok:
+            # Enough clean reads, but on a venue without a per-symbol check
+            # every one of them came from an EMPTY portfolio read inside the
+            # span window — a partial/blank snapshot can look like this.
+            # Keep re-reading (normal progress, not a failed pass).
+            _reset_suspect_bump(tid_int, state, "flat_awaiting_span")
+            summary["snapshot_reset_suspect"] = (
+                summary.get("snapshot_reset_suspect", 0) + 1
+            )
+            logger.info(
+                "_reconcile_orphan_exchange_positions: RESET-SUSPECT trade_id=%s "
+                "account=%s symbol=%s flat on %d reads over %.0fs; awaiting "
+                "%.0fs span or a populated snapshot before resolving",
+                tid_int, aid, sym, state["flat_reads"], _span, _span_needed,
+            )
+            return "suspect"
         try:
             _resolve_reset_suspect_row(
                 db, r, aid=aid, sym=sym, canonical=canonical,
@@ -3822,7 +3942,7 @@ def _reverify_reset_suspect_row(
                 "pass", tid_int, aid, sym, exc,
             )
             summary["errors"] += 1
-            _reset_suspect_bump(tid_int, state, "resolve_failed")
+            _reset_suspect_bump(tid_int, state, "resolve_failed", failed=True)
             return "suspect"
     _reset_suspect_bump(tid_int, state, "flat")
     summary["snapshot_reset_suspect"] = summary.get("snapshot_reset_suspect", 0) + 1
@@ -3844,6 +3964,11 @@ def _resolve_reset_suspect_row(db, r, *, aid: str, sym: str, canonical: str,
     from src.runtime.provenance import UNMEASURED_MARKER
     tid_int = int(r["id"])
     notes = _decode_notes(r["notes"])
+    # The row is leaving RESET-SUSPECT: drop the restart marker (kept as
+    # history under a non-active key).
+    _marker = notes.pop(_RESET_SUSPECT_NOTES_KEY, None)
+    if _marker is not None:
+        notes["reset_suspect_history"] = _marker
     notes.update({
         "closed_at": now_iso,
         "closed_by": "position_snapshot_reconciler",
@@ -3868,7 +3993,14 @@ def _resolve_reset_suspect_row(db, r, *, aid: str, sym: str, canonical: str,
         close_reason="exchange_reset_flat",
         caller="_reconcile_orphan_exchange_positions(reset_suspect)",
     )
-    _cancel_resting_protection_after_flat(aid, sym)
+    # TRADE-SCOPED protection cancel (CA-A01-001): only THIS trade's own legs
+    # — IB keyed group oca-protect-t<id>, Bybit tracked sl/tp ids, Alpaca
+    # size-scoped with siblings — never the legacy symbol-wide sweep, which on
+    # a netted contract would strip a sibling trade's protection (and on a
+    # false-flat would strip a live position's SL/TP). The helper reads the
+    # row's sl_order_id/tp_order_id by id (best-effort, so a pre-migration
+    # journal still closes the row) and the open sibling sizes.
+    _cancel_closed_row_protection(r, db)
     summary["snapshot_reset_resolved"] = summary.get("snapshot_reset_resolved", 0) + 1
     logger.warning(
         "_reconcile_orphan_exchange_positions: RESET-SUSPECT RESOLVED — "
@@ -4313,6 +4445,26 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                     continue
                 tid_int = int(r["id"])
                 _suspect = _RESET_SUSPECT_ROWS.get(tid_int)
+                if _suspect is None:
+                    # Restart re-hydration: a row persisted as RESET-SUSPECT in
+                    # its notes resumes verification with a FRESH streak — it
+                    # never re-enters the arm → confirm path, so it can never be
+                    # closed by the weaker individual 2-observation close.
+                    _marker = _decode_notes(r["notes"]).get(_RESET_SUSPECT_NOTES_KEY)
+                    if isinstance(_marker, dict):
+                        _suspect = _new_reset_suspect_state(
+                            aid, sym, canonical,
+                            str(_marker.get("since") or now_iso), "rehydrated",
+                        )
+                        _RESET_SUSPECT_ROWS[tid_int] = _suspect
+                        _PENDING_SNAPSHOT_DISAPPEAR_CONFIRM.pop(tid_int, None)
+                        logger.warning(
+                            "_reconcile_orphan_exchange_positions: RESET-SUSPECT "
+                            "re-hydrated from notes after restart — trade_id=%s "
+                            "account=%s symbol=%s side=%s (since=%s); "
+                            "re-verifying with a fresh streak.",
+                            tid_int, aid, sym, canonical, _suspect["since"],
+                        )
                 if _suspect is not None:
                     # NO-HALT re-verification of a RESET-SUSPECT row.
                     if (sym, canonical) not in exchange_positions:
@@ -4323,9 +4475,12 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                         now_dt=now_iso_dt, now_iso=now_iso, summary=summary,
                         supports_presence=supports_position_presence(cfg),
                         position_present=account_position_present,
+                        snapshot_populated=len(positions) >= 1,
                     )
                     if _verdict != "suspect":
                         _RESET_SUSPECT_ROWS.pop(tid_int, None)
+                    if _verdict == "present":
+                        _set_reset_suspect_marker(db, tid_int, None)
                     continue
                 if (sym, canonical) in exchange_positions:
                     # Still open on the exchange — clear any pending arming.
@@ -4458,11 +4613,12 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                     aid, len(_snapshot_to_close), ", ".join(_vanished_syms),
                 )
                 for (_r, _t, _s, _c) in _snapshot_to_close:
-                    _RESET_SUSPECT_ROWS[_t] = {
-                        "account": aid, "symbol": _s, "side": _c,
-                        "since": now_iso, "passes": 1, "flat_reads": 0,
-                        "last_flat_at": None, "last_read": "detected",
-                    }
+                    _RESET_SUSPECT_ROWS[_t] = _new_reset_suspect_state(
+                        aid, _s, _c, now_iso, "detected",
+                    )
+                    # Persist so a restart resumes verification instead of
+                    # re-entering the weaker individual close path.
+                    _set_reset_suspect_marker(db, _t, {"since": now_iso})
                 # Latch so the alert fires ONCE per account per episode, not on
                 # every confirm window while the anomaly persists.
                 if aid not in _RESET_ALERT_LATCHED:

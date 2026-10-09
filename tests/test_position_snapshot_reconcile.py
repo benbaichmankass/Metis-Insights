@@ -942,3 +942,303 @@ def test_monocle_gate_unblocks_after_reset_suspect_resolves(tmp_db, monkeypatch)
         gate = sm._open_package_scope("mes_trend", sym, scope)
         assert gate["action"] == "pass", (sym, gate)
         assert sm._has_open_package_for_strategy("mes_trend", sym) is None
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Review hardening (PR #17256): false-flat span / populated-snapshot rule,
+# trade-scoped protection cancel, restart persistence of RESET-SUSPECT.
+# ─────────────────────────────────────────────────────────────────────
+
+_STEP = 60  # seconds — the confirm interval these tests run at
+
+
+def _install_clock(monkeypatch, confirm_seconds=_STEP):
+    """Drive order_monitor's ``datetime.now`` from a test-controlled clock and
+    set a non-zero confirm interval so the span rule has teeth."""
+    from datetime import datetime as _real_dt
+    from datetime import timezone as _tz
+
+    import src.runtime.order_monitor as _om
+    clock = {"t": _real_dt(2026, 10, 9, 12, 0, 0, tzinfo=_tz.utc)}
+
+    class _FakeDT(_real_dt):
+        @classmethod
+        def now(cls, tz=None):
+            return clock["t"] if tz is not None else clock["t"].replace(tzinfo=None)
+
+    monkeypatch.setattr(_om, "datetime", _FakeDT)
+    monkeypatch.setenv("RECONCILER_CLOSE_CONFIRM_SECONDS", str(confirm_seconds))
+    return clock
+
+
+def _tick(db, clock, seconds=_STEP):
+    from datetime import timedelta as _td
+    out = _reconcile_orphan_exchange_positions(db)
+    clock["t"] = clock["t"] + _td(seconds=seconds)
+    return out
+
+
+def _open_syms(db, account_id):
+    return {r["symbol"] for r in _statuses(db, account_id) if r["status"] == "open"}
+
+
+def _span_ticks():
+    import src.runtime.order_monitor as _om
+    return _om._RESET_SUSPECT_MIN_SPAN_INTERVALS
+
+
+@pytest.mark.parametrize("account_id", ["ib_paper", "oanda_live"])
+def test_no_presence_venue_empty_snapshot_resolves_only_after_span(
+    tmp_db, monkeypatch, account_id,
+):
+    """IB / OANDA (no per-symbol check), every read an EMPTY portfolio: the two
+    consecutive clean reads are NOT enough — the streak must span
+    _RESET_SUSPECT_MIN_SPAN_INTERVALS x the confirm interval. Waiting on the
+    span is normal progress: no red flag."""
+    import src.runtime.order_monitor as _om
+    calls = _spy_alerts(monkeypatch)
+    clock = _install_clock(monkeypatch)
+    _seed_reset_rows(tmp_db, account_id=account_id)
+    n = _span_ticks()
+    assert n >= 5
+    with patch("src.units.accounts.clients.account_open_positions", return_value=[]):
+        _tick(tmp_db, clock)                       # arm
+        _tick(tmp_db, clock)                       # detect → suspect
+        # Counted flat reads #1 .. #n span (n-1) intervals — not yet enough,
+        # even though flat_reads (n) >> _RESET_SUSPECT_CONFIRM_READS.
+        for _ in range(n):
+            _tick(tmp_db, clock)
+        assert _open_syms(tmp_db, account_id) == set(_RESET_SYMS)
+        assert len(_om._RESET_SUSPECT_ROWS) == 4
+        s = _tick(tmp_db, clock)                   # read #n+1: span = n intervals
+    assert s["snapshot_reset_resolved"] == 4
+    assert all(r["exit_reason"] == "exchange_reset_flat"
+               for r in _statuses(tmp_db, account_id))
+    assert calls["flag"] == []
+
+
+def test_no_presence_venue_populated_snapshot_resolves_without_span(
+    tmp_db, monkeypatch,
+):
+    """OANDA: the confirming reads come from a POPULATED account snapshot (a
+    still-open sibling position is listed) → the venue demonstrably answered
+    with real book data, so two consecutive clean reads suffice."""
+    _spy_alerts(monkeypatch)
+    clock = _install_clock(monkeypatch)
+    _seed_reset_rows(tmp_db, account_id="oanda_live", strategy="fx_trend")
+    _insert_open_trade(tmp_db, symbol="EUR_USD", direction="long",
+                       account_id="oanda_live", strategy_name="fx_trend")
+    listed = [_ib_position(symbol="EUR_USD", side="long", size=2.0)]
+    with patch("src.units.accounts.clients.account_open_positions",
+               return_value=listed):
+        _tick(tmp_db, clock)                       # arm
+        _tick(tmp_db, clock)                       # detect
+        _tick(tmp_db, clock)                       # flat #1 (populated)
+        assert _open_syms(tmp_db, "oanda_live") >= set(_RESET_SYMS)
+        s = _tick(tmp_db, clock)                   # flat #2 → resolved
+    assert s["snapshot_reset_resolved"] == 4
+    assert _open_syms(tmp_db, "oanda_live") == {"EUR_USD"}
+
+
+def test_presence_venue_unchanged_resolves_on_confirm_reads(tmp_db, monkeypatch):
+    """Alpaca (per-symbol 404 confirms every read) keeps the plain
+    _RESET_SUSPECT_CONFIRM_READS rule — no span wait."""
+    _spy_alerts(monkeypatch)
+    clock = _install_clock(monkeypatch)
+    _seed_reset_rows(tmp_db, account_id="alpaca_live", strategy="equity_mr")
+    with patch("src.units.accounts.clients.account_open_positions", return_value=[]), \
+         patch("src.units.accounts.clients.account_position_present",
+               return_value=False):
+        _tick(tmp_db, clock)
+        _tick(tmp_db, clock)                       # detect
+        _tick(tmp_db, clock)                       # flat #1
+        s = _tick(tmp_db, clock)                   # flat #2 → resolved
+    assert s["snapshot_reset_resolved"] == 4
+
+
+def test_span_streak_restarts_after_a_read_failure(tmp_db, monkeypatch):
+    """A read failure mid-streak voids the span credit: the span is measured
+    from the first clean read AFTER the failure."""
+    _spy_alerts(monkeypatch)
+    clock = _install_clock(monkeypatch)
+    _seed_reset_rows(tmp_db)
+    n = _span_ticks()
+    with patch("src.units.accounts.clients.account_open_positions", return_value=[]):
+        _tick(tmp_db, clock)
+        _tick(tmp_db, clock)                       # detect
+        for _ in range(n):                         # span n-1 intervals
+            _tick(tmp_db, clock)
+    with patch("src.units.accounts.clients.account_open_positions", return_value=None):
+        _tick(tmp_db, clock)                       # failure → streak void
+    with patch("src.units.accounts.clients.account_open_positions", return_value=[]):
+        for _ in range(n):
+            _tick(tmp_db, clock)
+        assert _open_syms(tmp_db, "ib_paper") == set(_RESET_SYMS)
+        _tick(tmp_db, clock)
+    assert _open_syms(tmp_db, "ib_paper") == set()
+
+
+def test_reset_resolve_protection_cancel_is_trade_scoped(tmp_db, monkeypatch):
+    """The resolve cancels ONLY the resolved trade's own protection — the
+    trade_id-scoped path with that row's sl/tp ids, size and direction — never
+    the legacy symbol-wide sweep, and never a sibling trade's legs on the same
+    symbol."""
+    import src.runtime.order_monitor as _om
+    _spy_alerts(monkeypatch)
+    _seed_reset_rows(tmp_db)
+    legs = {}
+    for r in _statuses(tmp_db):
+        legs[r["id"]] = (f"sl-{r['id']}", f"tp-{r['id']}")
+        tmp_db.update_trade(r["id"], {"sl_order_id": f"sl-{r['id']}",
+                                      "tp_order_id": f"tp-{r['id']}"})
+    # Sibling on the SAME symbol (MES), still listed by the venue, with its own
+    # resting legs that must never be touched.
+    _insert_open_trade(tmp_db, symbol="MES", direction="short", size=3.0)
+    sib_id = max(r["id"] for r in _statuses(tmp_db))
+    tmp_db.update_trade(sib_id, {"sl_order_id": "sl-SIBLING",
+                                 "tp_order_id": "tp-SIBLING"})
+
+    calls = []
+    real = _om._cancel_resting_protection_after_flat
+    monkeypatch.setattr(
+        _om, "_cancel_resting_protection_after_flat",
+        lambda aid, sym, **kw: calls.append((aid, sym, kw)),
+    )
+    listed = [_ib_position(symbol="MES", side="short", size=3.0)]
+    with patch("src.units.accounts.clients.account_open_positions",
+               return_value=listed):
+        for _ in range(4):
+            _reconcile_orphan_exchange_positions(tmp_db)
+    open_rows = [r for r in _statuses(tmp_db) if r["status"] == "open"]
+    assert [r["id"] for r in open_rows] == [sib_id]
+    resolved = [c for c in calls if c[2].get("trade_id") in legs]
+    assert len(resolved) == 4
+    for _aid, _sym, kw in calls:
+        assert kw.get("trade_id") is not None, "symbol-wide sweep used"
+        assert kw["trade_id"] != sib_id
+        assert kw.get("sl_order_id") != "sl-SIBLING"
+        assert kw.get("tp_order_id") != "tp-SIBLING"
+    for _aid, _sym, kw in resolved:
+        assert (kw["sl_order_id"], kw["tp_order_id"]) == legs[kw["trade_id"]]
+        assert kw["row_qty"] == 1.0 and kw["row_direction"] == "long"
+    # The sibling's size is passed as a SIBLING (so a size-scoped cancel
+    # excludes it), never as the row's own size.
+    mes = [kw for _, s, kw in resolved if s == "MES"]
+    assert mes and mes[0]["sibling_qtys"] == [3.0]
+
+    # End-to-end on an IB-shaped client: only the keyed per-trade group is
+    # cancelled; the symbol-wide sweep is never called.
+    monkeypatch.setattr(_om, "_cancel_resting_protection_after_flat", real)
+
+    class _FakeIB:
+        def __init__(self):
+            self.trade_cancels, self.sweeps = [], []
+
+        def cancel_trade_protection(self, symbol, trade_id):
+            self.trade_cancels.append((symbol, trade_id))
+            return {"retCode": 0, "result": {}}
+
+        def cancel_resting_protection(self, symbol):
+            self.sweeps.append(symbol)
+            return {"retCode": 0}
+
+    fake = _FakeIB()
+    monkeypatch.setattr(_om, "_build_account_client",
+                        lambda aid: (fake, _CFGS["ib_paper"]))
+    first = resolved[0][2]["trade_id"]
+    row = next(r for r in _statuses(tmp_db) if r["id"] == first)
+    _om._cancel_closed_row_protection(
+        {"id": first, "account_id": "ib_paper", "symbol": row["symbol"],
+         "position_size": 1.0, "direction": "long"},
+        tmp_db,
+    )
+    assert fake.trade_cancels == [(row["symbol"], first)]
+    assert fake.sweeps == []
+
+
+def test_reset_suspect_marker_persisted_and_cleared(tmp_db, monkeypatch):
+    """Detection persists the RESET-SUSPECT marker in notes; a row the venue
+    shows again has it cleared; a resolved row keeps it only as history."""
+    import src.runtime.order_monitor as _om
+    _spy_alerts(monkeypatch)
+    _seed_reset_rows(tmp_db)
+    key = _om._RESET_SUSPECT_NOTES_KEY
+    with patch("src.units.accounts.clients.account_open_positions", return_value=[]):
+        _reconcile_orphan_exchange_positions(tmp_db)
+        _reconcile_orphan_exchange_positions(tmp_db)          # detect
+    assert all(key in json.loads(r["notes"]) for r in _statuses(tmp_db))
+    listed = [_ib_position(symbol="MES", side="long", size=1.0)]
+    with patch("src.units.accounts.clients.account_open_positions",
+               return_value=listed):
+        _reconcile_orphan_exchange_positions(tmp_db)          # MES cleared
+        _reconcile_orphan_exchange_positions(tmp_db)          # others resolve
+    by_sym = {r["symbol"]: r for r in _statuses(tmp_db)}
+    assert by_sym["MES"]["status"] == "open"
+    assert key not in json.loads(by_sym["MES"]["notes"])
+    for s in ("MGC", "MHG", "SPY"):
+        n = json.loads(by_sym[s]["notes"])
+        assert by_sym[s]["exit_reason"] == "exchange_reset_flat"
+        assert key not in n and "reset_suspect_history" in n
+
+
+def _simulate_restart():
+    """Drop every piece of in-process reconciler state, as a restart does."""
+    import src.runtime.order_monitor as _om
+    _om._RESET_SUSPECT_ROWS.clear()
+    _om._RESET_SUSPECT_FLAGGED.clear()
+    _om._RESET_ALERT_LATCHED.clear()
+    _om._PENDING_SNAPSHOT_DISAPPEAR_CONFIRM.clear()
+    _om._PENDING_ORPHAN_DISAPPEAR_CONFIRM.clear()
+
+
+def test_restart_rehydrates_suspect_and_restarts_span(tmp_db, monkeypatch):
+    """A restart one interval short of the span requirement does NOT carry the
+    span credit over: the rows are re-hydrated from notes with a fresh streak
+    and need the FULL span again — a restart can only lengthen the wait."""
+    import src.runtime.order_monitor as _om
+    _spy_alerts(monkeypatch)
+    clock = _install_clock(monkeypatch)
+    _seed_reset_rows(tmp_db)
+    n = _span_ticks()
+    with patch("src.units.accounts.clients.account_open_positions", return_value=[]):
+        _tick(tmp_db, clock)
+        _tick(tmp_db, clock)                       # detect
+        for _ in range(n):                         # one interval short
+            _tick(tmp_db, clock)
+        _simulate_restart()
+        for _ in range(n):                         # fresh streak, n-1 intervals
+            _tick(tmp_db, clock)
+            assert _open_syms(tmp_db, "ib_paper") == set(_RESET_SYMS)
+        assert all(st["last_read"] != "detected"
+                   for st in _om._RESET_SUSPECT_ROWS.values())
+        _tick(tmp_db, clock)                       # full span post-restart
+    assert all(r["exit_reason"] == "exchange_reset_flat" for r in _statuses(tmp_db))
+
+
+def test_restart_never_routes_suspect_rows_to_individual_close(tmp_db, monkeypatch):
+    """After a restart only two suspect rows remain — below the reset
+    threshold. Without the persisted marker they would arm → confirm and close
+    on the weaker individual 2-observation path (exchange_flat_reconciled) one
+    interval after restart. With it they stay RESET-SUSPECT, need the full
+    post-restart confirm-read streak, and close only as exchange_reset_flat."""
+    _spy_alerts(monkeypatch)
+    clock = _install_clock(monkeypatch)
+    _seed_reset_rows(tmp_db)
+    with patch("src.units.accounts.clients.account_open_positions", return_value=[]):
+        _tick(tmp_db, clock)
+        _tick(tmp_db, clock)                       # detect all 4
+    # MES + MGC come back on the venue (cleared, kept open); MHG + SPY remain
+    # suspect.
+    listed = [_ib_position(symbol=s, side="long", size=1.0) for s in ("MES", "MGC")]
+    with patch("src.units.accounts.clients.account_open_positions",
+               return_value=listed):
+        _tick(tmp_db, clock)                       # MES/MGC cleared; others flat #1
+        _simulate_restart()
+        _tick(tmp_db, clock, seconds=1)            # re-hydrated, fresh flat #1
+        _tick(tmp_db, clock, seconds=_STEP - 1)    # inside window: not counted
+        assert _open_syms(tmp_db, "ib_paper") == set(_RESET_SYMS)
+        _tick(tmp_db, clock)                       # flat #2 (populated) → resolves
+    by_sym = {r["symbol"]: r for r in _statuses(tmp_db)}
+    assert by_sym["MES"]["status"] == "open" and by_sym["MGC"]["status"] == "open"
+    for s in ("MHG", "SPY"):
+        assert by_sym[s]["exit_reason"] == "exchange_reset_flat", by_sym[s]
