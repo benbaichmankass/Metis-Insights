@@ -1,5 +1,7 @@
 # EXIT-EVIDENCE-FOLDS — full-rule evidence records (2026-10-09)
 
+> **Doc status:** `unknown` · category `evidence` · measured `2026-10-09` · lane EXIT-EVIDENCE-FOLDS (session_01VsnuLCmU96p2DknkgUcEdN) for manager session_01Uq7MrjPQDRWqbhCjwuMava
+
 Question: do the e5-passing exit cells of RQ-20261007-040 / -042 / -043 clear their FULL
 pre-registered rules once the missing walk-forward / attribution evidence is pulled?
 
