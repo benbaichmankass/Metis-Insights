@@ -9,10 +9,12 @@
   "ceiling_usd": null,
   "spend_usd": null,
   "tier": 1,
-  "prs": [],
+  "prs": [
+    17297
+  ],
   "blocked_on": [],
   "note": "[2026-10-09 lane] started; ceiling $12 [2026-10-09T20:10Z lane] Review JSON comms/reviews/health/2026-10-09-health-review.json. Items: 1 IB resolved; 2 relay native-arm path fixed in PR (hold); 3 flake: no pytest-run failure on main since #17230; 4 RQ-COLLECTOR: collector fixed, landing wait 50->80 stopgap in PR; 5 NO-HALT ancestors YES + prop executors halted null; 6 DD-switch not_observed root-caused (observe only on evaluate), Tier-3 fix proposed PI-20261009-VQIPJE2H-0001. Sweep gate NOT met: 72 of 76 due pipeline items not walked (all routed). Closes when the PR merges.",
-  "updated_at": "2026-10-09T19:49:45Z",
+  "updated_at": "2026-10-09T19:50:20Z",
   "updated_by": "session_01NKM3sZW9tLkpciVQiPjE2h",
   "_seq": 371
 }
