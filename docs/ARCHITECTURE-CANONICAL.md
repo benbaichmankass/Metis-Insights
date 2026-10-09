@@ -294,8 +294,18 @@ yet; research harnesses live under `scripts/research/`.
 ### Step 4 — Risk gating
 Before any order reaches broker execution, risk controls decide whether
 to allow the signal:
-- `RiskManager.approve()` in `src/units/accounts/risk.py` (per-account
-  caps: `pos_size`, `daily_usd`, `max_dd_pct`),
+- `RiskManager.approve()` in `src/units/accounts/risk.py` (per-TRADE
+  checks only: dry-run account, gross-exposure ceiling; sizing by the
+  per-trade risk budget, margin/buying power and lot size). **There is no
+  account-wide daily stop**: the `pos_size` notional cap went 2026-06-24,
+  and the `daily_usd` / `daily_loss_pct` daily-loss cap and the
+  `max_dd_pct` intraday-drawdown cap (`DAILY_LOSS_CAP` /
+  `INTRADAY_DRAWDOWN`, plus the daily-loss-budget sizing gate) were
+  removed for every account by OPERATOR DECISION 2026-10-09, verbatim
+  option chosen: *"Remove them"* (*"No account-wide daily stop at all;
+  only per-trade sizing and the prop-firm floors apply."*). Daily PnL and
+  intraday drawdown are still computed and reported. Prop-firm floors are
+  enforced per ticket by the prop paths from `config/prop_rulesets/*.yaml`,
 - prop-account logic in `src/units/accounts/prop_risk.py`,
 - runtime counters in `src/runtime/risk_counters.py`,
 - the kill-switch flag (`HALT_FLAG_PATH = /tmp/trader_halt.flag`,
@@ -921,6 +931,8 @@ per-account `daily_pnl` (summed from `trades`) and equity high (from
 then persists. Before this, `record_trade_result()`/`update_equity()` had
 no runtime callers, so the table stayed empty and the daily-loss /
 max-drawdown caps reset to 0 on every restart (and never accumulated).
+Since 2026-10-09 those caps no longer exist (operator decision, "Remove
+them"); the rebuilt figures are reported only, never gated.
 See [`CLAUDE.md`](../CLAUDE.md) § Canonical persistence model.
 
 ## GitHub Actions and Automation Layer

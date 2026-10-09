@@ -276,8 +276,8 @@ def render_accounts_view(accounts: Sequence[dict]) -> str:
     """One collapsible section per account: mode, config, balance, 24h PnL, trades.
 
     Each ``acc`` may carry: ``account_id``/``name``, ``exchange``,
-    ``mode``/``dry_run``, ``account_type``, ``max_daily_loss_usd``,
-    ``max_dd_pct``, ``balance``, ``pnl_24h``,
+    ``mode``/``dry_run``, ``account_type``, ``intraday_drawdown_pct``,
+    ``balance``, ``pnl_24h``,
     ``open_positions``, ``trades`` (list of one-line strings),
     ``exposure`` (the ``RiskManager.report()["exposure"]`` block — see
     ``_exposure_str``; display only, BL-20260808).
@@ -305,8 +305,12 @@ def render_accounts_view(accounts: Sequence[dict]) -> str:
             ("24h PnL", _signed(acc.get("pnl_24h")) if acc.get("pnl_24h") is not None else "—"),
             ("Gross exposure", _exposure_str(acc.get("exposure"))),
             ("Open positions", acc.get("open_positions")),
-            ("Max daily loss", acc.get("max_daily_loss_usd")),
-            ("Max drawdown", acc.get("max_dd_pct")),
+            # No daily-loss / drawdown cap exists (removed 2026-10-09,
+            # operator decision "Remove them"); the drawdown is reported only.
+            ("Intraday drawdown", (
+                f"{float(acc['intraday_drawdown_pct']) * 100:.2f}%"
+                if acc.get("intraday_drawdown_pct") is not None else "—"
+            )),
         ]) + f"\n\nTrades:\n{trades_body}"
         sections.append(Section(
             summary=(

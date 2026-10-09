@@ -222,23 +222,24 @@ class TestRiskManagerEvaluateReasons:
         assert ok is True
         assert reason is None
 
-    def test_evaluate_daily_loss_cap_uses_DAILY_LOSS_CAP_token(self):
-        """``DAILY_LOSS_CAP`` is referenced as a literal in
-        ``tests/test_packages_command.py`` and ``processor.format_packages``;
-        if the token drifts, the rejection-renderer breaks silently."""
+    def test_evaluate_past_old_daily_loss_cap_is_allowed(self):
+        """``DAILY_LOSS_CAP`` is no longer emitted (cap removed 2026-10-09,
+        operator decision "Remove them"). Historical journal rows may still
+        carry the token, so the renderers keep recognising it."""
         rm = RiskManager(
             {"max_dd_pct": 0.05, "daily_usd": 100.0, "pos_size": 500.0}
         )
-        rm.daily_pnl = -150.0  # past the daily loss cap
+        rm.daily_pnl = -150.0  # past the old daily loss cap
         ok, reason = rm.evaluate(_pkg(estimated_value=100.0))
-        assert ok is False
-        assert reason == "DAILY_LOSS_CAP"
+        assert ok is True
+        assert reason is None
 
     def test_evaluate_large_estimated_value_no_longer_caps(self):
         """(Removed 2026-06-24) The ``POSITION_SIZE_CAP`` reason token is gone
         — there is no position-notional ceiling. An order whose
         ``estimated_value`` is well above the (now-ignored) pos_size passes
-        the size gate; only the daily-loss + drawdown reasons remain."""
+        the size gate (the daily-loss + drawdown reasons are gone too, since
+        2026-10-09)."""
         rm = RiskManager(
             {"max_dd_pct": 0.05, "daily_usd": 100.0, "pos_size": 500.0}
         )
@@ -246,17 +247,16 @@ class TestRiskManagerEvaluateReasons:
         assert ok is True
         assert reason is None
 
-    def test_evaluate_intraday_drawdown_uses_INTRADAY_DRAWDOWN_token(self):
-        """The drawdown reason token is the third canonical one;
-        ``execute_pkg`` writes it through to the trade journal."""
+    def test_evaluate_past_old_intraday_drawdown_is_allowed(self):
+        """``INTRADAY_DRAWDOWN`` is no longer emitted (removed 2026-10-09)."""
         rm = RiskManager(
             {"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0}
         )
         rm.update_equity(10_000.0)
-        rm.update_equity(9_500.0)  # exactly 5 % drawdown — at cap
+        rm.update_equity(9_500.0)  # exactly the old 5 % cap
         ok, reason = rm.evaluate(_pkg(estimated_value=100.0))
-        assert ok is False
-        assert reason == "INTRADAY_DRAWDOWN"
+        assert ok is True
+        assert reason is None
 
     def test_evaluate_with_no_estimated_value_skips_position_size_check(self):
         """When meta omits ``estimated_value``, the position-size check

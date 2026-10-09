@@ -170,9 +170,14 @@ def format_account_status_block(status: Dict[str, Any]) -> str:
         HTML block (no surrounding header). Caller joins blocks
         with ``"\\n\\n"`` and prepends the page header.
     """
-    halted_icon = "🔴" if status.get("halted") else "🟢"
+    # No account-wide daily stop exists (operator decision 2026-10-09,
+    # "Remove them"), so there is no halted state and no daily-loss limit to
+    # render. Daily PnL and intraday drawdown are still reported; a missing
+    # drawdown reading renders "—", never 0.
+    status_icon = "🟢"
     pnl = float(status.get("daily_pnl", 0))
-    limit = float(status.get("max_daily_loss_usd", 0))
+    _dd = status.get("intraday_drawdown_pct")
+    dd_str = f"{float(_dd) * 100:.2f}%" if _dd is not None else "—"
     open_pos = status.get("open_positions", 0)
     bal = status.get("live_balance_usdt")
     bal_err = status.get("live_balance_error")
@@ -222,7 +227,7 @@ def format_account_status_block(status: Dict[str, Any]) -> str:
     exposure_line = _format_exposure_line(status.get("exposure"))
 
     return (
-        f"{halted_icon} <b>{_h(status['name'])}</b> "
+        f"{status_icon} <b>{_h(status['name'])}</b> "
         f"(<code>{_h(status.get('exchange', '?'))}</code> / "
         f"{_h(status.get('account_type', '?'))})\n"
         f"{strat_line}"
@@ -230,7 +235,7 @@ def format_account_status_block(status: Dict[str, Any]) -> str:
         f"{cfg_line}"
         f"{prop_lines}"
         f"{api_line}\n"
-        f"  💵 Daily PnL: ${pnl:+.2f} / limit ${limit:.0f}\n"
+        f"  💵 Daily PnL: ${pnl:+.2f} | intraday DD {dd_str}\n"
         f"{exposure_line}"
         f"  📦 Open: {open_pos}"
     )
@@ -318,14 +323,10 @@ def render_accounts_status_collapsable(statuses: List[Dict[str, Any]]) -> str:
         )
 
     sections: List[Section] = []
-    healthy = down = 0
+    # No "halted" count: the account-wide daily stop that produced it was
+    # removed 2026-10-09 (operator decision, "Remove them").
     for idx, status in enumerate(statuses):
-        if status.get("halted"):
-            down += 1
-            icon = "🔴"
-        else:
-            healthy += 1
-            icon = "🟢"
+        icon = "🟢"
 
         name = status.get("name") or "?"
         bal = status.get("live_balance_usdt")
@@ -351,11 +352,7 @@ def render_accounts_status_collapsable(statuses: List[Dict[str, Any]]) -> str:
         ))
 
     return render_html(
-        header=(
-            f"📋 Accounts Status — {len(statuses)} configured"
-            f" / {healthy} healthy"
-            + (f" / {down} halted" if down else "")
-        ),
+        header=f"📋 Accounts Status — {len(statuses)} configured",
         sections=sections,
     )
 

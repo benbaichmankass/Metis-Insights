@@ -157,9 +157,12 @@ class TestAccountsStatusLiveBalance:
         for s in statuses:
             for key in (
                 "name", "exchange", "account_type", "open_positions",
-                "daily_pnl", "max_daily_loss_usd", "halted",
+                "daily_pnl", "intraday_drawdown_pct",
             ):
                 assert key in s
+            # The cap fields went with the caps (removed 2026-10-09,
+            # operator decision "Remove them").
+            assert "halted" not in s and "max_daily_loss_usd" not in s
 
 
 # ---------------------------------------------------------------------------

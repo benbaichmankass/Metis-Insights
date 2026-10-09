@@ -65,9 +65,9 @@ accounts:
     exchange: bybit | breakout
     api_key_env: ENV_VAR_NAME     # name of env var holding the actual key
     risk:
-      max_dd_pct: 0.05            # max drawdown fraction (5 %)
-      daily_usd: 100              # max daily loss in USD
-      pos_size: 500               # max single-position size in USD
+      risk_pct: 0.01              # fraction of balance risked per trade
+      # max_dd_pct / daily_usd / daily_loss_pct: NOT ENFORCED since 2026-10-09
+      # (kept only for research grading + ML features). pos_size: removed 2026-06-24.
 ```
 
 **Never** store actual API keys in this file — use the `api_key_env` field to
@@ -75,8 +75,14 @@ reference an environment variable name.
 
 ## Risk checks (RiskManager.approve)
 
-1. **Daily loss limit**: `daily_pnl < -max_daily_loss_usd` → reject
-2. **Position size**: `order.meta['estimated_value'] > max_pos_size_usd` → reject
+1. **Dry-run account** → `account_mode_dry_run`.
+2. **Gross-exposure ceiling** (when `max_gross_exposure_pct` is declared and
+   the account is already at/over it) → `GROSS_EXPOSURE_CAP`.
+
+There is **no account-wide daily stop**. The daily-loss limit
+(`DAILY_LOSS_CAP`) and intraday-drawdown limit (`INTRADAY_DRAWDOWN`) were
+removed for every account — OPERATOR DECISION 2026-10-09, verbatim option chosen: "Remove them" ("No account-wide daily stop at all; only per-trade sizing and the prop-firm floors apply."). The position-size cap went
+2026-06-24. Daily PnL and intraday drawdown are still computed and reported.
 
 A `RiskBreach` exception is raised on the live path inside
 `Coordinator.multi_account_execute()` (via `RiskManager.evaluate()`); it is

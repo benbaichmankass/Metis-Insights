@@ -28,9 +28,8 @@ def _regular_status(**overrides):
         "name": "bybit_1",
         "exchange": "bybit",
         "account_type": "regular",
-        "halted": False,
         "daily_pnl": 1.23,
-        "max_daily_loss_usd": 100.0,
+        "intraday_drawdown_pct": 0.0123,
         "open_positions": 0,
         "live_balance_usdt": 1234.56,
         "live_balance_error": None,
@@ -81,7 +80,9 @@ class TestRegularAccountRender:
         assert "🎯 Strategy: vwap" in block
         assert "🔑 Key: …ABCD" in block
         assert "🔌 API: ✅ Balance $1,234.56 USDT" in block
-        assert "💵 Daily PnL: $+1.23 / limit $100" in block
+        # No daily-loss limit any more (removed 2026-10-09); drawdown reported.
+        assert "💵 Daily PnL: $+1.23 | intraday DD 1.23%" in block
+        assert "limit" not in block
         # "Max pos" line removed 2026-06-24 (position-notional cap deleted).
         assert "Max pos" not in block
         # Configured account: no not-configured line.
@@ -94,9 +95,15 @@ class TestRegularAccountRender:
         block = format_account_status_block(_regular_status(strategies=[]))
         assert "🎯 Strategy: <i>(none assigned)</i>" in block
 
-    def test_halted_icon(self):
+    def test_no_halted_state_rendered(self):
+        # The account-wide daily stop that produced "halted" was removed
+        # 2026-10-09 (operator decision, "Remove them"); a stale key is ignored.
         block = format_account_status_block(_regular_status(halted=True))
-        assert block.startswith("🔴 ")
+        assert block.startswith("🟢 ")
+
+    def test_missing_drawdown_renders_dash_not_zero(self):
+        block = format_account_status_block(_regular_status(intraday_drawdown_pct=None))
+        assert "intraday DD —" in block
 
     def test_no_balance_falls_back_to_warning(self):
         block = format_account_status_block(_regular_status(

@@ -456,7 +456,13 @@ only by reopening that decision.
 The trader runs 24/7 and never switches itself off — no auto-flip, no breaker
 that toggles mode, no "safety" default that goes dry on boot. Transient issues
 route through `RiskManager` per-trade: the account stays live and individual
-trades are refused with a logged cause. Full Prime Directive:
+trades are refused with a logged cause. **There is no account-wide daily
+stop**: `RiskManager`'s `DAILY_LOSS_CAP` / `INTRADAY_DRAWDOWN` refusals (and its
+daily-loss-budget sizing gate), which refused every new entry until UTC
+midnight, were removed for every account — OPERATOR DECISION 2026-10-09,
+verbatim option chosen: *"Remove them"* (*"No account-wide daily stop at all;
+only per-trade sizing and the prop-firm floors apply."*). Daily PnL and
+intraday drawdown are still computed and reported. Full Prime Directive:
 [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § Prime Directive.
 
 ⚠️ **There is no halting — in ANY pipeline** (operator directive 2026-10-09,

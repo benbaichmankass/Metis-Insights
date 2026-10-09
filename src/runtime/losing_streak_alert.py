@@ -13,8 +13,9 @@ structurally blind to it, and each for its own reason:
     ``ok``/absent.
   * ``account_reachability_alert`` probes ``positions()``. A bleeding account
     is perfectly reachable.
-  * ``daily_cap_alert`` and the RiskManager's daily-loss counters are
-    PER-DAY. Sixteen days each individually inside the cap never trip a
+  * ``daily_cap_alert`` and the RiskManager's daily-loss counters were
+    PER-DAY (both caps and that alert were removed 2026-10-09, operator
+    decision "Remove them"; the daily PnL is still reported). Sixteen days each individually inside the cap never trip a
     per-day threshold — that is precisely the shape that hid this.
   * ``/health-review``'s strategy-silence check reads ``*_eval`` events. The
     legs were evaluating and signalling throughout.

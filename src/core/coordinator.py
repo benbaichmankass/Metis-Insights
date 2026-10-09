@@ -770,7 +770,7 @@ class Coordinator:
         """Return per-account status dicts from config/accounts.yaml.
 
         Each dict contains name, exchange, account_type, open_positions,
-        daily_pnl, max_daily_loss_usd, halted, plus
+        daily_pnl, intraday_drawdown_pct (reported, never gated), plus
         live API integration fields (S-021):
 
         - ``live_balance_usdt``: total USDT balance fetched from the
@@ -1317,8 +1317,9 @@ class Coordinator:
             # position_size except, and the sized_qty<=0 gate) journal with
             # THIS cfg — not the richer ``account_cfg`` built later. Without
             # it every demo-account refusal row was written ``is_demo=0``,
-            # so a demo account (e.g. bybit_1) that trips its daily-loss cap
-            # and then size-refuses every subsequent signal looked like a
+            # so a demo account (e.g. bybit_1) that tripped its daily-loss cap
+            # (removed 2026-10-09) and then size-refused every subsequent
+            # signal looked like a
             # LIVE-account rejection cluster in the journal. The RiskBreach
             # and exchange_rejected paths already use the richer cfg and
             # were stamped correctly; this aligns the early paths with them.
@@ -1372,11 +1373,11 @@ class Coordinator:
                 "risk_pct": account.risk_manager.risk_pct,
                 "min_qty": account.risk_manager.min_qty,
                 "qty_precision": account.risk_manager.qty_precision,
-                # Forward the legacy ``risk:`` sub-block for any code
-                # path that reads from it (RiskManager re-construction
-                # inside execute_pkg when qty_override is absent).
-                "max_dd_pct": account.risk_manager.max_dd_pct,
-                "daily_usd": account.risk_manager.max_daily_loss_usd,
+                # ``max_dd_pct`` / ``daily_usd`` are no longer forwarded:
+                # the daily-loss and intraday-drawdown caps they configured
+                # were removed 2026-10-09 (operator decision, "Remove them" —
+                # no account-wide daily stop), and RiskManager stopped
+                # reading them.
                 # Bybit V5 category routing (spot vs linear). Drives
                 # ``_bybit_category`` inside execute.py — without this
                 # plumb-through the executor falls back to the default
@@ -1804,8 +1805,8 @@ class Coordinator:
                         if _avail_state != AVAILABLE_STATE_UNAVAILABLE:
                             available_basis_kind = _avail_state
                         # S-052: total cross-margin equity is the correct
-                        # equity basis for the min-balance gate, daily-loss
-                        # budget, and margin buffer fallback on a Bybit
+                        # equity basis for the non-positive-balance gate and
+                        # the margin buffer fallback on a Bybit
                         # UNIFIED account (the position is backed by total
                         # equity, not just the free wallet balance). Best-
                         # effort — None leaves the sizer on the current
@@ -1984,9 +1985,9 @@ class Coordinator:
             # size here, THEN the advisory + news reducers below still apply
             # reductively on top — so ML bearishness / news opposition can still
             # shrink even a high-conviction trade. ``effective_risk_pct`` feeds
-            # the daily-loss clamp (the account's base per-trade risk fraction;
+            # the per-trade clamp (the account's base per-trade risk fraction;
             # caps the conviction-implied fraction to min(2%, risk_pct) so a
-            # daily-loss-throttled account can't be re-inflated). Fail-inert.
+            # trade can't be re-inflated past the account basis). Fail-inert.
             from src.runtime.conviction_sizing import apply_conviction_sizing
             sized_qty = apply_conviction_sizing(
                 pkg, sized_qty, account_name=account.name,
@@ -2029,7 +2030,7 @@ class Coordinator:
             # RiskManager qty unchanged — it never touches the order, exactly
             # like the P1 meta.conviction stamp. When conviction graduates to
             # actually driving size that's a deliberate sizing-path change
-            # (governed by account mode + the margin/daily-loss guards), not a
+            # (governed by account mode + the per-trade/margin guards), not a
             # switch flipped here. Fail-permissive.
             from src.runtime.conviction_sizing import annotate_conviction_sizing
             sized_qty = annotate_conviction_sizing(
@@ -2118,47 +2119,18 @@ class Coordinator:
 
             sized_qty_by_account[account.name] = sized_qty
 
-            # Latching daily-loss-cap notification (operator-approved
-            # 2026-05-28). Fire ONE Telegram when an account first exhausts
-            # its daily-loss cap and ONE when it next clears — not per-tick.
-            # Runs every dispatch (so it catches both the cross-into and the
-            # cross-out-of cap, incl. the 00:00 UTC auto-reset on the next
-            # day's first tick); the latch in daily_cap_alert self-dedups.
-            # The cap-exhaustion check uses the same equity basis the sizer
-            # used. Best-effort — never blocks dispatch.
-            # Skipped for the prop bridge: its balance is a sentinel 0.0 (no
-            # broker API), so the cap math would misfire a spurious exhaustion
-            # alert. Prop daily-loss is governed by the prop ruleset + the
-            # rule-distance panel, not this RiskManager cap.
-            if not _is_prop_bridge:
-                try:
-                    from src.runtime.daily_cap_alert import note_account_cap_state
-                    _equity_basis = (
-                        total_account_usd if total_account_usd is not None else balance
-                    )
-                    note_account_cap_state(
-                        account.name,
-                        exhausted=account.risk_manager.is_daily_cap_exhausted(
-                            _equity_basis
-                        ),
-                        daily_pnl=account.risk_manager.daily_pnl,
-                        cap_usd=account.risk_manager.effective_daily_loss_usd(
-                            _equity_basis
-                        ),
-                        demo=getattr(account, "demo", False),
-                    )
-                except Exception as _cap_exc:  # noqa: BLE001
-                    logger.debug(
-                        "multi_account_execute: daily-cap note failed for %s: %s",
-                        account.name, _cap_exc,
-                    )
+            # The latching daily-loss-cap notification that stood here
+            # (``src.runtime.daily_cap_alert``) was removed 2026-10-09 with the
+            # cap itself (operator decision, "Remove them" — no account-wide
+            # daily stop): its "No further trades on this account today" ping
+            # would now be false.
 
             # 2. Refuse to forward a zero-qty order. This branch fires
             # for ANY sized_qty <= 0 outcome from the RiskManager —
             # not only true "balance below floor" cases. Pre-fix the
             # error template hardcoded ``below_min_balance`` which was
-            # misleading whenever the actual cause was the
-            # daily-loss-budget gate or any other RiskManager refusal.
+            # misleading whenever the actual cause was a margin /
+            # exposure / lot-size clamp or any other RiskManager refusal.
             # Operators saw "balance=186.87 < 50.0" and
             # couldn't tell the comparison was a lie.
             if sized_qty <= 0:
@@ -2228,8 +2200,7 @@ class Coordinator:
                 #    smoke-test bypass via _is_test_order semantics.
                 #
                 # Prop-risk integration: ``evaluate`` returns a
-                # structured reason on reject (DAILY_LOSS_CAP /
-                # INTRADAY_DRAWDOWN /
+                # structured reason on reject (GROSS_EXPOSURE_CAP /
                 # SKIP_MISSION_MET / SKIP_OVERNIGHT_RESTRICTED /
                 # SKIP_WEEKEND_RESTRICTED / account_mode_dry_run). The
                 # reason flows through the result row's ``error`` field
@@ -2461,7 +2432,7 @@ class Coordinator:
                     # left the position unmanaged anyway). ``close`` is held too
                     # rather than auto-flattened via close_open_position: in this
                     # architecture a close delta is almost always a transient
-                    # risk-sizing-0 artifact (daily-loss cap / min-balance / a
+                    # risk-sizing-0 artifact (margin / exposure clamp / a
                     # momentary balance read), and force-flattening a
                     # bracket-protected position on that would contradict
                     # hold-to-bracket. (Bybit linear/inverse accounts fall
@@ -2749,8 +2720,8 @@ class Coordinator:
                 # designed, NOT a failure: suppress the operator "execution
                 # failed" ping (still journal the rejection below for audit). A
                 # wired-but-off account should just silently not trade (operator
-                # directive 2026-07-15). A genuine RiskBreach (daily-loss cap,
-                # open-position guard, real risk refusal) still pings.
+                # directive 2026-07-15). A genuine RiskBreach (gross-exposure
+                # cap, open-position guard, real risk refusal) still pings.
                 from src.runtime.execution_diagnostics import (
                     is_expected_dispatch_skip,
                 )
@@ -3940,8 +3911,8 @@ def _explain_zero_sized_qty(
     ``sized_qty <= 0`` outcome.
 
     Pre-fix the rejection site hardcoded ``below_min_balance`` which
-    was misleading whenever the actual cause was the daily-loss-budget
-    gate or any other RiskManager refusal — operators saw
+    was misleading whenever the actual cause was a margin / exposure
+    clamp or any other RiskManager refusal — operators saw
     "balance=186.87 < 50.0" and couldn't tell the comparison was a
     lie.
 
@@ -3953,8 +3924,9 @@ def _explain_zero_sized_qty(
         (non-positive balance). There is NO arbitrary minimum-balance
         floor anymore — ``min_balance_usd`` was removed 2026-06-24;
         the only floor is physics (you can't risk a fraction of zero).
-      * ``risk_refused:`` — generic catch-all (daily-loss budget or
-        any other RiskManager rule). Includes balance +
+      * ``risk_refused:`` — generic catch-all (margin / exposure /
+        lot-size clamp or any other RiskManager rule; the daily-loss budget
+        was removed 2026-10-09). Includes balance +
         total_account_usd so the operator can reproduce.
 
     PR 5 (2026-05-10): the ``zero_exchange_capacity`` token was
@@ -3972,8 +3944,8 @@ def _explain_zero_sized_qty(
             f"(no funds available to size against)"
         )
 
-    # 2. Generic refusal — daily-loss budget or any future
-    #    RiskManager rule. Surface the inputs the operator needs
+    # 2. Generic refusal — margin / exposure / lot-size clamp or any
+    #    future RiskManager rule. Surface the inputs the operator needs
     #    to reproduce.
     avail_str = (
         f"{float(available_usd):.2f}" if available_usd is not None else "n/a"
@@ -3985,8 +3957,8 @@ def _explain_zero_sized_qty(
         f"risk_refused: sized_qty=0 with balance={balance:.2f} "
         f"available_usd={avail_str} total_account_usd={total_str} "
         f"direction={direction} "
-        f"market_type={market_type} — check daily-loss budget / "
-        f"liquidation buffer / max_borrow"
+        f"market_type={market_type} — check margin / exposure headroom / "
+        f"lot size"
     )
 
 

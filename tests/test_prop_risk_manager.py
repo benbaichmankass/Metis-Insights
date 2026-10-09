@@ -216,20 +216,22 @@ class TestTimeWindows:
 
 
 class TestBaseGateInheritance:
-    def test_daily_loss_cap_trips_with_reason(self):
+    # 2026-10-09: the base DAILY_LOSS_CAP / INTRADAY_DRAWDOWN refusals were
+    # removed for every account, prop included (operator decision, "Remove
+    # them" — "No account-wide daily stop at all; only per-trade sizing and
+    # the prop-firm floors apply."). Prop-firm floors are enforced per ticket
+    # by the prop executor (tests/test_prop_executor.py).
+    def test_past_old_daily_loss_cap_still_approves(self):
         rm = PropRiskManager(_base_cfg())
-        rm.daily_pnl = -100.0  # past -50 cap
-        ok, reason = rm.evaluate(_pkg())
-        assert ok is False
-        assert reason == "DAILY_LOSS_CAP"
+        rm.daily_pnl = -100.0  # past the old -50 cap
+        assert rm.evaluate(_pkg()) == (True, None)
 
-    def test_intraday_drawdown_trips_with_reason(self):
+    def test_past_old_intraday_drawdown_still_approves(self):
         rm = PropRiskManager(_base_cfg())
         rm.update_equity(1000.0)
-        rm.update_equity(900.0)  # 10% drawdown vs 2% cap
-        ok, reason = rm.evaluate(_pkg())
-        assert ok is False
-        assert reason == "INTRADAY_DRAWDOWN"
+        rm.update_equity(900.0)  # 10% drawdown vs the old 2% cap
+        assert rm.intraday_drawdown() == pytest.approx(0.10)
+        assert rm.evaluate(_pkg()) == (True, None)
 
     def test_smoke_test_bypasses_all_gates(self):
         # mission complete + overnight + weekend, but smoke-test wins.
@@ -258,20 +260,18 @@ class TestBaseRiskManagerEvaluate:
         assert ok is True
         assert reason is None
 
-    def test_base_evaluate_daily_loss_reason(self):
+    def test_base_evaluate_no_daily_loss_reason(self):
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 100, "pos_size": 500})
         rm.daily_pnl = -200.0
-        ok, reason = rm.evaluate(_pkg())
-        assert ok is False
-        assert reason == "DAILY_LOSS_CAP"
+        assert rm.evaluate(_pkg()) == (True, None)
 
     def test_base_approve_still_returns_bool(self):
-        # Existing callers (TradingAccount.place_order legacy path) must
-        # continue to get a plain bool from approve().
+        # Existing callers must continue to get a plain bool from approve().
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 100, "pos_size": 500})
         assert rm.approve(_pkg()) is True
         rm.daily_pnl = -200.0
-        assert rm.approve(_pkg()) is False
+        assert rm.approve(_pkg()) is True
+        assert RiskManager({}, dry_run=True).approve(_pkg()) is False
 
 
 # ---------------------------------------------------------------------------
@@ -307,8 +307,8 @@ class TestStateUpdates:
 
 class TestJournalSourcedDailyRisk:
     """PropRiskManager wires ``account_name`` through as the base
-    RiskManager's ``account_id``, so its daily-loss cap is rebuilt from the
-    canonical journal (and survives a restart) instead of resetting to 0 in
+    RiskManager's ``account_id``, so its daily PnL (reported; no longer
+    gated since 2026-10-09) is rebuilt from the canonical journal (and survives a restart) instead of resetting to 0 in
     memory. Regular accounts already got this via
     ``RiskManager(..., account_id=name)`` in the loader; prop accounts were
     dropping it (the in-memory-only bug)."""
@@ -335,32 +335,28 @@ class TestJournalSourcedDailyRisk:
             "account_id": account_id, "created_at": f"{today} 12:00:00",
         })
 
-    def test_daily_cap_engages_from_journal(self, tmp_path, monkeypatch):
+    def test_daily_pnl_from_journal_does_not_refuse(self, tmp_path, monkeypatch):
         db = tmp_path / "trade_journal.db"
         monkeypatch.setenv("TRADE_JOURNAL_DB", str(db))
         monkeypatch.setenv("DATA_DIR", str(tmp_path / "data-root"))
-        # _base_cfg daily_usd is 50 → a -200 realized loss is well past it.
+        # _base_cfg daily_usd is 50 → a -200 realized loss is past the OLD cap.
         self._seed(db, "prop_x", -200.0)
 
         rm = PropRiskManager(_base_cfg(), account_name="prop_x")
         # daily_pnl rebuilt from the journal, not poked in memory.
         assert rm.daily_pnl == pytest.approx(-200.0)
-        ok, reason = rm.evaluate(_pkg())
-        assert ok is False
-        assert reason == "DAILY_LOSS_CAP"
+        assert rm.evaluate(_pkg()) == (True, None)
 
     def test_state_survives_restart(self, tmp_path, monkeypatch):
         db = tmp_path / "trade_journal.db"
         monkeypatch.setenv("TRADE_JOURNAL_DB", str(db))
         monkeypatch.setenv("DATA_DIR", str(tmp_path / "data-root"))
         self._seed(db, "prop_x", -200.0)
-        # A fresh instance (process "restart") rebuilds the same breach
-        # state — the bug this fix closes was the cap resetting to 0.
+        # A fresh instance (process "restart") rebuilds the same reported
+        # daily PnL — and, since 2026-10-09, still approves the next trade.
         revived = PropRiskManager(_base_cfg(), account_name="prop_x")
         assert revived.daily_pnl == pytest.approx(-200.0)
-        ok, reason = revived.evaluate(_pkg())
-        assert ok is False
-        assert reason == "DAILY_LOSS_CAP"
+        assert revived.evaluate(_pkg()) == (True, None)
 
     def test_clean_journal_allows(self, tmp_path, monkeypatch):
         monkeypatch.setenv("TRADE_JOURNAL_DB", str(tmp_path / "trade_journal.db"))
@@ -615,11 +611,13 @@ class TestNominalSizing:
             "a genuine live balance sizes off the risk budget, not the nominal"
         )
 
-    def test_nominal_daily_cap_prescreen(self):
-        # The nominal basis means the base daily-loss cap still pre-screens:
-        # an already-exhausted daily budget refuses even with $0 live balance.
+    def test_daily_loss_no_longer_zeroes_nominal_size(self):
+        # 2026-10-09: the daily-loss budget gate was removed, so a large
+        # realized loss no longer zeroes the nominal size (prop-firm floors
+        # are the prop executor's per-ticket guards, not this sizer).
         cfg = _base_cfg(account_size_usd=5000)
         cfg["risk"]["min_balance_usd"] = 100
-        rm = PropRiskManager(cfg)
-        rm.daily_pnl = -10_000.0  # blow past any nominal daily cap
-        assert rm.position_size(_pkg(), 0.0) == 0.0
+        flat = PropRiskManager(cfg)
+        losing = PropRiskManager(cfg)
+        losing.daily_pnl = -10_000.0  # past any old nominal daily cap
+        assert losing.position_size(_pkg(), 0.0) == flat.position_size(_pkg(), 0.0) > 0.0

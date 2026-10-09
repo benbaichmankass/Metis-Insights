@@ -84,7 +84,7 @@ def _account_status(name: str, halted: bool = False, balance: float | None = 100
         "live_balance_usdt": balance,
         "live_balance_error": None,
         "daily_pnl": 0.0,
-        "max_daily_loss_usd": 100.0,
+        "intraday_drawdown_pct": 0.0,
         "open_positions": 0,
         "strategies": ["vwap"],
         "api_key_fingerprint": "abcd",
@@ -101,10 +101,10 @@ def test_accounts_status_collapsable_renders_one_section_per_account():
     # Three sections, three blockquotes.
     assert body.count("<blockquote expandable>") == 3
     assert "alice" in body and "bob" in body and "carol" in body
-    # Header counts.
+    # Header counts. No "halted" count since the account-wide daily stop was
+    # removed 2026-10-09 (operator decision, "Remove them").
     assert "3 configured" in body
-    assert "2 healthy" in body
-    assert "1 halted" in body
+    assert "halted" not in body
 
 
 def test_accounts_status_collapsable_summary_carries_balance_or_error():

@@ -449,8 +449,11 @@ Tier-2 actions:
 - `reattach-stranded-package-legs`
 
 `reset-daily-risk-state` deletes the `daily_risk_state` row for a given
-`account_id` from `trade_journal.db`, clearing the INTRADAY_DRAWDOWN
-counters without a full service restart. Requires `account: <id>` in the
+`account_id` from `trade_journal.db`, re-anchoring the REPORTED daily
+PnL / intraday-drawdown figures without a full service restart. (Since
+2026-10-09 nothing refuses a trade on them — the INTRADAY_DRAWDOWN /
+DAILY_LOSS_CAP refusals were removed, operator decision "Remove them" — so
+this action is never needed to un-block trading.) Requires `account: <id>` in the
 issue body. Script: `scripts/ops/reset_daily_risk_state.sh`.
 
 `pause-autoheal` / `resume-autoheal` stop / start

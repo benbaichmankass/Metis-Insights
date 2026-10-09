@@ -165,8 +165,28 @@
 # the follow-up cleanup PR once bybit_2 is confirmed trading reliably.
 # See `commits` for the migration audit and cutover rationale.
 #
-# Risk caps fire bidirectionally: daily_usd / daily_loss_pct and (S-012 PR E3a)
-# max_dd_pct (intra-day, UTC midnight reset). There is NO position-notional
+# ⚠️ NO ACCOUNT-WIDE DAILY STOP. The `risk:` keys daily_usd / daily_loss_pct /
+# max_dd_pct are NOT ENFORCED by the live trader since 2026-10-09. OPERATOR
+# DECISION 2026-10-09 ~11:40Z (popup relayed by manager
+# session_01Uq7MrjPQDRWqbhCjwuMava), question: "The daily loss cap and the
+# intraday drawdown cap ... refuse every new entry until UTC midnight. Under
+# 'no halting', what should they do?" — option chosen, verbatim: "Remove them"
+# ("No account-wide daily stop at all; only per-trade sizing and the prop-firm
+# floors apply."). This supersedes the 2026-05-28 approval of the
+# %-of-equity daily cap. RiskManager's DAILY_LOSS_CAP / INTRADAY_DRAWDOWN
+# refusals and its daily-loss-budget sizing gate are gone for EVERY account;
+# daily PnL and intraday drawdown are still computed and reported.
+# The keys are KEPT (values unchanged) only because other readers use them:
+# src/prop/account_rulesets.py (research grading of standard accounts:
+# max_dd_pct, daily_loss_pct) and ml/datasets/families/account_context.py
+# (ML features: max_dd_pct, daily_usd). The per-account comments below that
+# call them a "cap" describe what they configured BEFORE 2026-10-09.
+# Prop-firm floors are NOT these keys: they come from
+# config/prop_rulesets/*.yaml and are enforced per ticket by the prop paths
+# (src/prop/prop_executor.py::evaluate_guards, prop_risk_gate at emission),
+# which still read `breach_guards` below.
+#
+# There is NO position-notional
 # cap — pos_size was removed 2026-06-24 (operator directive: size is a pure
 # function of available balance+margin and risk-per-trade, never an arbitrary
 # max notional). A leftover pos_size value in any risk block is ignored.
@@ -187,8 +207,9 @@
 # cap and NO MAX_QTY anywhere in the sizing or order path (POSITION_SIZE_CAP /
 # pos_size / MAX_QTY / MAX_POSITION_USD all removed 2026-06-24). The only
 # bounds on a position are the risk budget (risk_pct × balance ÷ SL distance),
-# the daily-loss budget, the margin/buying-power ceiling, and the exchange's
-# own minimum lot size.
+# the margin/buying-power ceiling, the declared gross-exposure ceiling
+# (max_gross_exposure_pct), and the exchange's own minimum lot size. (The
+# daily-loss budget was removed 2026-10-09 — see above.)
 
 accounts:
   # bybit_1: Bybit demo trading account — the full demo mirror of bybit_2
@@ -1894,12 +1915,11 @@ accounts:
                                        # popup): "we can breach the account and
                                        # just buy a new one ... We shouldn't reject
                                        # tickets because the risk will breach."
-                                       # DAILY_LOSS_CAP / INTRADAY_DRAWDOWN let the
-                                       # trade through with a WARNING log line plus
-                                       # one durable row in runtime_logs/
-                                       # breach_accepted.jsonl (diag log_file
-                                       # name=breach_accepted); NO ping is sent from
-                                       # the risk manager. The ticket caveat becomes
+                                       # (The RiskManager half of this — letting
+                                       # DAILY_LOSS_CAP / INTRADAY_DRAWDOWN through
+                                       # with a breach_accepted.jsonl row — ended
+                                       # 2026-10-09 when those refusals were removed
+                                       # for every account.) The ticket caveat becomes
                                        # an informational line, and the executor
                                        # raises an alert (pinged by its tick) when it
                                        # places through a breach. Every other account
@@ -1940,8 +1960,10 @@ accounts:
       risk_pct: 0.005                  # FLAT $25/ticket (0.5% x $5k): the flat arm chosen by the rule registered in
                                        # RQ-20261005-853/814 before the run (ETH -> $25; SOL -> $50 not applied: risk is per account,
                                        # per-leg sizing PI-20261005-YUVCGTMJ-0006); ruleset sizing.flat.max_risk_usd matches.
-      # breach_guards: NOT set -> `enforce` (the default): a DAILY_LOSS_CAP / INTRADAY_DRAWDOWN
-      # breach REFUSES the trade. breakout_1's `report` is NOT carried over.
+      # breach_guards: NOT set -> `enforce` (the default): a prop-firm floor breach graded by the
+      # prop paths (prop_risk_gate / prop executor) REFUSES the ticket. breakout_1's `report` is NOT
+      # carried over. (The RiskManager DAILY_LOSS_CAP / INTRADAY_DRAWDOWN refusals were removed
+      # 2026-10-09 for every account.)
 
   # tradeify_1: Tradeify 247 1-Step $10k crypto evaluation on Tradeify's DXtrade
   # white-label (dx.tradeify247.co). TRADEIFY-WIRE, 2026-09-30, PR B (Tier-3).
@@ -2041,10 +2063,12 @@ accounts:
       daily_loss_pct: 0.03             # 3% daily = $300 (resets 22:00 UTC; ruleset limits).
       daily_usd: 300                   # absolute fallback (= 3% of $10k).
       risk_pct: 0.005                  # 0.5% = $50/ticket (memo § 3.2-3.3; ruleset sizing.flat cap 50).
-      # breach_guards: NOT set -> `enforce` (the default). A DAILY_LOSS_CAP /
-      # INTRADAY_DRAWDOWN breach REFUSES the trade on this account (manager
-      # review of #14672, 2026-09-30: "'report' places orders through a
-      # breach; it must refuse"). breakout_1's `report` is unchanged.
+      # breach_guards: NOT set -> `enforce` (the default). A prop-firm floor
+      # breach graded by the prop executor's per-ticket guards REFUSES the
+      # ticket on this account (manager review of #14672, 2026-09-30:
+      # "'report' places orders through a breach; it must refuse").
+      # breakout_1's `report` is unchanged. (The RiskManager DAILY_LOSS_CAP /
+      # INTRADAY_DRAWDOWN refusals were removed 2026-10-09 for every account.)
 
   # velotrade_1: Velotrade CLASSIC 1-Step $5k crypto evaluation on Velotrade's
   # DXtrade deployment (dx.velotrade.com). VELOTRADE-WIRE, 2026-10-04 (HELD
@@ -2099,4 +2123,6 @@ accounts:
                                        # Moves with prop_rulesets/velotrade_classic_1step.yaml sizing.flat.max_risk_usd 25 -> 50
                                        # (the executor caps a ticket there). Revert: 0.005 here and cap 25 in the ruleset.
       # breach_guards: NOT set -> `enforce` (the default), as tradeify_1: a
-      # DAILY_LOSS_CAP / INTRADAY_DRAWDOWN breach REFUSES the trade.
+      # prop-firm floor breach graded by the prop executor's per-ticket guards
+      # REFUSES the ticket. (The RiskManager DAILY_LOSS_CAP / INTRADAY_DRAWDOWN
+      # refusals were removed 2026-10-09 for every account.)

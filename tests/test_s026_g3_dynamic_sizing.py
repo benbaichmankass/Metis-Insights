@@ -71,7 +71,6 @@ class TestFloorRounding:
             "min_balance_usd": 1,
             "min_qty": 0.0001,
             "qty_precision": 3,
-            "daily_usd": 1_000_000,  # disable daily-loss gate for this assertion
             # 2026-05-12 margin pre-flight cap would clamp this $498 account
             # to (498 * 0.9 / 50000) ≈ 0.008 at leverage=1, masking the
             # floor-rounding behaviour under test. High leverage disables it.
@@ -86,82 +85,38 @@ class TestFloorRounding:
 
 
 # ---------------------------------------------------------------------------
-# Daily-loss-budget gate — refuse / scale down when full SL would bust.
+# Daily-loss-budget gate — REMOVED 2026-10-09 (operator decision, "Remove
+# them": "No account-wide daily stop at all; only per-trade sizing and the
+# prop-firm floors apply."). The day's realized loss no longer scales a trade
+# down or zeroes it; these tests pin that the size is unchanged.
 # ---------------------------------------------------------------------------
 
 
-class TestDailyLossBudgetGate:
-    def test_gate_does_not_clip_small_trades(self):
-        """Trade well within the daily budget passes unchanged."""
-        rm = RiskManager({
-            "risk_pct": 0.01,
-            "min_balance_usd": 50,
-            "daily_usd": 100,  # operator default
-        })
+class TestNoDailyLossBudgetGate:
+    _CFG = {"risk_pct": 0.01, "min_balance_usd": 50, "leverage": 100}
+
+    def _qty(self, **over):
+        cfg = dict(self._CFG, **{k: v for k, v in over.items() if k != "daily_pnl"})
+        rm = RiskManager(cfg)
+        rm.daily_pnl = over.get("daily_pnl", 0.0)
         pkg = _pkg(entry=50_000.0, sl=49_500.0)  # distance=500
+        return rm.position_size(pkg, balance_usd=10_000.0)
 
-        # Balance=$10k → raw qty = 100/500 = 0.2; loss-at-SL = $100.
-        # daily_usd=100 means budget is exactly the loss; should pass.
-        qty = rm.position_size(pkg, balance_usd=10_000.0)
-        assert qty > 0
-        assert qty * 500 <= 100 + 1e-6  # within budget
+    def test_baseline_size_is_pure_risk_budget(self):
+        # Balance=$10k → raw qty = 100/500 = 0.2.
+        assert self._qty() == pytest.approx(0.2, abs=1e-6)
 
-    def test_gate_scales_down_when_trade_would_bust_budget(self):
-        """Big balance + small daily budget → qty scaled to fit budget."""
-        rm = RiskManager({
-            "risk_pct": 0.01,
-            "min_balance_usd": 50,
-            "daily_usd": 50,  # very tight
-        })
-        pkg = _pkg(entry=50_000.0, sl=49_500.0)  # distance=500
+    def test_tight_daily_usd_no_longer_scales_down(self):
+        assert self._qty(daily_usd=50) == pytest.approx(0.2, abs=1e-6)
 
-        # Balance=$10k → raw qty=0.2 → loss-at-SL=$100 (>$50 budget).
-        # Scaled to fit: qty = 50/500 = 0.1.
-        qty = rm.position_size(pkg, balance_usd=10_000.0)
-        # Floored to step-size (precision=3): 0.1 exactly.
-        assert qty == pytest.approx(0.1, abs=1e-6)
-        # Realised max loss must NOT exceed budget.
-        assert qty * 500 <= 50 + 1e-6
+    def test_near_zero_daily_usd_no_longer_refuses(self):
+        assert self._qty(daily_usd=0.01, min_qty=0.001) == pytest.approx(0.2, abs=1e-6)
 
-    def test_gate_refuses_when_min_qty_busts_budget(self):
-        """When even min_qty would bust the budget, qty=0 (refuse)."""
-        rm = RiskManager({
-            "risk_pct": 0.01,
-            "min_balance_usd": 50,
-            "daily_usd": 0.01,   # nearly zero budget
-            "min_qty": 0.001,
-        })
-        pkg = _pkg(entry=50_000.0, sl=49_500.0)  # distance=500
-        # min_qty * distance = 0.001 * 500 = $0.50 > $0.01 budget → refuse.
-        qty = rm.position_size(pkg, balance_usd=10_000.0)
-        assert qty == 0.0
+    def test_already_past_old_daily_loss_still_sizes(self):
+        assert self._qty(daily_usd=100, daily_pnl=-150.0) == pytest.approx(0.2, abs=1e-6)
 
-    def test_gate_refuses_when_already_past_daily_loss(self):
-        """If daily_pnl is already past -max_daily_loss_usd, refuse."""
-        rm = RiskManager({
-            "risk_pct": 0.01,
-            "min_balance_usd": 50,
-            "daily_usd": 100,
-        })
-        # Push daily_pnl past the cap.
-        rm.daily_pnl = -150.0
-        pkg = _pkg(entry=50_000.0, sl=49_500.0)
-        assert rm.position_size(pkg, balance_usd=10_000.0) == 0.0
-
-    def test_gate_uses_remaining_budget_when_partially_drawn(self):
-        """If half the budget is already used, sizer scales to the half left."""
-        rm = RiskManager({
-            "risk_pct": 0.01,
-            "min_balance_usd": 50,
-            "daily_usd": 100,
-        })
-        rm.daily_pnl = -60.0  # $40 budget remaining
-        pkg = _pkg(entry=50_000.0, sl=49_500.0)  # distance=500
-
-        # Raw qty (no gate) = 100/500 = 0.2 → loss-at-SL = $100.
-        # Budget remaining = $40 → scaled qty = 40/500 = 0.08.
-        qty = rm.position_size(pkg, balance_usd=10_000.0)
-        assert qty == pytest.approx(0.08, abs=1e-6)
+    def test_partially_drawn_budget_no_longer_shrinks_size(self):
+        assert self._qty(daily_usd=100, daily_pnl=-60.0) == pytest.approx(0.2, abs=1e-6)
 
 
 # ---------------------------------------------------------------------------

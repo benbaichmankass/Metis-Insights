@@ -13,7 +13,9 @@ check, and persists it. These tests prove:
 
 * the recompute populates ``daily_pnl`` and writes a ``daily_risk_state``
   row,
-* the daily-loss cap actually engages from journal-derived PnL,
+* journal-derived PnL is computed and reported — and, since 2026-10-09
+  (operator decision "Remove them": no account-wide daily stop), never
+  refuses a trade,
 * state survives a "restart" (a fresh RiskManager instance),
 * a missing journal is best-effort (no crash, in-memory),
 * ``account_id=""`` disables persistence entirely (test/one-off callers).
@@ -105,13 +107,15 @@ def test_recompute_populates_daily_pnl_and_persists_row(journal_env):
     assert rows[0][2] == pytest.approx(-110.0)
 
 
-def test_daily_loss_cap_engages_from_journal(journal_env):
-    _seed_closed_trade(journal_env, "acc2", -150.0)  # past the 100 cap
+def test_journal_loss_past_old_cap_is_reported_not_refused(journal_env):
+    _seed_closed_trade(journal_env, "acc2", -150.0)  # past the OLD 100 cap
     rm = RiskManager({"daily_usd": 100.0}, account_id="acc2")
 
+    assert rm.daily_pnl == pytest.approx(-150.0)
+    assert rm.report()["daily_pnl"] == pytest.approx(-150.0)
     ok, reason = rm.evaluate(_order())
-    assert ok is False
-    assert reason == "DAILY_LOSS_CAP"
+    assert ok is True
+    assert reason is None
 
 
 def test_within_cap_allows(journal_env):
@@ -193,10 +197,11 @@ def test_cross_day_loss_counts_today(journal_env):
     )
     assert rm._recompute_daily_pnl_from_db() == pytest.approx(-6000.0)
 
-    rm.current_equity = 50_000.0  # 5% budget = 2500 < 6000 realized today
+    rm.current_equity = 50_000.0  # old 5% budget = 2500 < 6000 realized today
     ok, reason = rm.evaluate(_order())
-    assert ok is False
-    assert reason == "DAILY_LOSS_CAP"
+    # The cross-day loss is attributed to today (above) but no longer refuses.
+    assert ok is True
+    assert reason is None
 
 
 def test_loss_realized_yesterday_not_counted_today(journal_env):

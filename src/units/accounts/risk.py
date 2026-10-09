@@ -1,7 +1,7 @@
 """Per-account risk manager — units layer (S-008 PR #122 / S-010 PR #1 /
-S-012 PR E3a max_dd_pct enforcement / S-026 G2 single-sizer contract /
-S-026 G3 floor-rounding + daily-loss-budget gate /
-2026-05-12 margin pre-flight cap to surface 110007 as a RiskManager refusal).
+S-026 G2 single-sizer contract / S-026 G3 floor-rounding /
+2026-05-12 margin pre-flight cap to surface 110007 as a RiskManager refusal /
+2026-10-09 daily-loss + intraday-drawdown caps REMOVED, operator decision).
 
 Two interfaces:
   - Functional (S-008): size_order() / size_order_from_cfg() — kept as a
@@ -11,21 +11,32 @@ Two interfaces:
     place that decides position size. Used by TradingAccount.place_order()
     and (post G2) by Coordinator.multi_account_execute() per account.
 
-The class-based interface tracks per-account state:
+The class-based interface tracks per-account state (REPORTED, never gated):
   - daily_pnl: USD PnL since the last reset
   - current_equity / daily_high_equity: equity tracking for intra-day
-    drawdown (PM § 8 #6 — resets at UTC midnight on the next approve()
-    or update_equity() call).
+    drawdown (resets at UTC midnight on the next approve() or
+    update_equity() call).
 
-Hard limits (from accounts.yaml ``risk`` section):
-  - max_dd_pct: max intra-day equity drawdown from today's high (S-012 PR E3a)
-  - daily_usd: max daily loss in USD (S-010)
+There is NO account-wide daily stop. The DAILY_LOSS_CAP and
+INTRADAY_DRAWDOWN refusals and the daily-loss-budget sizing gate refused
+every new entry on an account until UTC midnight once tripped; they were
+REMOVED for every account on 2026-10-09 by operator decision (verbatim
+option chosen: "Remove them" — "No account-wide daily stop at all; only
+per-trade sizing and the prop-firm floors apply."), under the NO-HALT
+directive ("There is no halting."). This supersedes the 2026-05-28
+approval of the percentage-based daily cap. Daily PnL and intraday
+drawdown are still COMPUTED, persisted to ``daily_risk_state`` and
+reported by ``report()``; nothing refuses a trade on them. The prop-firm
+floors live in the prop executor's per-ticket guards
+(``src/prop/prop_executor.py::evaluate_guards``, limits from
+``config/prop_rulesets/*.yaml``) and are untouched.
 
-There is NO position-notional ceiling: the removed ``pos_size`` /
+There is NO position-notional ceiling either: the removed ``pos_size`` /
 ``POSITION_SIZE_CAP`` capped a correctly risk-sized trade on a number
 unrelated to account capacity, so it does not exist (operator directive
-2026-06-24). Size is bounded only by the risk budget, the daily-loss
-budget, the margin/buying-power ceiling, and the exchange's lot size.
+2026-06-24). Size is bounded only by the per-trade risk budget, the
+margin/buying-power ceiling, the declared gross-exposure ceiling, and the
+exchange's lot size.
 
 Sizing inputs (also from the ``risk`` section):
   - risk_pct: fraction of balance risked per trade (operator default 0.01)
@@ -38,8 +49,8 @@ State persistence (A-1 + self-healing rebuild):
     table in the canonical trade-journal DB and reloaded on startup.
   - SELF-HEALING: rather than depending on a runtime caller of
     ``record_trade_result()`` / ``update_equity()`` (there were none — the
-    bug that left ``daily_risk_state`` empty and the daily-loss /
-    max-drawdown caps reset to 0 on every restart), the manager rebuilds
+    bug that left ``daily_risk_state`` empty and the reported daily
+    figures reset to 0 on every restart), the manager rebuilds
     today's state from authoritative sources on init and on every gate
     check: realized PnL is summed from ``trades`` (this account, closed,
     realized today UTC, by ``closed_at``) and current equity is read from
@@ -139,34 +150,16 @@ def breach_guards_mode(risk_config: Optional[dict]) -> str:
     ``report`` is declared per account in config/accounts.yaml; as of
     2026-09-28 only breakout_1 carries it (operator, ~13:40Z: "we can breach
     the account and just buy a new one ... that shouldn't stop us").
+
+    Since 2026-10-09 the ONLY readers are the prop paths
+    (``src.prop.prop_risk_gate.breach_guards_for`` -> the prop executor's
+    per-ticket prop-firm floor guards and the breakout ticket emitter).
+    ``RiskManager`` no longer reads it: the DAILY_LOSS_CAP /
+    INTRADAY_DRAWDOWN refusals it used to switch were removed for every
+    account (operator decision 2026-10-09, "Remove them").
     """
     raw = str((risk_config or {}).get("breach_guards") or "").strip().lower()
     return raw if raw in BREACH_GUARD_MODES else "enforce"
-
-
-BREACH_ACCEPTED_LOG = "breach_accepted.jsonl"
-
-
-def record_breach_accepted(row: dict) -> None:
-    """Append ONE durable row per trade let through a breach in ``report``
-    mode, to ``runtime_logs/breach_accepted.jsonl`` (readable at
-    ``/api/diag/log_file?name=breach_accepted``), so trades placed through a
-    breach can be COUNTED later. The log line alone was not durable and nothing
-    read ``last_breach_report`` (manager review of #13660, 2026-09-28).
-    Best-effort: a failed write never changes the trade decision."""
-    try:
-        import json
-        import os
-        from datetime import datetime, timezone
-
-        from src.utils.paths import runtime_logs_dir
-
-        path = os.path.join(str(runtime_logs_dir()), BREACH_ACCEPTED_LOG)
-        with open(path, "a", encoding="utf-8") as fh:
-            fh.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(),
-                                 "status": "breach_accepted", **row}, default=str) + "\n")
-    except Exception:  # noqa: BLE001 — observability never strands a trade
-        logger.warning("record_breach_accepted: could not write the durable row", exc_info=True)
 
 
 def _is_test_order(pkg: "OrderPackage") -> bool:
@@ -337,14 +330,16 @@ def size_order_from_cfg(
 
 
 class RiskManager:
-    """Per-account risk gate with stateful daily-PnL tracking.
+    """Per-account per-trade risk gate + sizer, with daily-PnL / intraday
+    drawdown tracking that is REPORTED, never gated.
 
-    Parameters (from accounts.yaml ``risk`` section)
-    -------------------------------------------------
-    max_dd_pct : float
-        Maximum drawdown as a fraction of starting equity (e.g., 0.05 = 5 %).
-    daily_usd : float
-        Maximum allowed daily loss in USD (e.g., 100).
+    The account ``risk:`` keys ``max_dd_pct`` / ``daily_loss_pct`` /
+    ``daily_usd`` are NOT read here any more (operator decision 2026-10-09:
+    "No account-wide daily stop at all; only per-trade sizing and the
+    prop-firm floors apply."). They stay in config/accounts.yaml only
+    because other readers use them: ``src/prop/account_rulesets.py``
+    (research grading of standard accounts) and
+    ``ml/datasets/families/account_context.py`` (ML features).
     """
 
     def __init__(
@@ -354,26 +349,11 @@ class RiskManager:
         dry_run: bool = False,
         account_id: str = "",
     ) -> None:
-        self.max_dd_pct: float = float(config.get("max_dd_pct", 0.05))
-        self.max_daily_loss_usd: float = float(config.get("daily_usd", 100.0))
-        # Percentage-based daily-loss cap (operator-approved 2026-05-28).
-        # When > 0, the daily-loss budget is ``daily_loss_pct × equity``
-        # rather than the fixed ``daily_usd`` — so the cap scales with the
-        # account instead of being a hardcoded USD figure. ``daily_usd``
-        # stays as the absolute FALLBACK used only when no equity figure is
-        # available (no balance snapshot / cold start). Opted in per-account
-        # in config/accounts.yaml; accounts without the field (e.g. the prop
-        # account) keep the pure absolute ``daily_usd`` behaviour unchanged.
-        # The bybit + IB accounts set it to 0.05 (= ``max_dd_pct``), so the
-        # daily realized-loss budget and the intraday equity-drawdown cap use
-        # the same 5%-of-equity figure.
-        self.daily_loss_pct: float = float(config.get("daily_loss_pct", 0.0) or 0.0)
-        # Breach guards (2026-09-28, operator-directed): ``report`` turns
-        # DAILY_LOSS_CAP / INTRADAY_DRAWDOWN into a logged warning and lets the
-        # trade through; ``enforce`` (default) keeps them as refusals. Dry-run
-        # and GROSS_EXPOSURE_CAP are not breach guards and never change.
-        self.breach_guards: str = breach_guards_mode(config)
-        self.last_breach_report: Optional[str] = None
+        # NO account-wide daily stop (operator decision 2026-10-09, "Remove
+        # them"): the daily-loss cap (``daily_usd`` / ``daily_loss_pct``), the
+        # intraday-drawdown cap (``max_dd_pct``) and the ``breach_guards``
+        # switch between refusing and reporting them are no longer read by
+        # this class. See the module docstring.
         self.risk_pct: float = float(config.get("risk_pct", 0.01))
         # ── Per-account EXPOSURE ceiling (2026-08-07, operator-directed) ────
         # Gross open notional, as a MULTIPLE OF EQUITY, that this account may
@@ -385,12 +365,13 @@ class RiskManager:
         #
         # That directive rejected an ARBITRARY USD ceiling — "a number
         # unrelated to the account's actual capacity" — and it was right. This
-        # is the opposite construction: a multiple of the account's own equity,
-        # the identical shape to ``max_dd_pct`` and ``daily_loss_pct`` that the
-        # same directive left standing. It passes the test that directive set.
+        # is the opposite construction: a multiple of the account's own equity
+        # (the shape the daily-loss / drawdown caps had before they were
+        # removed 2026-10-09). It passes the test that directive set.
         #
         # Before this existed the RiskManager owned only LOSS risk (realised
-        # daily PnL + intraday drawdown) and delegated EXPOSURE entirely to the
+        # daily PnL + intraday drawdown caps, since removed) and delegated
+        # EXPOSURE entirely to the
         # broker's ``available_usd``. Three problems with that, all observed
         # live on ``alpaca_paper`` (BL-20260807-ALPACA-PAPER-ZERO-BUYING-POWER-REFUSES-ALL):
         #   1. it adopts the VENUE's risk appetite (Reg-T 2x) as ours by
@@ -461,12 +442,13 @@ class RiskManager:
           2. The canonical journal (authoritative for realized PnL) and
              the balance snapshot (authoritative for current equity).
 
-        Source (2) is why the caps now survive a restart: before this
-        change nothing fed ``daily_pnl`` at runtime (record_trade_result
-        / update_equity had zero runtime callers), so the table stayed
-        empty and the daily-loss / max-drawdown caps reset to 0 on every
-        restart. Now the manager rebuilds today's state from the journal
-        on init and persists it. No-op when account_id is empty.
+        Source (2) is why the reported daily figures survive a restart:
+        before this change nothing fed ``daily_pnl`` at runtime
+        (record_trade_result / update_equity had zero runtime callers), so
+        the table stayed empty and the figures reset to 0 on every restart.
+        Now the manager rebuilds today's state from the journal on init and
+        persists it. No-op when account_id is empty. (Reporting only — no
+        refusal reads these since 2026-10-09.)
         """
         if not self.account_id:
             return
@@ -500,7 +482,7 @@ class RiskManager:
         ``closed_at`` is absent. Until FIX-CA-09 (2026-09-27) this keyed on
         ``created_at`` (the open date), so a loss realized today on a
         position opened on an earlier UTC day was invisible to today's
-        DAILY_LOSS_CAP and sizing budget. Read-only; returns None when the
+        daily figure. Read-only; returns None when the
         journal is unavailable so the caller keeps its in-memory value.
         """
         if not self.account_id:
@@ -750,8 +732,8 @@ class RiskManager:
         snapshot, then persist if anything changed.
 
         Best-effort and gated on account_id, so tests and one-off callers
-        (account_id="") are unaffected. This is what keeps the caps live
-        intra-session and persistent across restarts.
+        (account_id="") are unaffected. This is what keeps the reported
+        daily figures live intra-session and persistent across restarts.
         """
         if not self.account_id:
             return
@@ -801,7 +783,7 @@ class RiskManager:
             self._last_reset_utc_date = today
             self._save_daily_state()
         # Reconcile against the journal + balance snapshot on every gate
-        # check so the daily-loss / drawdown caps reflect realized PnL and
+        # check so the reported daily PnL / drawdown reflect realized PnL and
         # current equity without depending on a runtime caller of
         # record_trade_result()/update_equity() (which had none — the bug
         # that left daily_risk_state empty). Best-effort, no-op when
@@ -826,34 +808,6 @@ class RiskManager:
             return 0.0
         return (self.daily_high_equity - self.current_equity) / self.daily_high_equity
 
-    def effective_daily_loss_usd(self, equity: Optional[float] = None) -> float:
-        """Return the daily-loss budget in USD for the current account state.
-
-        Percentage mode (``daily_loss_pct > 0`` and a positive *equity*
-        figure is available): ``daily_loss_pct × equity`` — the cap scales
-        with the account. *equity* defaults to ``self.current_equity`` (the
-        last balance-snapshot reading). When neither is available the cap
-        falls back to the absolute ``daily_usd`` so there is always a finite
-        budget — never an accidentally-infinite one.
-
-        Absolute mode (``daily_loss_pct == 0``, e.g. the prop account):
-        always the fixed ``daily_usd`` — behaviour unchanged.
-        """
-        eq = equity if equity is not None else self.current_equity
-        if self.daily_loss_pct > 0 and eq is not None and eq > 0:
-            return self.daily_loss_pct * float(eq)
-        return self.max_daily_loss_usd
-
-    def is_daily_cap_exhausted(self, equity: Optional[float] = None) -> bool:
-        """True when today's realized loss has met/exceeded the daily cap.
-
-        Rolls the day + reconciles from the journal first so the answer
-        reflects the same state the sizing gates see. Used by the latching
-        daily-cap notification in ``Coordinator.multi_account_execute``.
-        """
-        self._maybe_roll_daily()
-        return self.daily_pnl <= -self.effective_daily_loss_usd(equity)
-
     def approve(self, order: OrderPackage) -> bool:
         ok, _reason = self.evaluate(order)
         return ok
@@ -865,14 +819,18 @@ class RiskManager:
         if self.dry_run:
             return False, "account_mode_dry_run"
 
+        # Keeps the REPORTED daily PnL / drawdown current (UTC roll + journal
+        # reconcile). Nothing below refuses on them.
         self._maybe_roll_daily()
 
-        self.last_breach_report = None
-        # Percentage-based when daily_loss_pct is set (uses current equity);
-        # absolute daily_usd otherwise / on equity-unavailable fallback.
-        if self.daily_pnl < -self.effective_daily_loss_usd():
-            if not self._breach_reported("DAILY_LOSS_CAP", order):
-                return False, "DAILY_LOSS_CAP"
+        # NO account-wide daily stop (operator decision 2026-10-09, verbatim
+        # option chosen: "Remove them" — "No account-wide daily stop at all;
+        # only per-trade sizing and the prop-firm floors apply."). The
+        # DAILY_LOSS_CAP and INTRADAY_DRAWDOWN refusals that stood here refused
+        # every new entry until UTC midnight once tripped — a self-halt under
+        # the NO-HALT directive ("There is no halting."). Removed for ALL
+        # accounts; prop-firm floors are enforced per ticket by the prop
+        # executor, not here.
 
         # NOTE: there is intentionally NO position-notional ceiling here.
         # Position size is a pure function of (available balance + margin) and
@@ -880,14 +838,9 @@ class RiskManager:
         # arbitrary max-notional cap (the removed POSITION_SIZE_CAP / pos_size)
         # would gate a correctly risk-sized trade on a number unrelated to the
         # account's actual capacity, so it does not exist (operator directive
-        # 2026-06-24). The only sizing constraints are the risk budget, the
-        # daily-loss budget, the margin/buying-power ceiling, and the exchange's
-        # own minimum lot size.
-
-        dd = self.intraday_drawdown()
-        if dd is not None and dd >= self.max_dd_pct:
-            if not self._breach_reported("INTRADAY_DRAWDOWN", order):
-                return False, "INTRADAY_DRAWDOWN"
+        # 2026-06-24). The only sizing constraints are the per-trade risk
+        # budget, the margin/buying-power ceiling, the declared gross-exposure
+        # ceiling, and the exchange's own minimum lot size.
 
         # Gross-exposure ceiling (2026-08-07). Only refuses when the account is
         # ALREADY at/over its declared multiple — the partial case is handled
@@ -903,31 +856,6 @@ class RiskManager:
 
         return True, None
 
-    def _breach_reported(self, reason: str, order: OrderPackage) -> bool:
-        """``True`` in ``report`` mode: log the breach loudly, keep it on
-        ``last_breach_report``, and let the trade through. ``False`` =
-        enforce: the caller refuses."""
-        if self.breach_guards != "report":
-            return False
-        self.last_breach_report = reason
-        dd = self.intraday_drawdown()
-        logger.warning(
-            "BREACH GUARD REPORT-ONLY: %s would refuse %s %s on %s "
-            "(daily_pnl=%.2f, drawdown=%s); breach_guards=report, placing anyway",
-            reason, getattr(order, "strategy", "?"), getattr(order, "symbol", "?"),
-            self.account_id or "?", self.daily_pnl, dd,
-        )
-        record_breach_accepted({
-            "account_id": self.account_id or None, "reason": reason,
-            "strategy": getattr(order, "strategy", None), "symbol": getattr(order, "symbol", None),
-            "direction": getattr(order, "direction", None),
-            "order_package_id": (getattr(order, "meta", None) or {}).get("order_package_id"),
-            "daily_pnl": round(self.daily_pnl, 2), "intraday_drawdown": dd,
-            "daily_loss_budget_usd": round(self.effective_daily_loss_usd(), 2),
-            "max_dd_pct": self.max_dd_pct,
-        })
-        return True
-
     def record_trade_result(self, pnl_usd: float) -> None:
         self._maybe_roll_daily()
         self.daily_pnl += pnl_usd
@@ -938,8 +866,8 @@ class RiskManager:
 
         Pure + bounded. The account ``risk_pct`` is the BASIS (the CAP): this
         scalar is in ``[confidence_floor, 1.0]``, so a trade can only be sized
-        DOWN from the basis, never up — aggregate risk stays inside the
-        account daily/DD caps regardless of confidence (operator directive:
+        DOWN from the basis, never up — per-trade risk never exceeds the
+        account ``risk_pct`` regardless of confidence (operator directive:
         basis = max). ``off`` returns 1.0 (flat basis). Fail-safe: a
         non-finite / out-of-range confidence clamps to [0,1]; an unknown mode
         returns 1.0 (flat basis). Never raises.
@@ -983,8 +911,7 @@ class RiskManager:
 
         2026-05-12 — margin pre-flight cap:
         ---------------------------------
-        After risk-based sizing and the daily-loss-budget gate, an
-        additional check verifies the resulting position can actually
+        After risk-based sizing, an additional check verifies the resulting position can actually
         be OPENED with the account's available margin. Two paths:
 
         Live figure (``available_usd`` is not None — linear-perp
@@ -1041,7 +968,7 @@ class RiskManager:
         # a strategy carries no risk level; a leftover meta value is IGNORED.
         # Trade-level differentiation is central + confidence-keyed:
         # the basis is modulated DOWN by the package's confidence (basis = cap,
-        # never enlarged), so aggregate risk stays inside the daily/DD caps.
+        # never enlarged), so per-trade risk never exceeds risk_pct.
         effective_risk_pct = self.risk_pct * self._confidence_scalar(
             getattr(package, "confidence", 0.0)
         )
@@ -1121,11 +1048,10 @@ class RiskManager:
             # The risk-based ideal is below 1 whole share. When the only reason
             # is a small per-trade budget, round UP to 1 share IF that share's
             # stop risk is within _ROUND_UP_BUDGET_MULT x the per-trade risk
-            # budget — otherwise refuse. The daily-loss-budget and margin/
-            # buying-power gates BELOW still apply to the rounded-up share (a
-            # share that breaches the daily cap or can't be afforded is
-            # re-floored to 0 there), so this relaxes ONLY the per-trade
-            # risk-cap refusal, never the hard limits. Futures keep strict
+            # budget — otherwise refuse. The margin/buying-power and exposure
+            # gates BELOW still apply to the rounded-up share (a share that
+            # can't be afforded is re-floored to 0 there), so this relaxes ONLY
+            # the per-trade risk-cap refusal, never the hard limits. Futures keep strict
             # refuse-sub-1-contract (BL-20260611-001) — not whole_units.
             if bool(whole_units):
                 _rd = abs(package.entry - package.sl)
@@ -1150,28 +1076,12 @@ class RiskManager:
             # smallest tradeable unit and its stop risk is budget-checked first.
             return 0.0
 
-        # S-026 G3: daily-loss-budget gate. USD loss at SL is
-        # qty × risk_distance × contract_value_usd (cvu=1.0 for crypto).
-        # The budget is percentage-based (``daily_loss_pct × equity``) when
-        # configured, else the absolute ``daily_usd``. ``gate_balance`` (the
-        # account equity basis resolved above — total_account_usd when
-        # supplied, else balance_usd) is the equity figure; this is what lets
-        # a large-balance account (e.g. the bybit demo) stop tripping a
-        # hardcoded $100 cap on every signal.
-        self._maybe_roll_daily()
-        loss_budget_remaining = (
-            self.effective_daily_loss_usd(gate_balance) + self.daily_pnl
-        )
-        if loss_budget_remaining <= 0:
-            return 0.0
-
-        risk_distance = abs(package.entry - package.sl)
-        max_loss_at_sl = qty * risk_distance * cvu
-        if max_loss_at_sl > loss_budget_remaining:
-            scaled = loss_budget_remaining / (risk_distance * cvu)
-            qty = _floor_to_step(scaled, eff_precision)
-            if qty < eff_min_qty:
-                return 0.0
+        # The S-026 G3 daily-loss-budget gate that stood here (clamp the size
+        # to the day's remaining loss budget, refuse at 0 until UTC midnight)
+        # was REMOVED 2026-10-09 with the DAILY_LOSS_CAP refusal: it was the
+        # same account-wide daily stop expressed as a size of zero (operator
+        # decision: "No account-wide daily stop at all; only per-trade sizing
+        # and the prop-firm floors apply.").
 
         # === 2026-05-12 margin pre-flight cap ===
         # Crypto-specific: caps qty by notional/leverage using price as the
@@ -1363,11 +1273,12 @@ class RiskManager:
         self._save_daily_state()
 
     def report(self) -> dict:
+        # Daily PnL and intraday drawdown are still COMPUTED and reported.
+        # The cap fields (``max_daily_loss_usd`` / ``daily_loss_pct`` /
+        # ``daily_loss_usd_floor`` / ``max_dd_pct`` / ``daily_loss_remaining``
+        # / ``halted``) were dropped 2026-10-09 with the caps themselves: a
+        # cap figure for a limit nothing enforces would read as a live stop.
         dd = self.intraday_drawdown()
-        # Effective daily-loss cap reflects the percentage mode when set
-        # (so the dashboard/digest shows the real budget, not the absolute
-        # fallback) — uses current_equity, falling back to daily_usd.
-        eff_daily_loss = self.effective_daily_loss_usd()
         # Exposure block. Emitted ALWAYS — including with no ceiling declared,
         # which is the change that unblocks choosing one. The measurement comes
         # from observe_exposure(), a path enforcement never reads, so surfacing
@@ -1405,13 +1316,6 @@ class RiskManager:
         return {
             "exposure": exposure,
             "daily_pnl": round(self.daily_pnl, 2),
-            "max_daily_loss_usd": round(eff_daily_loss, 2),
-            "daily_loss_pct": self.daily_loss_pct,
-            "daily_loss_usd_floor": self.max_daily_loss_usd,
-            "max_dd_pct": self.max_dd_pct,
-            "daily_loss_remaining": round(
-                eff_daily_loss + self.daily_pnl, 2
-            ),
             "current_equity": (
                 round(self.current_equity, 2) if self.current_equity is not None else None
             ),
@@ -1419,8 +1323,4 @@ class RiskManager:
                 round(self.daily_high_equity, 2) if self.daily_high_equity is not None else None
             ),
             "intraday_drawdown_pct": round(dd, 4) if dd is not None else None,
-            "halted": (
-                self.daily_pnl < -eff_daily_loss
-                or (dd is not None and dd >= self.max_dd_pct)
-            ),
         }

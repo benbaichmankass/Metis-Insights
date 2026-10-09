@@ -541,7 +541,9 @@ class TestAccountsStatusFlow:
         for s in coord.accounts_status(accounts_yaml):
             assert "name" in s
             assert "daily_pnl" in s
-            assert "halted" in s
+            assert "intraday_drawdown_pct" in s
+            # No halted state since the daily stop was removed 2026-10-09.
+            assert "halted" not in s
 
     def test_missing_file_returns_empty_list(self, coord, tmp_path):
         statuses = coord.accounts_status(str(tmp_path / "nonexistent.yaml"))
@@ -647,16 +649,43 @@ class TestMultiAccountExecuteFlow:
         assert r["trade_id"] == "prop-manual-deadbeef01"
         assert emitted, "emit_prop_ticket was never called — ticket not emitted"
 
-    def test_risk_breach_captured_as_error(self, coord, accounts_yaml, prop_journal):
+    def test_past_old_daily_cap_still_dispatches(self, coord, accounts_yaml, prop_journal):
+        """No account-wide daily stop (operator decision 2026-10-09, "Remove
+        them"): a journal-derived daily loss past the account's old cap no
+        longer refuses its next trade. Before 2026-10-09 this account was
+        refused with DAILY_LOSS_CAP."""
         from src.units.accounts import load_accounts
-        # Breach the prop account via real journal state (its daily-loss
-        # cap is rebuilt from the journal, not held purely in memory).
         _seed_breach_trade(prop_journal, "prop_breakout_1")
         accounts = load_accounts(accounts_yaml)
         prop = next(a for a in accounts if a.name == "prop_breakout_1")
         assert prop.risk_manager.daily_pnl == pytest.approx(-200.0)
 
-        # monkeypatch load_accounts inside coordinator to return accounts with breached one
+        with patch("src.units.accounts.load_accounts", return_value=accounts):
+            results = coord.multi_account_execute(
+                _pkg(), accounts_path=accounts_yaml,
+                dry_run=True,
+                balance_fetcher=self._balance_fetcher,
+            )
+
+        past_cap = next(r for r in results if r["name"] == "prop_breakout_1")
+        assert past_cap["error"] is None
+        assert all(r["error"] is None for r in results)
+
+    @staticmethod
+    def _over_exposure(account):
+        # A per-trade refusal that still exists: the gross-exposure ceiling,
+        # measured at 2x against a declared 1x.
+        from src.units.accounts import exposure as _exposure
+        rm = account.risk_manager
+        rm.max_gross_exposure_pct = 1.0
+        rm.observe_exposure = lambda: _exposure.measured(20_000.0, 10_000.0)
+
+    def test_risk_breach_captured_as_error(self, coord, accounts_yaml):
+        from src.units.accounts import load_accounts
+        accounts = load_accounts(accounts_yaml)
+        prop = next(a for a in accounts if a.name == "prop_breakout_1")
+        self._over_exposure(prop)
+
         with patch("src.units.accounts.load_accounts", return_value=accounts):
             results = coord.multi_account_execute(
                 _pkg(), accounts_path=accounts_yaml,
@@ -668,14 +697,10 @@ class TestMultiAccountExecuteFlow:
         assert breached["trade_id"] is None
         assert breached["error"] is not None
 
-    def test_risk_breach_does_not_block_other_accounts(self, coord, accounts_yaml, prop_journal):
+    def test_risk_breach_does_not_block_other_accounts(self, coord, accounts_yaml):
         from src.units.accounts import load_accounts
-        # breach only prop account — via real journal state
-        _seed_breach_trade(prop_journal, "prop_breakout_1")
         accounts = load_accounts(accounts_yaml)
-        assert next(
-            a for a in accounts if a.name == "prop_breakout_1"
-        ).risk_manager.daily_pnl == pytest.approx(-200.0)
+        self._over_exposure(next(a for a in accounts if a.name == "prop_breakout_1"))
 
         with patch("src.units.accounts.load_accounts", return_value=accounts):
             results = coord.multi_account_execute(

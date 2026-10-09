@@ -2221,8 +2221,9 @@ def _log_trade_to_journal(
       is the exchange order id. Close path (S-030 monitor loop) updates
       via ``Database.update_trade``.
     - **Risk-manager rejection**: ``status='rejected'``,
-      ``reason`` ∈ {``account_mode_dry_run``, ``DAILY_LOSS_CAP``,
-      ``INTRADAY_DRAWDOWN``}. ``trade_id`` is
+      ``reason`` ∈ {``account_mode_dry_run``, ``GROSS_EXPOSURE_CAP``, the
+      prop ``SKIP_*`` reasons}; historical rows may carry ``DAILY_LOSS_CAP`` /
+      ``INTRADAY_DRAWDOWN`` (removed 2026-10-09). ``trade_id`` is
       synthesised as ``rejected-<uuid>``.
     - **Exchange rejection**: ``status='exchange_rejected'``, ``reason``
       is the exchange error string. ``trade_id`` is synthesised.

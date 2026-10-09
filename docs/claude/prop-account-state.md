@@ -106,9 +106,15 @@ and returns `(allow: bool, reason: str | None)`:
 2. **Weekend** → `SKIP_WEEKEND_RESTRICTED` (Sat/Sun UTC).
 3. **Overnight** → `SKIP_OVERNIGHT_RESTRICTED` (UTC hour in window).
 4. **Mission complete** (evaluation only) → `SKIP_MISSION_MET`.
-5. **Daily loss cap** → `DAILY_LOSS_CAP`.
-6. **Position size cap** → `POSITION_SIZE_CAP`.
-7. **Intra-day drawdown** → `INTRADAY_DRAWDOWN`.
+5. **Base RiskManager checks** → `account_mode_dry_run` /
+   `GROSS_EXPOSURE_CAP`.
+
+The former steps "daily loss cap → `DAILY_LOSS_CAP`" and "intra-day
+drawdown → `INTRADAY_DRAWDOWN`" were removed for every account —
+OPERATOR DECISION 2026-10-09, verbatim option chosen: "Remove them" ("No account-wide daily stop at all; only per-trade sizing and the prop-firm floors apply."). The position-size cap (`POSITION_SIZE_CAP`) went
+2026-06-24. A prop account's firm floors are enforced per ticket by the
+prop paths (`src/prop/prop_executor.py::evaluate_guards`,
+`src/prop/prop_risk_gate.py`) from `config/prop_rulesets/*.yaml`.
 
 The skip reason flows through `multi_account_execute`'s result row's
 `error` field, so `/signals`, the diagnostic ping, and the trade

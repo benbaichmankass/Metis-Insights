@@ -69,10 +69,12 @@ class TestRiskManager:
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 100, "pos_size": 500})
         assert rm.approve(_pkg()) is True
 
-    def test_approve_rejects_daily_loss_exceeded(self):
+    def test_approve_past_old_daily_loss_cap_still_passes(self):
+        """Daily-loss cap removed 2026-10-09 (operator decision, "Remove
+        them"): a loss past the old ``daily_usd`` no longer refuses."""
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 100, "pos_size": 500})
         rm.daily_pnl = -101.0
-        assert rm.approve(_pkg()) is False
+        assert rm.approve(_pkg()) is True
 
     def test_approve_large_estimated_value_no_longer_rejected(self):
         """Position-notional cap removed 2026-06-24 — a large
@@ -92,19 +94,17 @@ class TestRiskManager:
         rm.reset_daily()
         assert rm.daily_pnl == 0.0
 
-    def test_report_shows_halted_true_when_exceeded(self):
+    def test_report_has_no_halted_field_and_reports_pnl(self):
         rm = RiskManager({"daily_usd": 100})
         rm.daily_pnl = -101.0
-        assert rm.report()["halted"] is True
+        rep = rm.report()
+        assert "halted" not in rep
+        assert rep["daily_pnl"] == -101.0
 
-    def test_report_shows_halted_false_when_ok(self):
-        rm = RiskManager({"daily_usd": 100})
-        assert rm.report()["halted"] is False
-
-    def test_prop_account_stricter_defaults(self):
+    def test_prop_shaped_caps_no_longer_refuse(self):
         rm = RiskManager({"max_dd_pct": 0.02, "daily_usd": 50, "pos_size": 200})
         rm.daily_pnl = -51.0
-        assert rm.approve(_pkg()) is False
+        assert rm.approve(_pkg()) is True
 
 
 # ---------------------------------------------------------------------------
@@ -133,7 +133,8 @@ class TestTradingAccount:
         s = acc.status()
         assert s["name"] == "test_bybit"
         assert "daily_pnl" in s
-        assert "halted" in s
+        assert "intraday_drawdown_pct" in s
+        assert "halted" not in s
 
 
 # ---------------------------------------------------------------------------
@@ -164,10 +165,12 @@ class TestLoadAccounts:
         names = {a.name for a in load_accounts(accounts_yaml)}
         assert names == {"bybit_1", "bybit_2", "prop_breakout_1"}
 
-    def test_prop_account_stricter_risk(self, accounts_yaml):
+    def test_prop_account_has_no_daily_cap_attribute(self, accounts_yaml):
+        """``daily_usd`` is no longer read by RiskManager (removed
+        2026-10-09); the prop account still loads with its risk_pct."""
         accounts = load_accounts(accounts_yaml)
         prop = next(a for a in accounts if a.name == "prop_breakout_1")
-        assert prop.risk_manager.max_daily_loss_usd == 50.0
+        assert not hasattr(prop.risk_manager, "max_daily_loss_usd")
 
     def test_regular_accounts_bybit_exchange(self, accounts_yaml):
         accounts = load_accounts(accounts_yaml)

@@ -198,7 +198,11 @@ class TestCoordinatorMultiAccountExecute:
         )
         assert len(results) == 2
 
-    def test_risk_breach_on_one_does_not_block_others(self, coord, accounts_yaml, prop_journal):
+    def test_account_past_old_daily_cap_still_dispatches(self, coord, accounts_yaml, prop_journal):
+        """No account-wide daily stop (operator decision 2026-10-09, "Remove
+        them"): an account whose journal-derived daily loss is past its old
+        ``daily_usd`` cap is NOT refused — every account dispatches. Before
+        2026-10-09 prop_breakout was refused here with DAILY_LOSS_CAP."""
         from src.units.accounts import load_accounts
         _seed_breach_trade(prop_journal, "prop_breakout")
         accounts = load_accounts(accounts_yaml)
@@ -210,11 +214,10 @@ class TestCoordinatorMultiAccountExecute:
                 _pkg(), accounts_path=accounts_yaml, dry_run=True,
                 balance_fetcher=self._balance_fetcher,
             )
-        ok = [r for r in results if r["error"] is None]
         err = [r for r in results if r["error"] is not None]
-        assert len(ok) == 2
-        assert len(err) == 1
-        assert err[0]["name"] == "prop_breakout"
+        assert err == []
+        assert {r["name"] for r in results} >= {"prop_breakout"}
+        assert all("DAILY_LOSS_CAP" not in str(r.get("error")) for r in results)
 
     def test_alerts_pushed_for_successful_trades(self, coord, accounts_yaml):
         coord.pop_alerts()
@@ -244,19 +247,13 @@ class TestCoordinatorAccountsStatus:
     def test_status_count(self, coord, accounts_yaml):
         assert len(coord.accounts_status(accounts_yaml)) == 3
 
-    def test_fresh_accounts_not_halted(self, coord, accounts_yaml):
+    def test_status_has_no_cap_or_halted_fields(self, coord, accounts_yaml):
+        """The daily-loss / drawdown caps were removed 2026-10-09 (operator
+        decision, "Remove them"); status reports the daily figures only."""
         for s in coord.accounts_status(accounts_yaml):
-            assert s["halted"] is False
-
-    def test_prop_has_stricter_limits(self, coord, accounts_yaml):
-        statuses = coord.accounts_status(accounts_yaml)
-        prop = next(s for s in statuses if s["name"] == "prop_breakout")
-        assert prop["max_daily_loss_usd"] == 50.0
-
-    def test_bybit_main_has_larger_limits(self, coord, accounts_yaml):
-        statuses = coord.accounts_status(accounts_yaml)
-        main = next(s for s in statuses if s["name"] == "bybit_main")
-        assert main["max_daily_loss_usd"] == 200.0
+            assert "halted" not in s
+            assert "max_daily_loss_usd" not in s
+            assert "daily_pnl" in s and "intraday_drawdown_pct" in s
 
 
 # ---------------------------------------------------------------------------

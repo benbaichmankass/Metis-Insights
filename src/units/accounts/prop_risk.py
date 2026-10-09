@@ -2,7 +2,12 @@
 
 Prop-account integration sprint (2026-05-03). Subclass of
 :class:`src.units.accounts.risk.RiskManager` that adds three skip
-reasons on top of the base daily-loss / position-size / drawdown gates:
+reasons on top of the base per-trade gates (dry-run, gross-exposure). The
+base daily-loss / intraday-drawdown refusals were REMOVED for every account
+on 2026-10-09 (operator decision, "Remove them": "No account-wide daily stop
+at all; only per-trade sizing and the prop-firm floors apply."); a prop
+account's firm floors are enforced per ticket by the prop executor
+(``src/prop/prop_executor.py::evaluate_guards``) from its ruleset:
 
   - ``SKIP_MISSION_MET`` — evaluation phase, profit target AND
     min-active-days both met. No upside in adding risk; refuse.
@@ -30,7 +35,8 @@ obsolete):
     that seed so progress survives a restart. ``record_trade_result``
     writes the counters back atomically (see ``prop_state_io`` +
     ``_persist_state``).
-  - **Base daily-loss / drawdown caps** persist separately via the
+  - **Base daily PnL / drawdown figures** (reported, no longer gated)
+    persist separately via the
     journal-sourced ``daily_risk_state`` self-healing rebuild, which is
     active because ``__init__`` passes ``account_id=account_name`` to
     the base ``RiskManager`` (BL-20260617-PROP-RISK-ACCOUNT-ID) — the
@@ -94,8 +100,8 @@ class PropRiskManager(RiskManager):
         # key (account_id) so prop accounts get the SAME journal-based
         # daily-risk-state self-healing rebuild every regular account
         # already gets (loader: RiskManager(..., account_id=name)). Without
-        # it the base ran in-memory only, so a prop account's daily-loss /
-        # drawdown caps reset to 0 on every restart — they never accumulated
+        # it the base ran in-memory only, so a prop account's daily PnL /
+        # drawdown figures reset to 0 on every restart — they never accumulated
         # across a session or survived a process bounce
         # (BL-20260617-PROP-RISK-ACCOUNT-ID). ``or ""`` preserves the
         # in-memory contract for nameless test/one-off constructions
@@ -236,8 +242,7 @@ class PropRiskManager(RiskManager):
         Prop sizing is intentionally split (operator design, 2026-06-19):
           * the BOT sizes + pre-screens against the **nominal** account
             equity (``current_equity`` if the journal rebuild seeded it,
-            else the configured ``account_size_usd``) — so the nominal
-            daily-loss / drawdown caps in the base gate still apply; and
+            else the configured ``account_size_usd``); and
           * the PLACER computes the **final** size against the live platform
             balance from the risk framework rendered on the ticket
             (``risk_pct`` × live balance ÷ risk-per-unit).
@@ -293,7 +298,8 @@ class PropRiskManager(RiskManager):
           2. Weekend restriction (prop accounts only).
           3. Overnight restriction (prop accounts only).
           4. Mission-complete skip (evaluation only).
-          5. Base RiskManager checks (daily loss / pos size / drawdown).
+          5. Base RiskManager checks (dry-run / gross exposure; the daily
+             loss and drawdown refusals were removed 2026-10-09).
         """
         if _is_test_order(order):
             return True, None

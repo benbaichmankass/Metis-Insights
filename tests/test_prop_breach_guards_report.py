@@ -6,11 +6,17 @@ and just buy a new one ... We shouldn't reject tickets because the risk will
 breach." breakout_1 is declared ``report``; every other account stays
 ``enforce``.
 
-Proven here: in ``report`` DAILY_LOSS_CAP and INTRADAY_DRAWDOWN log and let
-the trade through, while dry-run still refuses; ``enforce`` (the default and
-the fallback for any typo) still refuses; the ticket's "DO NOT PLACE" block
-becomes one informational line for a ``report`` account only, and
-"cushion unknown" (could not look) is never softened.
+Proven here: ``enforce`` is the default and the fallback for any typo; the
+ticket's "DO NOT PLACE" block becomes one informational line for a ``report``
+account only, and "cushion unknown" (could not look) is never softened.
+
+2026-10-09: the RiskManager half is GONE. Its DAILY_LOSS_CAP /
+INTRADAY_DRAWDOWN refusals were removed for every account (operator
+decision, "Remove them": "No account-wide daily stop at all; only per-trade
+sizing and the prop-firm floors apply."), so ``breach_guards`` no longer
+changes a RiskManager decision in either mode and nothing writes
+breach_accepted.jsonl. The key is still read by the prop paths (pinned
+below), which enforce the prop-firm floors per ticket.
 """
 from __future__ import annotations
 
@@ -44,43 +50,20 @@ def test_mode_parse_defaults_to_enforce(raw, want):
     assert breach_guards_mode(None) == "enforce"
 
 
-def test_daily_loss_cap_enforce_refuses():
-    rm = _rm()
-    rm.daily_pnl = -200.0
-    assert rm.evaluate(_pkg()) == (False, "DAILY_LOSS_CAP")
-
-
-def test_daily_loss_cap_report_logs_and_places(caplog):
-    rm = _rm("report")
-    rm.daily_pnl = -200.0
+@pytest.mark.parametrize("mode", [None, "enforce", "report", "reprot"])
+def test_riskmanager_ignores_breach_guards_past_old_caps(mode, caplog):
+    rm = _rm(mode)
+    rm.daily_pnl = -200.0                                      # past the old $150 daily cap
+    rm.daily_high_equity, rm.current_equity = 5000.0, 4600.0   # 8% off the high (old cap 6%)
     with caplog.at_level(logging.WARNING):
         assert rm.evaluate(_pkg()) == (True, None)
-    assert rm.last_breach_report == "DAILY_LOSS_CAP"
-    assert "BREACH GUARD REPORT-ONLY: DAILY_LOSS_CAP" in caplog.text
-
-
-def test_intraday_drawdown_enforce_refuses_and_report_places():
-    for mode, want in ((None, (False, "INTRADAY_DRAWDOWN")), ("report", (True, None))):
-        rm = _rm(mode)
-        rm.daily_high_equity, rm.current_equity = 5000.0, 4600.0   # 8% off the high
-        assert rm.evaluate(_pkg()) == want
-
-
-def test_a_typo_is_enforce():
-    rm = _rm("reprot")
-    rm.daily_pnl = -200.0
-    assert rm.evaluate(_pkg()) == (False, "DAILY_LOSS_CAP")
+    assert "BREACH GUARD REPORT-ONLY" not in caplog.text
 
 
 def test_report_never_overrides_dry_run():
     rm = _rm("report", dry_run=True)
     rm.daily_pnl = -200.0
     assert rm.evaluate(_pkg()) == (False, "account_mode_dry_run")
-
-
-def test_no_breach_leaves_no_report():
-    rm = _rm("report")
-    assert rm.evaluate(_pkg()) == (True, None) and rm.last_breach_report is None
 
 
 def test_only_breakout_1_is_report_in_the_real_config():
@@ -137,21 +120,14 @@ def test_rendered_ticket_uses_the_accounts_mode(monkeypatch):
     assert "DO NOT PLACE" in bt.render_ticket(t, account_id="some_other_prop")
 
 
-def test_breach_accepted_writes_one_durable_row(tmp_path, monkeypatch):
-    import json
-
+def test_no_breach_accepted_row_is_written_any_more(tmp_path, monkeypatch):
     import src.utils.paths as paths
     monkeypatch.setattr(paths, "runtime_logs_dir", lambda: tmp_path)
-    rm = _rm("report")
-    rm.daily_pnl = -200.0
-    assert rm.evaluate(_pkg()) == (True, None)
-    rows = [json.loads(ln) for ln in (tmp_path / "breach_accepted.jsonl").read_text().splitlines()]
-    assert len(rows) == 1 and rows[0]["status"] == "breach_accepted"
-    assert rows[0]["reason"] == "DAILY_LOSS_CAP" and rows[0]["symbol"] == "SOLUSDT"
-    rm2 = _rm()
-    rm2.daily_pnl = -200.0
-    rm2.evaluate(_pkg())   # enforce: refused, no row
-    assert len((tmp_path / "breach_accepted.jsonl").read_text().splitlines()) == 1
+    for mode in ("report", None):
+        rm = _rm(mode)
+        rm.daily_pnl = -200.0
+        assert rm.evaluate(_pkg()) == (True, None)
+    assert not (tmp_path / "breach_accepted.jsonl").exists()
 
 
 def test_breach_guards_for_reads_the_same_block_as_prop_risk_manager(monkeypatch):

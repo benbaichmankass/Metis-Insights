@@ -1084,7 +1084,17 @@ decides whether to intervene.
    quality degrades — `RiskManager.approve()` returns
    `reject(reason=…, trade=…)` for that one trade. The account mode
    is never touched. The next signal is evaluated fresh on the next
-   tick.
+   tick. **There is no account-wide daily stop**: `RiskManager`'s
+   `DAILY_LOSS_CAP` / `INTRADAY_DRAWDOWN` refusals (and its
+   daily-loss-budget sizing gate), which refused every new entry until
+   UTC midnight, were removed for every account — OPERATOR DECISION
+   2026-10-09, verbatim option chosen: *"Remove them"* (*"No
+   account-wide daily stop at all; only per-trade sizing and the
+   prop-firm floors apply."*). This supersedes the 2026-05-28 approval
+   of the %-of-equity daily cap. Daily PnL and intraday drawdown are
+   still computed and reported; prop-firm floors are enforced per
+   ticket by the prop paths (`src/prop/prop_executor.py`,
+   `src/prop/prop_risk_gate.py`) from `config/prop_rulesets/*.yaml`.
 
 4. **Every rejection is its own Telegram ping.** Per-trade: account,
    symbol, side, qty, reason, exchange error if any. Not aggregate.

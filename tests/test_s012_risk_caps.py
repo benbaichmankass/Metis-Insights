@@ -5,11 +5,15 @@ exercises ``RiskManager.approve()`` rejection paths, and no test
 combines an OrderPackage from the new roster with the account-level
 caps. PR E3a layers max_dd_pct on top.
 
-DoD coverage (PR sequence § 9):
-* RiskManager.approve refuses when daily loss > daily_usd, for both
-  strategies.
+DoD coverage (PR sequence § 9), as AMENDED 2026-10-09:
+* RiskManager.approve NO LONGER refuses on daily loss or intra-day drawdown,
+  for either strategy. OPERATOR DECISION 2026-10-09 (verbatim option
+  chosen): "Remove them" — "No account-wide daily stop at all; only
+  per-trade sizing and the prop-firm floors apply." The tests that asserted
+  the DAILY_LOSS_CAP / INTRADAY_DRAWDOWN refusals now assert the opposite:
+  an account past the old caps still approves its next trade, while daily
+  PnL and drawdown are still computed and reported.
 * safe_place_order returns 'halted' when the kill-switch flag is set.
-* (E3a) RiskManager.approve refuses when intra-day drawdown ≥ max_dd_pct.
 
 (2026-06-28 audit Workstream B: the dead-router ``TradingAccount.place_order``
 entry point was removed; these tests now assert the risk gate it wrapped
@@ -79,33 +83,30 @@ def _account(name: str = "test", **risk_overrides) -> TradingAccount:
 # (Removed 2026-06-24) The arbitrary position-NOTIONAL cap (pos_size /
 # POSITION_SIZE_CAP) was deleted from RiskManager — an order's
 # ``estimated_value`` is no longer gated. Position size is bounded only by
-# the risk budget, daily-loss budget, margin/buying-power, and exchange lot
-# size. The former TestPosSizeCap class is gone; the daily-loss + drawdown +
-# halt + smoke tests below remain the active risk-cap contract.
+# the risk budget, margin/buying-power, and exchange lot size. The former
+# TestPosSizeCap class is gone; the daily-loss + drawdown tests below now
+# assert those caps are GONE too (2026-10-09).
 # ---------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------
-# daily_usd cap fires for BOTH strategies
+# daily_usd no longer refuses, for BOTH strategies (removed 2026-10-09)
 # ---------------------------------------------------------------------------
 
 
-class TestDailyLossCap:
-    # Converted 2026-06-28 (audit Workstream B) from the removed dead-router
-    # entry point ``acc.place_order`` to the actual risk gate
-    # ``acc.risk_manager.approve`` it wrapped (False == would-refuse). The
-    # live path reaches the same gate via RiskManager.evaluate in
-    # Coordinator.multi_account_execute.
-    def test_daily_loss_exceeded_rejects_vwap(self):
-        """daily_pnl < -max_daily_loss_usd → approve() False (vwap)."""
+class TestNoDailyLossStop:
+    # 2026-10-09: the daily-loss cap was REMOVED (operator decision, "Remove
+    # them"). A loss past the old ``daily_usd`` no longer refuses anything.
+    def test_daily_loss_past_old_cap_still_approves_vwap(self):
         acc = _account(daily_usd=100.0)
-        acc.risk_manager.record_trade_result(-150.0)  # blew through cap
-        assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is False
+        acc.risk_manager.record_trade_result(-150.0)  # past the old cap
+        assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is True
+        assert acc.risk_manager.daily_pnl == -150.0   # still tracked
 
-    def test_daily_loss_exceeded_rejects_turtle_soup(self):
+    def test_daily_loss_past_old_cap_still_approves_turtle_soup(self):
         acc = _account(daily_usd=100.0)
         acc.risk_manager.record_trade_result(-150.0)
-        assert acc.risk_manager.approve(_turtle_soup_pkg(estimated_value=100.0)) is False
+        assert acc.risk_manager.approve(_turtle_soup_pkg(estimated_value=100.0)) is True
 
     def test_daily_loss_at_cap_still_passes(self):
         """Boundary: daily_pnl == -daily_usd is the exact cap. Still allowed.
@@ -117,11 +118,12 @@ class TestDailyLossCap:
         acc.risk_manager.record_trade_result(-100.0)
         assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is True
 
-    def test_reset_daily_clears_breach(self):
+    def test_reset_daily_zeroes_reported_pnl(self):
         acc = _account(daily_usd=100.0)
         acc.risk_manager.record_trade_result(-200.0)
-        assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is False
+        assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is True
         acc.risk_manager.reset_daily()
+        assert acc.risk_manager.daily_pnl == 0.0
         assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is True
 
 
@@ -203,10 +205,10 @@ class TestRiskManagerApprove:
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 100.0, "pos_size": 500.0})
         assert rm.approve(_vwap_pkg(estimated_value=600.0)) is True
 
-    def test_approve_after_daily_loss_breach_returns_false(self):
+    def test_approve_after_old_daily_loss_breach_returns_true(self):
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 100.0, "pos_size": 500.0})
         rm.record_trade_result(-150.0)
-        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is False
+        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is True
 
     def test_approve_with_no_estimated_value_passes(self):
         """When meta omits estimated_value, the size cap cannot be checked
@@ -223,7 +225,8 @@ class TestRiskManagerApprove:
 
 
 class TestMaxDrawdownIntraday:
-    """Per PM § 8 #6: intra-day drawdown from today's high; UTC-midnight reset."""
+    """Intra-day drawdown from today's high; UTC-midnight reset. Still
+    COMPUTED and reported; since 2026-10-09 it never refuses a trade."""
 
     def test_no_drawdown_check_until_equity_seeded(self):
         """Backwards-compatible: rejection only fires after update_equity()."""
@@ -238,36 +241,34 @@ class TestMaxDrawdownIntraday:
         rm.update_equity(9_700.0)         # 3 % drawdown < 5 % cap
         assert rm.approve(_vwap_pkg(estimated_value=100.0)) is True
 
-    def test_drawdown_at_or_above_cap_rejects_vwap(self):
+    def test_drawdown_at_old_cap_still_approves_vwap(self):
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0})
         rm.update_equity(10_000.0)
-        rm.update_equity(9_500.0)         # exactly 5 % → reject (>= cap)
-        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is False
+        rm.update_equity(9_500.0)         # exactly the old 5 % cap
+        assert rm.intraday_drawdown() == pytest.approx(0.05)
+        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is True
 
-    def test_drawdown_at_or_above_cap_rejects_turtle_soup(self):
+    def test_drawdown_past_old_cap_still_approves_turtle_soup(self):
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0})
         rm.update_equity(10_000.0)
-        rm.update_equity(9_400.0)         # 6 % > 5 % cap
-        assert rm.approve(_turtle_soup_pkg(estimated_value=100.0)) is False
+        rm.update_equity(9_400.0)         # 6 % > the old 5 % cap
+        assert rm.approve(_turtle_soup_pkg(estimated_value=100.0)) is True
 
-    def test_drawdown_via_account_risk_manager_rejects(self):
-        """The account's RiskManager refuses when the drawdown cap is breached.
-        (Was an end-to-end ``place_order`` raising RiskBreach; place_order was
-        the dead router, removed 2026-06-28 — the gate it wrapped is asserted
-        directly here. The live path reaches it via RiskManager.evaluate.)"""
+    def test_drawdown_via_account_risk_manager_still_approves(self):
         acc = _account(max_dd_pct=0.05, daily_usd=1_000.0, pos_size=1_000.0)
         acc.risk_manager.update_equity(10_000.0)
         acc.risk_manager.update_equity(9_400.0)  # 6 % drawdown
-        assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is False
+        assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is True
 
     def test_intraday_high_bumps_when_equity_climbs(self):
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0})
         rm.update_equity(10_000.0)
         rm.update_equity(11_000.0)       # new intra-day high
-        rm.update_equity(10_500.0)       # 4.5 % drawdown vs 11 000 — passes
+        rm.update_equity(10_500.0)       # 4.5 % drawdown vs 11 000
+        assert rm.intraday_drawdown() == pytest.approx(500.0 / 11_000.0)
+        rm.update_equity(10_400.0)       # 5.45 % drawdown vs 11 000
+        assert rm.intraday_drawdown() == pytest.approx(600.0 / 11_000.0)
         assert rm.approve(_vwap_pkg(estimated_value=100.0)) is True
-        rm.update_equity(10_400.0)       # 5.45 % drawdown vs 11 000 — fails
-        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is False
 
     def test_drawdown_clamped_at_zero_when_above_high(self):
         """Sanity: equity > high → drawdown is 0, not a negative."""
@@ -293,11 +294,11 @@ class TestMaxDrawdownIntraday:
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0})
         # Simulate yesterday: equity drops to a breach.
         rm.update_equity(10_000.0)
-        rm.update_equity(9_000.0)         # 10 % drawdown — would block today
+        rm.update_equity(9_000.0)         # 10 % drawdown — no longer blocks
         rm.record_trade_result(-200.0)
         assert rm.daily_pnl == -200.0
         assert rm.intraday_drawdown() == pytest.approx(0.10)
-        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is False
+        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is True
 
         # Roll over to next UTC day.
         monkeypatch.setattr(
@@ -318,11 +319,17 @@ class TestMaxDrawdownIntraday:
         assert rep["current_equity"] == 9_700.0
         assert rep["daily_high_equity"] == 10_000.0
         assert rep["intraday_drawdown_pct"] == pytest.approx(0.03)
-        assert rep["halted"] is False
+        # No halted / cap fields: the caps were removed 2026-10-09.
+        for gone in ("halted", "max_daily_loss_usd", "max_dd_pct",
+                     "daily_loss_remaining", "daily_loss_pct"):
+            assert gone not in rep
 
-    def test_report_halted_when_drawdown_breached(self):
+    def test_report_still_reports_drawdown_past_old_cap(self):
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0})
         rm.update_equity(10_000.0)
-        rm.update_equity(9_000.0)        # 10 % > 5 % cap
+        rm.update_equity(9_000.0)        # 10 % — past the old 5 % cap
+        rm.record_trade_result(-2_000.0)  # past the old $1,000 daily cap
         rep = rm.report()
-        assert rep["halted"] is True
+        assert rep["intraday_drawdown_pct"] == pytest.approx(0.10)
+        assert rep["daily_pnl"] == -2_000.0
+        assert "halted" not in rep

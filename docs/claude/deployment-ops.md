@@ -93,11 +93,13 @@ configuration and account-by-account go-live promotion.
 
 ### Why this is safe
 
-Risk caps (`pos_size`, `daily_usd`, `max_dd_pct` per S-012 PR E3a) fire
-**before** the dry/live decision in `TradingAccount.place_order()`, so
-even an account flipped to live with the caps misconfigured cannot
-exceed the limits in `accounts.yaml`. The dry-run toggle only suppresses
-exchange submission; risk gating is unaffected.
+Per-trade risk sizing (`risk_pct` x balance / SL distance, capped by
+margin/buying power and the declared gross-exposure ceiling) applies
+whether an account is dry or live. The dry-run toggle only suppresses
+exchange submission; risk gating is unaffected. There is **no
+account-wide daily stop**: the `pos_size` cap went 2026-06-24, and the
+`daily_usd` / `daily_loss_pct` / `max_dd_pct` caps were removed for every
+account — OPERATOR DECISION 2026-10-09, verbatim option chosen: "Remove them" ("No account-wide daily stop at all; only per-trade sizing and the prop-firm floors apply.").
 
 ## Before live changes
 

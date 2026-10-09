@@ -97,7 +97,16 @@ def _standard_ruleset(account_id: str, risk_block: Dict[str, Any],
     """Synthesize a no-target/no-economics ruleset from an account's risk block.
 
     The account's own ``max_dd_pct`` / ``daily_loss_pct`` become its limits so
-    a survival/sizing check can consult them; there is no profit target and
+    a survival/sizing check can consult them.
+
+    ⚠️ **SINCE 2026-10-09 THE LIVE BOOK DOES NOT ENFORCE THESE.** The
+    RiskManager's DAILY_LOSS_CAP / INTRADAY_DRAWDOWN refusals were removed for
+    every account (operator decision, "Remove them": "No account-wide daily
+    stop at all; only per-trade sizing and the prop-firm floors apply."). The
+    keys stay in ``accounts.yaml`` because THIS function (and the ML
+    ``account_context`` family) reads them; the ``refusal`` limits built here
+    now describe a brake the live account no longer has. There is no profit
+    target and
     ``economics`` stays at its zero default (a real account is not a
     disposable, re-buyable prop account).
 

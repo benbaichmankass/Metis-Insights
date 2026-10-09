@@ -37,6 +37,11 @@ class PhaseRules:
 #:                       This is what ``accounts.yaml::risk.max_dd_pct`` has
 #:                       always meant (``src/units/accounts/risk.py``: *"max
 #:                       intra-day equity drawdown from today's high"*).
+#:                       ⚠️ Since 2026-10-09 the LIVE RiskManager no longer
+#:                       enforces it (operator decision, "Remove them" — no
+#:                       account-wide daily stop); research grading that
+#:                       still models it as a ``refusal`` models a limit the
+#:                       live book does not apply.
 DRAWDOWN_REFERENCES = ("static", "trailing", "intraday_high")
 
 #: What breaching the drawdown limit DOES. Orthogonal to the reference above,

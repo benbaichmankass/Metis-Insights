@@ -189,11 +189,13 @@ def _real_pkg(**overrides):
 
 
 class TestRiskBypass:
-    def test_approve_bypasses_daily_loss_for_test_order(self):
+    def test_approve_bypasses_refusing_gate_for_test_order(self):
+        # The daily-loss gate this used to trip was removed 2026-10-09
+        # (operator decision, "Remove them"); the dry-run gate is the
+        # remaining always-refusing gate, and the smoke bypass precedes it.
         from src.units.accounts.risk import RiskManager
-        rm = RiskManager({"daily_usd": 100, "pos_size": 500, "max_dd_pct": 0.05})
-        # Trip the daily-loss gate hard: a real order would be rejected.
-        rm.daily_pnl = -10_000.0
+        rm = RiskManager({"daily_usd": 100, "pos_size": 500, "max_dd_pct": 0.05},
+                         dry_run=True)
         assert rm.approve(_real_pkg()) is False
         # Test order short-circuits.
         assert rm.approve(_smoke_pkg()) is True
@@ -213,8 +215,9 @@ class TestRiskBypass:
         from src.units.accounts.risk import RiskManager
         rm = RiskManager({"daily_usd": 100, "pos_size": 500, "max_dd_pct": 0.01})
         rm.update_equity(100_000.0)
-        rm.update_equity(80_000.0)  # 20% drawdown — way past 1% cap.
-        assert rm.approve(_real_pkg()) is False
+        rm.update_equity(80_000.0)  # 20% drawdown — way past the old 1% cap.
+        # No drawdown stop since 2026-10-09: both a real and a smoke order pass.
+        assert rm.approve(_real_pkg()) is True
         assert rm.approve(_smoke_pkg()) is True
 
     def test_size_order_from_cfg_returns_test_qty(self):

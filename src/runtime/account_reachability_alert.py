@@ -44,7 +44,7 @@ pattern; the reconciler already opens these clients each tick, so the
 
 State lives in a small JSON file under ``runtime_logs`` (deliberately NOT
 ``trade_journal.db`` — the money DB schema is untouched), mirroring
-``daily_cap_alert``. It persists across restarts so the consecutive-down
+the former ``daily_cap_alert`` (removed 2026-10-09). It persists across restarts so the consecutive-down
 counter and the latch survive a trader bounce.
 
 Best-effort throughout: any failure (read-only FS, corrupt state, a prober

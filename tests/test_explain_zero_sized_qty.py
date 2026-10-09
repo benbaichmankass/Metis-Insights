@@ -21,9 +21,9 @@ the exchange min-lot size. Real refusal causes:
      Pinned by ``test_short_zero_capacity_when_borrow_line_zero`` in
      test_s047_t3_spot_margin_routing.py — that contract is the
      correct refusal; the bug was the misleading message.
-  3. ``risk_refused`` — generic catch-all (daily-loss budget,
-     liquidation buffer, max_borrow). Surfaces all the inputs the
-     operator needs to reproduce.
+  3. ``risk_refused`` — generic catch-all (margin / exposure headroom /
+     lot size; the daily-loss budget was removed 2026-10-09). Surfaces all
+     the inputs the operator needs to reproduce.
 """
 from __future__ import annotations
 
@@ -144,8 +144,8 @@ class TestExplainZeroSizedQty:
         assert msg.startswith("zero_balance:")
 
     def test_risk_refused_when_no_obvious_cause(self):
-        """Daily-loss budget exhaustion / liquidation-buffer refusal
-        / max_borrow cap don't match the balance branch. Fall through
+        """Margin / exposure-headroom / lot-size refusals don't match the
+        balance branch. Fall through
         to a structured ``risk_refused`` reason that surfaces every
         input so the operator can reproduce.
         """
@@ -163,8 +163,10 @@ class TestExplainZeroSizedQty:
         assert "total_account_usd=200.00" in msg
         assert "direction=long" in msg
         assert "market_type=spot-margin" in msg
-        # The hint must guide the operator to the residual rules.
-        assert "daily-loss" in msg or "liquidation" in msg
+        # The hint must guide the operator to the residual rules — and not
+        # to the daily-loss budget, which no longer exists (2026-10-09).
+        assert "margin" in msg and "exposure" in msg
+        assert "daily-loss" not in msg
         # The removed floor must not reappear in the message.
         assert "min_balance_usd" not in msg
 

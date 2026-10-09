@@ -500,6 +500,9 @@ _PROP_TICKET_RISK_SOAK_LOG = (
 # always the same: "the mechanism stopped firing" and "the mechanism fired and
 # the condition simply persists" are indistinguishable from outside, so a
 # broken cadence looks exactly like a quiet one.
+# daily_cap_alert_state.json: HISTORICAL. Its writer (src/runtime/daily_cap_alert)
+# was removed 2026-10-09 with the account daily-loss cap (operator decision,
+# "Remove them"); kept readable so the last-written state can still be audited.
 _DAILY_CAP_ALERT_STATE = runtime_logs_dir() / "daily_cap_alert_state.json"
 _EXIT_LOOP_HEALTH_ALERT_STATE = (
     runtime_logs_dir() / "exit_loop_health_alert_state.json"
@@ -864,6 +867,8 @@ _LOG_FILES: dict[str, Path] = {
     "prop_ticket_risk_soak": _PROP_TICKET_RISK_SOAK_LOG,
     # 2026-09-28 (PROP-EXEC): one row per trade RiskManager let through a
     # breach because its account is breach_guards: report (breakout_1).
+    # HISTORICAL since 2026-10-09: RiskManager no longer has the
+    # DAILY_LOSS_CAP / INTRADAY_DRAWDOWN breaches, so nothing appends here.
     "breach_accepted": runtime_logs_dir() / "breach_accepted.jsonl",
     "exit_loop_health_alert_state": _EXIT_LOOP_HEALTH_ALERT_STATE,
     # Daily-cap alert latch.

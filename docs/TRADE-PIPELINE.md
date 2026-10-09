@@ -140,14 +140,14 @@ If a stage is added, removed, or reordered, also update the top-level diagram be
 
 **Files:** `src/units/accounts/risk.py` (`RiskManager.approve()`), `src/units/accounts/prop_risk.py`, `src/runtime/risk_counters.py`, `src/news/news_pipeline.py`, kill-switch flag at `/tmp/trader_halt.flag`
 
-**Inputs:** Normalized intents from Stage 4; per-account state (open positions, daily PnL); per-account config from `config/accounts.yaml` (caps: `pos_size`, `daily_usd`, `max_dd_pct`); current news veto state.
+**Inputs:** Normalized intents from Stage 4; per-account state (open positions, daily PnL); per-account config from `config/accounts.yaml` (`risk_pct`, `leverage`, `max_gross_exposure_pct`); current news veto state. (`pos_size` was removed 2026-06-24; `daily_usd` / `daily_loss_pct` / `max_dd_pct` are no longer enforced since 2026-10-09 — see below.)
 
 **Outputs:** Approved intents (advance to Stage 6) or rejection reasons (logged, dropped).
 
-**Description:** No intent reaches the broker without passing every applicable gate. The standard `RiskManager.approve()` enforces per-account size, daily-USD, and drawdown caps. Prop-account-specific logic adds the rules required by funded/prop firms. Runtime counters track in-flight risk that hasn't yet settled in the journal. The kill-switch flag (`/tmp/trader_halt.flag`) is a single file the operator can drop on the VM to halt all new orders without restarting the process. The news veto blocks orders during high-impact macro events.
+**Description:** No intent reaches the broker without passing every applicable gate. The standard `RiskManager.approve()` enforces per-TRADE checks only (dry-run account, gross-exposure ceiling). **There is no account-wide daily stop**: the daily-loss and intraday-drawdown caps (`DAILY_LOSS_CAP` / `INTRADAY_DRAWDOWN`, and the daily-loss-budget sizing gate) were removed for every account — OPERATOR DECISION 2026-10-09, verbatim option chosen: "Remove them" ("No account-wide daily stop at all; only per-trade sizing and the prop-firm floors apply."). Daily PnL and drawdown are still computed and reported. Prop-account-specific logic adds the rules required by funded/prop firms. Runtime counters track in-flight risk that hasn't yet settled in the journal. The kill-switch flag (`/tmp/trader_halt.flag`) is a single file the operator can drop on the VM to halt all new orders without restarting the process. The news veto blocks orders during high-impact macro events.
 
 **Failure modes:**
-- Stale account state — risk caps may approve based on outdated PnL; mitigated by reconciling against the journal at the start of each tick.
+- Stale account state — the reported daily PnL may lag; mitigated by reconciling against the journal at the start of each tick (no refusal reads it since 2026-10-09).
 - News feed outage — news veto fails open or closed depending on configured policy; current default is fail-open with an alert.
 - Kill-switch present but unread (file-system permission issue) — pipeline alerts and refuses to trade.
 
