@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# wiring: manual-only - one-shot backfill, run once by hand via trainer-vm-diag; deliberately no timer or service (operator/manager brief PM-BACKFILL-BUILD).
 """PM-BACKFILL — one-shot, point-in-time Kalshi history for settled release markets.
 
 Feeds RQ-20261009-903 (PM-SURPRISE-EVAL). For each settled market in the series listed in
