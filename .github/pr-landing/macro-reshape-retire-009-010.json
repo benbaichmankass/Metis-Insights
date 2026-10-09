@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Retires research units RQ-20260928-009 and RQ-20260928-010 (blocked -> retired, with reasons). Research-queue YAML only; no code, config, strategy, sizing or risk change."
+}
