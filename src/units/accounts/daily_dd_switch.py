@@ -468,12 +468,14 @@ def observe_armed_accounts(accounts_path: Optional[Path] = None,
     """
     out: Dict[str, str] = {}
     try:
-        import yaml
+        from src.config.accounts_loader import load_accounts_dict
         from src.prop.prop_identity import is_prop_account, is_retired_account
-        path = accounts_path or Path(__file__).resolve().parents[3] / "config" / "accounts.yaml"
-        accounts = (yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}).get("accounts") or {}
+        errors: list = []
+        accounts = load_accounts_dict(accounts_path, errors=errors)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("daily_dd_switch: tick observe could not read accounts: %s", exc)
+        errors, accounts = [{"error": str(exc)}], {}
+    if not accounts:
+        logger.warning("daily_dd_switch: tick observe read no accounts: %s", errors or "empty")
         return out
     for name, cfg in accounts.items():
         try:
