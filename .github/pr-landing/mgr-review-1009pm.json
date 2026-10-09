@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "manager review record (checklist header + pipeline closes) and an observability fix to attention_watch.probe_manager (read path only; no runtime, order path or config)"
+}

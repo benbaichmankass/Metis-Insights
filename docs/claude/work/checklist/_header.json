@@ -22,19 +22,18 @@
   "updated_at": "2026-10-07T18:50:00Z",
   "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
   "last_review": {
-    "report_id": "WR-20261009-0530Z",
-    "reviewed_at": "2026-10-09T05:58:00Z",
+    "report_id": "WR-20261009-1719Z",
+    "reviewed_at": "2026-10-09T18:00:00Z",
     "by": "session_01Uq7MrjPQDRWqbhCjwuMava",
     "counts": {
-      "due": 78,
-      "unrouted": 29,
-      "ask_operator_open": 26,
+      "due": 76,
+      "unrouted": 0,
+      "ask_operator_open": 18,
       "alarms_breached": [
-        "phone_hb_breakout_2"
-      ],
-      "routing_alarm": "oldest unrouted 15d (PI-20260924-2S8DXGTZ-0003) > 7d"
+        "manager (false: probe read the deleted monolith; fixed this commit)"
+      ]
     },
-    "note": "05:52Z review. New since 18:02Z: (1) ask_operator PI-20261008-3QRUJSYR-0001 already DECIDED (operator approved cancel-replace 10-08 ~20:03Z; built+merged #17176, deployed 98d682db); the item should be closed by the routing lane. (2) 4 research units needs_review (RQ-20260929-018, RQ-20261005-016, RQ-20261005-812 unresolvable_at_current_n, +1) -> 10-10 02:47Z readout. (3) breakout_2 phone heartbeat missing 05:01Z (urgent) -> operator told (phone app). due 52->78 and unrouted 11->29 overnight (lanes filed items) + routing alarm (oldest unrouted 15d) -> PIPELINE-ROUTE lane queued next to disposition unrouted + classify the 26 ask_operator items per manager SKILL (most are data tasks, not decisions)."
+    "note": "17:53Z review. digestLog 06:00-17:01Z: (1) ask_operator PI-20261009-XQ5RTZKZ-0002 (prop executor clear-halt design) already killed: moot, latch removed under NO-HALT. (2) PI-20261009-72XUJX8U-0005 (risk caps) closed done: operator reversal -> DAILY-DD-SWITCH, #17281 merged ebc17e6a, arming #17282 in CI. (3) RQ-20261006-004 needs_review -> the 10-10 02:47Z readout. (4) breakout_2 phone heartbeat alarm cleared 16:00Z. (5) manager alarm was a false positive: attention_watch.probe_manager probed MANAGER-CHECKLIST.json, deleted at the 10-08 cutover; now reads checklist_store.HISTORY_PATHS. Unrouted 1->0 (switch observation routed to DAILY-DD-SWITCH). Also landed today: NO-HALT x9, TRADEIFY-PLATFORMS row #17285."
   },
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",

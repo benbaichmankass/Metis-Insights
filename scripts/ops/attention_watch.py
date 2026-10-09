@@ -303,7 +303,13 @@ def probe_research(now: datetime, shallow: bool | None) -> dict:
 
 
 def probe_manager(now: datetime) -> dict:
-    t = _last_commit_time(str(CHECKLIST.relative_to(REPO_ROOT)))
+    # The register is the per-row store since the 2026-10-08 cutover; the
+    # monolith was deleted then, so probing it alone read the deletion commit
+    # and the alarm grew without bound. Newest commit over BOTH paths
+    # (checklist_store.HISTORY_PATHS) so either layout counts as a write.
+    from src.runtime import checklist_store as _ck  # noqa: PLC0415
+    times = [t for t in (_last_commit_time(p) for p in _ck.HISTORY_PATHS) if t]
+    t = max(times) if times else None
     if t is None:
         return {"status": UNKNOWN, "detail": "could not read the checklist's last commit"}
     hours = (now - t).total_seconds() / 3600
