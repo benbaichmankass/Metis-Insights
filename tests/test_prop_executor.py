@@ -4606,6 +4606,23 @@ def test_a_naked_leg_whose_close_does_not_click_is_retried_every_cycle(env):
     assert not any("gave up" in a for a in alerts) and state.halted() is None
 
 
+def test_an_open_naked_position_is_protected_or_flattened_every_cycle_with_bounded_alerts(env):
+    # NO-HALT: a journal-open position that loses its SL is flattened on every
+    # cycle until it is gone; the alerts do not repeat every tick, ONE red flag.
+    ledger, state = env
+    ledger.record("t1", "open", spec=SPEC)
+    ad = _NoClose(positions=[_p(stop_loss=None)])
+    ad.modify_result = REFUSED
+    alerts = []
+    for _ in range(8):
+        res = run(ad, FakeApi([], OPEN_FILL), env)
+        alerts += res.alerts
+    assert [c[0] for c in ad.calls].count("flatten") == 7          # read 1 alerts only; then every cycle
+    assert sum("containing it" in a for a in alerts) == 1
+    assert sum("RED FLAG" in a for a in alerts) == 1
+    assert len(alerts) <= 8 and state.halted() is None
+
+
 def test_a_contained_naked_position_still_open_is_flattened_again_every_cycle(env):
     # ours (partial_no_sl_tp), closed once, but the position is still naked
     ledger, state = env

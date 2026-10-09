@@ -2783,7 +2783,7 @@ def _contain_naked_open(res: CycleResult, adapter: Any, page: Any, live: bool, l
         # a pre-NO-HALT executor gave up): flatten again, every cycle.
         res.log("naked_open_contained", ticket_id=tid, why=what, close_attempts=row.get("close_attempts"))
         _repair_or_flatten(res, adapter, page, live, ledger, tid, {**row, "leg_fix_tried": True}, p,
-                           _f(j.get("sl")), _f(j.get("tp")), retry_state="open", verdict="naked_open")
+                           _f(j.get("sl")), _f(j.get("tp")), retry_state="contained", verdict="naked_open")
         return f"{tid}: naked_open ({what})", True
     if not row or row.get("state") != "open":
         why = f"{tid or venue}: naked_open ({what})"
@@ -2791,7 +2791,10 @@ def _contain_naked_open(res: CycleResult, adapter: Any, page: Any, live: bool, l
             res.alerts.append(f"{why}: no executor ledger row for this position (state "
                               f"{(row or {}).get('state')!r}) — not touched; close or protect it by hand")
         return why, False  # not ours: nothing clicked, entries are not held
-    res.alerts.append(f"{tid}: ⚠️ NAKED position — {what}; containing it (one repair, else close at market)")
+    if not row.get("close_attempts"):
+        # Once per position: a close that keeps failing is retried every
+        # cycle, and its own alerts (then the red flag) say so.
+        res.alerts.append(f"{tid}: ⚠️ NAKED position — {what}; containing it (one repair, else close at market)")
     _repair_or_flatten(res, adapter, page, live, ledger, tid, row, p, _f(j.get("sl")), _f(j.get("tp")),
                        retry_state="open", verdict="naked_open")
     return f"{tid}: naked_open ({what})", True
