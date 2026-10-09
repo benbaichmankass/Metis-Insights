@@ -102,7 +102,8 @@ def test_report_route_since_returns_sent_digest_blocks(tmp_path, monkeypatch):
 
 
 def test_prop_feed_probe_unknown_ok_then_breached(tmp_path, monkeypatch):
-    import os
+    """NO-HALT (2026-10-09): the feed never trips; the probe reads its backoff
+    state. Could-not-look stays distinct from not-in-backoff."""
     from datetime import datetime, timezone
     now = datetime(2026, 10, 7, 21, 0, tzinfo=timezone.utc)
     monkeypatch.setenv("PROP_BROWSER_BASE", str(tmp_path / "missing"))
@@ -111,12 +112,27 @@ def test_prop_feed_probe_unknown_ok_then_breached(tmp_path, monkeypatch):
     assert a.probe_prop_feed(now)["status"] == a.OK
     d = tmp_path / "accounts" / "tradeify_1" / "feed"
     d.mkdir(parents=True)
-    m = d / "tripped"
-    m.write_text("2026-10-06T18:27:45Z rc=4 feasibility stop")
-    ts = now.timestamp() - 3600
-    os.utime(m, (ts, ts))
+    # A stale pre-NO-HALT marker is not a signal any more.
+    (d / "tripped").write_text("2026-10-06T18:27:45Z rc=4 feasibility stop")
+    assert a.probe_prop_feed(now)["status"] == a.OK
+    st = d / "backoff"
+    # Below the red-flag threshold: retrying normally, OK.
+    st.write_text("consecutive_failures=1\nnext_attempt_at=0\nflagged=0\nreason=error\n")
+    assert a.probe_prop_feed(now)["status"] == a.OK
+    st.write_text("consecutive_failures=3\nflagged=1\nflagged_at=2026-10-07T20:00:00Z\n"
+                  "next_attempt_at_utc=2026-10-07T21:05:00Z\nreason=3 consecutive failures\n")
     assert a.probe_prop_feed(now)["status"] == a.OK                # inside the grace
-    ts = now.timestamp() - 27 * 3600
-    os.utime(m, (ts, ts))
+    st.write_text("consecutive_failures=9\nflagged=1\nflagged_at=2026-10-06T18:00:00Z\n"
+                  "next_attempt_at_utc=2026-10-07T22:00:00Z\nreason=feasibility stop\n")
     r = a.probe_prop_feed(now)
     assert r["status"] == a.BREACHED and "tradeify_1" in r["detail"] and "reset-feed" in r["detail"]
+    assert "retrying" in r["detail"]
+
+
+def test_prop_feed_probe_unreadable_state_is_unknown_not_ok(tmp_path, monkeypatch):
+    from datetime import datetime, timezone
+    now = datetime(2026, 10, 7, 21, 0, tzinfo=timezone.utc)
+    monkeypatch.setenv("PROP_BROWSER_BASE", str(tmp_path))
+    (tmp_path / "feed" / "backoff").mkdir(parents=True)          # a dir: read_text raises
+    r = a.probe_prop_feed(now)
+    assert r["status"] == a.UNKNOWN and "breakout_1" in r["detail"]
