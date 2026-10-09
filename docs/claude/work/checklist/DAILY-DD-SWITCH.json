@@ -1,0 +1,21 @@
+{
+  "id": "DAILY-DD-SWITCH",
+  "title": "Account-level daily drawdown switch: the one sanctioned automatic off (operator 2026-10-09), armed on every non-retired account",
+  "phase": "landed",
+  "state": "landed_unproven",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 3,
+  "prs": [
+    17281,
+    17282
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-09T18:10Z manager] Operator directive (verbatim in CLAUDE-RULES-CANONICAL rule 7 exception): default-off switch, then arm all; 3% for non-prop, prop = firm daily limit with buffer; popups 'Keep open, block new' and '20% of the firm's limit'. MERGED #17281 (ebc17e6a, switch, disarmed; retired DAILY_LOSS_CAP/INTRADAY_DRAWDOWN/S-026 clamp/daily_cap_alert) and #17282 (09b59303, armed). DEPLOYED: VM git_sha 09b593034, restart_pending false. OBSERVED on /api/bot/config 18:10Z: armed=true on bybit_1/2/portfolio, ib_paper, ib_live, oanda_practice, alpaca_paper/portfolio/live/options_paper (3% of day-start equity), breakout_2 (80% x 3%), tradeify_1 (80% x 3% of account size = 240), velotrade_1 (80% x 4%); breakout_1 null (retired). read_state not_observed on all (no equity folded yet). NOT yet observed: a real equity read, a trip, a reset. Closes on PI-20261009-BKKVRSVQ-0001. Known gap PI-20261009-BKKVRSVQ-0002 (7 accounts on hourly equity snapshot). No-stop window ~17:22Z-18:05Z. Revert per account: armed: false. Lanes: session_01ABhfHYBU3GwANq2neYu2sX (~$3.10, classifier-blocked), session_01FFwi1Fff49ryncBkkVrsvQ (>=$3.57); both archived.",
+  "updated_at": "2026-10-09T18:10:33Z",
+  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
+  "_seq": 370
+}
