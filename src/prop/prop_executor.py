@@ -2685,7 +2685,7 @@ def _repair_or_flatten(res: CycleResult, adapter: Any, page: Any, live: bool, le
     resting entry): ONE repair, then close at market / cancel.
 
     OA-05/06 (PI-20261004-GCFA5DOR-0003): the repair under the account's
-    modify-rollout latch types SL AND TP, so the guard refuses it before any
+    modify-rollout guard types SL AND TP, so the guard refuses it before any
     click ("current stop loss not readable" when the SL is the missing leg).
     A repair that did NOT click changed nothing on the venue, so the close
     runs in the SAME cycle rather than a tick later. A close that did not
@@ -2694,11 +2694,12 @@ def _repair_or_flatten(res: CycleResult, adapter: Any, page: Any, live: bool, le
     it parked ``contained`` with an alert saying it gave up."""
     if not row.get("leg_fix_tried"):
         if isinstance(leg, Position):
-            # The account's modify-rollout latch (DIALOG-MEASURE): with the
-            # edit surface armed, the guard allows ONE watched tighten-only
-            # SL step per reviewed clear. This repair types SL AND TP, so
-            # under the guard it is refused before any click and the close
-            # below takes over in this same cycle.
+            # The account's modify-rollout guard (DIALOG-MEASURE): with the
+            # edit surface armed, it admits only a bounded tighten-only SL
+            # step (no latch since NO-HALT 2026-10-09; the record is evidence
+            # only, and constructing it moves a stale latch file aside). This
+            # repair types SL AND TP, so under the guard it is refused before
+            # any click and the close below takes over in this same cycle.
             from src.prop.platform.dxtrade import ModifyRollout
             r = adapter.modify_bracket(page, leg, sl, tp, arm=live,
                                        rollout=ModifyRollout(Path(ledger.path).parent / "modify_rollout.json"))

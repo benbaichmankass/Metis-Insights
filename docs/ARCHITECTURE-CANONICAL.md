@@ -578,7 +578,9 @@ measured from the CURRENT price, saying so in the reason. Consumers:
 - **prop, API adapter** — `prop_trail._tp_step` calls the same
   `plan_tp_revision` on a tick with no SL step due, sends a TP-only
   `modify_bracket(page, p, None, tp)`, confirms on re-read and alerts on a
-  refusal or an unconfirmed amend (capped at `MAX_ATTEMPTS_PER_TARGET`). Asked
+  refusal or an unconfirmed amend (alert on the first failure, retried every
+  cycle on a capped backoff, one red flag after `RED_FLAG_AFTER` in a row —
+  never given up on, NO-HALT 2026-10-09). Asked
   only of an adapter declaring `TP_AMEND_SUPPORTED = True` — today
   `dxtrade_api` (velotrade_1).
 - **prop, browser `dxtrade`** (breakout_1, tradeify_1) — `TP_AMEND_SUPPORTED =

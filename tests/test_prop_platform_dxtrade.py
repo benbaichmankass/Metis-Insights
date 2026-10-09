@@ -2309,7 +2309,9 @@ def test_surface_probe_ignores_live_prices_in_control_names(surface_page):
 # ── ROLLOUT GUARD (manager 2026-10-02 21:45Z, option (c)) ─────────────────
 # EDIT_DIALOG_MEASURED is True in the repo (operator 2026-10-03, "Merge and
 # switch on together"); ROLLOUT_GUARD stays True, so every armed modify needs
-# the account's latch and is one bounded tighten-only step.
+# the account's rollout record and is one bounded tighten-only step. Since
+# NO-HALT (operator 2026-10-09, "There is no halting.") the record is evidence
+# only: no step's outcome blocks the next one.
 
 _QUOTE = {"bid": 2660.0, "ask": 2660.5}          # short: the stop fills on the ask
 
@@ -2336,15 +2338,16 @@ def _row_follows_the_panel(page):
 def test_the_repo_flag_is_on_and_the_guard_still_gates_every_armed_modify(panel_page, tmp_path):
     from src.prop.platform.dxtrade import DXtradeAdapter, ModifyRollout
     assert DXtradeAdapter.EDIT_DIALOG_MEASURED is True and DXtradeAdapter.ROLLOUT_GUARD is True
-    # No latch: refused before any click.
+    # No rollout record: refused before any click.
     r = _edit_adapter().modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True)
-    assert r["ok"] is False and r["clicked"] is False and "modify-rollout latch" in r["why"]
-    # A latch already set (the single watched step used): refused before any click.
-    (tmp_path / "l.json").write_text('{"state": "verified"}')
-    r = _edit_adapter().modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True,
-                                       rollout=ModifyRollout(tmp_path / "l.json"))
-    assert r["ok"] is False and r["clicked"] is False and "halted until" in r["why"]
+    assert r["ok"] is False and r["clicked"] is False and "modify-rollout record" in r["why"]
     assert panel_page.evaluate("window.__log") == []
+    # A stale latch left by the retired code (NO-HALT): moved aside, never a block.
+    (tmp_path / "l.json").write_text('{"state": "verified"}')
+    roll = ModifyRollout(tmp_path / "l.json")
+    assert not (tmp_path / "l.json").exists() and roll.stale_retired
+    r = _edit_adapter().modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True, rollout=roll)
+    assert "halted" not in str(r["why"])
 
 
 def test_the_kill_switch_refuses_before_any_click(panel_page, tmp_path):
@@ -2355,9 +2358,10 @@ def test_the_kill_switch_refuses_before_any_click(panel_page, tmp_path):
                          rollout=ModifyRollout(tmp_path / "l.json"))
     assert r["ok"] is False and r["clicked"] is False and "EDIT_DIALOG_MEASURED is False" in r["why"]
     assert panel_page.evaluate("window.__log") == [] and not (tmp_path / "l.json").exists()
+    assert not (tmp_path / "modify_rollout_last.json").exists()
 
 
-def test_rollout_single_tighten_step_is_typed_verified_and_latched(panel_page, tmp_path):
+def test_rollout_single_tighten_step_is_typed_verified_and_not_latched(panel_page, tmp_path):
     a, roll = _guarded(tmp_path)
     _row_follows_the_panel(panel_page)
     r = a.modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True, rollout=roll)
@@ -2366,15 +2370,16 @@ def test_rollout_single_tighten_step_is_typed_verified_and_latched(panel_page, t
     assert panel_page.evaluate("document.getElementById('ptp').value") == "2394.06"   # TP never typed
     assert json.loads(roll.path.read_text())["state"] == "verified"
     again = a.modify_bracket(panel_page, _short_with_row(), 2705.0, None, arm=True, rollout=roll)
-    assert again["clicked"] is False and "halted until" in again["why"]                 # single step
+    assert again["clicked"] is True and "halted" not in again["why"]                    # NO-HALT: no latch
 
 
-def test_rollout_verify_failure_alerts_and_halts_further_modifies(panel_page, tmp_path):
+def test_rollout_verify_failure_alerts_and_the_next_step_still_runs(panel_page, tmp_path):
     a, roll = _guarded(tmp_path)                                    # the row's SL does NOT change
     r = a.modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True, rollout=roll)
     assert r["ok"] is False and r["rollout"] == "verify_failed" and "ROLLOUT VERIFY FAILED" in r["why"]
-    assert "further modifies halted" in r["why"] and json.loads(roll.path.read_text())["state"] == "verify_failed"
-    assert a.modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True, rollout=roll)["clicked"] is False
+    assert "the next cycle retries" in r["why"] and json.loads(roll.path.read_text())["state"] == "verify_failed"
+    # NO-HALT: a failed verify blocks nothing -- the next step is clicked.
+    assert a.modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True, rollout=roll)["clicked"] is True
 
 
 @pytest.mark.parametrize("sl,tp,needle", [
@@ -2390,9 +2395,9 @@ def test_rollout_refuses_anything_but_a_bounded_tighten_before_any_click(panel_p
     assert panel_page.evaluate("window.__log") == [] and not roll.path.exists()
 
 
-def test_rollout_needs_a_latch_and_a_quote(panel_page, tmp_path):
+def test_rollout_needs_a_record_and_a_quote(panel_page, tmp_path):
     a, _ = _guarded(tmp_path)
-    assert "needs the account's modify-rollout latch" in a.modify_bracket(
+    assert "needs the account's modify-rollout record" in a.modify_bracket(
         panel_page, _short_with_row(), 2710.0, None, arm=True)["why"]
     a, roll = _guarded(tmp_path, quote=None)
     assert "no live quote" in a.modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True, rollout=roll)["why"]
@@ -2407,7 +2412,37 @@ def test_rollout_in_progress_is_written_before_the_click(panel_page, tmp_path):
     roll.record = lambda state, **k: (seen.append(state), orig(state, **k))
     r = a.modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True, rollout=roll)
     assert r["ok"] is False and seen[0] == "in_progress" and seen[-1] == "refused"
-    assert roll.blocked()                                            # a refused step still uses the latch
+    assert roll.last()["state"] == "refused"                         # evidence only, never a block
+
+
+def test_modify_rollout_is_evidence_not_a_latch(tmp_path):
+    # NO-HALT (operator 2026-10-09): the record lives in modify_rollout_last.json,
+    # beside (never at) the legacy latch path, and nothing on it blocks.
+    from src.prop.platform.dxtrade import ROLLOUT_LAST_FILE, ModifyRollout
+    roll = ModifyRollout(tmp_path / "modify_rollout.json")
+    assert roll.stale_retired is None and roll.last() is None
+    assert not hasattr(roll, "blocked")
+    roll.record("verify_failed", why="SL reads 1.0")
+    assert roll.path == tmp_path / ROLLOUT_LAST_FILE and roll.last()["state"] == "verify_failed"
+    assert not (tmp_path / "modify_rollout.json").exists()
+    again = ModifyRollout(tmp_path / "modify_rollout.json")       # the next cycle's record
+    assert again.stale_retired is None and again.last()["state"] == "verify_failed"
+
+
+def test_a_stale_rollout_latch_is_moved_aside_with_a_log_line(tmp_path, caplog):
+    import logging
+
+    from src.prop.platform.dxtrade import ModifyRollout
+    latch = tmp_path / "modify_rollout.json"
+    latch.write_text('{"state": "verify_failed", "at": 1}')
+    with caplog.at_level(logging.WARNING):
+        roll = ModifyRollout(latch)
+    assert not latch.exists()
+    moved = list(tmp_path.glob("modify_rollout.json.retired-*"))
+    assert len(moved) == 1 and "verify_failed" in moved[0].read_text()
+    assert roll.stale_retired and "verify_failed" in roll.stale_retired["prior"]
+    assert any("stale latch" in r.getMessage() and "moved aside" in r.getMessage() for r in caplog.records)
+    assert ModifyRollout(latch).stale_retired is None               # once only
 
 
 def test_rollout_pure_checks():
