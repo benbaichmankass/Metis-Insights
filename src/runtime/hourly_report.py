@@ -336,7 +336,10 @@ def account_snapshots() -> Optional[List[Dict[str, Any]]]:
     new_snap: Dict[str, Any] = {}
 
     out: List[Dict[str, Any]] = []
+    from src.prop.prop_identity import is_retired_account
     for acc in accounts:
+        if is_retired_account(acc):
+            continue  # retired accounts do not appear on operator surfaces
         aid = acc.get("account_id") or "unknown"
         try:
             bal = account_balance(acc)
