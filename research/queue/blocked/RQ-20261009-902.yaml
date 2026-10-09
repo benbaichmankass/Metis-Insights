@@ -1,0 +1,108 @@
+id: RQ-20261009-902
+title: >-
+  NEWS-VETO-EVAL (WEPE gate G1): does the live news layer (src/news/news_score.py) add net R -- is the
+  vetoed-signal counterfactual worse than the taken book, and does the boost/reduce adjustment rank-predict
+  taken-trade net R? -- BLOCKED on the log-to-journal join lever; the veto arm is structurally underpowered today
+status: blocked
+cadence: once
+kind: experiment
+theme: live_strategy
+priority: 2
+question: >-
+  Checklist row NEWS-VETO-EVAL (POC 1 of the WEPE gate, operator 2026-10-08). The news layer stamps every
+  actionable signal into runtime_logs/news_decisions.jsonl (decision boost / reduce / veto / neutral, adjustment in
+  [-1, 1], veto flag, strategy, symbol, side, ts) and the veto gates a live trade by default when the source is
+  active (src/runtime/pipeline.py; NEWS_VETO_ENABLED default-on). Two measurable claims. ARM A (adjustment): among
+  logged signals that became taken trades, does the signed adjustment rank-predict the trade's net R (Spearman,
+  net of the full cost stack), per boost/reduce vs neutral? ARM B (veto): is the counterfactual net R of the vetoed
+  signals (replayed through the strategy's own harness geometry from the signal bar) lower than the net R of the
+  same strategies' taken trades -- i.e. did the veto avoid losses rather than miss winners? Existing data only: the
+  log (live VM) joined to the journal trades table; no new collection.
+why_this_matters: >-
+  WEPE gate G1 (WEPE-BUILDOUT): the wider world-event build starts only once the news layer is shown measurable and
+  net-positive, or is retired/replaced. The veto has been able to gate live money since activation with no outcome
+  evidence on file. A fail retires or re-scopes the veto; a pass is the first outcome evidence for any text-derived
+  signal in this system.
+power:
+  expected_n: 13
+  min_detectable_effect: 0.4
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    n >= (z_a/2 + z_b)^2 / d^2 = 49.06 at d=0.4 (the queue's floor), gate floor 25. MEASURED 2026-10-09 by a
+    log_aggregate pull over the WHOLE file (13,173 rows, 121 distinct UTC days 2026-06-11..2026-10-09, 0
+    unparseable): decision neutral 12,791 / reduce 206 / boost 163 / veto 13, and veto=true on exactly 13 rows over
+    5 days (06-26, 08-19, 08-26, 09-29, 10-07). The log writes one row per signal evaluation per tick, so DISTINCT
+    vetoed signals are <= 13 and probably fewer. ARM B is therefore UNDERPOWERED BY CONSTRUCTION (13 < 25 < 49).
+    At the observed 13 rows / 121 days = 0.107 per day, 25 rows arrive ~2027-01-29 and 39 rows ~2027-06-08 --
+    those dates assume every row is a distinct signal, an upper bound on accrual speed. ARM A (reduce+boost 369
+    rows before de-duplication to distinct taken signals) is the only arm that can reach the floor soon; its
+    distinct-taken n is UNKNOWN until the join is built, which is the first output of the lever.
+  feasibility:
+    source: runtime_logs/news_decisions.jsonl via /api/diag/log_aggregate (counts) and /api/diag/log_file (rows)
+    accrual_basis: >-
+      13 veto rows per 121 days (above). Arm A accrues with the book. Nothing is waited on for the join itself.
+decision_rule:
+  id: RULE-RQ1009-902-NEWS-VETO-NET-R
+  registered_at: '2026-10-09'
+  registered_before_run: true
+  statistic: >-
+    ARM A: Spearman IC between the signed news adjustment and net R (fee + slippage + funding) over DISTINCT taken
+    trades (one row per package, joined on strategy + symbol + side + signal ts within one tick), with n and a
+    one-sided p; plus the mean net R of boost, reduce and neutral buckets. ARM B: mean net R of the vetoed signals'
+    counterfactual replay minus mean net R of the same strategies' taken trades over the same dates, with n.
+    Both on the population stated in the record.
+  rule: >-
+    ARM A PASS IF IC > 0 with one-sided p < 0.05 at distinct-taken n >= 49. ARM A FAIL IF IC <= 0 at n >= 49, or
+    the reduce bucket's mean net R exceeds the boost bucket's. ARM A INSUFFICIENT_BASE below n = 25 (never a
+    fail); between 25 and 48 report the IC as a lead. ARM B is graded only at distinct-vetoed n >= 25: PASS
+    (veto earns its keep) IF counterfactual mean net R is below the taken mean and the sign holds on the
+    dates-split halves; FAIL (veto costs R) IF counterfactual mean net R exceeds the taken mean. Below 25 it
+    reads UNDERPOWERED with the n and the date the floor is reachable -- never a pass, never a kill. UNIT-LEVEL
+    G1 READ, written now: G1 PASSES only if Arm A passes and Arm B is not FAIL; G1 is RETIRE-OR-REPLACE if Arm A
+    FAILS or Arm B FAILS. An UNDERPOWERED Arm B with Arm A PASS leaves G1 OPEN, not passed.
+  what_it_does_not_do: >-
+    Touches no config and does not switch NEWS_VETO_ENABLED. Arm A is not a calibration of a probability
+    (adjust_probability moves a base probability by at most 15 pp; no base probability is logged), so it is
+    graded as a rank/sign test and labelled so; a Brier/ECE read is NOT claimed. Not a promotion case for any
+    leg. Does not evaluate headline quality or the scorer's inputs.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 30
+  basis: >-
+    Pure join + Spearman over about 13k log rows and the journal trades table; the data lives on the live VM and
+    is read through the diag relay, so the instrument is session-local until a runner-reachable export exists.
+blocked_on:
+  - what: >-
+      No script joins news_decisions.jsonl to the trades journal and no harness replays a vetoed signal. The log
+      row carries strategy, symbol, side, ts, decision, adjustment, veto and top_items but NOT entry / sl / tp, so
+      Arm B's counterfactual needs the signal rebuilt from the strategy harness at ts. The GitHub runner holds
+      neither the log nor the journal.
+    ref: >-
+      src/news/news_audit.py (row schema); /api/diag/log_file?name=news_decisions; scripts/research/meta_veto_walkforward.py
+      (nearest existing veto-counterfactual pattern, harness-corpus only, no news join)
+    clears_when: >-
+      scripts/research/news_veto_eval.py exists (Tier-1 build): reads the diag log rows and journal trades,
+      de-duplicates to distinct signals, emits the Arm A table and the Arm B counterfactual with n stated, and
+      writes a verdict.json this rule can grade. Then git mv to research/queue/, status queued, and fill
+      run.workflow with a session-local or trainer route.
+run:
+  workflow: null
+  note: >-
+    SESSION-LOCAL until the lever exists. First measurement to take with no new code: the distinct-signal count
+    of the 13 veto rows and of the 369 reduce+boost rows (group by strategy, symbol, side, ts rounded to the tick),
+    because it decides whether Arm A can be graded at all.
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- src/news/news_score.py
+- src/news/news_audit.py
+- docs/claude/work/checklist/NEWS-VETO-EVAL.json
+- docs/claude/work/checklist/WEPE-BUILDOUT.json
+last_dispatched_at: null

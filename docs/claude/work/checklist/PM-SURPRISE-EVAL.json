@@ -11,8 +11,8 @@
   "tier": 1,
   "prs": [],
   "blocked_on": [],
-  "note": "[2026-10-08T10:40Z manager] Operator 2026-10-08 (verbatim): \"Ok, lets do that - I want us to add the bigger build out to the roadmap, gated on the system successfully passing milestones (POCs that prove trust worthy and add value)\". POC 2 of the WEPE gate. Blocked on PM-COLLECTOR (needs point-in-time prediction-market snapshots); unit written as research/queue/blocked/ naming that lever. Rule: beat the consensus-surprise IC at the same releases and horizons, honest n, net of cost.",
-  "updated_at": "2026-10-08T11:19:31Z",
-  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "note": "[2026-10-08T10:40Z manager] Operator 2026-10-08 (verbatim): \"Ok, lets do that - I want us to add the bigger build out to the roadmap, gated on the system successfully passing milestones (POCs that prove trust worthy and add value)\". POC 2 of the WEPE gate. Blocked on PM-COLLECTOR (needs point-in-time prediction-market snapshots); unit written as research/queue/blocked/ naming that lever. Rule: beat the consensus-surprise IC at the same releases and horizons, honest n, net of cost. [2026-10-09T03Z readout] Authored as blocked unit research/queue/blocked/RQ-20261009-903.yaml (trainer-side data, gated by date). n ARITHMETIC (assumption: FOMC 8 + CPI 12 + NFP 12 = 32 releases/yr pooled): floor n 49 paired releases is reached ~2028-04-20 by collection alone (per kind CPI ~4 yr); at the 30-day collector gate 2026-11-07 n is about 5-6. Collection will not power G2 clause 2 in a planning horizon. Two ways forward for the operator/manager: (1) verify whether settled Kalshi markets expose point-in-time price history for a backfill (UNVERIFIED; third-party terms unread), or (2) redefine G2 clause 2 as a lead-only read. Stage-1 collector quality read is due 2026-11-07 (>=95% of 120 runs, a snapshot within 6h before every release). Lever missing: scripts/macro/econ_event_study.py has no PM-surprise input.",
+  "updated_at": "2026-10-09T02:56:49Z",
+  "updated_by": "session_01TnZWQsErtv774gkX4brvWv",
   "_seq": 357
 }

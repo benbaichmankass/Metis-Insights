@@ -1,0 +1,108 @@
+id: RQ-20261009-903
+title: >-
+  PM-SURPRISE-EVAL (WEPE gate G2): do macro-release surprises measured against prediction-market implied
+  probabilities rank-predict post-release returns better than consensus surprises at the same releases and
+  horizons? -- gated on release accrual: the pooled n floor is not reachable by collection before ~2028-04
+status: blocked
+cadence: once
+kind: experiment
+theme: macro
+priority: 3
+question: >-
+  Checklist row PM-SURPRISE-EVAL (POC 2 of the WEPE gate, operator 2026-10-08). PM-COLLECTOR (#17131, deployed
+  2026-10-08) appends one point-in-time line per market per run to pm_snapshots/YYYY-MM.jsonl on the TRAINER VM
+  (off-repo by operator decision; every 6 h at 00/06/12/18:17 UTC; first snapshot 2026-10-08 ~15:51Z; Kalshi series
+  KXFEDDECISION, KXFED, KXCPI, KXPAYROLLS, KXRECSSNBER and two Polymarket queries, config/pm_markets.yaml). For
+  each release of kind FOMC decision, CPI and NFP: define PM-surprise = realized outcome minus the last
+  pre-release snapshot's market-implied expectation (probability-weighted strike ladder for CPI / NFP, implied
+  rate-change for FOMC), and consensus-surprise = realized minus the consensus already in
+  comms/macro/econ_calendar_snapshots.jsonl. Is the rank IC of PM-surprise with forward returns at the horizons of
+  scripts/macro/econ_event_study.py (1, 3, 5, 10, 21 trading days) larger than the consensus-surprise IC at the
+  SAME releases, net of cost where a traded proxy is used?
+why_this_matters: >-
+  WEPE gate G2 (WEPE-BUILDOUT): the question-contract / resolution-ledger build (G3) is justified only if market
+  probabilities carry information the free consensus feed does not. This unit also forces the n arithmetic
+  before anyone waits on accrual (macro-research invariant 4): the answer below is that collection alone cannot
+  power this comparison inside a planning horizon, which changes what G2 should ask for.
+power:
+  expected_n: 5
+  min_detectable_effect: 0.4
+  effect_units: sd
+  design: paired
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Floor n >= (z_a/2 + z_b)^2 / d^2 = 49.06 at d=0.4 (queue floor; a PAIRED IC difference needs at least this
+    and likely more). Release rate from the calendar, an ASSUMPTION not a count: FOMC 8/yr + CPI 12/yr + NFP
+    12/yr = 32 pooled releases a year, ~2.7 a month (releases pooled across kinds, itself a stated assumption).
+    POOLED: 49 / 32 per yr = 1.53 yr after the first snapshot 2026-10-08, i.e. ~2028-04-20. PER KIND (CPI alone,
+    12/yr): 49 releases = ~4.1 yr, ~2030-11. The 30-day collector gate (WEPE G2 clause 1) lands ~2026-11-07 with
+    about 5-6 releases in the window, n far below the floor. Not cleared by one more month of waiting.
+  feasibility:
+    source: trainer-resident pm_snapshots (collector) + comms/macro/econ_calendar_snapshots*.jsonl (consensus)
+    accrual_basis: >-
+      2.7 pooled releases a month from 2026-10-08. FASTER ROUTE, UNVERIFIED: settled Kalshi markets may expose
+      price history that would backfill point-in-time implied expectations for past releases and remove the wait;
+      whether the history is deep enough, point-in-time, and permitted by the unread third-party terms is NOT
+      established -- verify the source before building (macro-research invariant 3).
+decision_rule:
+  id: RULE-RQ1009-903-PM-SURPRISE-VS-CONSENSUS
+  registered_at: '2026-10-09'
+  registered_before_run: true
+  statistic: >-
+    At the releases for which BOTH a pre-release PM snapshot (collected_at_utc before the release, within 6 h)
+    and a resolved consensus exist: per horizon H in (1, 3, 5, 10, 21), Spearman IC(PM-surprise, forward return)
+    and IC(consensus-surprise, forward return), the paired difference with a bootstrap interval, and n of
+    paired releases, pooled across kinds and also per kind. Right-censored releases excluded per horizon, never
+    zero-filled (econ_event_study convention).
+  rule: >-
+    ELIGIBLE TO GRADE only when paired n >= 49 pooled (earliest ~2028-04-20 by collection). PASS IF the paired
+    IC difference at the registered horizons (3 and 5 days) is > 0 with the bootstrap interval excluding 0 and the
+    sign holds on both date halves -> G2 clause 2 met; record, no config. FAIL IF the difference is <= 0 or its
+    interval spans zero at n >= 49 -> PM adds nothing over free consensus; G2 fails and WEPE stops at G2.
+    BELOW n = 49 the unit reads UNDERPOWERED with the n and the date -- never a pass, never a fail. A STAGE-1
+    COLLECTOR QUALITY READ, graded separately and due 2026-11-07: PASS IF >= 95% of the expected 120 six-hourly
+    runs wrote a line for each configured series with non-null implied probability and a valid content_hash, and
+    every FOMC / CPI / NFP release in the window has a snapshot within 6 h before it; otherwise name the gap.
+  what_it_does_not_do: >-
+    Does not commit any prediction-market data to this public repo (third-party terms unread; operator
+    2026-10-08) -- only derived scorecards. Touches no config, no order path, no macro-sleeve sizing. The
+    recession and Polymarket series are collected but are not releases and are NOT used here. Not a promotion
+    case.
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 15
+  basis: >-
+    Reads the trainer-resident pm_snapshots plus committed comms/macro consensus; one Spearman per horizon.
+    Trainer route via the trainer-vm-diag relay (research-script-run.yml's runner cannot see the snapshots).
+blocked_on:
+  - what: >-
+      (1) Accrual: paired n is about 5-6 at 2026-11-07 and reaches 49 only ~2028-04-20 by collection alone.
+      (2) Lever: scripts/macro/econ_event_study.py has no PM-surprise input (grep for pm_ / prediction finds
+      nothing), and nothing joins pm_snapshots to resolved releases.
+    ref: >-
+      scripts/macro/pm_snapshot_collect.py; deploy/trainer/ict-pm-snapshot.timer; config/pm_markets.yaml;
+      docs/claude/work/checklist/PM-SURPRISE-EVAL.json
+    clears_when: >-
+      Stage-1 quality read runs on or after 2026-11-07 (trainer-side, no new code beyond a counting script).
+      Stage 2 is eligible when EITHER paired n >= 49 (~2028-04-20 by collection) OR a verified point-in-time
+      history source (Kalshi settled-market price history) is backfilled and the pm-surprise extension of
+      econ_event_study.py exists. Then git mv to research/queue/, status queued, route via the trainer relay.
+run:
+  workflow: null
+  note: >-
+    TRAINER-SIDE, session-local via trainer-vm-diag (label trainer-vm-diag-request). Data stays on the trainer
+    VM; only the scorecard JSON is committed.
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- scripts/macro/pm_snapshot_collect.py
+- scripts/macro/econ_event_study.py
+- config/pm_markets.yaml
+- docs/claude/work/checklist/PM-SURPRISE-EVAL.json
+- docs/claude/work/checklist/WEPE-BUILDOUT.json
+last_dispatched_at: null
