@@ -146,6 +146,10 @@ if [ "$1" = "-m" ] && [ "$2" = "ml" ] && [ "$3" = "train" ]; then
   if [ "$manifest" = "${KILL_TARGET:-}" ]; then
     kill -9 $$
   fi
+  if [ "$manifest" = "${OOM_TARGET:-}" ]; then
+    echo "MemoryError: simulated cgroup OOM" >&2
+    exit 137
+  fi
   stem="$(basename "$manifest" .yaml)"
   printf '{\\n  "experiment_dir": "runs/%s",\\n  "metrics": {},\\n  "model_id": "%s-model",\\n  "registered": true\\n}\\n' "$stem" "$stem"
   exit 0
@@ -459,3 +463,110 @@ class TestAuditFlaggedEnforceSkip:
         assert end["outcome"] == "trained"
         assert end["skipped_enforced"] == 0
         assert end["refusals_total"] == 0
+
+
+# ---------------------------------------------------------------------------
+# NO-HALT (operator directive 2026-10-09, "There is no halting."): the retired
+# 3-OOM -> 7-day quarantine. A manifest that OOMs is retried EVERY cycle, ONE
+# red flag is raised on the 3rd consecutive failure, recovery is announced
+# once, and a stale quarantine from the old code is ignored + removed.
+# ---------------------------------------------------------------------------
+
+
+def _install_manifest_health(root: Path) -> None:
+    """Copy the REAL tracker into the fixture so `python -m
+    src.utils.trainer_manifest_health` resolves (it otherwise fails open)."""
+    (root / "src" / "utils").mkdir(parents=True, exist_ok=True)
+    (root / "src" / "__init__.py").write_text("", encoding="utf-8")
+    src = _REPO_ROOT / "src" / "utils" / "trainer_manifest_health.py"
+    (root / "src" / "utils" / "trainer_manifest_health.py").write_text(
+        src.read_text(encoding="utf-8"), encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "health"], cwd=root, check=True)
+    subprocess.run(["git", "push", "-q", "origin", "main"], cwd=root, check=True)
+
+
+def _cycle(root: Path, env: dict) -> list[dict]:
+    r = subprocess.run(["/bin/bash", "scripts/ops/run_training_cycle.sh"],
+                       cwd=root, env=env, capture_output=True, text=True, timeout=60)
+    return _events(r.stdout)
+
+
+class TestOomNoHalt:
+    MANIFESTS = ["ml/configs/manifest-a.yaml", "ml/configs/manifest-b.yaml"]
+    BIG = "ml/configs/manifest-b.yaml"
+
+    def test_after_three_ooms_manifest_still_attempted_one_red_flag(self, tmp_path: Path):
+        _init_fixture_repo(tmp_path, self.MANIFESTS)
+        _install_manifest_health(tmp_path)
+        env = _fixture_env(tmp_path, self.MANIFESTS, {"OOM_TARGET": self.BIG})
+
+        red_flags = []
+        for cycle in range(1, 6):
+            events = _cycle(tmp_path, env)
+            timeouts = [e for e in events if e.get("status") == "manifest_timeout"
+                        and e.get("manifest") == self.BIG]
+            # Attempted on EVERY cycle, including the 4th and 5th (after 3 OOMs).
+            assert len(timeouts) == 1, (cycle, events)
+            assert timeouts[0]["exit_code"] == 137
+            # No skip / quarantine event of any kind.
+            assert not [e for e in events if e.get("status") in (
+                "manifest_quarantined", "manifest_quarantine_tripped")]
+            red_flags += [e for e in events if e.get("status") == "manifest_oom_red_flag"]
+            if cycle > 1:
+                retry = [e for e in events if e.get("status") == "manifest_oom_retry"]
+                assert retry and retry[0]["decision"]["consecutive_oom"] == cycle - 1
+
+        # Exactly ONE red flag across 5 failing cycles, raised on the 3rd, with
+        # the OOM diagnosis attached.
+        assert len(red_flags) == 1
+        streak = red_flags[0]["streak"]
+        assert streak["consecutive_oom"] == 3
+        assert streak["diagnosis"]["exit_code"] == 137
+        assert "MemoryError" in streak["diagnosis"]["stderr_tail"]
+        assert streak["diagnosis"]["timeout_seconds"] == 1800
+
+        # Fix lands -> it trains -> recovery announced ONCE.
+        env_ok = _fixture_env(tmp_path, self.MANIFESTS)
+        events = _cycle(tmp_path, env_ok)
+        rec = [e for e in events if e.get("status") == "manifest_oom_recovered"]
+        assert len(rec) == 1 and rec[0]["streak"]["recovered"] is True
+        assert any(e.get("status") == "manifest_ok" and e.get("manifest") == self.BIG
+                   for e in events)
+
+    def test_stale_quarantine_from_old_code_is_ignored(self, tmp_path: Path):
+        _init_fixture_repo(tmp_path, self.MANIFESTS)
+        _install_manifest_health(tmp_path)
+        state = tmp_path / "runtime_logs" / "trainer" / "manifest_oom_state.json"
+        state.parent.mkdir(parents=True, exist_ok=True)
+        stamp = "2026-10-09T00:00:00+00:00"
+        state.write_text(json.dumps({"manifests": {"manifest-b.yaml": {
+            "consecutive_oom": 3, "last_reason": "137", "last_utc": stamp,
+            "quarantined_at": stamp, "quarantine_count": 1}}}), encoding="utf-8")
+        env = _fixture_env(tmp_path, self.MANIFESTS)
+        events = _cycle(tmp_path, env)
+        cleared = [e for e in events
+                   if e.get("status") == "manifest_stale_quarantine_cleared"]
+        assert cleared and cleared[0]["decision"]["stale_quarantine_cleared"] == [
+            "manifest-b.yaml"]
+        # The previously-quarantined manifest TRAINED this cycle.
+        assert any(e.get("status") == "manifest_ok" and e.get("manifest") == self.BIG
+                   for e in events)
+        row = json.loads(state.read_text())["manifests"]["manifest-b.yaml"]
+        assert "quarantined_at" not in row
+        assert row["consecutive_oom"] == 0
+
+    def test_stale_same_day_quarantined_progress_row_is_reopened(self, tmp_path: Path):
+        _init_fixture_repo(tmp_path, self.MANIFESTS)
+        _install_manifest_health(tmp_path)
+        env = _fixture_env(tmp_path, self.MANIFESTS)
+        _cycle(tmp_path, env)  # creates today's progress file, both done
+        files = list((tmp_path / "runtime_logs" / "trainer").glob("cycle_progress_*.json"))
+        prog = json.loads(files[0].read_text())
+        prog["manifests"][self.BIG].update({"status": "skipped",
+                                            "reason": "quarantined_oom"})
+        files[0].write_text(json.dumps(prog))
+        events = _cycle(tmp_path, env)
+        # The old-code same-day skip is not honoured: b is retried, a is not.
+        oks = [e["manifest"] for e in events if e.get("status") == "manifest_ok"]
+        assert oks == [self.BIG]

@@ -259,10 +259,12 @@ watchdog escalations) instead of the disease.
   tripped a MONITOR BLIND alert on 2026-06-22; recovery needed a manual
   `vm-ib-gateway-recover`). The watchdog probes every ~5 min and, after
   `--restart-after 2` sustained-wedge checks, runs the SAME local
-  `restart_ib_gateway.sh` — bounded by `--max-restarts 3` / `--cooldown-min 20` /
-  `--exhaustion-reset-min 120` so it can never become a restart loop (and the
-  restart can't touch the money loop — different VM). Once the budget is
-  exhausted it falls back to alert-only.
+  `restart_ib_gateway.sh` — spaced by `--cooldown-min 20`, and past
+  `--max-restarts 3` by a backoff doubling up to `--max-backoff-min 60`, so it
+  can never become a tight login loop (and the restart can't touch the money
+  loop — different VM). It never falls back to alert-only (NO-HALT, operator
+  directive 2026-10-09): past the bound it sends ONE `[RED FLAG]` and keeps
+  restarting.
   **Dep-free local probe (BL-20260622-GATEWAY-LOCAL-PROBE):** the gateway VM is a
   MINIMAL box (just the Docker container — no bot venv, no `ib_insync`/`httpx`,
   no writable `/data`, no `.env`), so the account probe `ib_connect_check.py`
@@ -373,16 +375,21 @@ dark for hours until a container restart. The watchdog
 but `net_liquidation=None`, so **health = connected AND net_liquidation
 populated** — and after 2 consecutive wedged checks runs
 `scripts/ops/restart_ib_gateway.sh` (the same `docker restart` the manual
-`vm-ib-gateway-recover` workflow performs). Guard rails `--max-restarts 3` +
-`--cooldown-min 20` mean a genuine bad-credential / IBKR lockout can never
-become a restart loop — once exhausted it alert-only escalates to Telegram.
+`vm-ib-gateway-recover` workflow performs). Guard rails `--cooldown-min 20` +
+the capped backoff mean a genuine bad-credential / IBKR lockout can never
+become a tight login loop — past `--max-restarts 3` it sends ONE `[RED FLAG]`
+to Telegram and keeps restarting with the gap doubling up to
+`--max-backoff-min 60` (NO-HALT, operator directive 2026-10-09: "There is no
+halting.").
 This automates the recovery that previously needed a manual
 `vm-ib-gateway-recover` dispatch. Background + the diagnosis that the failure
 is the overnight-reset login dialog (not 2FA, which the paper account doesn't
 use): health-review backlog `BL-20260527-003`.
 
 **Exhaustion re-arm (`--exhaustion-reset-min 120`, added 2026-06-09,
-BL-20260605-004).** `--max-restarts 3` is a *per-episode* cap, where an
+BL-20260605-004) — SUPERSEDED 2026-10-09.** There is no exhausted state any
+more (NO-HALT); the capped backoff above replaces the re-arm and the flag is
+an accepted, ignored no-op. Kept as record: `--max-restarts 3` is a *per-episode* cap, where an
 "episode" lasts until a probe reads healthy. The 2026-06-09 incident showed
 the failure mode this strands: a wedge began ~09:53 UTC and the watchdog's
 3 restarts were all spent early — inside IBKR's reset/maintenance window,

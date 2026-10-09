@@ -4,8 +4,9 @@ Problem this closes: when a supposed-to-be-live broker account goes
 **unreachable** — the IB Gateway logs out (``ib_paper`` positions read
 ``None``, MES/MGC/MHG go dark), an exchange API starts 401-ing, creds
 rotate out — nothing fires a *loud, standalone* operator alert. The IB
-gateway watchdog only Telegrams after it has EXHAUSTED its restart
-budget (a terse restart ping, easy to skim past); ``account_open_positions``
+gateway watchdog only Telegrams its restart pings and, since 2026-10-09
+(NO-HALT), one red flag once its restarts outlast ``--max-restarts`` (terse,
+easy to skim past); ``account_open_positions``
 logs a WARN but routes no dedicated "account X is down" notification; and
 a ``/system-review`` that runs while an account is dark surfaces it in the
 report *body*, not as a can't-miss flag. The IB gateway was in fact dark

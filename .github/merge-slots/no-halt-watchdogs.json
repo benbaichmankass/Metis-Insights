@@ -1,0 +1,6 @@
+{
+  "held_by": "session_016wNjQSovXrhDpd72xUjx8U",
+  "branch": "claude/no-halt-watchdogs",
+  "claimed_at": "2026-10-09T11:40:56Z",
+  "purpose": "NO-HALT: liveness + IB gateway watchdogs keep restarting on a capped backoff, one red flag"
+}

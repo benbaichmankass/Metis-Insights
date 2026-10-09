@@ -182,28 +182,57 @@ manifest is its own `python -m ml train` under the bash orchestrator. The
 drop-ins are KEPT deliberately as the containment backstop (a future runaway
 gets a clean OOM-kill, never a D-state swap-thrash).
 
-**This is now detected + escalated automatically (BL-20260717-TRAINER-SINGLE-MANIFEST-OOM).**
-The cycle bounds a single-manifest OOM (30-min per-manifest cap → `continue`),
-but the per-day progress file would otherwise retry an oversized manifest
-*every cycle forever*, burning up to 30 min each run. So
+**Detected + escalated automatically — and RETRIED, never halted (NO-HALT, 2026-10-09).**
+> *"There is no halting. If something doesn't work, it tries to figure it out
+> and try again. If it consistently is incapable, then yes, it obviously needs
+> to raise a red flag so that somebody knows to help it. ... Under absolutely no
+> circumstances does any pipeline halt training on its own without getting
+> verbatim permission from me, the operator."* — operator, 2026-10-09
+> (`docs/CLAUDE-RULES-CANONICAL.md` § Prime Directive rule 7).
+
+The cycle bounds a single-manifest OOM (30-min per-manifest cap → `continue`).
 `src/utils/trainer_manifest_health.py` tracks a **cross-cycle OOM streak** per
 manifest (state under `runtime_logs/trainer/manifest_oom_state.json`, which
-survives the per-cycle `git reset --hard`). After
-`TRAINER_MANIFEST_OOM_QUARANTINE_AFTER` (default 3) consecutive OOM/timeout
-failures (exit 124/137) the cycle **quarantines** the manifest — SKIPS it
-(`manifest_quarantined` event) instead of wasting the window — and emits a loud
-`manifest_quarantine_tripped` cycle event. The trainer can't commit a backlog
-item itself (it resets to `origin/main` each cycle), so **that cycle event IS
-the durable escalation**: it rides the mirror to `/api/bot/ml/cycle`, where the
-next `/ml-review` / `/system-review` session must surface it and decide (a)/(b)/(c)
-above. The quarantine **self-heals**: it lets one re-attempt through after
-`TRAINER_MANIFEST_QUARANTINE_RECHECK_DAYS` (default 7), and a successful train
-clears it — so a landed shrink auto-recovers with no human toil. A session can
-force-clear via `TRAINER_MANIFEST_QUARANTINE_CLEAR=<manifest|all>`, or disable
-the whole mechanism with `TRAINER_MANIFEST_OOM_QUARANTINE_AFTER=0` (pure
-passthrough = the prior bounded-retry-forever behaviour). Still raise a
-health-review backlog item when you see a quarantine trip — the automation stops
-the *waste*, but the manifest still needs a human's shrink/GPU/drop decision.
+survives the per-cycle `git reset --hard`). What it does now:
+
+- **The manifest is attempted EVERY cycle.** There is no quarantine and no skip:
+  `decide` always says run. A manifest whose last attempt(s) OOM'd emits a
+  `manifest_oom_retry` event carrying its current streak, so the retry is visible.
+- **Each OOM/timeout (exit 124/137) records its diagnosis** in the streak row
+  (`last_diagnosis`): the exit-code meaning (124 = SIGTERM at the wall-clock
+  cap; 137 = SIGKILL, cgroup OOM-kill or `--kill-after`), the cap in seconds,
+  and the last 500 chars of the train's stderr.
+- **ONE red flag on the 3rd consecutive failure** (`TRAINER_MANIFEST_OOM_FLAG_AFTER`,
+  default 3): a `manifest_oom_red_flag` cycle event carrying the streak + the
+  diagnosis. Later failures in the same episode stay quiet (bounded alert
+  volume). The trainer can't commit a backlog item itself (it resets to
+  `origin/main` each cycle), so **that cycle event IS the durable escalation**:
+  it rides the mirror to `/api/bot/ml/cycle`, where the next `/ml-review`
+  session must surface it and decide (a)/(b)/(c) above and file a pipeline row.
+- **Recovery is announced once**: when a red-flagged manifest next trains fit,
+  the cycle emits `manifest_oom_recovered` and the streak resets.
+- **No reduced-resource retry exists to try** — the only memory lever in the
+  trainer path (`_load_jsonl` column projection) is already default-on, and
+  `python -m ml train` has no batch/rows/n_jobs flag. So the retry is a plain
+  retry; shrinking the manifest is the (a) disposition above, not an automatic
+  step. Nothing auto-routes to the GPU burst either; that is disposition (b).
+- **A stale quarantine left by the retired code is ignored and removed on load**
+  with a log line (`manifest_stale_quarantine_cleared` event), and a same-day
+  progress row skipped with `reason=quarantined_oom` is reopened and retried.
+
+**Retired 2026-10-09:** the 3-OOM **quarantine** that SKIPPED the manifest for
+7 days (`TRAINER_MANIFEST_QUARANTINE_RECHECK_DAYS`) unless a person set
+`TRAINER_MANIFEST_QUARANTINE_CLEAR`, its `manifest_quarantined` /
+`manifest_quarantine_tripped` events, and `TRAINER_MANIFEST_OOM_QUARANTINE_AFTER`.
+Those variables are no longer read. The cost accepted with the retirement: an
+oversized manifest burns up to `TRAINING_MANIFEST_TIMEOUT_S` (30 min) of the
+window per attempt until its disposition lands — bounded per attempt, and the
+red flag is what gets it a disposition.
+
+**The dataset-audit refusal is not a halt and is unchanged.** A FLAGGED dataset
+(dead feature / single-class label) is refused *for that cycle*; the next daily
+cycle rebuilds the dataset and re-audits from scratch. It is held only for the
+rest of the same UTC day's progress file and carries no cross-day state.
 
 ## Tuning knobs
 
@@ -211,10 +240,8 @@ the *waste*, but the manifest still needs a human's shrink/GPU/drop decision.
 |---|---|---|
 | `TRAINER_HEAVY_LOCK_WAIT_S` | `3600` (1 h) | Max queue wait before a job skips (timer) / gives up (manual). |
 | `TRAINER_HEAVY_LOCK_FILE` | `runtime_logs/trainer/.heavy.lock` | The shared lock file. |
-| `TRAINER_MANIFEST_OOM_QUARANTINE_AFTER` | `3` | Consecutive OOM/timeout (exit 124/137) failures before a manifest is quarantined (skipped). `0` disables (Rule 3). |
-| `TRAINER_MANIFEST_QUARANTINE_RECHECK_DAYS` | `7` | A quarantined manifest is re-attempted once after this many days (self-heal); a success clears it, another OOM re-quarantines. `0` = never auto-recheck. |
-| `TRAINER_MANIFEST_QUARANTINE_CLEAR` | *(unset)* | One-shot: `<manifest-basename>` or `all` to force a quarantined manifest back into rotation. |
-| `TRAINER_MANIFEST_OOM_STATE_FILE` | `runtime_logs/trainer/manifest_oom_state.json` | The cross-cycle OOM-streak state file. |
+| `TRAINER_MANIFEST_OOM_FLAG_AFTER` | `3` | Consecutive OOM/timeout (exit 124/137) failures that raise the ONE `manifest_oom_red_flag` per failure episode. The manifest is retried every cycle regardless; a non-positive value falls back to 3 (the flag cannot be disabled). Rule 3. |
+| `TRAINER_MANIFEST_OOM_STATE_FILE` | `runtime_logs/trainer/manifest_oom_state.json` | The cross-cycle OOM-streak state file (streak, last diagnosis, red-flag stamp). |
 
 Related: `docs/claude/trainer-vm-mode.md` (trainer-VM autonomy contract),
 `docs/sprint-logs/S-M19-GPU-BURST-2026-07-02.md` (the burst platform).

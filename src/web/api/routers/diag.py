@@ -878,10 +878,12 @@ _LOG_FILES: dict[str, Path] = {
     #
     #   * `heartbeat_check_state.json`  <- scripts/check_heartbeat.py, the EXTERNAL
     #     dead-man switch behind ict-liveness-watchdog.timer. Its state keys are
-    #     `autoheal_attempts`, `autoheal_exhausted_alerted`,
-    #     `last_autoheal_attempt_ts`. THIS is the restart budget. Once exhausted
-    #     the watchdog goes alert-only and stops auto-restarting the trader, so
-    #     without a read surface "the watchdog will restart the trader if it
+    #     `autoheal_attempts`, `autoheal_red_flag_alerted`,
+    #     `autoheal_next_backoff_s`, `last_autoheal_attempt_ts`. THIS is the
+    #     restart pacing. Since 2026-10-09 (NO-HALT) it never stops restarting:
+    #     past --max-restarts it raises one red flag and backs off up to
+    #     --max-backoff-min (until then it went EXHAUSTED and alert-only).
+    #     Without a read surface "the watchdog will restart the trader if it
     #     stalls" is an assumption, not an observation.
     #
     #   * `liveness_watchdog_state.json` <- src/runtime/liveness_watchdog.py, a
