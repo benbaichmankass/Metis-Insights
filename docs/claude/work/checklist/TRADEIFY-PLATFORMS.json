@@ -1,0 +1,18 @@
+{
+  "id": "TRADEIFY-PLATFORMS",
+  "title": "Tradeify other platforms (forex / options / other asset groups): which existing strategies could run there?",
+  "phase": "queued",
+  "state": "queued",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Operator 2026-10-09: 'tradeify has other platforms for other groups of securities (I think forex and options or something) - I want to check if we have any existing strategies that might run well on those accounts.' Scope: (1) verify what Tradeify actually offers beyond the futures account we run (tradeify_1) - products, platforms, rules (daily loss, trailing DD, consistency, news/hold rules), API or bridge access; operator's 'forex and options' is unverified. (2) Map each offering against our existing legs and their committed backtest evidence (net of full cost stack), incl. the FX legs on oanda_practice and any options work. (3) Output: one research/queue unit per credible candidate leg x platform with a pre-registered rule; or an honest 'none fit' with reasons. No account opened, no roster edit - Tier 3 stays with the operator. Priority: below DAILY-DD-SWITCH; Sonnet lane. Priority correction (operator 2026-10-09): this does NOT jump the queue - 'we have other things that should definitely take priority.' Ordinary backlog: picked up only after the higher-priority rows already queued, not as the next lane after DAILY-DD-SWITCH.",
+  "updated_at": "2026-10-09T16:29:23Z",
+  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
+  "_seq": 369
+}
