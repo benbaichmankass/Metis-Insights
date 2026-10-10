@@ -12,7 +12,12 @@
   "prs": 17403,
   "blocked_on": [],
   "note": "Operator 2026-10-10 'This also needs to be fixed'. MEASURED 2026-10-10 velotrade_1 executor journal: ETH long limit 2506.92, 14:33Z ask 2504.16 in band -> presubmit_marketable, not placed; 14:38Z ask 2511.48 left band -> NOT PLACED (trade missed). Alerts: 1 at start + 1 at end, not per cycle. Fix: REST adapter flag MARKETABLE_ENTRY_AT_MARKET; browser/phone keep waiting. OBSERVATION that closes it: the next velotrade_1 marketable ticket logs marketable_entry converted=true, is placed with SL/TP attached (confirm verdict open), and its ledger row carries fill_price + intended_limit with the open report's entry_price = the actual fill.",
-  "updated_at": "2026-10-10T14:51:32Z",
+  "updated_at": "2026-10-10T14:58:37Z",
   "updated_by": "session_015NFBKj3aZNJERjKR9rKnRG",
+  "observation": {
+    "what": "the next velotrade_1 ticket whose entry limit is favourably marketable is placed at market with SL/TP attached (confirm verdict open) and journaled with its fill price",
+    "how_to_check": "velotrade_1 executor journal (/api/diag/journalctl?unit=ict-prop-executor%40velotrade_1.service): marketable_entry converted=true then marketable_entry_fill with fill_price; /api/bot/prop/tickets?account_id=velotrade_1 shows the ticket open with entry_price = that fill",
+    "due_by": "2026-10-24T00:00Z"
+  },
   "_seq": 374
 }
