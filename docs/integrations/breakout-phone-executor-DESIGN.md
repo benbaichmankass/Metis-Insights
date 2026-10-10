@@ -830,6 +830,61 @@ phone when the screen is off/locked (the ticket wake shares the same limit), and
 row `PHONE-AUTOLOGIN`: breakout_2 `phone_events` shows `login_started` -> logged in and a fresh `account_status` after
 the new APK is installed.
 
+### 7.17 The lineup login, waited for properly, and a background engine (PHONE-AUTOLOGIN-2, 2026-10-10)
+
+**Operator, verbatim (2026-10-10, watching the phone, relayed by the manager):** *"it's a login check that verifies you
+can choose the correct 2 digit number from a line up of 3"* and *"it's way not waiting long enough to see the email.
+That can take at least up to a minute. It needs to wait longer to see the email and see if it comes up with one of the
+numbers that is the correct one."* And on the background: *"it would be more stable if it could do it in the
+background ... the more automated and backgrounded it could be, the better."*
+
+**MEASURED (this lane, live `/api/bot/prop/status?account_id=breakout_2` `phone_events`, 2026-10-10):**
+`login_started` 12:30:35Z -> `login_retry` "failed (1): no single number on the waiting page" at 12:30:41Z; attempt 2
+12:40:45Z -> the same failure at 12:40:51Z. Both failed **6 s** after the start. The build in front of this PR waited a
+fixed `delay(6000)` after the email submit, read `__ex.loginNumber()` ONCE, and required one prominent number; that
+function returns `""` when there are several numbers at the same size, which is the lineup shape. The 18 x 10 s inbox
+poll was never reached. Also measured: a retry due ~12:32:41Z did not run (`"background: bring-to-front already
+requested"` at 12:33:03Z): the wake window from 12:30:31Z outlived the failed attempt. `status_age_hours` read 21.7.
+
+**Which side shows the lineup is NOT established from the repo.** The only recorded flow (§ 7.9, 2026-10-05) is "the
+operator tapped the number link in Breakout's email" (page shows one number, the mail carries numbered links); the
+operator's 2026-10-10 words read as the page showing three numbers and the mail naming the right one. Both are
+supported, and the PAGE decides which applies (`LoginMatch.kt`, pure, JVM-tested):
+
+| page shows | mail carries | action | fail closed when |
+|---|---|---|---|
+| >= 2 numbers (tappable controls, else the >= 2 at the top font size) | a number on its own (whole element / whole line), else one bound to "number/code/select/tap/choose/matching" | tap the ONE page choice the mail names (`__ex.loginPick`) | 0 or > 1 of the page's choices appear in the newest deciding mail |
+| exactly one number | numbered https links | open the ONE link whose text is that number (the 1b behaviour) | 0 or > 1 such links |
+
+Timing: after the submit the page is polled every 3 s for up to **90 s** for the number(s); the inbox (newest 5
+`breakoutprop.com` mails after the submit, -60 s slack; 30 min for a code page found already open) every 10 s for up to
+**5 min**; then up to 30 s for the page to finish on its own, else the terminal is loaded and must read logged in within
+45 s. Values (numbers, links, addresses) stay in memory only.
+
+**Diagnosable from the VM.** Every attempt posts ONE quiet `login_diag` event (kept in `phone_events`, not pinged;
+server-scrubbed again): engine, step reached, `page_n/page_top/page_btn` (how many numeric candidates the page showed),
+`shape`, `mails`, `polls`, `match` (candidates in the deciding mail), `tier`, `mail_err` (exception class only),
+seconds at each stage, and the host at failure. Never a value.
+
+**Background engine (`Page.kt::BgWeb`).** A second WebView owned by the process (kept alive by the existing foreground
+service), sharing the kiosk WebView's cookie store and site storage, runs the login check, the re-login and the
+account-panel read while the Activity is backgrounded: every 15 min while logged in, when a retry is due, and on the
+VM's stale-`account_status` hint. For each job it is attached to a full-screen, alpha-0, not-touchable, not-focusable
+overlay window (the "Display over other apps" permission already granted for the boot restart) so Chromium treats it as
+visible and keeps its JS running, and it is detached when the job ends so no overlay lingers over what the operator is
+doing. Without that permission it runs detached at screen size. **Tickets never run in the engine**: orders stay on the
+foreground path (bring-to-front), unchanged. If two engine jobs in a row get no answer from the page, the login check
+falls back to bring-to-front once and the engine is tried again afterwards. A successful re-login was also given the
+wake window back on failure (the 12:33Z skip). Heartbeat fields: `bg` (overlay / detached / ""), `bg_runs`, `bg_ok`,
+`bg_last` (e.g. `logged_in+posted`, `login_ok`, `login_fail`, `no_answer`), `bg_last_min`; the server now also keeps
+`relogin_failures / relogin_flagged / relogin_next_min`, which it silently dropped before.
+
+**Not verified (landed_unproven, checklist `PHONE-AUTOLOGIN-2`):** the real page and mail shapes (the tests are
+synthetic), that this phone's WebView keeps running JS in an alpha-0 overlay, and that the session is shared between
+the two WebViews on this device. The observation that closes it: breakout_2 `phone_events` shows `login_started` ->
+`login_ok` without operator input and a fresh `account_status`. If the engine reports `bg_last=no_answer` repeatedly,
+the next step is moving the whole loop into the service (pipeline item filed with this PR).
+
 ## 8. Open questions for the operator / manager
 
 | # | question | my lean |

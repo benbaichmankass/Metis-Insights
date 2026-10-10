@@ -5,7 +5,6 @@ import kotlinx.coroutines.withContext
 import java.util.Date
 import java.util.Properties
 import javax.mail.Folder
-import javax.mail.Message
 import javax.mail.Multipart
 import javax.mail.Part
 import javax.mail.Session
@@ -14,13 +13,18 @@ import javax.mail.search.FromStringTerm
 /**
  * The DEDICATED inbox (a Gmail used only for Breakout; the operator's main Gmail forwards Breakout login
  * mails to it). Opened READ_ONLY over IMAPS; nothing is moved, flagged or deleted. The newest (at most
- * [MAX_SCAN]) messages from breakoutprop.com received after [since] are read, newest first, only to find the
- * ONE link whose visible text is exactly the number the login page shows. The body, link and address are never logged or reported.
+ * [MAX_SCAN]) messages from breakoutprop.com received after `since` are read, newest first, and reduced to their
+ * NUMBERS ([MailNums]): which 1-3 digit numbers the mail shows, and which https link carries each number as its text.
+ * The body, the numbers, the links and the address are never logged, stored or reported; only counts leave
+ * ([LoginMatch.decide] and the login_diag event).
  */
 object Mail {
     const val MAX_SCAN = 5
 
-    suspend fun findLink(user: String, appPassword: String, number: String, since: Date): String? =
+    /** One poll of the inbox. `error` = the exception class when the inbox could not be read (counts only). */
+    class Scan(val mails: List<MailNums>, val error: String?)
+
+    suspend fun scan(user: String, appPassword: String, since: Date): Scan =
         withContext(Dispatchers.IO) {
             val props = Properties().apply {
                 put("mail.store.protocol", "imaps"); put("mail.imaps.host", "imap.gmail.com")
@@ -35,30 +39,18 @@ object Mail {
                     val msgs = inbox.search(FromStringTerm("breakoutprop.com"))
                         .filter { (it.receivedDate ?: it.sentDate)?.after(since) == true }
                         .sortedByDescending { (it.receivedDate ?: it.sentDate)?.time ?: 0L }
-                    // newest first, at most MAX_SCAN mails: the first one carrying exactly ONE link whose text is the
-                    // shown number wins (a newer unrelated Breakout mail no longer hides the code mail behind it)
-                    msgs.take(MAX_SCAN).firstNotNullOfOrNull { m: Message -> html(m)?.let { pick(it, number) } }
+                    // newest first: a newer unrelated Breakout mail never hides the login mail behind it
+                    Scan(msgs.take(MAX_SCAN).map { MailNums.parse(body(it, "text/html"), body(it, "text/plain")) }, null)
                 } finally { inbox.close(false) }
-            } catch (e: Exception) { null } finally { try { store.close() } catch (_: Exception) {} }
+            } catch (e: Exception) { Scan(emptyList(), e.javaClass.simpleName) } finally { try { store.close() } catch (_: Exception) {} }
         }
 
-    private fun html(p: Part): String? {
-        if (p.isMimeType("text/html")) return p.content as? String
+    private fun body(p: Part, mime: String): String? {
+        if (p.isMimeType(mime)) return p.content as? String
         if (p.isMimeType("multipart/*")) {
             val mp = p.content as Multipart
-            for (i in 0 until mp.count) html(mp.getBodyPart(i))?.let { return it }
+            for (i in 0 until mp.count) body(mp.getBodyPart(i), mime)?.let { return it }
         }
         return null
-    }
-
-    /** Exactly one https anchor whose visible text equals [number]; anything else is null (fail closed). */
-    fun pick(html: String, number: String): String? {
-        val re = Regex("<a\\b[^>]*href\\s*=\\s*\"([^\"]+)\"[^>]*>(.*?)</a>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-        val hits = re.findAll(html).mapNotNull { m ->
-            val text = m.groupValues[2].replace(Regex("<[^>]+>"), "").replace("&nbsp;", " ").trim()
-            val href = m.groupValues[1].replace("&amp;", "&")
-            if (text == number && href.startsWith("https://")) href else null
-        }.distinct().toList()
-        return if (hits.size == 1) hits[0] else null
     }
 }

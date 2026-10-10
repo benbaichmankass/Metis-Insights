@@ -1,0 +1,23 @@
+{
+  "id": "PHONE-AUTOLOGIN-2",
+  "title": "breakout_2 phone: lineup login waited for properly (90 s page / 5 min inbox) + background engine for login checks and account reads",
+  "phase": null,
+  "state": "landed_unproven",
+  "owner": "lane session_018nm81esCUJQvXMuyzJsGJy",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Root cause MEASURED 12:30:35Z/12:40:45Z: fixed 6 s wait + one read of a single number; the lineup page has 3. Fix: poll page 90 s, inbox 5 min, LoginMatch tap/link exactly-one, quiet login_diag; BgWeb overlay engine. PR draft, hold (manager merges).",
+  "updated_at": "2026-10-10T12:55:34Z",
+  "updated_by": "session_018nm81esCUJQvXMuyzJsGJy",
+  "observation": {
+    "due_by": "2026-10-13",
+    "what": "breakout_2 phone_events shows login_started -> login_ok without operator input and a fresh account_status",
+    "how_to_check": "curl -s https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_2 then read phone_events (login_started, login_diag, login_ok), status_age_hours, phone_heartbeat.state.bg/bg_last"
+  },
+  "_seq": 373
+}
