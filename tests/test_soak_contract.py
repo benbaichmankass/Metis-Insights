@@ -75,3 +75,34 @@ def test_committed_contracts_cover_the_current_soak_population():
 def test_guard_self_tests():
     assert guard._self_test() == 0
     assert ss._self_test() == 0
+
+
+def _graded(**d):
+    c = ss.make_contract(kind="stage1", leg="leg", account="bybit_1", started="2026-10-01")
+    c.update(design="ok", end_date="2026-10-10", expected_per_week=7.0, n_needed=10)
+    c["disposition"] = dict({"verdict": "KILLED", "reason": "stage-0 fails", "decided_at": "2026-10-10",
+                             "evidence": ["comms/strategy_evidence/leg.json"]}, **d)
+    return c
+
+
+def test_disposition_quiets_a_graded_soak_until_its_review_date(tmp_path):
+    c = _graded(verdict="NEEDS_DATA", until="2026-10-24", missing=">=10 measured exit fills per side")
+    assert ss.contract_problems(c) == []
+    p = tmp_path / "SOAKS.json"
+    p.write_text(json.dumps({"soaks": [c]}))
+    db = _db(tmp_path, "2026-10-24T00:00:00+00:00", 12)
+    assert ss.soak_states(today=date(2026, 10, 10), db_path=db, contracts_path=p) == []
+    assert ss.soak_states(today=date(2026, 10, 25), db_path=db, contracts_path=p)[0]["state"] == "ready"
+
+
+def test_disposition_without_evidence_or_missing_quantity_is_inadmissible():
+    assert any("evidence" in m for m in ss.contract_problems(_graded(evidence=[])))
+    assert any("NEEDS_DATA" in m for m in ss.contract_problems(_graded(verdict="NEEDS_DATA")))
+    assert any("verdict" in m for m in ss.contract_problems(_graded(verdict="MAYBE")))
+
+
+def test_unreadable_review_date_shows_the_soak_again(tmp_path):
+    p = tmp_path / "SOAKS.json"
+    p.write_text(json.dumps({"soaks": [_graded(until="soon")]}))
+    db = _db(tmp_path, "2026-10-09T00:00:00+00:00", 12)
+    assert len(ss.soak_states(today=date(2026, 10, 10), db_path=db, contracts_path=p)) == 1

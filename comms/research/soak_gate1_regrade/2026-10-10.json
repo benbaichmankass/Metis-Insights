@@ -1,0 +1,709 @@
+{
+ "as_of": "2026-10-10T17:55:00+00:00",
+ "dispositions": {
+  "SOAK-shadow-avax_pullback_2h": {
+   "decided_at": "2026-10-10",
+   "reason": "shadow soak ended: leg is on NO roster since the 2026-10-05 cut (#16561); Stage-0 n=57, expectancy -0.025R, net -1.40R, folds 2/4, fidelity approximate, slippage 3.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.025R net=-1.40R; R-CUT-FOLDS 2/4 not a majority. Shadow signal-parity: 108 packages in 74d vs ~11.5 expected (Poisson95 of observed [88.6,130.4]) -> OUTSIDE the contract's pass rule.",
+   "verdict": "KILLED"
+  },
+  "SOAK-shadow-eth_pullback_prop_2h": {
+   "decided_at": "2026-10-10",
+   "reason": "shadow soak ended: leg is on NO roster since the 2026-10-05 cut (#16561); Stage-0 n=70, expectancy -0.050R, net -3.52R, folds 2/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.050R net=-3.52R; R-CUT-FOLDS 2/4 not a majority. Shadow signal-parity: 0 packages in 43d vs ~8.2 expected (Poisson95 of observed [0,3.7]) -> OUTSIDE the contract's pass rule. DEAD: 6 packages ever, newest 2026-07-23, none in the 79d since. Cause NOT established; ETHUSDT is contested by several enabled legs and a shadow leg does enter the symbol election (src/runtime/intents.py DEFAULT_PRIORITIES header), but that was not traced to this leg. Moot: Stage-0 fails and the leg is on no roster.",
+   "verdict": "KILLED"
+  },
+  "SOAK-shadow-fade_breakout_4h": {
+   "decided_at": "2026-10-10",
+   "reason": "shadow soak ended: leg is on NO roster since the 2026-10-05 cut (#16561); Stage-0 n=27, expectancy -0.596R, net -16.09R, folds 1/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-N n=27<30; R-CUT-EXPECTANCY exp=-0.596R net=-16.09R; R-CUT-FOLDS 1/4 not a majority. Shadow signal-parity: 43 packages in 126d vs ~9.4 expected (Poisson95 of observed [31.1,57.9]) -> OUTSIDE the contract's pass rule.",
+   "verdict": "KILLED"
+  },
+  "SOAK-shadow-fvg_range_15m": {
+   "decided_at": "2026-10-10",
+   "reason": "shadow soak ended: leg is on NO roster since the 2026-10-05 cut (#16561); Stage-0 n=17, expectancy -0.570R, net -9.70R, folds 0/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-N n=17<30; R-CUT-EXPECTANCY exp=-0.570R net=-9.70R; R-CUT-FOLDS 0/4 not a majority. Shadow signal-parity: 0 packages in 69d vs ~3.3 expected (Poisson95 of observed [0,3.7]) -> inside the contract's pass rule. DEAD cause (config, not wiring): config/regime_policy.yaml sets the leg off in every regime cell so the router drops every intent; 1 package ever (2026-06-04, before the soak began).",
+   "verdict": "KILLED"
+  },
+  "SOAK-shadow-htf_pullback_trend_2h": {
+   "decided_at": "2026-10-10",
+   "reason": "shadow soak ended: leg is on NO roster since the 2026-10-05 cut (#16561); Stage-0 n=86, expectancy -0.057R, net -4.93R, folds 1/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.057R net=-4.93R; R-CUT-FOLDS 1/4 not a majority. Shadow signal-parity: 10 packages in 43d vs ~10.1 expected (Poisson95 of observed [4.8,18.4]) -> inside the contract's pass rule.",
+   "verdict": "KILLED"
+  },
+  "SOAK-shadow-ict_scalp_avax_5m": {
+   "decided_at": "2026-10-10",
+   "reason": "shadow soak ended: leg is on NO roster since the 2026-10-05 cut (#16561); Stage-0 n=177, expectancy -0.210R, net -37.12R, folds 0/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.210R net=-37.12R; R-CUT-FOLDS 0/4 not a majority. Shadow signal-parity: 28 packages in 7d vs ~3.4 expected (Poisson95 of observed [18.6,40.5]) -> OUTSIDE the contract's pass rule.",
+   "verdict": "KILLED"
+  },
+  "SOAK-shadow-ict_scalp_sol_5m": {
+   "decided_at": "2026-10-10",
+   "reason": "shadow soak ended: leg is on NO roster since the 2026-10-05 cut (#16561); Stage-0 n=190, expectancy -0.120R, net -22.72R, folds 0/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.120R net=-22.72R; R-CUT-FOLDS 0/4 not a majority. Shadow signal-parity: 13 packages in 7d vs ~3.6 expected (Poisson95 of observed [6.9,22.2]) -> OUTSIDE the contract's pass rule.",
+   "verdict": "KILLED"
+  },
+  "SOAK-shadow-mgc_trend_1h": {
+   "decided_at": "2026-10-10",
+   "reason": "Soak question answered, no extension. (1) Stage-0 n=118, +0.217R, net +25.61R but folds 2/4 \u2014 NOT a majority, so the MD-PROMOTE bar's fold clause refuses (PR #16561 called it PASS on the pooled-net rule only). (2) R3 venue cell ibkr_futures|simulator is DIVERGENT: round-trip 20.7bps CI95 [12.5, 29.3] vs 5.0 modelled (n_entry 23, n_exit 19), so the record's cost stack is optimistic. (3) Signal parity: 279 packages in 114d vs ~36.8 expected (Poisson95 of observed [247.2, 313.7]) \u2014 OUTSIDE the contract's pass rule. Resolver S0->S1: REFUSE R-NO-OP (shadow->live flip is not modelled; no mandate covers it). Leg is still shadow on ib_paper; removing it is a Tier-3 proposal.",
+   "verdict": "REFUSE"
+  },
+  "SOAK-shadow-slv_trend_1h": {
+   "decided_at": "2026-10-10",
+   "missing": "a trade-level reconciliation of Stage-0 (n=68, +0.781R, 4/4 folds, 5.0bps) against the live record that drove the 2026-08-24 operator demote (0/13 wins, -$5,375): replay the harness over the live window and match entries/exits; THEN a Tier-3 flip to execution: live on alpaca_paper to open a real Stage-1 soak (PI-20261004-JC8KDKLF-0010)",
+   "reason": "Stage-0 passes every bar clause (n=68>=30, +0.781R, 4/4 folds) but is the one leg whose offline window overlaps a live loss and an operator demote, so Gate 1 cannot pass it on the record alone. Signal parity: 22 packages in 47d vs ~8.7 expected on one account; the leg is rostered on two (alpaca_paper, alpaca_options_paper), and 2x expectation (17.4) sits inside Poisson95 [13.8, 33.3] \u2014 plausible, not verified per-account. Venue cell alpaca_equities|simulator is INCONCLUSIVE: 25.3bps round-trip vs 5.0 modelled, CI95 [-0.9, 59.2], n_exit 45. Resolver: NEEDS-DATA R-EXECUTION-SHADOW (S1->S2) / R-NO-OP (S0->S1). No mandate covers the flip; proposal only.",
+   "until": "2026-10-24",
+   "verdict": "NEEDS_DATA"
+  },
+  "SOAK-stage1-alpaca_paper-gld_pullback_1h": {
+   "decided_at": "2026-10-10",
+   "reason": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=90, expectancy +0.365R, net +32.84R, folds 3/4, fidelity faithful, slippage 5.0bps RT; failing clauses: none (Stage-0 passes: 3/4 folds). Cut on R-CUT-AFFORD per the 2026-10-04 verdict (0 of 54 setups size above zero on alpaca_live) \u2014 NOT re-measured this session.",
+   "verdict": "KILLED"
+  },
+  "SOAK-stage1-alpaca_paper-qqq_pullback_1h": {
+   "decided_at": "2026-10-10",
+   "reason": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=55, expectancy +0.197R, net +10.84R, folds 2/4, fidelity faithful, slippage 5.0bps RT; failing clauses: R-CUT-FOLDS 2/4 not a majority.",
+   "verdict": "KILLED"
+  },
+  "SOAK-stage1-alpaca_paper-splg_trend_long_1d": {
+   "decided_at": "2026-10-10",
+   "missing": "a measured Stage-0 record for splg_trend_long_1d (coverage_state measured, n_trades_oos>=30). comms/strategy_evidence/splg_trend_long_1d.json is harness_failed: yfinance returned no rows for SPLG while the SPY control returned rows (a SPLG-specific data gap, not a dependency fault)",
+   "reason": "No backtest rate, so the soak has no end date and cannot be graded. SPLG is a declared affordability proxy for spy_trend_long_1d (CLAUDE.md, the Alpaca mirror carve-out). Resolver S1->S2: REFUSE R-SOURCE-RUN-ABSENT. Options: source SPLG history elsewhere, or evidence the proxy via SPY's record.",
+   "until": "2026-10-24",
+   "verdict": "NEEDS_DATA"
+  },
+  "SOAK-stage1-alpaca_paper-spy_pullback_1h": {
+   "decided_at": "2026-10-10",
+   "reason": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=75, expectancy -0.114R, net -8.55R, folds 2/4, fidelity approximate, slippage 5.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.114R net=-8.55R; R-CUT-FOLDS 2/4 not a majority.",
+   "verdict": "KILLED"
+  },
+  "SOAK-stage1-alpaca_paper-tlt_pullback_1h": {
+   "decided_at": "2026-10-10",
+   "reason": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=94, expectancy -0.072R, net -6.73R, folds 1/4, fidelity approximate, slippage 5.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.072R net=-6.73R; R-CUT-FOLDS 1/4 not a majority.",
+   "verdict": "KILLED"
+  },
+  "SOAK-stage1-alpaca_paper-uso_trend_1h": {
+   "decided_at": "2026-10-10",
+   "reason": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=56, expectancy +0.462R, net +25.89R, folds 2/4, fidelity faithful, slippage 5.0bps RT; failing clauses: R-CUT-FOLDS 2/4 not a majority.",
+   "verdict": "KILLED"
+  },
+  "SOAK-stage1-bybit_1-ada_pullback_2h": {
+   "decided_at": "2026-10-10",
+   "missing": ">=10 package-referenced measured exit fills per side in one R3 cell (RULE-R3-GATE1-COST-FIDELITY-v1); best cell today ada_pullback_2h on bybit_2 (S2): entry 11 / exit 9, bybit_1 (S1): entry 21 / exit 6",
+   "reason": "Soak closes n reached (>=10) but R3 cannot decide: every cell insufficient_n (exit fills are the short side). Promotion is already done (resolver S1->S2: REFUSE R-NO-OP, leg is on bybit_2 and bybit_portfolio), so no Gate-1 action is owed; the open question is cost fidelity on the real-money cell. Stage-0 record: see evidence.",
+   "until": "2026-10-24",
+   "verdict": "NEEDS_DATA"
+  },
+  "SOAK-stage1-bybit_1-eth_pullback_2h": {
+   "decided_at": "2026-10-10",
+   "reason": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=62, expectancy -0.028R, net -1.74R, folds 1/4, fidelity approximate, slippage 3.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.028R net=-1.74R; R-CUT-FOLDS 1/4 not a majority.",
+   "verdict": "KILLED"
+  },
+  "SOAK-stage1-bybit_1-ict_scalp_eth_15m": {
+   "decided_at": "2026-10-10",
+   "reason": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=78, expectancy +0.017R, net +1.32R, folds 2/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-FOLDS 2/4 not a majority.",
+   "verdict": "KILLED"
+  },
+  "SOAK-stage1-bybit_1-ict_scalp_sol_15m": {
+   "decided_at": "2026-10-10",
+   "reason": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=84, expectancy -0.066R, net -5.57R, folds 2/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.066R net=-5.57R; R-CUT-FOLDS 2/4 not a majority.",
+   "verdict": "KILLED"
+  },
+  "SOAK-stage1-bybit_1-ict_scalp_xrp_15m": {
+   "decided_at": "2026-10-10",
+   "reason": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=76, expectancy +0.054R, net +4.07R, folds 2/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-FOLDS 2/4 not a majority.",
+   "verdict": "KILLED"
+  },
+  "SOAK-stage1-bybit_1-ict_scalp_xrp_5m": {
+   "decided_at": "2026-10-10",
+   "reason": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=169, expectancy -0.160R, net -27.00R, folds 0/4, fidelity approximate, slippage 3.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.160R net=-27.00R; R-CUT-FOLDS 0/4 not a majority.",
+   "verdict": "KILLED"
+  },
+  "SOAK-stage1-bybit_1-sol_pullback_2h": {
+   "decided_at": "2026-10-10",
+   "reason": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=18, expectancy +0.255R, net +4.59R, folds 2/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-N n=18<30; R-CUT-FOLDS 2/4 not a majority.",
+   "verdict": "KILLED"
+  },
+  "SOAK-stage1-bybit_1-squeeze_breakout_4h": {
+   "decided_at": "2026-10-10",
+   "reason": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=10, expectancy -0.040R, net -0.40R, folds 2/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-N n=10<30; R-CUT-EXPECTANCY exp=-0.040R net=-0.40R; R-CUT-FOLDS 2/4 not a majority.",
+   "verdict": "KILLED"
+  },
+  "SOAK-stage1-bybit_1-trend_donchian": {
+   "decided_at": "2026-10-10",
+   "reason": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=73, expectancy +0.063R, net +4.60R, folds 2/4, fidelity approximate, slippage 3.0bps RT; failing clauses: R-CUT-FOLDS 2/4 not a majority.",
+   "verdict": "KILLED"
+  },
+  "SOAK-stage1-bybit_1-trend_donchian_eth": {
+   "decided_at": "2026-10-10",
+   "reason": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=107, expectancy +0.151R, net +16.18R, folds 2/4, fidelity approximate, slippage 3.0bps RT; failing clauses: R-CUT-FOLDS 2/4 not a majority.",
+   "verdict": "KILLED"
+  },
+  "SOAK-stage1-bybit_1-trend_donchian_eth_4h": {
+   "decided_at": "2026-10-10",
+   "missing": ">=10 package-referenced measured exit fills per side in one R3 cell (RULE-R3-GATE1-COST-FIDELITY-v1); best cell today trend_donchian_eth_4h on bybit_2 (S2): entry 12 / exit 5, bybit_1 (S1): entry 11 / exit 0",
+   "reason": "Soak closes n reached (>=10) but R3 cannot decide: every cell insufficient_n (exit fills are the short side). Promotion is already done (resolver S1->S2: REFUSE R-NO-OP, leg is on bybit_2 and bybit_portfolio), so no Gate-1 action is owed; the open question is cost fidelity on the real-money cell. Stage-0 record: see evidence.",
+   "until": "2026-10-24",
+   "verdict": "NEEDS_DATA"
+  },
+  "SOAK-stage1-bybit_1-trend_donchian_sol": {
+   "decided_at": "2026-10-10",
+   "reason": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=59, expectancy +0.076R, net +4.46R, folds 1/4, fidelity approximate, slippage 3.0bps RT; failing clauses: R-CUT-FOLDS 1/4 not a majority.",
+   "verdict": "KILLED"
+  },
+  "SOAK-stage1-bybit_1-xrp_pullback_2h": {
+   "decided_at": "2026-10-10",
+   "missing": ">=10 package-referenced measured exit fills per side in one R3 cell (RULE-R3-GATE1-COST-FIDELITY-v1); best cell today xrp_pullback_2h on bybit_2 (S2): entry 12 / exit 7, bybit_1 (S1): entry 14 / exit 1",
+   "reason": "Soak closes n reached (>=10) but R3 cannot decide: every cell insufficient_n (exit fills are the short side). Promotion is already done (resolver S1->S2: REFUSE R-NO-OP, leg is on bybit_2 and bybit_portfolio), so no Gate-1 action is owed; the open question is cost fidelity on the real-money cell. Stage-0 record: see evidence.",
+   "until": "2026-10-24",
+   "verdict": "NEEDS_DATA"
+  }
+ },
+ "generated_by": "SOAK-GATE1-REGRADE lane; inputs: live fills pull 2026-10-10T17:55Z (scripts/research/realized_slippage.py pull), r3_cost_fidelity 2026-10-10, comms/strategy_evidence/*, order_packages diag",
+ "headline": "Of 29 non-accruing soaks, 22 had ALREADY been dispositioned and acted on 2026-10-05 (#16556 cut 15 Stage-1 legs, #16561 cut 11 shadow legs); their contracts were never closed so the report kept flagging them. No leg has a decisive Gate-1 R3 verdict (48 of 55 legs insufficient_n). No promotion fires.",
+ "per_soak": [
+  {
+   "account": "bybit_1",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "shadow",
+   "leg": "eth_pullback_prop_2h",
+   "on_rosters_now": [],
+   "prior_state": "dead",
+   "resolver": null,
+   "soak": "SOAK-shadow-eth_pullback_prop_2h",
+   "stage0": "n=70, expectancy -0.050R, net -3.52R, folds 2/4, fidelity faithful, slippage 3.0bps RT",
+   "verdict": "KILLED",
+   "why": "shadow soak ended: leg is on NO roster since the 2026-10-05 cut (#16561); Stage-0 n=70, expectancy -0.050R, net -3.52R, folds 2/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.050R net=-3.52R; R-CUT-FOLDS 2/4 not a majority. Shadow signal-parity: 0 packages in 43d vs ~8.2 expected (Poisson95 of observed [0,3.7]) -> OUTSIDE the contract's pass rule."
+  },
+  {
+   "account": "bybit_1",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "shadow",
+   "leg": "fvg_range_15m",
+   "on_rosters_now": [],
+   "prior_state": "dead",
+   "resolver": null,
+   "soak": "SOAK-shadow-fvg_range_15m",
+   "stage0": "n=17, expectancy -0.570R, net -9.70R, folds 0/4, fidelity faithful, slippage 3.0bps RT",
+   "verdict": "KILLED",
+   "why": "shadow soak ended: leg is on NO roster since the 2026-10-05 cut (#16561); Stage-0 n=17, expectancy -0.570R, net -9.70R, folds 0/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-N n=17<30; R-CUT-EXPECTANCY exp=-0.570R net=-9.70R; R-CUT-FOLDS 0/4 not a majority. Shadow signal-parity: 0 packages in 69d vs ~3.3 expected (Poisson95 of observed [0,3.7]) -> inside the contract's pass rule."
+  },
+  {
+   "account": "alpaca_paper",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "live",
+   "leg": "spy_pullback_1h",
+   "on_rosters_now": [],
+   "prior_state": "overdue",
+   "resolver": "NEEDS-DATA R-NOT-SOAKED",
+   "soak": "SOAK-stage1-alpaca_paper-spy_pullback_1h",
+   "stage0": "n=75, expectancy -0.114R, net -8.55R, folds 2/4, fidelity approximate, slippage 5.0bps RT",
+   "verdict": "KILLED",
+   "why": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=75, expectancy -0.114R, net -8.55R, folds 2/4, fidelity approximate, slippage 5.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.114R net=-8.55R; R-CUT-FOLDS 2/4 not a majority."
+  },
+  {
+   "account": "alpaca_paper",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "live",
+   "leg": "tlt_pullback_1h",
+   "on_rosters_now": [],
+   "prior_state": "overdue",
+   "resolver": "NEEDS-DATA R-NOT-SOAKED",
+   "soak": "SOAK-stage1-alpaca_paper-tlt_pullback_1h",
+   "stage0": "n=94, expectancy -0.072R, net -6.73R, folds 1/4, fidelity approximate, slippage 5.0bps RT",
+   "verdict": "KILLED",
+   "why": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=94, expectancy -0.072R, net -6.73R, folds 1/4, fidelity approximate, slippage 5.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.072R net=-6.73R; R-CUT-FOLDS 1/4 not a majority."
+  },
+  {
+   "account": "bybit_1",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "shadow",
+   "leg": "avax_pullback_2h",
+   "on_rosters_now": [],
+   "prior_state": "ready",
+   "resolver": null,
+   "soak": "SOAK-shadow-avax_pullback_2h",
+   "stage0": "n=57, expectancy -0.025R, net -1.40R, folds 2/4, fidelity approximate, slippage 3.0bps RT",
+   "verdict": "KILLED",
+   "why": "shadow soak ended: leg is on NO roster since the 2026-10-05 cut (#16561); Stage-0 n=57, expectancy -0.025R, net -1.40R, folds 2/4, fidelity approximate, slippage 3.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.025R net=-1.40R; R-CUT-FOLDS 2/4 not a majority. Shadow signal-parity: 108 packages in 74d vs ~11.5 expected (Poisson95 of observed [88.6,130.4]) -> OUTSIDE the contract's pass rule."
+  },
+  {
+   "account": "bybit_1",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "shadow",
+   "leg": "fade_breakout_4h",
+   "on_rosters_now": [],
+   "prior_state": "ready",
+   "resolver": null,
+   "soak": "SOAK-shadow-fade_breakout_4h",
+   "stage0": "n=27, expectancy -0.596R, net -16.09R, folds 1/4, fidelity faithful, slippage 3.0bps RT",
+   "verdict": "KILLED",
+   "why": "shadow soak ended: leg is on NO roster since the 2026-10-05 cut (#16561); Stage-0 n=27, expectancy -0.596R, net -16.09R, folds 1/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-N n=27<30; R-CUT-EXPECTANCY exp=-0.596R net=-16.09R; R-CUT-FOLDS 1/4 not a majority. Shadow signal-parity: 43 packages in 126d vs ~9.4 expected (Poisson95 of observed [31.1,57.9]) -> OUTSIDE the contract's pass rule."
+  },
+  {
+   "account": "bybit_1",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "shadow",
+   "leg": "htf_pullback_trend_2h",
+   "on_rosters_now": [],
+   "prior_state": "ready",
+   "resolver": null,
+   "soak": "SOAK-shadow-htf_pullback_trend_2h",
+   "stage0": "n=86, expectancy -0.057R, net -4.93R, folds 1/4, fidelity faithful, slippage 3.0bps RT",
+   "verdict": "KILLED",
+   "why": "shadow soak ended: leg is on NO roster since the 2026-10-05 cut (#16561); Stage-0 n=86, expectancy -0.057R, net -4.93R, folds 1/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.057R net=-4.93R; R-CUT-FOLDS 1/4 not a majority. Shadow signal-parity: 10 packages in 43d vs ~10.1 expected (Poisson95 of observed [4.8,18.4]) -> inside the contract's pass rule."
+  },
+  {
+   "account": "bybit_1",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "shadow",
+   "leg": "ict_scalp_avax_5m",
+   "on_rosters_now": [],
+   "prior_state": "ready",
+   "resolver": null,
+   "soak": "SOAK-shadow-ict_scalp_avax_5m",
+   "stage0": "n=177, expectancy -0.210R, net -37.12R, folds 0/4, fidelity faithful, slippage 3.0bps RT",
+   "verdict": "KILLED",
+   "why": "shadow soak ended: leg is on NO roster since the 2026-10-05 cut (#16561); Stage-0 n=177, expectancy -0.210R, net -37.12R, folds 0/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.210R net=-37.12R; R-CUT-FOLDS 0/4 not a majority. Shadow signal-parity: 28 packages in 7d vs ~3.4 expected (Poisson95 of observed [18.6,40.5]) -> OUTSIDE the contract's pass rule."
+  },
+  {
+   "account": "bybit_1",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "shadow",
+   "leg": "ict_scalp_sol_5m",
+   "on_rosters_now": [],
+   "prior_state": "ready",
+   "resolver": null,
+   "soak": "SOAK-shadow-ict_scalp_sol_5m",
+   "stage0": "n=190, expectancy -0.120R, net -22.72R, folds 0/4, fidelity faithful, slippage 3.0bps RT",
+   "verdict": "KILLED",
+   "why": "shadow soak ended: leg is on NO roster since the 2026-10-05 cut (#16561); Stage-0 n=190, expectancy -0.120R, net -22.72R, folds 0/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.120R net=-22.72R; R-CUT-FOLDS 0/4 not a majority. Shadow signal-parity: 13 packages in 7d vs ~3.6 expected (Poisson95 of observed [6.9,22.2]) -> OUTSIDE the contract's pass rule."
+  },
+  {
+   "account": "ib_paper",
+   "execution": "shadow",
+   "leg": "mgc_trend_1h",
+   "on_rosters_now": [
+    "ib_paper"
+   ],
+   "prior_state": "ready",
+   "resolver": null,
+   "soak": "SOAK-shadow-mgc_trend_1h",
+   "stage0": "n=118, expectancy +0.217R, net +25.61R, folds 2/4, fidelity faithful, slippage 5.0bps RT"
+  },
+  {
+   "account": "alpaca_paper",
+   "execution": "shadow",
+   "leg": "slv_trend_1h",
+   "on_rosters_now": [
+    "alpaca_paper",
+    "alpaca_options_paper"
+   ],
+   "prior_state": "ready",
+   "resolver": null,
+   "soak": "SOAK-shadow-slv_trend_1h",
+   "stage0": "n=68, expectancy +0.781R, net +53.14R, folds 4/4, fidelity faithful, slippage 5.0bps RT"
+  },
+  {
+   "account": "alpaca_paper",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "live",
+   "leg": "gld_pullback_1h",
+   "on_rosters_now": [],
+   "prior_state": "ready",
+   "resolver": "NEEDS-DATA R-NOT-SOAKED",
+   "soak": "SOAK-stage1-alpaca_paper-gld_pullback_1h",
+   "stage0": "n=90, expectancy +0.365R, net +32.84R, folds 3/4, fidelity faithful, slippage 5.0bps RT",
+   "verdict": "KILLED",
+   "why": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=90, expectancy +0.365R, net +32.84R, folds 3/4, fidelity faithful, slippage 5.0bps RT; failing clauses: (none \u2014 Stage-0 passes) . Cut on R-CUT-AFFORD per the 2026-10-04 verdict (0 of 54 setups size above zero on alpaca_live) \u2014 NOT re-measured this session."
+  },
+  {
+   "account": "alpaca_paper",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "live",
+   "leg": "qqq_pullback_1h",
+   "on_rosters_now": [],
+   "prior_state": "ready",
+   "resolver": "NEEDS-DATA R-NOT-SOAKED",
+   "soak": "SOAK-stage1-alpaca_paper-qqq_pullback_1h",
+   "stage0": "n=55, expectancy +0.197R, net +10.84R, folds 2/4, fidelity faithful, slippage 5.0bps RT",
+   "verdict": "KILLED",
+   "why": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=55, expectancy +0.197R, net +10.84R, folds 2/4, fidelity faithful, slippage 5.0bps RT; failing clauses: R-CUT-FOLDS 2/4 not a majority."
+  },
+  {
+   "account": "alpaca_paper",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "live",
+   "leg": "uso_trend_1h",
+   "on_rosters_now": [],
+   "prior_state": "ready",
+   "resolver": "NEEDS-DATA R-NOT-SOAKED",
+   "soak": "SOAK-stage1-alpaca_paper-uso_trend_1h",
+   "stage0": "n=56, expectancy +0.462R, net +25.89R, folds 2/4, fidelity faithful, slippage 5.0bps RT",
+   "verdict": "KILLED",
+   "why": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=56, expectancy +0.462R, net +25.89R, folds 2/4, fidelity faithful, slippage 5.0bps RT; failing clauses: R-CUT-FOLDS 2/4 not a majority."
+  },
+  {
+   "account": "bybit_1",
+   "execution": "live",
+   "leg": "ada_pullback_2h",
+   "on_rosters_now": [
+    "bybit_1",
+    "bybit_2",
+    "bybit_portfolio"
+   ],
+   "prior_state": "ready",
+   "resolver": "REFUSE R-NO-OP",
+   "soak": "SOAK-stage1-bybit_1-ada_pullback_2h",
+   "stage0": "n=57, expectancy +0.338R, net +19.25R, folds 4/4, fidelity faithful, slippage 3.0bps RT"
+  },
+  {
+   "account": "bybit_1",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "live",
+   "leg": "eth_pullback_2h",
+   "on_rosters_now": [],
+   "prior_state": "ready",
+   "resolver": "NEEDS-DATA R-NOT-SOAKED",
+   "soak": "SOAK-stage1-bybit_1-eth_pullback_2h",
+   "stage0": "n=62, expectancy -0.028R, net -1.74R, folds 1/4, fidelity approximate, slippage 3.0bps RT",
+   "verdict": "KILLED",
+   "why": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=62, expectancy -0.028R, net -1.74R, folds 1/4, fidelity approximate, slippage 3.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.028R net=-1.74R; R-CUT-FOLDS 1/4 not a majority."
+  },
+  {
+   "account": "bybit_1",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "live",
+   "leg": "ict_scalp_eth_15m",
+   "on_rosters_now": [],
+   "prior_state": "ready",
+   "resolver": "NEEDS-DATA R-NOT-SOAKED",
+   "soak": "SOAK-stage1-bybit_1-ict_scalp_eth_15m",
+   "stage0": "n=78, expectancy +0.017R, net +1.32R, folds 2/4, fidelity faithful, slippage 3.0bps RT",
+   "verdict": "KILLED",
+   "why": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=78, expectancy +0.017R, net +1.32R, folds 2/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-FOLDS 2/4 not a majority."
+  },
+  {
+   "account": "bybit_1",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "live",
+   "leg": "ict_scalp_sol_15m",
+   "on_rosters_now": [],
+   "prior_state": "ready",
+   "resolver": "NEEDS-DATA R-NOT-SOAKED",
+   "soak": "SOAK-stage1-bybit_1-ict_scalp_sol_15m",
+   "stage0": "n=84, expectancy -0.066R, net -5.57R, folds 2/4, fidelity faithful, slippage 3.0bps RT",
+   "verdict": "KILLED",
+   "why": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=84, expectancy -0.066R, net -5.57R, folds 2/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.066R net=-5.57R; R-CUT-FOLDS 2/4 not a majority."
+  },
+  {
+   "account": "bybit_1",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "live",
+   "leg": "ict_scalp_xrp_15m",
+   "on_rosters_now": [],
+   "prior_state": "ready",
+   "resolver": "NEEDS-DATA R-NOT-SOAKED",
+   "soak": "SOAK-stage1-bybit_1-ict_scalp_xrp_15m",
+   "stage0": "n=76, expectancy +0.054R, net +4.07R, folds 2/4, fidelity faithful, slippage 3.0bps RT",
+   "verdict": "KILLED",
+   "why": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=76, expectancy +0.054R, net +4.07R, folds 2/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-FOLDS 2/4 not a majority."
+  },
+  {
+   "account": "bybit_1",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "live",
+   "leg": "ict_scalp_xrp_5m",
+   "on_rosters_now": [],
+   "prior_state": "ready",
+   "resolver": "NEEDS-DATA R-NOT-SOAKED",
+   "soak": "SOAK-stage1-bybit_1-ict_scalp_xrp_5m",
+   "stage0": "n=169, expectancy -0.160R, net -27.00R, folds 0/4, fidelity approximate, slippage 3.0bps RT",
+   "verdict": "KILLED",
+   "why": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=169, expectancy -0.160R, net -27.00R, folds 0/4, fidelity approximate, slippage 3.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.160R net=-27.00R; R-CUT-FOLDS 0/4 not a majority."
+  },
+  {
+   "account": "bybit_1",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "live",
+   "leg": "sol_pullback_2h",
+   "on_rosters_now": [],
+   "prior_state": "ready",
+   "resolver": "NEEDS-DATA R-NOT-SOAKED",
+   "soak": "SOAK-stage1-bybit_1-sol_pullback_2h",
+   "stage0": "n=18, expectancy +0.255R, net +4.59R, folds 2/4, fidelity faithful, slippage 3.0bps RT",
+   "verdict": "KILLED",
+   "why": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=18, expectancy +0.255R, net +4.59R, folds 2/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-N n=18<30; R-CUT-FOLDS 2/4 not a majority."
+  },
+  {
+   "account": "bybit_1",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "live",
+   "leg": "squeeze_breakout_4h",
+   "on_rosters_now": [],
+   "prior_state": "ready",
+   "resolver": "NEEDS-DATA R-NOT-SOAKED",
+   "soak": "SOAK-stage1-bybit_1-squeeze_breakout_4h",
+   "stage0": "n=10, expectancy -0.040R, net -0.40R, folds 2/4, fidelity faithful, slippage 3.0bps RT",
+   "verdict": "KILLED",
+   "why": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=10, expectancy -0.040R, net -0.40R, folds 2/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-N n=10<30; R-CUT-EXPECTANCY exp=-0.040R net=-0.40R; R-CUT-FOLDS 2/4 not a majority."
+  },
+  {
+   "account": "bybit_1",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "live",
+   "leg": "trend_donchian",
+   "on_rosters_now": [],
+   "prior_state": "ready",
+   "resolver": "NEEDS-DATA R-NOT-SOAKED",
+   "soak": "SOAK-stage1-bybit_1-trend_donchian",
+   "stage0": "n=73, expectancy +0.063R, net +4.60R, folds 2/4, fidelity approximate, slippage 3.0bps RT",
+   "verdict": "KILLED",
+   "why": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=73, expectancy +0.063R, net +4.60R, folds 2/4, fidelity approximate, slippage 3.0bps RT; failing clauses: R-CUT-FOLDS 2/4 not a majority."
+  },
+  {
+   "account": "bybit_1",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "live",
+   "leg": "trend_donchian_eth",
+   "on_rosters_now": [],
+   "prior_state": "ready",
+   "resolver": "NEEDS-DATA R-NOT-SOAKED",
+   "soak": "SOAK-stage1-bybit_1-trend_donchian_eth",
+   "stage0": "n=107, expectancy +0.151R, net +16.18R, folds 2/4, fidelity approximate, slippage 3.0bps RT",
+   "verdict": "KILLED",
+   "why": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=107, expectancy +0.151R, net +16.18R, folds 2/4, fidelity approximate, slippage 3.0bps RT; failing clauses: R-CUT-FOLDS 2/4 not a majority."
+  },
+  {
+   "account": "bybit_1",
+   "execution": "live",
+   "leg": "trend_donchian_eth_4h",
+   "on_rosters_now": [
+    "bybit_1",
+    "bybit_2",
+    "bybit_portfolio"
+   ],
+   "prior_state": "ready",
+   "resolver": "REFUSE R-NO-OP",
+   "soak": "SOAK-stage1-bybit_1-trend_donchian_eth_4h",
+   "stage0": "n=44, expectancy +0.231R, net +10.17R, folds 2/4, fidelity faithful, slippage 3.0bps RT"
+  },
+  {
+   "account": "bybit_1",
+   "action": "soak contract disposition recorded; pipeline item killed",
+   "execution": "live",
+   "leg": "trend_donchian_sol",
+   "on_rosters_now": [],
+   "prior_state": "ready",
+   "resolver": "NEEDS-DATA R-NOT-SOAKED",
+   "soak": "SOAK-stage1-bybit_1-trend_donchian_sol",
+   "stage0": "n=59, expectancy +0.076R, net +4.46R, folds 1/4, fidelity approximate, slippage 3.0bps RT",
+   "verdict": "KILLED",
+   "why": "stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=59, expectancy +0.076R, net +4.46R, folds 1/4, fidelity approximate, slippage 3.0bps RT; failing clauses: R-CUT-FOLDS 1/4 not a majority."
+  },
+  {
+   "account": "bybit_1",
+   "execution": "live",
+   "leg": "xrp_pullback_2h",
+   "on_rosters_now": [
+    "bybit_1",
+    "bybit_2",
+    "bybit_portfolio"
+   ],
+   "prior_state": "ready",
+   "resolver": "REFUSE R-NO-OP",
+   "soak": "SOAK-stage1-bybit_1-xrp_pullback_2h",
+   "stage0": "n=55, expectancy +0.131R, net +7.23R, folds 2/4, fidelity faithful, slippage 3.0bps RT"
+  },
+  {
+   "account": "alpaca_paper",
+   "execution": "live",
+   "leg": "splg_trend_long_1d",
+   "on_rosters_now": [
+    "alpaca_paper"
+   ],
+   "prior_state": "unknown",
+   "resolver": "REFUSE R-SOURCE-RUN-ABSENT",
+   "soak": "SOAK-stage1-alpaca_paper-splg_trend_long_1d",
+   "stage0": null
+  }
+ ],
+ "post_cut_observation": {
+  "new_packages_after_cut_11_shadow_legs": 0,
+  "new_packages_after_cut_15_stage1_legs": 0,
+  "open_positions_closed_after_cut": [
+   {
+    "account": "bybit_1",
+    "closed_at": "2026-10-05T06:47:12Z",
+    "exit_reason": "sl",
+    "leg": "ict_scalp_xrp_15m",
+    "trade_id": 6451
+   },
+   {
+    "account": "bybit_1",
+    "closed_at": "2026-10-07T02:02:54Z",
+    "exit_reason": "tp",
+    "leg": "ict_scalp_eth_15m",
+    "trade_id": 6400
+   },
+   {
+    "account": "alpaca_paper",
+    "closed_at": "2026-10-08T17:04:24Z",
+    "exit_reason": "sl",
+    "leg": "qqq_pullback_1h",
+    "trade_id": 6260
+   }
+  ],
+  "order_packages_pull_rows": 5392,
+  "positive_control_pre_cut_rows_11_shadow_legs": 816,
+  "positive_control_pre_cut_rows_15_stage1_legs": 1019,
+  "window_after_bybit_1_shadow_cut": "2026-10-05T07:18Z",
+  "window_after_stage1_cut": "2026-10-05T06:33Z"
+ },
+ "question": "Gate-1 regrade of every ready/overdue/dead/unknown soak in GET /api/bot/work/report (2026-10-10T17:42Z)",
+ "r3_leg_verdict_counts": {
+  "consistent": 4,
+  "inconclusive": 1,
+  "insufficient_n": 48,
+  "no_record": 1
+ },
+ "r3_per_venue": {
+  "alpaca_equities|market": {
+   "ci95": null,
+   "modelled_bps": 5.0,
+   "n_entry": 3,
+   "n_exit": 2,
+   "roundtrip_mean": null,
+   "verdict": "insufficient_n"
+  },
+  "alpaca_equities|simulator": {
+   "ci95": [
+    -0.949,
+    59.183
+   ],
+   "modelled_bps": 5.0,
+   "n_entry": 113,
+   "n_exit": 45,
+   "roundtrip_mean": 25.341,
+   "verdict": "inconclusive"
+  },
+  "bybit_perps|market": {
+   "ci95": [
+    -1.148,
+    3.064
+   ],
+   "modelled_bps": 3.0,
+   "n_entry": 85,
+   "n_exit": 62,
+   "roundtrip_mean": 0.866,
+   "verdict": "consistent"
+  },
+  "bybit_perps|simulator": {
+   "ci95": [
+    -1.237,
+    1.796
+   ],
+   "modelled_bps": 3.0,
+   "n_entry": 1196,
+   "n_exit": 187,
+   "roundtrip_mean": 0.144,
+   "verdict": "consistent"
+  },
+  "ibkr_futures|simulator": {
+   "ci95": [
+    12.531,
+    29.25
+   ],
+   "modelled_bps": 5.0,
+   "n_entry": 23,
+   "n_exit": 19,
+   "roundtrip_mean": 20.678,
+   "verdict": "divergent"
+  }
+ },
+ "shadow_package_rate": {
+  "avax_pullback_2h": {
+   "ci": [
+    88.6,
+    130.4
+   ],
+   "days": 74,
+   "exp": 11.5,
+   "inside": false,
+   "obs": 108
+  },
+  "eth_pullback_prop_2h": {
+   "ci": [
+    0,
+    3.7
+   ],
+   "days": 43,
+   "exp": 8.2,
+   "inside": false,
+   "obs": 0
+  },
+  "fade_breakout_4h": {
+   "ci": [
+    31.1,
+    57.9
+   ],
+   "days": 126,
+   "exp": 9.4,
+   "inside": false,
+   "obs": 43
+  },
+  "fvg_range_15m": {
+   "ci": [
+    0,
+    3.7
+   ],
+   "days": 69,
+   "exp": 3.3,
+   "inside": true,
+   "obs": 0
+  },
+  "htf_pullback_trend_2h": {
+   "ci": [
+    4.8,
+    18.4
+   ],
+   "days": 43,
+   "exp": 10.1,
+   "inside": true,
+   "obs": 10
+  },
+  "ict_scalp_avax_5m": {
+   "ci": [
+    18.6,
+    40.5
+   ],
+   "days": 7,
+   "exp": 3.4,
+   "inside": false,
+   "obs": 28
+  },
+  "ict_scalp_sol_5m": {
+   "ci": [
+    6.9,
+    22.2
+   ],
+   "days": 7,
+   "exp": 3.6,
+   "inside": false,
+   "obs": 13
+  },
+  "mgc_trend_1h": {
+   "ci": [
+    247.2,
+    313.7
+   ],
+   "days": 114,
+   "exp": 36.8,
+   "inside": false,
+   "obs": 279
+  },
+  "slv_trend_1h": {
+   "ci": [
+    13.8,
+    33.3
+   ],
+   "days": 47,
+   "exp": 8.7,
+   "inside": false,
+   "obs": 22
+  }
+ }
+}
