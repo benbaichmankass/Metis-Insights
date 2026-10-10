@@ -2887,7 +2887,13 @@ class TestExitPriceFromClosedPnl:
         assert call["qty"] == pytest.approx(0.005), (
             "position_size not propagated: got %s (was 0.0 pre-fix)" % call["qty"]
         )
-        assert call["entry_price"] == pytest.approx(80000.0), (
+        # WATCHDOG-PAST-STOP (2026-10-10): the matcher now receives the entry
+        # ORDER's average fill (80123.45 in `_filled_status`), not the journal's
+        # intended 80000.0 — the venue's closed-pnl record carries the fill, and
+        # comparing it with the intended entry dropped real bybit_2 stop-outs
+        # (6549 at 12.5 bps, 6528 at 10.4 bps). Still never the 0.0 of the
+        # original defect.
+        assert call["entry_price"] == pytest.approx(80123.45), (
             "entry_price not propagated: got %s (was 0.0 pre-fix)" % call["entry_price"]
         )
 
