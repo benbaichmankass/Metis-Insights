@@ -417,6 +417,8 @@ scripts read these corpora, so a consumer EXISTS. This asks one level over:
 **was a consumer RUN, on THIS batch, and did a decision come out of it.** A tool
 that *could* have read a result is not a record that anyone did.
 
+> **Routine cadence (2026-10-10):** Stages 1–2 and the read-what-landed half of Stage 3 run 4x/day as `.claude/skills/research-ops/SKILL.md`; this review reads its latest record (`comms/research/ops/`) rather than re-deriving them.
+
 ### Stage 1 — is the pipeline HEALTHY (are jobs queued and routable)?
 
 Read `research/queue/*.yaml` through `scripts/research/research_queue.py`. Report
