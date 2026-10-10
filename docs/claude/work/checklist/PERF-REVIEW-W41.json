@@ -1,0 +1,18 @@
+{
+  "id": "PERF-REVIEW-W41",
+  "title": "/performance-review W41 (2026-10-10): grade trading + strategy performance since the 2026-10-04 review; pipeline dispositions; grade velotrade_1 ticket prop-manual-6fbebc711fa6 when closed",
+  "phase": "review",
+  "state": "in_flight",
+  "owner": "lane PERF-REVIEW-W41",
+  "lane": "PERF-REVIEW-W41",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 12,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Dispatched 19:05Z by the manager: claude-sonnet-5-5, ceiling $12, bounded to grading + pipeline dispositions, no build work. Prior review comms/reviews/performance-review-20261004-103845.json.",
+  "updated_at": "2026-10-10T19:04:50Z",
+  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
+  "_seq": 376
+}
