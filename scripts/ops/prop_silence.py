@@ -24,6 +24,13 @@ every REALERT_HOURS, one clear line, ``unknown`` never clears) carries them:
   posted every ~30 s). Older than 10 min while the account is ``mode: live``
   -> urgent. The carrier is HOURLY, so detection latency is up to ~1 h on top
   of the 10 min threshold; a faster path needs its own timer (not built).
+* ``phone_login_breakout_2`` — SILENT LOGOUT (PHONE-AUTOLOGIN,
+  PI-20261010-GKFNZSH4-0001): the heartbeat is ALIVE but the account_status the
+  phone posts only while logged in on the terminal (``status_age_hours``) is
+  older than ``STATUS_STALE_HOURS`` -> urgent. MEASURED 2026-10-10: breakout_2's
+  heartbeat kept arriving all night while its last account_status was 10-09
+  15:01Z, and no probe looked at the pair. A dead heartbeat is the probe above's
+  alarm, so this one reads ``ok`` then (never two alarms for one cause).
 
 NULL IS NOT ZERO. A read that could not be made (API down, row unreadable, a
 timestamp that will not parse) is ``unknown`` with ``days = None``; it is never
@@ -56,6 +63,9 @@ PHONE_ACCOUNT = "breakout_2"
 IDLE_WARN_DAYS = 14
 IDLE_URGENT_DAYS = 21
 HEARTBEAT_MAX_MIN = 10
+#: The phone posts account_status every 5 min while logged in on the terminal and, backgrounded, brings itself
+#: forward at least every 30 min to read it; 3 h is six missed checks, not a slow phone.
+STATUS_STALE_HOURS = 3.0
 FILLS_LIMIT = 50
 API_BASE = os.environ.get("PROP_SILENCE_API_BASE", "http://127.0.0.1:8001")
 
@@ -70,9 +80,14 @@ def heartbeat_key(account: str = PHONE_ACCOUNT) -> str:
     return f"phone_hb_{account}"
 
 
+def login_key(account: str = PHONE_ACCOUNT) -> str:
+    return f"phone_login_{account}"
+
+
 LABELS: dict[str, str] = {
     **{idle_key(a): f"{a} has no recent fill" for a in PROP_ACCOUNTS},
     heartbeat_key(): f"{PHONE_ACCOUNT} phone heartbeat missing",
+    login_key(): f"{PHONE_ACCOUNT} phone alive but not logged in (account_status stale)",
 }
 
 
@@ -187,7 +202,36 @@ def probe_phone_heartbeat(now: datetime, fetch: Fetch = api_get,
     return _probe(OK, msg)
 
 
+def probe_phone_login(now: datetime, fetch: Fetch = api_get,
+                      mode_reader: Callable[[str], str | None] = account_mode) -> dict:
+    """Heartbeat alive + account_status stale = the phone runs but is not logged in on the terminal."""
+    mode = mode_reader(PHONE_ACCOUNT)
+    if mode is None:
+        return _probe(UNKNOWN, f"{PHONE_ACCOUNT}: mode unreadable — cannot tell if a login is expected")
+    if mode != "live":
+        return _probe(OK, f"{PHONE_ACCOUNT}: mode {mode} — login not required")
+    st, data = fetch(f"/api/bot/prop/status?account_id={PHONE_ACCOUNT}")
+    if st != "read" or not isinstance(data, dict) or "phone_heartbeat" not in data:
+        return _probe(UNKNOWN, f"{PHONE_ACCOUNT}: could not read prop status ({data})")
+    hb = data["phone_heartbeat"]
+    at = parse_ts(hb.get("at")) if isinstance(hb, dict) else None
+    if at is None or (now - at).total_seconds() / 60 > HEARTBEAT_MAX_MIN:
+        # no heartbeat / dead heartbeat: phone_hb_<account> owns that alarm
+        return _probe(OK, f"{PHONE_ACCOUNT}: heartbeat not alive — the heartbeat probe owns this")
+    age = data.get("status_age_hours")
+    if not isinstance(age, (int, float)):
+        return _probe(UNKNOWN, f"{PHONE_ACCOUNT}: heartbeat alive, account_status age unreadable or no row ({age})")
+    msg = f"{PHONE_ACCOUNT}: heartbeat alive, last account_status {age:.1f} h ago"
+    last = ((hb.get("state") or {}).get("last") if isinstance(hb.get("state"), dict) else None) or "?"
+    if age > STATUS_STALE_HOURS:
+        return _probe(BREACHED, f"{msg} (> {STATUS_STALE_HOURS:g} h; last page state '{last}') — "
+                                f"silent logout? the app keeps retrying auto re-login",
+                      level="urgent", priority="urgent")
+    return _probe(OK, msg)
+
+
 def all_probes(now: datetime, fetch: Fetch = api_get) -> dict[str, dict]:
     out = {idle_key(a): probe_prop_idle(a, now, fetch) for a in PROP_ACCOUNTS}
     out[heartbeat_key()] = probe_phone_heartbeat(now, fetch)
+    out[login_key()] = probe_phone_login(now, fetch)
     return out
