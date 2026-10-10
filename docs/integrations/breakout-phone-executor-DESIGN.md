@@ -641,7 +641,7 @@ By the criteria registered before the run, that is 2 of 4: **NOT-YET** by the le
 | Routes | `POST /api/bot/prop/phone/{claim,report,event,test-ticket}` (`routers/prop.py`, `docs/api-tier-policy.md`) | `claim` is the atomic `emitted -> claimed`, and it runs the 3-minute watchdog. `report` forces `account_id` from the token. `ticket_result` keeps the phone's form dump in `meta.phone.result`, which is how the unread TP/SL labels will be read. `event` pings Telegram with links, emails and 6+ digit runs scrubbed. `test-ticket` is always dry. |
 | Submit decision | `phone_executor.submit_mode` | `live` only if the account's `accounts.yaml` mode is `live`, `PROP_PHONE_MODE_<ACCOUNT>` is not `off` or `dry` (an unparseable value counts as `dry`), and the ticket is not a test. This is the **only** live/dry decision: the phone's device-local ARMED switch was removed on 2026-10-06 (operator: *"not have the feature on the app where I need to arm it manually … extra gates that are unnecessary … actually less safe than we think"*; § 7.15). |
 | Account | `config/accounts.yaml::breakout_2` (`mode: dry_run`), `config/prop_platforms.yaml::phone_accounts.breakout_2`, `config/prop_rulesets/breakout_turbo_1step.yaml` | `phone_accounts` is a separate section, so the VM executor and the login check never load it. |
-| App | `tools/phone-executor/` (`com.metis.phoneexec`), CI `phone-executor-apk.yml` | Kiosk WebView, stock UA. Claim every 30 s. Fill: Limit tab, side tab, limit price, quantity (unit must name the base asset), TP/SL. Read every field back; the submit label must carry the side. In dry mode it does not submit; in live mode it submits, then reads Open orders / Positions back and flattens any opposite-side position. Fsynced intent ledger with no retry after a restart. Auto re-login: dedicated inbox, newest `breakoutprop.com` mail, the ONE link whose text equals the page's number, opened in the same WebView, 2 failures then latch and ping. Foreground service + boot receiver + "display over other apps" to come back after a reboot. |
+| App | `tools/phone-executor/` (`com.metis.phoneexec`), CI `phone-executor-apk.yml` | Kiosk WebView, stock UA. Claim every 30 s. Fill: Limit tab, side tab, limit price, quantity (unit must name the base asset), TP/SL. Read every field back; the submit label must carry the side. In dry mode it does not submit; in live mode it submits, then reads Open orders / Positions back and flattens any opposite-side position. Fsynced intent ledger with no retry after a restart. Auto re-login: dedicated inbox, newest `breakoutprop.com` mail, the ONE link whose text equals the page's number, opened in the same WebView. ~~2 failures then latch and ping~~ (superseded 2026-10-10, § 7.16: no latch; retried with backoff forever, ONE red flag after 3 in a row, and a backgrounded app comes forward every 30 min to check its login). Foreground service + boot receiver + "display over other apps" to come back after a reboot. |
 | Stable signing | `phone-executor-apk.yml` | The first run generates a keystore into Actions secrets (`PHONE_EXEC_KEYSTORE_*`) through the existing `BRANCH_PROTECTION_TOKEN`; it is never printed and never in git. Later builds install over the old app and keep the session. **New applicationId**, so the 1a probe and its session under measurement are untouched. |
 
 **Deviation from the dispatch, stated:** the inbox is read over **IMAP with a Gmail app password**, not the Gmail API with OAuth.
@@ -678,7 +678,7 @@ Every one of these is a **refusal with the form dump**, never a guess, so the fi
    - the new Gmail address;
    - the app password, typed into the app only, never into chat.
    - Tap "Allow restart after reboot", "Ignore battery optimisation" and "Allow notifications".
-4. Leave the app open. It loads the terminal and should log itself in through the inbox; that first login is the first test of auto re-login. If it latches, log in by hand in the app and tap "Reset login".
+4. Leave the app open. It loads the terminal and should log itself in through the inbox; that first login is the first test of auto re-login. *(Superseded 2026-10-10, § 7.16: there is no latch and no "Reset login"; a failed login is retried by itself, and "Retry login" only skips the current wait.)*
 5. Tap **Share ID** and send the line to the manager. It is a fingerprint, not a secret. We commit it, which pairs the phone.
 6. Tap **Dry test**. The app fills one ETH ticket, reads it back, does **not** submit, and the VM pings the result.
 7. Keep the phone on charge with the app on screen. *(Superseded 2026-10-06, § 7.15: there is no ARMED button any more; live vs dry is decided by the server.)*
@@ -797,6 +797,38 @@ safe than we think".* It is the same rule as CLAUDE.md § "The two execution gat
 
 **Until the new APK is installed** the old app still requires its own ARMED flag. On 2026-10-06 the phone was already armed, so
 installing the new APK does not change what it does today; it removes the way for the phone to silently drift to dry.
+
+### 7.16 Auto re-login without a human: no latch, background login check (PHONE-AUTOLOGIN, 2026-10-10)
+
+**Operator, verbatim (2026-10-10, relayed by the manager):** *"the login cannot depend on manual input from me, and the
+system was able to login autonomously already - that's why we set up the dedicated inbox"*. Binding with it: the
+2026-10-09 *"There is no halting"* directive (CLAUDE.md, Prime Directive rule 7).
+
+**MEASURED by the manager (live, 2026-10-10):** breakout_2's phone posted no `account_status` after 2026-10-09T15:01Z.
+`/api/bot/prop/status?account_id=breakout_2` `phone_events` showed `logout_seen` at 08:19:27Z ("logged out; trying auto
+re-login") and then no `login_started` for 7+ minutes, while heartbeats read `st=background, fg=false`. Root causes read
+from `MainActivity.kt` (build before this PR):
+
+| # | cause | fix (this PR) |
+|---|---|---|
+| 1 | `relogin()` returned while `userActive()` (5 min after the operator's last tap). The operator opened the app (a tap), it went to the background, background ticks never read the page, so re-login never ran: **opening the app prevented the login.** | Re-login is deferred only while the screen is being touched (60 s, `RELOGIN_DEFER_MS`) and only while resumed; the 5-min hold still guards navigation reloads. |
+| 2 | A backgrounded app never read the page, so a logout overnight was invisible (`PI-20261010-GKFNZSH4-0001`). | The background tick brings the Activity forward (the existing `bringToFront()` / BG_WAKE mechanism) every 30 min (`LOGIN_CHECK_MS`), when a re-login retry is due, or when `GET /phone/pending` says `status_age_hours` >= 1 h (at most every 10 min); the resumed tick reads the page, re-logs in if needed, posts `account_status`, and the task goes back unless the operator touched it. |
+| 3 | Two failures set `RELOGIN_LATCHED`, stopping auto re-login until a human tapped "Reset login": a self-halt the no-halt directive forbids. | No latch. Retry after 2, 5, 10, 20, then every 30 min, forever. Retries are logged as the quiet `login_retry` event; the 3rd consecutive failure sends ONE `login_failed` ("STILL RETRYING"), the recovery ONE `login_ok` ("RECOVERED"). An older build's persisted latch is cleared at start. "Reset login" became "Retry login", which only skips the current wait. |
+| 4 | Mail was searched only since now-60 s, so a code page left by an earlier attempt (ours or the operator's) could never be answered. | A code page this attempt reached is answered by mail since its own email submit (-60 s); a code page it FOUND by mail up to 30 min old. The newest 5 Breakout mails are scanned newest first; the link must still be the ONE whose text is the shown number. |
+
+**Challenge pages** are still never solved or interacted with. What changed: the challenge no longer stops the loop for
+good; the app reloads the terminal every 30 min to re-check it (one `error` event on first sight). A challenge on the
+login host is a login failure, so it follows the same backoff.
+
+**Server side.** `scripts/ops/prop_silence.py::probe_phone_login` (`phone_login_breakout_2`, hourly attention-watch
+carrier) raises ONE urgent alarm, deduped and cleared by the existing edge class, when the phone's heartbeat is alive
+but `status_age_hours` > 3 h on a live account: a silent logout surfaces even if the app's own red flag never arrives.
+A dead heartbeat stays the heartbeat probe's alarm.
+
+**Not verified (landed_unproven until observed):** that Android resumes the Activity from the background on this
+phone when the screen is off/locked (the ticket wake shares the same limit), and the observation that closes checklist
+row `PHONE-AUTOLOGIN`: breakout_2 `phone_events` shows `login_started` -> logged in and a fresh `account_status` after
+the new APK is installed.
 
 ## 8. Open questions for the operator / manager
 
