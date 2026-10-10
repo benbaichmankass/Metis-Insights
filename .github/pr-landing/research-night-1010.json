@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research-planning session: 20 new Stage-0 research units (existing research-harness-dispatch driver, decision rule registered before run), a session grade of RQ-20261007-904 with its pipeline item closed, and checklist rows for the missing research levers. No runtime, config, strategy or order-path change; config/strategies.yaml and config/accounts.yaml untouched."
+}
