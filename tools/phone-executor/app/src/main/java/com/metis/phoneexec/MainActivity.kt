@@ -737,9 +737,19 @@ class MainActivity : Activity() {
                 val a = try { p.ensure(); p.obj("__ex.state()") } catch (e: JsTimeout) { null }
                 if (a?.optBoolean("loggedIn") == true) { ok = true; break }
             }
-            if (!ok) {
-                p.load(home())
-                ok = p.settle(45_000L)?.optBoolean("loggedIn") == true
+            // Not yet: reload the terminal and keep reading. 2026-10-10 18:37Z the first reload landed on the portal's
+            // "Loading..." page and settle() returned at readyState=complete, before the session reached the
+            // terminal, so a good link read as a failed login (operator: "can also try reloading in that situation").
+            // Up to 3 reloads, each read for up to 30 s, stopping the moment the terminal reads logged in.
+            for (r in 0 until 3) {
+                if (ok) break
+                p.load(home()); d.put("reloads", r + 1)
+                val end = System.currentTimeMillis() + 30_000L
+                while (System.currentTimeMillis() < end) {
+                    if (p.settle(6_000L)?.optBoolean("loggedIn") == true) { ok = true; break }
+                    heartbeat(if (bg) "background" else "login", null)
+                    delay(PAGE_POLL_MS)
+                }
             }
             d.put("verify_s", secs())
             if (ok) {
