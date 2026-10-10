@@ -353,3 +353,30 @@ def test_the_expiry_notice_has_one_late_fill_button(
     assert "NOT placed" in captured["text"]
     assert [b["callback_data"] for b in captured["kb"]["inline_keyboard"][0]] == \
         ["propexp:y:prop-manual-1"]
+
+
+@pytest.mark.parametrize("account,expect_sent", [
+    ("velotrade_1", False), ("breakout_2", False), ("tradeify_1", False),
+    ("breakout_1", True)])
+@pytest.mark.parametrize("which", ["invalidation", "expiry"])
+def test_yes_no_emitters_refuse_machine_accounts(
+        env: Path, monkeypatch: pytest.MonkeyPatch, account: str,
+        expect_sent: bool, which: str) -> None:
+    """PI-20261007-JOHNSXDJ-0002: the 'did you place this?' Yes/No is refused at
+    the emitter itself for a machine-flow account, so no caller (the tick
+    scans, send_test_prompt, a future path) can put it in front of a human."""
+    import src.runtime.notify as notify
+    from src.prop import breakout_notify as bn
+
+    sent = []
+    monkeypatch.setattr(notify, "send_telegram_direct",
+                        lambda *a, **k: sent.append(k.get("reply_markup")) or True)
+    t = {"ticket_id": f"prop-emit-{account}", "account_id": account,
+         "symbol": "ETHUSDT", "direction": "short", "entry": 2700.0,
+         "sl": 2750.0, "tp": 2600.0, "qty": 0.1}
+    if which == "invalidation":
+        ok = bn.emit_prop_invalidation_prompt(t, 2800.0, "sl")
+    else:
+        ok = bn.emit_prop_expiry_prompt(t)
+    assert ok is expect_sent
+    assert len(sent) == (1 if expect_sent else 0)
