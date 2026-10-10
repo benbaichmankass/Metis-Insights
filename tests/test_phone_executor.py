@@ -243,6 +243,28 @@ def test_login_retry_is_logged_quietly_and_the_red_flag_pings(_iso):
     assert [e["kind"] for e in pe.recent_events("breakout_2")][-3:] == ["login_retry", "login_failed", "login_ok"]
 
 
+def test_login_diag_is_quiet_scrubbed_and_kept_in_phone_events(_iso):
+    """PHONE-AUTOLOGIN-2: each re-login attempt posts ONE login_diag (counts, steps, timings) -- logged, not pinged,
+    and anything shaped like a link, an address or a long number is scrubbed even if the phone ever sent one."""
+    n = len(_iso)
+    pe.record_event(_dev(), {"event": "login_diag", "reason": "eng=overlay email=clicked page_n=3 page_top=3 page_btn=3 "
+                             "shape=lineup choices=3 mails=1 polls=7 match=1 step=ok https://x.y/z a@b.co 1234567"})
+    assert len(_iso) == n
+    last = pe.recent_events("breakout_2")[-1]
+    assert last["kind"] == "login_diag" and "shape=lineup" in last["reason"] and "match=1" in last["reason"]
+    assert "http" not in last["reason"] and "@" not in last["reason"] and "1234567" not in last["reason"]
+
+
+def test_heartbeat_keeps_relogin_and_background_engine_fields(_iso):
+    pe.record_event(_dev(), {"event": "heartbeat", "reason": "background: no ticket waiting",
+                             "state": {"st": "background", "bg": "overlay", "bg_runs": 4, "bg_ok": 3,
+                                       "bg_last": "logged_in+posted", "bg_last_min": 2, "relogin_failures": 0,
+                                       "relogin_flagged": False, "relogin_next_min": 0, "nope": 1}})
+    st = pe.last_heartbeat("breakout_2")["state"]
+    assert st["bg"] == "overlay" and st["bg_runs"] == 4 and st["bg_last"] == "logged_in+posted"
+    assert st["relogin_flagged"] is False and "nope" not in st
+
+
 def test_account_status_age_hours(_iso):
     assert pe.account_status_age_hours("breakout_2") is None  # no row: not told, never "fresh"
     from src.prop import prop_journal

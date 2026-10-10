@@ -341,5 +341,36 @@ document.getElementById('f').onsubmit=function(e){e.preventDefault();window.__su
   eq([rbS.side, /short/i.test(rbS.submit_label), hash(rbS) === hash(rb1)], ["Sell", true, false], "a flipped side changes side, label and hash");
   await r("__ex.tab('Buy')");
   eq(await r("window.__submitted || 0"), 0, "nothing submitted by the read-back path");
+
+  // LOGIN LINEUP (PHONE-AUTOLOGIN-2, operator 2026-10-10: "choose the correct 2 digit number from a line up of 3").
+  // Synthetic shapes, not Breakout's real page: the mechanics of reading the choices and tapping exactly one.
+  const lp = await b.newPage();
+  await lp.route("https://app.breakoutprop.com/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body:
+    "<!doctype html><html><body>" + ({
+      "/lineup": "<p>Check your email and select the matching number</p><div style='font-size:12px'>Step 2</div>" +
+        "<div id=c><button style='font-size:32px' onclick='window.__picked=\"a\"'><span>47</span></button>" +
+        "<button style='font-size:32px' onclick='window.__picked=\"b\"'><span>12</span></button>" +
+        "<button style='font-size:32px' onclick='window.__picked=\"c\"'><span>83</span></button></div>",
+      "/single": "<p>Check your email and tap the number</p><h1 style='font-size:48px'>47</h1><p style='font-size:10px'>Expires in 10</p>",
+      "/dup": "<p>select the number</p><button>47</button><button>47</button><button>12</button>",
+      "/box": "<p>select the number</p><div style='cursor:pointer' onclick='window.__picked=\"box\"'><span>47</span><span>12</span><span>83</span></div>",
+    }[new URL(route.request().url()).pathname] || "") + "</body></html>" }));
+  const lg = async (path) => { await lp.goto("https://app.breakoutprop.com" + path); await lp.addScriptTag({ content: src }); };
+  await lg("/lineup");
+  let ch = await lp.evaluate("__ex.loginChoices()");
+  eq([ch.n, ch.top.sort(), ch.btn.sort()], [3, ["12", "47", "83"], ["12", "47", "83"]], "lineup: three tappable choices at the top size");
+  eq(await lp.evaluate("__ex.state().codeWait"), true, "lineup page reads as the code step");
+  eq(await lp.evaluate("__ex.loginNumber()"), "", "lineup: no SINGLE number (the 12:30Z/12:40Z failure shape)");
+  eq(await lp.evaluate("__ex.loginPick('12')"), "clicked", "lineup: the matching choice is tapped");
+  eq(await lp.evaluate("window.__picked"), "b", "lineup: exactly the matching control was tapped");
+  eq(await lp.evaluate("__ex.loginPick('99')"), "none", "lineup: a number not on the page taps nothing");
+  await lg("/single");
+  ch = await lp.evaluate("__ex.loginChoices()");
+  eq([ch.top, ch.btn], [["47"], []], "single-number page: one top number, no tappable lineup");
+  eq(await lp.evaluate("__ex.loginNumber()"), "47", "single-number page: loginNumber still reads it");
+  await lg("/dup");
+  eq(await lp.evaluate("__ex.loginPick('47')"), "ambiguous", "two controls with the same number: nothing tapped");
+  await lg("/box");
+  eq(await lp.evaluate("__ex.loginChoices().btn"), [], "one clickable box holding all three numbers is not a lineup control");
   await b.close(); console.log("exec_check: all passed");
 })().catch((e) => { console.error(e); process.exit(1); });

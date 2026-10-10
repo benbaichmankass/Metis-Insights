@@ -238,6 +238,23 @@
     });
   }
 
+  // login lineup helpers: visible leaf elements whose whole text is a 1-3 digit number, and the clickable control
+  // (button / link / role=button / onclick / pointer cursor, up to 4 levels up) that holds one
+  function numLeaves() {
+    return all("h1,h2,h3,h4,h5,p,div,span,strong,b,button,a,li,td,label,[role=button]").filter(function (e) {
+      return /^\d{1,3}$/.test(t(e)) && e.children.length === 0;
+    });
+  }
+  function clickable(e) {
+    for (var n = e, d = 0; n && d < 5; n = n.parentElement, d++) {
+      if (!/^\D*\d{1,3}\D*$/.test(t(n))) return null;   // a container holding SEVERAL numbers is never "the" choice
+      if (/^(BUTTON|A)$/.test(n.tagName) || n.getAttribute("role") === "button" || n.hasAttribute("onclick") ||
+          n.tagName === "INPUT" || (getComputedStyle(n).cursor === "pointer" &&
+          !(n.parentElement && getComputedStyle(n.parentElement).cursor === "pointer"))) return n;   // cursor inherits: only where it is SET
+    }
+    return null;
+  }
+
   window.__ex = {
     state: function () {
       var pw = all("input[type=password]").length > 0;
@@ -286,6 +303,31 @@
       var top = parseFloat(getComputedStyle(c[0]).fontSize);
       var same = c.filter(function (e) { return parseFloat(getComputedStyle(e).fontSize) === top && t(e) !== t(c[0]); });
       return same.length ? "" : t(c[0]);
+    },
+    // LOGIN step 2, LINEUP form (PHONE-AUTOLOGIN-2, operator 2026-10-10: "a login check that verifies you can choose
+    // the correct 2 digit number from a line up of 3"). The VALUES go to the app's memory only (never logged,
+    // reported or stored); the app reports counts. top = distinct numbers at the largest font size; btn = distinct
+    // numbers that sit in a clickable control (the lineup to tap); n = every visible 1-3 digit leaf.
+    loginChoices: function () {
+      var c = numLeaves();
+      if (!c.length) return {n: 0, top: [], btn: []};
+      var fs = function (e) { return parseFloat(getComputedStyle(e).fontSize) || 0; };
+      var max = Math.max.apply(null, c.map(fs));
+      var uniq = function (a) { return a.filter(function (x, i) { return a.indexOf(x) === i; }); };
+      return {n: c.length, top: uniq(c.filter(function (e) { return fs(e) === max; }).map(t)),
+        btn: uniq(c.filter(function (e) { return !!clickable(e); }).map(t))};
+    },
+    // Tap the ONE lineup entry whose text is exactly [n]. More than one distinct control for it, or none: nothing is
+    // tapped ("ambiguous" / "none"), the app fails closed.
+    loginPick: function (n) {
+      if (!hostOk()) return "bad_host";
+      var hits = numLeaves().filter(function (e) { return t(e) === String(n); }).map(function (e) { return clickable(e) || e; });
+      hits = hits.filter(function (x, i) { return hits.indexOf(x) === i; });
+      if (hits.length !== 1) return hits.length ? "ambiguous" : "none";
+      var el = hits[0];
+      ["pointerdown", "mousedown", "pointerup", "mouseup"].forEach(function (k) { el.dispatchEvent(new MouseEvent(k, {bubbles: true})); });
+      el.click();
+      return "clicked";
     },
     // TERMINAL GATE (2026-10-06 05:21Z dry test: claimed on an /account/ page that was not the trading terminal,
     // "order control not found"). Ready = an "Order" control, an open ticket, or Buy+Sell tabs are on the page;

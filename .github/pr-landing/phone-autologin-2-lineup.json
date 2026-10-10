@@ -1,0 +1,8 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane PHONE-AUTOLOGIN-2 dispatched by the manager: draft PR, hold; the manager merges and sends the APK to the operator for install.",
+  "recorded_decision": {"kind": "operator_decision", "ref": "PHONE-AUTOLOGIN PHONE-AUTOLOGIN-2"},
+  "why": "Breakout phone executor login: the lineup login is polled (page 90 s, inbox 5 min) and matched exactly-one (LoginMatch), a quiet scrubbed login_diag event, and a background WebView engine for login checks / re-login / account reads (tickets stay on the foreground path). Server: one quiet event kind + heartbeat allowlist keys (src/prop/phone_executor.py, Tier-2 by path). No order-path, strategy, risk or config change."
+}
