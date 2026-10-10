@@ -1,0 +1,18 @@
+{
+  "id": "REGIME-WEIGHT-VARIANTS",
+  "title": "Lever: regime soft-weight variants in scripts/research/regime_weight.py + backtest_trend/pullback flags (blocks RQ-20260927-006..009)",
+  "phase": "W6",
+  "state": "queued",
+  "owner": "unassigned",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-10 RESEARCH-NIGHT-1010] Four blocked units, one build, none had a checklist or pipeline row (grep of docs/claude/work/{checklist,pipeline} for each id = 0 on 2026-10-10): -006 advisory-head predict_proba weight, -007 cross-sectional fleet-regime scalar, -008 regime-transition-lag weight, -009 realised-vol-percentile soft weight. Common blocker: soft_regime_weight is ADX-only and the harness exposes only the ADX floor/ceiling flags. Build the weight function variants + one harness flag family; then git mv the four units out of research/queue/blocked/ and fill run.workflow. Observation that would close: the four units are in research/queue/ and dispatchable.",
+  "updated_at": "2026-10-10T20:58:41Z",
+  "updated_by": "session_0138x92n9BZhYwufSFLpjwvX",
+  "_seq": 380
+}

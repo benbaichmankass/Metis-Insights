@@ -1,0 +1,18 @@
+{
+  "id": "FUNDING-OI-DATASETS-ETH-SOL",
+  "title": "Lever: ETHUSDT and SOLUSDT funding/OI-joined market_features datasets on the trainer (blocks RQ-20260929-109 and -110)",
+  "phase": "W6",
+  "state": "queued",
+  "owner": "unassigned",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-10 RESEARCH-NIGHT-1010] Both units need a funding/OI-joined dataset that does not exist for ETH or SOL (BTC has one). Trainer-side build, off-runner. No row referenced either unit. Observation that would close: the dataset builds on the trainer and the two units leave blocked/.",
+  "updated_at": "2026-10-10T20:58:41Z",
+  "updated_by": "session_0138x92n9BZhYwufSFLpjwvX",
+  "_seq": 383
+}

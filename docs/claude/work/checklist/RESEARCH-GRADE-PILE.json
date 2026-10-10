@@ -1,0 +1,18 @@
+{
+  "id": "RESEARCH-GRADE-PILE",
+  "title": "Session-grade 17 hand-written research units that ran and sit queued with no verdict (their Tier-3 candidates are unread)",
+  "phase": "W6",
+  "state": "queued",
+  "owner": "unassigned",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-10 RESEARCH-NIGHT-1010] MEASURED 2026-10-10 (status queued + cadence once + ran + grading.verdict absent): RQ-20260922-008, 20260927-003 (producer_failed x4), 20260929-104 (producer_failed x2), 20261006-060, -061 (no rows), -062 (pass, GO_LIVE class), 20261007-001 (pass: xrp_pullback_2h 6 and ada_pullback_2h 6 cells cleared), -002, -003 (pass: trend_donchian_eth 2, sol_pullback_2h 1, xrp_4h 2 cells), -006/-007/-008 (auto:true, no rows), -017 (wiring_only, see RESEARCH-TOOLING-GAPS), -024 (0 of 3 cells cleared, base OOS n=53, but the split is unreadable on main because the sweep corpus lands on an unmerged branch: rule's fresh-partition check cannot be certified), -042 (pass: eth_4h 1, xrp_4h 2, eth_prop 2 cells), -043 (pass: eth_4h 2, eth_prop 1 cell), -080 (producer_failed). Each is a hand-written unit the grader will not close, so its pass cells (Tier-3 candidates per the unit rules, never config edits) are unread and the queued count is inflated. Apply each unit's own registered rule, set grading + status done, file the named Tier-3 follow-up as a note for the manager. Observation that would close: grep -L 'verdict:' over those 16 files returns none.",
+  "updated_at": "2026-10-10T20:59:30Z",
+  "updated_by": "session_0138x92n9BZhYwufSFLpjwvX",
+  "_seq": 385
+}

@@ -11,8 +11,8 @@
   "tier": 1,
   "prs": [],
   "blocked_on": [],
-  "note": "2026-10-09 PIPELINE-ROUTE: created to own PI-20261006-1VPYTX8E-0001, PI-20261007-ZKGGKTAG-0001, PI-20261007-ZKGGKTAG-0002. Each re-verified today by its origin.rerun and still open: backtest_orb.py resolve_cost_policy count 0 / net_total_r count 17 mismatch (cost stack missing); research-harness-dispatch.yml extra_args count 0; roster-walkforward.yaml still routes to research-harness-dispatch.yml with 'net-of-cost OOS R' units in research/queue. All Tier-1 tooling/CI.",
-  "updated_at": "2026-10-09T07:50:30Z",
+  "note": "2026-10-09 PIPELINE-ROUTE: created to own PI-20261006-1VPYTX8E-0001, PI-20261007-ZKGGKTAG-0001, PI-20261007-ZKGGKTAG-0002. Each re-verified today by its origin.rerun and still open: backtest_orb.py resolve_cost_policy count 0 / net_total_r count 17 mismatch (cost stack missing); research-harness-dispatch.yml extra_args count 0; roster-walkforward.yaml still routes to research-harness-dispatch.yml with 'net-of-cost OOS R' units in research/queue. All Tier-1 tooling/CI. [2026-10-10 RESEARCH-NIGHT-1010] The extra_args lever ALSO blocks two more units: RQ-20261007-017 landed wiring_only because the xsec_momentum dispatch never passes --gate (its rule needs the harness gate block), and RQ-20261007-033 needs a window/days-and-end input. So the one lever now covers RQ-20261007-017 (regrade after), -033, -241.",
+  "updated_at": "2026-10-10T20:58:42Z",
   "updated_by": "session_01QwgzukpNwXp9m42kFvBX4p",
   "_seq": 364
 }

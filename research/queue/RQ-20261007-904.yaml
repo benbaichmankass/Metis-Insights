@@ -1,7 +1,7 @@
 id: RQ-20261007-904
 title: 'Re-run XRP exit candidate on the LIVE direction gate: trend_donchian_xrp_4h trail4 with side_filter=short
   forwarded (split_target_oos=60)'
-status: queued
+status: done
 cadence: once
 theme: live_strategy
 priority: 2
@@ -58,3 +58,12 @@ related:
 - RQ-20261004-753
 - scripts/research/m20_fleet_exit_sweep.py::_forward_side
 last_dispatched_at: '2026-10-08T09:59:41+00:00'
+grading:
+  graded_at: '2026-10-10'
+  graded_by: lane RESEARCH-NIGHT-1010 (session by hand; unit is not grading.auto)
+  decision_rule_id: RULE-RQ1007-XRP-TRAIL4-SHORTONLY-A
+  verdict: no_action_warranted
+  evidence:
+  - research/results/RQ-20261007-904/
+  reason: 'NOT CONFIRMED per the registered rule: cells_swept 2, cells_passed 0, base_trades_OOS 31 (>= 25), base_net_r_OOS +10.5339. The trail_mult 5.0 -> 4.0 Tier-3 proposal on trend_donchian_xrp_4h is killed (PI-20261007-ITYCHECK-0001); the shipped geometry stands.'
+  rows: 1

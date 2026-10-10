@@ -1,0 +1,18 @@
+{
+  "id": "EXIT-HEAD-PULLBACK-DRIVER",
+  "title": "Lever: committed driver running backtest_pullback.py through the exit-head replay (sibling of exit_head_prop_swap_feasibility.py) so RQ-20261008-901 can run",
+  "phase": "W6",
+  "state": "queued",
+  "owner": "unassigned",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-10 RESEARCH-NIGHT-1010] RQ-20261008-901 (blocked) - scripts/ml/exit_head_replay.py loads backtest_trend.py only (HARNESS_REL). No row referenced the unit. Observation that would close: RQ-20261008-901 out of blocked/ with run.workflow set.",
+  "updated_at": "2026-10-10T20:58:41Z",
+  "updated_by": "session_0138x92n9BZhYwufSFLpjwvX",
+  "_seq": 382
+}
