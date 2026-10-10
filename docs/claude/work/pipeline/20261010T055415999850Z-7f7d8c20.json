@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-11",
+    "kind": "date"
+  },
+  "id": "PI-20261010-CJWUMAVA-0001",
+  "kind": "finding",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "checklist:DAILY-DD-SWITCH",
+    "rerun": "curl -sS https://ict-bot.duckdns.org/api/bot/config | jq '.accounts[] | select(.name==\"breakout_2\") | .daily_dd_switch'"
+  },
+  "state": "queued",
+  "what": "breakout_2 daily drawdown switch reads could_not_look at 2026-10-10T05:54Z on /api/bot/config (it read ok, day_start_equity 5000 at 2026-10-09T21:53Z). Prop accounts are observed from the prop status row via prop_sizing_balance(), which returns 'stale' past max_age_hours; breakout_2 has had no fresh status row since its trading day reset at 00:30Z, so the switch cannot trip for it. 11 of 13 armed accounts read ok at 05:54Z (ib_live also could_not_look, PI-20261009-CJWUMAVA-0001). Lane task: find why breakout_2's status row goes stale (phone app balance push? feed?) and make the switch read a fresh prop equity, or state precisely what must report it."
+}
