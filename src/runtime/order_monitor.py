@@ -6521,6 +6521,52 @@ def _prorate_netted_broker_pnl(
     return float(pnl), False
 
 
+def _venue_entry_price(
+    journal_entry: Any, order_status: Optional[Dict[str, Any]],
+) -> Optional[float]:
+    """The entry price to match a broker closed-pnl record against.
+
+    WATCHDOG-PAST-STOP (2026-10-10). ``trades.entry_price`` is the package's
+    INTENDED entry, not the fill. The closed-pnl matcher drops any record whose
+    ``avgEntryPrice`` is more than 10 bps from its target, so ordinary market-
+    entry slippage made the venue's own record unmatchable. MEASURED on bybit_2
+    (real money): trade 6549 ADAUSDT journal 0.2394 vs fill 0.2391 (12.5 bps),
+    trade 6528 XRPUSDT journal 1.3464 vs fill 1.3478 (10.4 bps). Both closes
+    were their own stop-loss orders, yet both fell to the watchdog's
+    unmatched branch and were booked off a candle at detection time.
+
+    Comparing the venue's record against the venue's entry fill keeps the
+    #1411/#1419 disambiguation (same tolerance, same opened_at filter) and
+    removes the slippage from the comparison. Falls back to the journal value
+    when the entry order's average price is unknown.
+    """
+    avg = _safe_float((order_status or {}).get("avg_price"))
+    if avg and avg > 0:
+        return avg
+    return _safe_float(journal_entry)
+
+
+def _entry_order_status_for(
+    cfg: Optional[Dict[str, Any]], trade_row: Any,
+) -> Optional[Dict[str, Any]]:
+    """The entry order's venue status for *trade_row*, or ``None``.
+
+    Best-effort and only for a real exchange order id; never raises. Used by the
+    watchdog's flat branch, which (unlike the forward reconciler) has no order
+    status in hand when it asks for the broker's closed-pnl record.
+    """
+    if cfg is None or trade_row is None:
+        return None
+    try:
+        tid = _extract_trade_id_from_notes(trade_row["notes"])
+        if tid is None or not _is_real_order_id(tid):
+            return None
+        from src.units.accounts.clients import account_order_status
+        return account_order_status(cfg, tid)
+    except Exception:  # noqa: BLE001 — a lookup aid, never a tick breaker
+        return None
+
+
 def _recover_close_from_broker_pnl(
     db,
     trade_row: Any,
@@ -6565,7 +6611,12 @@ def _recover_close_from_broker_pnl(
             direction=str(trade_row["direction"] or ""),
             opened_at_ms=opened_at_ms,
             qty=_safe_float(trade_row["position_size"]),
-            entry_price=_safe_float(trade_row["entry_price"]),
+            # WATCHDOG-PAST-STOP: the venue's entry fill, not the intended
+            # entry — see _venue_entry_price.
+            entry_price=_venue_entry_price(
+                trade_row["entry_price"],
+                _entry_order_status_for(cfg, trade_row),
+            ),
         )
     except Exception as exc:  # noqa: BLE001 — best-effort; fall back to orphan
         logger.warning(
@@ -7864,7 +7915,10 @@ def _close_trade_from_order_status(
                     direction=str(row.get("direction") or ""),
                     opened_at_ms=opened_at_ms,
                     qty=_safe_float(row.get("position_size")),
-                    entry_price=_safe_float(row.get("entry_price")),
+                    # WATCHDOG-PAST-STOP: match on the venue's entry FILL, not
+                    # the journal's intended entry (see _venue_entry_price).
+                    entry_price=_venue_entry_price(
+                        row.get("entry_price"), order_status),
                     reduce_leg=is_reduce_leg,
                 )
         except Exception as exc:  # noqa: BLE001
@@ -14199,8 +14253,15 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
 #: ended, and so may be replaced by the bracket leg the venue says filled.
 #: A real reason (sl, tp, sl_cross, pairs_*, intent_reduce_*, operator_*, ...)
 #: is never in this set and is never overwritten.
+#:
+#: ``stuck_strategy_watchdog`` joined 2026-10-10 (WATCHDOG-PAST-STOP): the
+#: watchdog's flat branch finalises a position it found already flat, so its
+#: label records the DETECTOR, not the exit. MEASURED on bybit_2 (real money):
+#: trades 6528 and 6549 carried it while their closing fills were on their own
+#: ``sl_order_id`` (a189d840…, e3bf5ffb…), and nothing could ever correct it.
 _BRACKET_ORDER_RELABEL_REASONS = (
     "", "reconciler_filled", "netting_attributed", _SNAPSHOT_FLAT_REASON,
+    "stuck_strategy_watchdog",
 )
 
 #: `exit_reason_source` for a label taken from venue ORDER IDENTITY: a fill in
