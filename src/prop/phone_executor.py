@@ -73,6 +73,7 @@ _FP_RE = re.compile(r"^[0-9a-f]{64}$")
 _EVENT_KINDS = {
     "login_ok", "login_failed", "logout_seen", "login_started", "login_retry", "refusal",
     "mismatch", "flattened", "dry_fill_ok", "submitted", "app_started", "error", "terminal_miss", "heartbeat",
+    "login_diag",
 }
 # terminal_miss carries the control texts the page showed (our own UI labels, scrubbed like a reason) so the
 # next "terminal did not load" is self-diagnosing; only the LATEST one per account is kept, beside the journal.
@@ -491,7 +492,9 @@ def record_event(device: PhoneDevice, body: Dict[str, Any], *, send=None) -> Dic
         _write_heartbeat(device.account_id, reason, body.get("state"))
     # login_retry: an auto re-login attempt/failure inside a streak (PHONE-AUTOLOGIN, no latch, retried forever) is
     # logged in phone_events but not pinged; the phone sends ONE login_failed red flag after 3 in a row instead.
-    quiet = (kind == "app_started" and not body.get("ping")) or kind in ("terminal_miss", "heartbeat", "login_retry")
+    # login_diag (PHONE-AUTOLOGIN-2): one scrubbed structure snapshot per re-login attempt -- step reached, how many
+    # numeric candidates the page / mail showed, timings; never a value -- kept in phone_events, not pinged.
+    quiet = (kind == "app_started" and not body.get("ping")) or kind in ("terminal_miss", "heartbeat", "login_retry", "login_diag")
     sent = False
     if not quiet:
         try:
@@ -527,7 +530,10 @@ def _write_diag(account_id: str, reason: str, controls: Any) -> None:
 # tick path at most every 2 min; only the latest is kept. Keys are a fixed allowlist; values are bools, small
 # ints or scrubbed short strings.
 _HB_KEYS = {"st", "paused", "hold", "host", "onAccount", "path_depth", "ready", "probe", "panels", "orderControl",
-            "ticketOpen", "buySell", "tabs", "inputs", "build", "fg", "jsTimeouts", "pending", "acct", "last"}
+            "ticketOpen", "buySell", "tabs", "inputs", "build", "fg", "jsTimeouts", "pending", "acct", "last",
+            # auto re-login streak (PHONE-AUTOLOGIN) and the background engine (PHONE-AUTOLOGIN-2: which engine, jobs
+            # run, jobs whose page answered, the last job's result, minutes since it)
+            "relogin_failures", "relogin_flagged", "relogin_next_min", "bg", "bg_runs", "bg_ok", "bg_last", "bg_last_min"}
 
 
 def _write_heartbeat(account_id: str, reason: str, state: Any) -> None:

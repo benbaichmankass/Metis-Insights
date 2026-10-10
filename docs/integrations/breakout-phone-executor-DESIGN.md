@@ -830,6 +830,148 @@ phone when the screen is off/locked (the ticket wake shares the same limit), and
 row `PHONE-AUTOLOGIN`: breakout_2 `phone_events` shows `login_started` -> logged in and a fresh `account_status` after
 the new APK is installed.
 
+### 7.17 The lineup login, waited for properly, and a background engine (PHONE-AUTOLOGIN-2, 2026-10-10)
+
+**Operator, verbatim (2026-10-10, watching the phone, relayed by the manager):** *"it's a login check that verifies you
+can choose the correct 2 digit number from a line up of 3"* and *"it's way not waiting long enough to see the email.
+That can take at least up to a minute. It needs to wait longer to see the email and see if it comes up with one of the
+numbers that is the correct one."* And on the background: *"it would be more stable if it could do it in the
+background ... the more automated and backgrounded it could be, the better."*
+
+**MEASURED (this lane, live `/api/bot/prop/status?account_id=breakout_2` `phone_events`, 2026-10-10):**
+`login_started` 12:30:35Z -> `login_retry` "failed (1): no single number on the waiting page" at 12:30:41Z; attempt 2
+12:40:45Z -> the same failure at 12:40:51Z. Both failed **6 s** after the start. The build in front of this PR waited a
+fixed `delay(6000)` after the email submit, read `__ex.loginNumber()` ONCE, and required one prominent number; that
+function returns `""` when there are several numbers at the same size, which is the lineup shape. The 18 x 10 s inbox
+poll was never reached. Also measured: a retry due ~12:32:41Z did not run (`"background: bring-to-front already
+requested"` at 12:33:03Z): the wake window from 12:30:31Z outlived the failed attempt. `status_age_hours` read 21.7.
+
+**Which side shows the lineup is NOT established from the repo.** The only recorded flow (§ 7.9, 2026-10-05) is "the
+operator tapped the number link in Breakout's email" (page shows one number, the mail carries numbered links); the
+operator's 2026-10-10 words read as the page showing three numbers and the mail naming the right one. Both are
+supported, and the PAGE decides which applies (`LoginMatch.kt`, pure, JVM-tested):
+
+| page shows | mail carries | action | fail closed when |
+|---|---|---|---|
+| >= 2 numbers (tappable controls, else the >= 2 at the top font size) | a number on its own (whole element / whole line), else one bound to "number/code/select/tap/choose/matching" | tap the ONE page choice the mail names (`__ex.loginPick`) | 0 or > 1 of the page's choices appear in the newest deciding mail |
+| exactly one number | numbered https links | open the ONE link whose text is that number (the 1b behaviour) | 0 or > 1 such links |
+
+Timing: after the submit the page is polled every 3 s for up to **90 s** for the number(s); the inbox (newest 5
+`breakoutprop.com` mails after the submit, -60 s slack; 30 min for a code page found already open) every 10 s for up to
+**5 min**; then up to 30 s for the page to finish on its own, else the terminal is loaded and must read logged in within
+45 s. Values (numbers, links, addresses) stay in memory only.
+
+**Diagnosable from the VM.** Every attempt posts ONE quiet `login_diag` event (kept in `phone_events`, not pinged;
+server-scrubbed again): engine, step reached, `page_n/page_top/page_btn` (how many numeric candidates the page showed),
+`shape`, `mails`, `polls`, `match` (candidates in the deciding mail), `tier`, `mail_err` (exception class only),
+seconds at each stage, and the host at failure. Never a value.
+
+**Background engine (`Page.kt::BgWeb`).** A second WebView owned by the process (kept alive by the existing foreground
+service), sharing the kiosk WebView's cookie store and site storage, runs the login check, the re-login and the
+account-panel read while the Activity is backgrounded: every 15 min while logged in, when a retry is due, and on the
+VM's stale-`account_status` hint. For each job it is attached to a full-screen, alpha-0, not-touchable, not-focusable
+overlay window (the "Display over other apps" permission already granted for the boot restart) so Chromium treats it as
+visible and keeps its JS running, and it is detached when the job ends so no overlay lingers over what the operator is
+doing. Without that permission it runs detached at screen size. **Tickets never run in the engine**: orders stay on the
+foreground path (bring-to-front), unchanged. If two engine jobs in a row get no answer from the page, the login check
+falls back to bring-to-front once and the engine is tried again afterwards. A successful re-login was also given the
+wake window back on failure (the 12:33Z skip). Heartbeat fields: `bg` (overlay / detached / ""), `bg_runs`, `bg_ok`,
+`bg_last` (e.g. `logged_in+posted`, `login_ok`, `login_fail`, `no_answer`), `bg_last_min`; the server now also keeps
+`relogin_failures / relogin_flagged / relogin_next_min`, which it silently dropped before.
+
+**Not verified (landed_unproven, checklist `PHONE-AUTOLOGIN-2`):** the real page and mail shapes (the tests are
+synthetic), that this phone's WebView keeps running JS in an alpha-0 overlay, and that the session is shared between
+the two WebViews on this device. The observation that closes it: breakout_2 `phone_events` shows `login_started` ->
+`login_ok` without operator input and a fresh `account_status`. If the engine reports `bg_last=no_answer` repeatedly,
+the next step is moving the whole loop into the service (pipeline item filed with this PR).
+
+### 7.18 Zero numbers after the email click: diagnose, broaden, verify the submit (PHONE-AUTOLOGIN-3, 2026-10-10)
+
+**MEASURED (live `/api/bot/prop/status?account_id=breakout_2` `phone_events`, read by this lane).** The PHONE-AUTOLOGIN-2
+build, installed ~13:50Z, ran in the background engine (`bg=overlay`). Attempt 1: `login_started` 13:50:53Z ->
+`login_diag "eng=overlay email=clicked page_n=0 page_top=0 page_btn=0 step=page host=portal.breakoutprop.com"` 13:52:24Z
+-> `login_retry "no number or lineup on the waiting page within 90 s"`. Attempt 2 (13:54:31Z -> 13:56:03Z) the same. So
+`loginEmail` reported a click, and then for 90 s the page had **zero** visible leaf elements whose whole text was a 1-3
+digit number. The mail step was never reached (it was gated on the page), so nothing is known about the mail either.
+
+**The cause is NOT established.** Three hypotheses, none ruled out by that diag line:
+
+| | hypothesis | what the old build could not see | what this build does |
+|---|---|---|---|
+| a | the click did not submit (wrong control: the old code clicked the FIRST page button matching `continue/next/...`, which on a sign-in page can be "Continue with Google"; or the form needs Enter / a second step) | whether the page changed at all | looks for the continue control in the email field's own form first, never a social/passkey button; then **verifies** the page moved within 12 s (email field gone, code page, or a text-signature change), else presses Enter and waits again. Diag: `sub_where` (form/page/none), `sub_btns`, `sub_label` (scrubbed), `enter`, `adv`, `changed` |
+| b | the numbers are there but the reader missed them | only `div/span/...` leaves with NO child element, raw text | a candidate is the innermost element whose text with all whitespace and zero-width characters removed is a 1-3 digit number (icon children and split digit spans no longer hide it), or a radio/button/option whose `aria-label`/`value` is one; searched in open shadow roots and same-origin iframes; nested candidates resolve to the control (a row of choices) or the whole number (split digits) |
+| c | the page only says "check your email"; the choices are in the mail | what the mail carried | the inbox is polled **in parallel** from the submit on; the page wait stretches to 150 s while no mail has arrived; the diag reports `mails`, `mail_first_s`, `mshape` (`none / numbered_links / numbers / one_login_link / links / text`) and per-shape counts of the newest mail. A `one_login_link` mail is **reported, not opened**: the LINK rule still needs the page's single number |
+
+My lean, stated as an inference: **(c) or (a) are likelier than (b)**. The only flow ever observed (§ 7.9, 2026-10-05)
+was the operator tapping "the number link in Breakout's email" with the waiting page as the other half, and a portal
+sign-in page commonly carries a social-login button that the old selector could pick first. (b) would require all three
+numbers to be hidden from a leaf-text read at once, which is possible (icon children, split digits) but less common.
+The next attempt's diag decides it; this build fixes (a) and (b) where they apply and describes (c).
+
+**The structure snapshot (`exec.js::loginProbe`, posted on every attempt).** Tag histogram (top 15), open shadow roots,
+iframes and cross-origin (unreadable) iframes, visible input types, which phrases are present (check_email, we_sent,
+select, choose, verify, number, code, link, tap, expired, error, social), the COUNT of numeric tokens in the readable
+text (document + shadow roots + same-origin iframes), the number of candidates the reader found, and up to 20
+button / heading / label / alert texts of at most 40 chars with **every digit replaced by `N`** and emails / links
+replaced by `EML` / `URL`. Never a value. Because the server keeps 160 chars of `[A-Za-z0-9 _.:/()=+-]` per event
+(`src/prop/phone_executor.py::record_event`), the diag is posted as up to 7 numbered `login_diag` parts (`d1/N ...`),
+core line first; no server change was needed.
+
+**Tests (synthetic, not Breakout's page):** `tools/phone-executor/test/exec_check.js` adds one page per hypothesis (icon
+children / split digits / zero-width; radios by value; `aria-label`-only controls; a shadow root; a same-origin iframe;
+a check-your-email page whose probe must carry no digit, email or link; a social button before the form's Continue; a
+form with no button) and re-checks the PHONE-AUTOLOGIN-2 lineup. `LoginMatchTest` adds the mail shapes, incl. that a
+magic-link mail is never acted on.
+
+**Not verified (`landed_unproven`):** the real page and mail shapes. The observation that closes the diagnosis: the next
+breakout_2 `login_diag d1..dN` parts with `adv`, `changed`, `cands`, `ph`, `mshape`. The observation that closes the
+row: `login_started` -> `login_ok` without operator input.
+
+### 7.19 The dedicated inbox refuses the login: say why, test it in seconds, stop hammering (PHONE-AUTOLOGIN-2, 2026-10-10)
+
+**Reported to this lane by the manager, not re-read here:** every attempt (14:53Z, 15:01Z, 15:19Z, 15:26Z, 15:57Z,
+16:04Z) reached the waiting page and then logged `mail_err=AuthenticationFailedException mails=0 polls=24-28`. The
+operator generated a new Gmail app password twice (~14:58Z, ~15:54Z), states it is the dedicated address and the right
+password, and IMAP is enabled in that Gmail. Taken as fact.
+
+**What the code review found (read, not run on the phone):**
+
+| checked | finding |
+|---|---|
+| stale value in memory | none: `relogin()` reads `INBOX_USER`/`INBOX_PASS` from the store on every attempt |
+| encryption mismatch | not the cause: a value that cannot be decrypted reads as `null` (Store.get catches) and shows "not configured", never an auth failure |
+| wrong key | none: Setup writes and relogin reads the same two keys |
+| mechanism | javamail 1.6 uses AUTHENTICATE PLAIN when Gmail advertises it; XOAUTH2 is off by default. Gmail accepts PLAIN with an app password |
+| **password normalisation** | **Setup removed only the ASCII space** (`replace(" ", "")`). An app password copied from Google's page or a password manager can carry a no-break / narrow space, a zero-width char or a newline in its gaps; any one left in makes a 17-19 char password that Gmail refuses with `Invalid credentials`, however right the 16 letters are. Re-entering it the same way reproduces it. |
+| **hammering** | after a refusal the poller retried the same credential every 10 s for 5 min: 24-28 refused logins per attempt, ~150 in an hour. Gmail throttles an account that does that, and a throttled account refuses even a correct password for a while. |
+| **opacity** | only the exception CLASS was reported, so `Invalid credentials`, `Application-specific password required`, `Please log in via your web browser` and javamail's own `no password specified` all read the same |
+
+**Likely cause (an inference, MEDIUM-LOW confidence):** the normalisation gap, compounded by the hammering. It is the only
+code path that turns a right password into a wrong one; it is NOT proven, because the old build could not say what Gmail
+answered. The `inbox` diag line below settles it: `plen=16 p_other=0` with `Invalid credentials` points away from it
+(then: throttle, or the password/address really do not pair); `plen` 17-19 or `p_other>0` on the OLD stored value
+confirms it.
+
+**What changed (`Creds.kt`, `Mail.kt`, `MainActivity.kt`):**
+- `Creds.pass` removes every whitespace / invisible / control char anywhere; applied at Setup save AND at every read in
+  `Mail.scan`, so a value an older build stored is cleaned without re-entry. `Creds.user` likewise for the address.
+- `Mail.scan` connects with PLAIN, and on a refusal tries the IMAP LOGIN command once (both refused = the credential, not
+  the mechanism); `ssl.enable` and `auth.xoauth2.disable` are explicit.
+- On a refusal the attempt stops polling (one check per attempt, not 24-28) and fails at once with a stated reason.
+- A quiet `login_diag "i1/N inbox err=... mech=... srv=(Gmail's words, scrubbed) ulen= uat= udom= plen= p_upper= p_other="`
+  is posted on the first error and on any refusal. `Creds.scrub` removes the user and password values, any address and
+  any link, and keeps only the server's diag charset. Shapes are counts and booleans, never a value.
+- Setup gains **Test inbox**: one IMAP connect now with what is typed (a blank password = the stored one), the scrubbed
+  result in a dialog and as `login_diag "i1/N inbox_test src=typed|stored ok|FAIL ..."`.
+- Setup save takes effect immediately: the backoff wait is cleared and the running attempt's poller re-reads the store
+  on every poll.
+
+**Tests:** `CredsTest` (synthetic): NBSP / narrow space / zero-width / BOM / newline stripped; the old normalisation
+leaves the NBSP in (19 chars); shapes carry no value; scrub keeps Gmail's words and drops address, password and link.
+
+**Not verified (`landed_unproven`):** that this is the cause. Closing observation: the operator taps **Test inbox** on
+the new build (or the next attempt posts its `inbox` line) and it reads `ok`, then `login_started` -> `login_ok`.
+
 ## 8. Open questions for the operator / manager
 
 | # | question | my lean |

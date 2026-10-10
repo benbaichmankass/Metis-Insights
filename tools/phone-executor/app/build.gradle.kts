@@ -54,4 +54,6 @@ dependencies {
     // IMAP (read-only folder open) for the dedicated Breakout-login inbox.
     implementation("com.sun.mail:android-mail:1.6.7")
     implementation("com.sun.mail:android-activation:1.6.7")
+    // JVM unit tests of the pure login matcher (LoginMatch), run by CI before the APK is uploaded
+    testImplementation("junit:junit:4.13.2")
 }

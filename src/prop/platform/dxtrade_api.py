@@ -253,6 +253,15 @@ class DXtradeApiAdapter(PropPlatformAdapter):
     # and the executor's confirmation checks SL/TP on the FILLED position
     # (``prop_executor.classify_confirmation(atomic_bracket=True)``).
     ATOMIC_BRACKET = True
+    # PROP-MARKETABLE-ENTRY (2026-10-10): an entry LIMIT the market has already
+    # moved through IN THE TRADE'S FAVOUR (long: ask <= limit; short: bid >=
+    # limit) is placed as a MARKET parent of the same IF-THEN group -- same
+    # quantity, same SL/TP children -- instead of waiting for price to come
+    # back. The POST is answered synchronously (200 / 409-100 / reject) and the
+    # filled position is read back with its SL/TP children like any other
+    # entry. Browser and phone executors do NOT set this: a marketable click on
+    # a terminal (2026-10-04 03:40Z) produced no order, and they keep waiting.
+    MARKETABLE_ENTRY_AT_MARKET = True
     transport: Transport = field(default=urllib_transport)
     sleep: Callable[[float], None] = field(default=time.sleep)
     timeout_s: float = 25.0

@@ -1,0 +1,25 @@
+{
+  "id": "BLOCKER-WATCH",
+  "title": "Stale-blocker and stalled-queue detector: blocked rows whose blocker is resolved, research units queued but never dispatched, landed_unproven past due; surfaced to the manager + operator so nothing sits marked blocked",
+  "phase": null,
+  "state": "landed_unproven",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    17385
+  ],
+  "blocked_on": [],
+  "note": "Operator 2026-10-10 (verbatim intent): the manager skill needs a mechanism that checks blocked items the same way soaks alert when done or needing attention; 'if most of the things here aren't actually blocked, then that's a problem that they were still marked as blocked and weren't put into a work queue'. MEASURED 2026-10-10: 7 blocked rows; 4 had resolved or retired blockers (PROP-EVIDENCE-2 on WORK-SYSTEM done; E8 on E5 observed; PROP-TERM/PROP-TRAIL/PROP-ETH superseded or breakout_1 retired), and ML-RESEARCH-W41 claimed 3 units 'running' that had last_dispatched_at null for 2 days. Existing manager_preflight.check_blocked_claims only checks a basis is stated, not whether the blocker still holds. Next lane after PROP-INVALIDATION-REST.",
+  "updated_at": "2026-10-10T13:44:01Z",
+  "updated_by": "session_012ETu1LExLYzCRaycZG8HcE",
+  "observation": {
+    "what": "first daily brief after merge shows the blocker_watch section; first new finding produces exactly one alert",
+    "how_to_check": "curl -sS https://ict-bot.duckdns.org/api/bot/work/brief | grep -c BLOCKER-WATCH -> >=1; attention_watch receipt/digest_log shows one blocker-watch seed line then one line per NEW key only",
+    "due_by": "2026-10-12T00:00Z"
+  },
+  "_seq": 373
+}

@@ -1,0 +1,23 @@
+{
+  "id": "PROP-MANUAL-MSG-SUPPRESS",
+  "title": "Human 'BREAKOUT TRADE SETUP / REPORT BACK' Telegram+push refused at emit_prop_signal for machine-flow prop accounts (velotrade_1 got one 2026-10-10 14:41Z)",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane PROP-MANUAL-MSG-SUPPRESS",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Emitter: breakout_notify.emit_prop_signal (Telegram + prop_signal push). Now returns early via _machine_executed(). Journal row prop_tickets.message kept (prop_executor entry-band check reads it); executors do not consume Telegram. OBSERVATION: next velotrade_1 ticket produces no human trade-setup Telegram. Same class as #17379.",
+  "updated_at": "2026-10-10T15:50:46Z",
+  "updated_by": "session_01EKcW3cyn6ThVwFvhc2zuah",
+  "observation": {
+    "what": "next velotrade_1 ticket produces no human trade-setup Telegram/push; breakout_1 (manual) still gets it",
+    "how_to_check": "GET /api/bot/prop/tickets?account_id=velotrade_1 + journal log line emit_prop_signal: refused for machine-executed account",
+    "due_by": "2026-10-17T18:00Z"
+  },
+  "_seq": 374
+}

@@ -1,0 +1,17 @@
+{
+  "based_on": "20261010T055401556700Z-2f5fd11f.json",
+  "due_when": {
+    "due_date": "2026-10-10",
+    "kind": "date"
+  },
+  "id": "PI-20261007-JOHNSXDJ-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane VELOTRADE-TICKET session_01BbBqjBgks6BVLgjoHnSxdJ, manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-07",
+    "rerun": "grep -n rest_executed_accounts src/prop/prop_invalidation_prompt.py  # empty = still open"
+  },
+  "state": "done",
+  "terminal_reason": "Scan-level exclusion of machine flows (rest/phone/browser) landed in #17007 (PROP-FLOW-SEPARATION) and is in the running trader (git_sha_running 9709fbf3a descends from 2a35bce8). The remaining source-level gap (the two Yes/No emitters) is closed in PR #17379. The origin.rerun grep for rest_executed_accounts stays empty by design: the fix keys on platform.ticket_flows()/MACHINE_FLOWS. Re-ask with: pytest tests/test_prop_flow_separation.py -k 'invalidation_prompter_skips or emitters_refuse'. Follow-through on checklist row PROP-INVALIDATION-REST.",
+  "what": "prop_invalidation_prompt (trader tick) still sends the human 'did you place this?' Yes/No for tickets on REST-executed accounts (velotrade_1) and flips them to invalidated_prompted, pulling them out of the REST executor's intake (status=emitted). The VELOTRADE-TICKET fix (branch fix/velotrade-rest-ticket-expiry) excluded REST accounts from the EXPIRY prompt only. invalidated_prompted does not block a re-ticket, so the cost is a pointless human prompt plus a ticket that never reaches a terminal status. Decide: exclude src.prop.platform.rest_executed_accounts() there too (the executor's entry-band check already refuses price beyond the stop), or keep it as an operator heads-up."
+}

@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-17",
+    "kind": "date"
+  },
+  "id": "PI-20261010-17XH6SAQ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "DASH-PROP-OVERVIEW (operator screenshot 2026-10-10: 'Latest report' 30d old)",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/reports?limit=50' | python3 -c \"import json,sys;r=json.load(sys.stdin)['reports'];print(max(x['generated_at'] for x in r))\" -- still 2026-09-09T17:15Z means nothing has published to comms/reports/index.json since the system-review roll-up was retired 2026-09-21"
+  },
+  "state": "queued",
+  "what": "Overview 'Latest report' card is 31 days old: comms/reports/index.json newest entry is RPT-20260909-171500-audit (44 reports). The producer was the system-review/system-report roll-up (render_system_report.py), retired 2026-09-21 with no replacement, so the card cannot freshen; it is not an API fault (GET /api/bot/reports serves the index faithfully). Decide: (a) point the card at a live artifact (e.g. the daily brief /api/bot/work/brief), or (b) label it 'last report YYYY-MM-DD (roll-up retired)' / hide it. SPA + small API change; no order path."
+}
