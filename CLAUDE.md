@@ -620,6 +620,12 @@ ladder). Each has its own rubric and output template. The `/system-review`
 roll-up that ran all three plus register maintenance is retired — the operator
 called it bloated and its backlog-drive mandate is gone with the backlogs.
 
+**Every `/performance-review` hands off to `/perf-followup`**
+(`.claude/skills/perf-followup/SKILL.md`, operator 2026-10-10): tune the
+underperformers, a wider-context lessons post-mortem, extrapolate the lessons to
+other and new strategies, and portfolio-level research. The manager dispatches
+one `PERF-FOLLOWUP-<week>` lane when the review's PR merges.
+
 ---
 
 ## Repo identity
