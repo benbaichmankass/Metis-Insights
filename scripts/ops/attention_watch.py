@@ -329,6 +329,12 @@ def _retired_accounts() -> set:
         return set()
 
 
+def _drop_retired(probes: dict) -> dict:
+    """Per-account probes (``<kind>_<account>``) minus those of retired accounts."""
+    ret = _retired_accounts()
+    return {k: v for k, v in probes.items() if not any(k.endswith("_" + a) for a in ret)}
+
+
 PROP_BACKOFF_MAX_HOURS = 2   # the red-flag ping fires once; a feed still flagged 2h later re-pages
 
 
@@ -549,11 +555,13 @@ def build(now: datetime | None = None) -> dict:
             "report": probe_report(now),
             # TRAIL-PAUSE-PULSE: prop_trail_paused_<account>, one per executor
             # account with a state dir on this host; see prop_trail_watch.py.
-            **prop_trail_watch.all_probes(now),
+            # a retired account (breakout_1, operator 2026-10-09: "shouldn't be
+            # coming up again") gets no probe at all -- not even "unknown".
+            **_drop_retired(prop_trail_watch.all_probes(now)),
             # PROP-SILENCE-ALERTS: idle-fill (warn 14 d / urgent 21 d) per prop
             # account + breakout_2's phone heartbeat. Each carries `level` and
             # `priority`; see scripts/ops/prop_silence.py.
-            **prop_silence.all_probes(now),
+            **_drop_retired(prop_silence.all_probes(now)),
             "prop_feed": probe_prop_feed(now),
         },
     }

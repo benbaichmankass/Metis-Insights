@@ -22,16 +22,20 @@
   "updated_at": "2026-10-07T18:50:00Z",
   "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
   "last_review": {
-    "report_id": "WR-20261010-0530Z",
-    "reviewed_at": "2026-10-10T05:58:00Z",
+    "report_id": "WR-20261010-1742Z",
+    "reviewed_at": "2026-10-10T17:55:00Z",
     "by": "session_01Uq7MrjPQDRWqbhCjwuMava",
     "counts": {
-      "due": 85,
+      "due": 81,
       "unrouted": 0,
-      "ask_operator_open": 18,
-      "alarms_breached": []
+      "soaks_ready": 23,
+      "soaks_overdue": 2,
+      "soaks_dead": 2,
+      "alarms_breached": [
+        "phone_login_breakout_2"
+      ]
     },
-    "note": "05:53Z review. Report present, generated 05:30Z, no errored sections, digest hourly. No alarms (manager alarm cleared 19:01Z after #17288). 7 items came due at 00:01Z: PI-20261006-KX6ZKFNA-0003 killed (prop trail latch removed by NO-HALT #17254); 4 dispatch_lane items routed to the W41 lane queue (SLV fade prop pricing, prop invalidation prompt on REST accounts, pairs harness routing E37, golden fixtures wall-clock); 2 velotrade_1 observations re-dated to 10-12 (no velotrade_1 ticket yet). DAILY-DD-SWITCH rolled to 2026-10-10 cleanly: 11 of 13 armed accounts read ok with fresh day_start_equity, none tripped; ib_live and now breakout_2 could_not_look (PI-20261009-CJWUMAVA-0001, PI-20261010-CJWUMAVA-0001) -> one lane dispatched for both. Overnight: research receipt unstuck (#17016 closed; PI-20261009-CJWUMAVA-0002), research readout #17327 (2 grader findings PI-20261010-SABSJT3I-0001/0002)."
+    "note": "17:52Z review. Report present (WR-20261010-1742Z), no errored sections, hourly digest 06:01..17:01Z complete. Alarm phone_login_breakout_2 breached (known; operator saved a valid 16-char app password; Gmail auth OK; mail parse fix #17430 in CI). prop_trail_paused_breakout_1 showed unknown for a RETIRED account -> fixed in claude/attn-retired. Soaks: 23 ready + 2 overdue + 2 dead -> lane SOAK-GATE1-W41 dispatched. Due 81 (routed, lane queue). Today shipped: #17345 #17351 #17365 #17379 #17382 #17385 #17392 #17403 (velotrade_1 marketable entry, observed live 15:53Z) #17416 #17417 #17421 #17423; pending #17430 #17431 SPA#221."
   },
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
