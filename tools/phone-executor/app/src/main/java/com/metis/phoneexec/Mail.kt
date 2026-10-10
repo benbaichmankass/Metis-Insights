@@ -13,11 +13,13 @@ import javax.mail.search.FromStringTerm
 
 /**
  * The DEDICATED inbox (a Gmail used only for Breakout; the operator's main Gmail forwards Breakout login
- * mails to it). Opened READ_ONLY over IMAPS; nothing is moved, flagged or deleted. Only the NEWEST message
- * from breakoutprop.com received after [since] is read, and only to find the ONE link whose visible text is
- * exactly the number the login page shows. The body, link and address are never logged or reported.
+ * mails to it). Opened READ_ONLY over IMAPS; nothing is moved, flagged or deleted. The newest (at most
+ * [MAX_SCAN]) messages from breakoutprop.com received after [since] are read, newest first, only to find the
+ * ONE link whose visible text is exactly the number the login page shows. The body, link and address are never logged or reported.
  */
 object Mail {
+    const val MAX_SCAN = 5
+
     suspend fun findLink(user: String, appPassword: String, number: String, since: Date): String? =
         withContext(Dispatchers.IO) {
             val props = Properties().apply {
@@ -33,8 +35,9 @@ object Mail {
                     val msgs = inbox.search(FromStringTerm("breakoutprop.com"))
                         .filter { (it.receivedDate ?: it.sentDate)?.after(since) == true }
                         .sortedByDescending { (it.receivedDate ?: it.sentDate)?.time ?: 0L }
-                    val newest: Message = msgs.firstOrNull() ?: return@withContext null
-                    pick(html(newest) ?: return@withContext null, number)
+                    // newest first, at most MAX_SCAN mails: the first one carrying exactly ONE link whose text is the
+                    // shown number wins (a newer unrelated Breakout mail no longer hides the code mail behind it)
+                    msgs.take(MAX_SCAN).firstNotNullOfOrNull { m: Message -> html(m)?.let { pick(it, number) } }
                 } finally { inbox.close(false) }
             } catch (e: Exception) { null } finally { try { store.close() } catch (_: Exception) {} }
         }

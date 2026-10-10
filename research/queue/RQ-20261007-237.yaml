@@ -74,6 +74,6 @@ related:
 - RQ-20261006-005
 - docs/integrations/breakout-instruments-2026-09-27.md
 - scripts/ops/fetch_backtest_corpus.py
-last_dispatched_at: null
+last_dispatched_at: '2026-10-10T10:52:18+00:00'
 grading:
   auto: true
