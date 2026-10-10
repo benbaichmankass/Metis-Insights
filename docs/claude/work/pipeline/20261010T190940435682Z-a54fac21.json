@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "A venue-side read (or the executor's own record) states whether a position was opened on 2026-10-08 for prop-manual-df6e8938ab89, its protection, and its close; the answer is written on this row.",
+    "kind": "event",
+    "last_checked": "2026-10-10"
+  },
+  "id": "PI-20261010-WQAPZD8B-0003",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-13",
+    "how_to_check": "curl -s https://ict-bot.duckdns.org/api/bot/prop/fills | python3 -c \"import json,sys; [print(x['id'],x['ticket_id'],x['status'],x['qty'],x['entry_price'],x['reason']) for x in json.load(sys.stdin)['fills'] if x['account_id']=='velotrade_1']\"",
+    "what": "A venue-side read (or the executor's own record) states whether a position was opened on 2026-10-08 for prop-manual-df6e8938ab89, its protection, and its close; the answer is written on this row."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "PERF-REVIEW-W41 (session_01LZL3YVtBKGpvYKwqApZd8b), comms/reviews/performance-review-20261010-*.json",
+    "rerun": "curl -s https://ict-bot.duckdns.org/api/bot/prop/fills | python3 -c \"import json,sys; [print(x['id'],x['ticket_id'],x['status'],x['qty'],x['entry_price'],x['reason']) for x in json.load(sys.stdin)['fills'] if x['account_id']=='velotrade_1']\""
+  },
+  "severity": "high",
+  "state": "queued",
+  "tier": "1",
+  "what": "[performance][prop] velotrade_1 executor on 2026-10-08: ticket prop-manual-df6e8938ab89 (ETH short) -> fill row 90 status=skipped reason=unconfirmed_submit WITH qty 0.82 and entry 2471.31, then the executor latched `halted: AUTO-REVERT partial_no_sl_tp` (15:28Z) and ticket prop-manual-2ac3f6d3f6ff was skipped. The latch has since been removed (operator 2026-10-09) but nobody has recorded whether the 0.82 ETH short ever existed on the venue, was flattened, or was left unprotected. velotrade_1 also has no account-status record from the review's reads."
+}
