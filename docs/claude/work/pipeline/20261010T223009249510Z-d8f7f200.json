@@ -5,6 +5,11 @@
   },
   "id": "PI-20261010-ERFFUW41-0003",
   "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-17",
+    "how_to_check": "curl https://ict-bot.duckdns.org/api/bot/prop/fills?limit=12 and read status of both ticket_ids; then python3 scripts/prop/trade_quality_review.py",
+    "what": "prop-manual-b640ea26a705 (tradeify_1) and prop-manual-6fbebc711fa6 (velotrade_1) have both closed"
+  },
   "origin": {
     "kind": "review",
     "ref": "lane PERF-FOLLOWUP-2026W41 L9; GET /api/bot/prop/fills?limit=12 on 2026-10-10",
