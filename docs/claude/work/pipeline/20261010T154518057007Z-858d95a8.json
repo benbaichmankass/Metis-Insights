@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-17",
+    "kind": "date"
+  },
+  "id": "PI-20261010-JD1HZX7C-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "ML-RESEARCH-W41 / RQ-20261008-902",
+    "rerun": "vm-diag audit_query?event=regime_ml_vol_shadow&symbol=BTCUSDT&limit=60 and count rows with ml_source starting ml-advisory; then ml_vol_label_replay.py verify on the trainer"
+  },
+  "state": "queued",
+  "what": "Label-fidelity data task for RQ-20261008-902/903 (their records are provisional without it): run scripts/research/ml_vol_label_replay.py verify for BTCUSDT and SOLUSDT heads. Blocked on overlap: on 2026-10-10 the live regime_ml_vol_shadow audit (audit_query?event=regime_ml_vol_shadow) had ZERO BTC ML-labelled rows in its newest 60 and only 4 SOL rows, all newer than the v002 datasets (end 10-08/09). Do: rebuild/replay labels after live rows accrue (or confirm why BTC legs emit no ml-advisory rows), pull rows with symbol filter, run verify --min-overlap, then restamp the two records' fidelity."
+}

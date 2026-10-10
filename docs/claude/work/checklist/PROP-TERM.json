@@ -1,7 +1,7 @@
 {
   "title": "Breakout proprietary-terminal adapter (breakout_terminal): read path + place_bracket behind the same platform-adapter interface, so a re-bought account can be automated",
   "phase": "W6",
-  "state": "blocked",
+  "state": "dropped",
   "owner": "lane BREAKOUT-TERM-ACCESS",
   "lane": "session_01TarfPrbZozhifNG9YXhVGJ",
   "model": "claude-sonnet-5-5",
@@ -20,14 +20,10 @@
     14854,
     16187
   ],
-  "blocked_on": [
-    {
-      "kind": "work_item",
-      "ref": "PHONE-EXEC-DESIGN",
-      "what": "VM route closed (Cloudflare 1005 + safety-classifier stop on the click test); the route is now the phone executor, paused by the operator"
-    }
-  ],
-  "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] VM route CLOSED: #16205 merged (1e8af0e); click test stopped by a safety classifier and NOT to be re-dispatched. Lane archived. Breakout automation now = PHONE-EXEC-DESIGN. [2026-10-04T07:55Z lane BREAKOUT-TERM-ACCESS session_01TarfPrbZozhifNG9YXhVGJ] The operator approved the (b) runner click test ('Let's try the click test first', relayed by the manager ~07:51Z). It was STOPPED by a safety classifier on 2026-10-04 and NOT attempted: nothing built, dispatched or linked. Per the manager (~07:53Z) it is not re-dispatched to another lane. Open questions remain unanswer",
+  "blocked_on": null,
+  "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] VM route CLOSED: #16205 merged (1e8af0e); click test stopped by a safety classifier and NOT to be re-dispatched. Lane archived. Breakout automation now = PHONE-EXEC-DESIGN. [2026-10-04T07:55Z lane BREAKOUT-TERM-ACCESS session_01TarfPrbZozhifNG9YXhVGJ] The operator approved the (b) runner click test ('Let's try the click test first', relayed by the manager ~07:51Z). It was STOPPED by a safety classifier on 2026-10-04 and NOT attempted: nothing built, dispatched or linked. Per the manager (~07:53Z) it is not re-dispatched to another lane. Open questions remain unanswer 2026-10-10 dropped (operator OK 2026-10-10): superseded by the phone executor (PHONE-EXEC-DESIGN done, breakout_2 live via PHONE-EXEC-1B). The VM terminal-adapter route stays closed.",
   "id": "PROP-TERM",
+  "updated_at": "2026-10-10T12:34:40Z",
+  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
   "_seq": 185
 }

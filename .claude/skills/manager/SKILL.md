@@ -3,7 +3,7 @@ name: manager
 description: The manager-session contract. Read this at the start of any session that spawns or supervises other sessions. Defines the one job, the one register, spawn rules, the model table, the budget, and the daily-sync brief.
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-10-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-10-10` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # The manager contract
 
@@ -769,7 +769,19 @@ incident.
      else.
    - So is an empty `digestLog` across 12h, because it means the carrier is
      down.
-2. **Work every item: dispatch, close, or decide.**
+2. **Run `python3 scripts/ops/blocker_watch.py` and work its findings with the rest.**
+   Every finding is unblocked, re-queued, dispatched to a lane, or dropped with
+   a stated reason in that same turn — a stale block is never left standing.
+   It checks the claims the register makes about itself: a `blocked` row whose
+   blocker is finished (`STALE_BLOCK`), a `queued` research unit never
+   dispatched or not for 48 h (`NOT_RUNNING`, `NEEDS_LANE` when nothing will
+   ever fire it), an operator wait past 7 days (`OPERATOR_WAIT`), a
+   `landed_unproven` row past its `due_by` (`UNPROVEN_OVERDUE`). Operator,
+   2026-10-10: *"if most of the things here aren't actually blocked, then
+   that's a problem that they were still marked as blocked and weren't put into
+   a work queue."* New findings also page once each (`attention_watch`) and
+   sit under §0 of the brief.
+3. **Work every item: dispatch, close, or decide.**
    - Dispatch: route it to a lane. Set `state: routed` and `routed_to: <session>`
      on the pipeline item, and give a build a checklist row.
    - Close: `done` or `killed`, with a `terminal_reason`.
@@ -777,9 +789,9 @@ incident.
 
    A `routed` item that is still due means its lane has not delivered. Check
    the lane, then re-dispatch or kill.
-3. **Every silence alarm gets a fix lane the same day.** Anything due at a known
+4. **Every silence alarm gets a fix lane the same day.** Anything due at a known
    time gets a `send_later` wake.
-4. **Record the review.** Set the top-level `last_review` =
+5. **Record the review.** Set the top-level `last_review` =
    `{report_id, reviewed_at, by, counts: {dispatched, closed, decided, carried}}`
    on the checklist (`checklist.py header last_review '<json>'` after the cutover), then push. Per-item dispositions live on the
    pipeline items, so the next review sees what is new.

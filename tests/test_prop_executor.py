@@ -4907,3 +4907,122 @@ def test_cancel_reports_when_the_click_produced_nothing(tpage):
     p = tpage(html=_orders_page(["18912998"], controls=_MODIFY_BTN + inert))
     r = DXtradeAdapter(timeout_ms=3_000).cancel_order(p, WorkingOrder(symbol="ETHUSD", order_id="18912998"), arm=True)
     assert r["clicked"] is True and "nothing new appeared" in r["why"] and "row still present=True" in r["why"], r
+
+
+# ── PROP-MARKETABLE-ENTRY (2026-10-10): a REST executor takes a favourably
+# marketable entry at market, same SL/TP/size; browser/phone keep waiting ──
+# MEASURED 2026-10-10 14:33Z (velotrade_1 executor journal): ETH long limit
+# 2506.92, ask 2504.16 (in band 2503.67..2510.17) -> presubmit_marketable, not
+# placed; 14:38Z ask 2511.48 left the band -> ended NOT PLACED. Trade missed.
+
+class RestAdapter(SpecAdapter):
+    MARKETABLE_ENTRY_AT_MARKET = True
+    ATOMIC_BRACKET = False
+
+
+def test_only_the_rest_adapter_takes_a_marketable_entry_at_market():
+    from src.prop.platform.dxtrade_api import DXtradeApiAdapter
+    from src.prop.platform import dxtrade, breakout_terminal
+    assert DXtradeApiAdapter.MARKETABLE_ENTRY_AT_MARKET is True
+    browser = [c for m in (dxtrade, breakout_terminal) for c in vars(m).values()
+               if isinstance(c, type) and c.__module__ == m.__name__ and hasattr(c, "place_bracket")]
+    assert browser and not any(getattr(c, "MARKETABLE_ENTRY_AT_MARKET", False) for c in browser)
+
+
+@pytest.mark.parametrize("direction,sl,tp,quote,fill", [
+    ("long", 118.0, 126.0, {"bid": 119.70, "ask": 119.80}, 119.80),    # ask below the long limit 120.0
+    ("long", 118.0, 126.0, {"bid": 119.99, "ask": 120.00}, 120.00),    # ask == limit
+    ("short", 122.0, 114.0, {"bid": 120.20, "ask": 120.30}, 120.20),   # bid above the short limit 120.0
+])
+def test_rest_marketable_entry_is_placed_at_market_with_the_same_bracket(env, direction, sl, tp, quote, fill):
+    ledger, _ = env
+    pos = _p(side=direction, entry_price=fill, stop_loss=sl, take_profit=tp)
+    ad = RestAdapter(quote=quote, after_submit=([pos], []))
+    api = FakeApi([ticket(direction=direction, sl=sl, tp=tp)])
+    res = _rcycle(ad, api, env, 0)
+    assert len(_places(ad)) == 1
+    s = ad.specs[0]
+    limit_spec = pe.bracket_from_ticket(ticket(direction=direction, sl=sl, tp=tp), cfg())[0]
+    assert s.order_type == "market" and s.limit_price is None
+    assert (s.quantity, s.stop_loss, s.take_profit) == (limit_spec.quantity, sl, tp)   # size NOT widened
+    row = ledger.latest()["prop-manual-aaa"]
+    assert row["state"] == "open" and row["intended_limit"] == 120.0 and row["fill_price"] == fill
+    assert row["entry_mode"] == "marketable_at_market"
+    opened = [p for p in api.posts if p.get("status") == "open"]
+    assert opened and opened[0]["entry_price"] == fill
+    assert not any("NOT PLACED" in a or "WORSE" in a for a in res.alerts)
+    fills = [a for a in res.actions if a["what"] == "marketable_entry_fill"]
+    assert fills and fills[0]["worse_than_limit"] is False
+
+
+def test_rest_market_fill_worse_than_the_limit_is_alerted_once(env):
+    ledger, _ = env
+    ad = RestAdapter(quote={"bid": 119.70, "ask": 119.80}, after_submit=([_p(entry_price=120.05)], []))
+    api = FakeApi([ticket()])
+    res = _rcycle(ad, api, env, 0)
+    assert [a for a in res.alerts if "WORSE than the limit" in a]
+    res = _rcycle(ad, api, env, 1)
+    assert not [a for a in res.alerts if "WORSE" in a]
+
+
+@pytest.mark.parametrize("message,quote,why", [
+    ("  Entry    : 120.0   (only if live price is within 119.9 … 120.5)",
+     {"bid": 119.7, "ask": 119.8}, "outside the ticket's entry band"),
+    ("  Entry    : 120.0   (only if live price is within 117.0 … 120.5)",
+     {"bid": 117.9, "ask": 118.0}, "not strictly between SL"),           # band wider than the SL
+    ("  Entry    : 120.0   (only if live price is within 119.5 … 120.5)",
+     {"bid": 120.1, "ask": 120.2}, "would rest"),
+    ("  Entry    : 120.0   (only if live price is within 119.5 … 120.5)",
+     {"bid": None, "ask": None}, "could not look"),
+    ("no band here", {"bid": 119.7, "ask": 119.8}, "entry band unreadable"),
+])
+def test_marketable_entry_spec_fails_closed(message, quote, why):
+    t = ticket(message=message)
+    spec = pe.bracket_from_ticket(t, cfg())[0]
+    got, msg = pe._marketable_entry_spec(RestAdapter(quote=quote), None, spec, t)
+    assert got is None and why in msg
+
+
+def test_rest_marketable_entry_refused_by_the_fresh_quote_keeps_waiting_and_alerts_once(env):
+    ledger, _ = env
+
+    class Moving(RestAdapter):
+        def read_quote(self, page, venue):
+            self.n = getattr(self, "n", 0) + 1
+            # band check + presubmit see 119.8 (marketable, in band); the
+            # conversion's fresh read sees the price already beyond the band
+            return {"bid": 119.7, "ask": 119.8} if self.n % 3 else {"bid": 119.3, "ask": 119.4}
+    ad = Moving()
+    api = FakeApi([ticket()])
+    res = _rcycle(ad, api, env, 0)
+    assert _places(ad) == [] and ledger.state("prop-manual-aaa") == pe.AWAIT_REST_STATE
+    assert [a for a in res.alerts if "not taken at market" in a]
+
+
+def test_rest_awaiting_row_from_before_the_fix_is_placed_at_market(env):
+    # a ticket left AWAITING by the old guard (or a browser cycle) is taken
+    # at market on the next REST cycle while still in band
+    ledger, _ = env
+    api = FakeApi([ticket()])
+    _rcycle(SpecAdapter(quote={"bid": 119.7, "ask": 119.8}), api, env, 0)
+    assert ledger.state("prop-manual-aaa") == pe.AWAIT_REST_STATE
+    ad = RestAdapter(quote={"bid": 119.7, "ask": 119.8}, after_submit=([_p(entry_price=119.8)], []))
+    res = _rcycle(ad, api, env, 1)
+    assert [a["what"] for a in res.actions if a["what"] == "marketable_entry_retry"]
+    assert len(_places(ad)) == 1 and ad.specs[0].order_type == "market"
+    assert ledger.state("prop-manual-aaa") == "open"
+
+
+def test_browser_marketable_entry_keeps_waiting_with_one_alert_per_state_change(env):
+    # the 03:40Z regression stays for browser executors: never clicked, and
+    # three waiting cycles raise ONE start alert, then ONE end alert
+    ledger, _ = env
+    ad = SpecAdapter(quote={"bid": 119.7, "ask": 119.8})
+    api = FakeApi([ticket()])
+    alerts = [_rcycle(ad, api, env, k).alerts for k in range(3)]
+    assert _places(ad) == []
+    assert sum("pre-submit guard (marketable)" in a for al in alerts for a in al) == 1
+    ad.quote = {"bid": 121.0, "ask": 121.1}                     # left the band
+    alerts.append(_rcycle(ad, api, env, 3).alerts)
+    assert len(_end_alerts(alerts)) == 1 and _places(ad) == []
+    assert len(_end_alerts([_rcycle(ad, api, env, 4).alerts])) == 0

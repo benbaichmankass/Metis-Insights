@@ -1,0 +1,11 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "why": "Prop order path (src/prop/prop_executor.py + src/prop/platform/dxtrade_api.py). REST executor (velotrade_1) only: an entry LIMIT the market has already moved through in the trade's favour is placed as the MARKET parent of the same IF-THEN group (same size, same SL/TP), after a fresh quote is checked against the entry band and against SL/TP; the fill price is journaled. Browser and phone executors are unchanged (the 2026-10-04 03:40Z guard and its regression test stay).",
+  "recorded_decision": {
+    "kind": "operator_decision",
+    "ref": "PROP-LIMIT-GUARD PROP-MARKETABLE-ENTRY"
+  },
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Live prop order-path change; operator directive 2026-10-10 ('This also needs to be fixed'), held for the manager to merge and deploy."
+}

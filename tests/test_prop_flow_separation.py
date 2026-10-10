@@ -223,24 +223,54 @@ def _ticket_obj():
     return build_ticket(sig, TicketConfig(account_size_usd=5000.0, risk_pct=1.0))
 
 
-@pytest.mark.parametrize("account,has_keyboard", [
+@pytest.mark.parametrize("account,manual", [
     ("breakout_1", True), ("velotrade_1", False), ("breakout_2", False), ("tradeify_1", False)])
-def test_ticket_keyboard_only_on_manual_accounts(
-        env: Path, monkeypatch: pytest.MonkeyPatch, account: str, has_keyboard: bool) -> None:
+def test_trade_setup_message_only_on_manual_accounts(
+        env: Path, monkeypatch: pytest.MonkeyPatch, account: str, manual: bool) -> None:
+    """PROP-MANUAL-MSG-SUPPRESS: the 'BREAKOUT TRADE SETUP … REPORT BACK' message
+    (Telegram and prop_signal push) is refused at the emitter for a machine-flow
+    account; the manual account keeps it, with its Yes/No keyboard."""
+    import src.runtime.mobile_push as mp
     from src.prop import breakout_notify
 
-    captured = {}
-
-    def _send(text, **kw):
-        captured["reply_markup"] = kw.get("reply_markup")
-        captured["text"] = text
-        return True
-
-    monkeypatch.setattr("src.runtime.notify.send_telegram_direct", _send)
-    out = breakout_notify.emit_prop_signal(_ticket_obj(), push=False, account_id=account,
+    sent, pushed = [], []
+    monkeypatch.setattr("src.runtime.notify.send_telegram_direct",
+                        lambda text, **kw: sent.append((text, kw.get("reply_markup"))) or True)
+    monkeypatch.setattr(mp, "publish_event", lambda kind, f: pushed.append(f))
+    out = breakout_notify.emit_prop_signal(_ticket_obj(), account_id=account,
                                            ticket_id="prop-manual-abc")
-    assert out["telegram"] is True and captured["text"]       # still notified
-    assert (captured["reply_markup"] is not None) is has_keyboard
+    if manual:
+        assert out == {"push": True, "telegram": True}
+        assert "REPORT BACK" in sent[0][0] and sent[0][1] is not None
+        assert len(pushed) == 1
+    else:
+        assert out == {"push": False, "telegram": False}
+        assert sent == [] and pushed == []
+
+
+def test_unreadable_platform_file_keeps_the_manual_message(
+        env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import src.prop.platform as plat
+    from src.prop import breakout_notify
+
+    monkeypatch.setattr(plat, "PLATFORMS_PATH", env / "missing.yaml")
+    sent = []
+    monkeypatch.setattr("src.runtime.notify.send_telegram_direct",
+                        lambda text, **kw: sent.append(text) or True)
+    out = breakout_notify.emit_prop_signal(_ticket_obj(), push=False, account_id="velotrade_1",
+                                           ticket_id="prop-manual-abc")
+    assert out["telegram"] is True and len(sent) == 1
+
+
+def test_a_refused_machine_ticket_still_journals_its_body(
+        env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The rendered body stays in prop_tickets.message (prop_executor's entry-band
+    check reads it); only the human send is gone."""
+    from src.prop.breakout_notify import ticket_to_fields
+
+    text = ticket_to_fields(_ticket_obj(), account_id="velotrade_1",
+                            ticket_id="prop-manual-abc")["text"]
+    assert "BREAKOUT TRADE SETUP" in text
 
 
 @pytest.mark.parametrize("account", ["velotrade_1", "breakout_2", "tradeify_1"])
@@ -353,3 +383,30 @@ def test_the_expiry_notice_has_one_late_fill_button(
     assert "NOT placed" in captured["text"]
     assert [b["callback_data"] for b in captured["kb"]["inline_keyboard"][0]] == \
         ["propexp:y:prop-manual-1"]
+
+
+@pytest.mark.parametrize("account,expect_sent", [
+    ("velotrade_1", False), ("breakout_2", False), ("tradeify_1", False),
+    ("breakout_1", True)])
+@pytest.mark.parametrize("which", ["invalidation", "expiry"])
+def test_yes_no_emitters_refuse_machine_accounts(
+        env: Path, monkeypatch: pytest.MonkeyPatch, account: str,
+        expect_sent: bool, which: str) -> None:
+    """PI-20261007-JOHNSXDJ-0002: the 'did you place this?' Yes/No is refused at
+    the emitter itself for a machine-flow account, so no caller (the tick
+    scans, send_test_prompt, a future path) can put it in front of a human."""
+    import src.runtime.notify as notify
+    from src.prop import breakout_notify as bn
+
+    sent = []
+    monkeypatch.setattr(notify, "send_telegram_direct",
+                        lambda *a, **k: sent.append(k.get("reply_markup")) or True)
+    t = {"ticket_id": f"prop-emit-{account}", "account_id": account,
+         "symbol": "ETHUSDT", "direction": "short", "entry": 2700.0,
+         "sl": 2750.0, "tp": 2600.0, "qty": 0.1}
+    if which == "invalidation":
+        ok = bn.emit_prop_invalidation_prompt(t, 2800.0, "sl")
+    else:
+        ok = bn.emit_prop_expiry_prompt(t)
+    assert ok is expect_sent
+    assert len(sent) == (1 if expect_sent else 0)

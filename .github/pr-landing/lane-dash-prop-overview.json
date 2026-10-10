@@ -1,0 +1,8 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane dispatch instruction: the manager merges. New read-only endpoint GET /api/bot/prop/overview (src/web/api/routers/prop.py) over the existing prop journal; no order path, no write, no config.",
+  "recorded_decision": {"kind": "operator_decision", "ref": "DASH-PROP-OVERVIEW"},
+  "why": "Read path (new GET route + pure aggregation module + tests + doc rows). Tier-1 if admitted by path; held for the manager rather than self-landing because the SPA PR must deploy with it."
+}
