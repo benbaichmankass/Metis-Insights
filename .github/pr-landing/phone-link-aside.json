@@ -1,0 +1,8 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "phone executor APK (tools/phone-executor); manager merges under the operator's PHONE-AUTOLOGIN directive (breakout_2 must log in by itself)",
+  "why": "Login: open the email's matching link in a separate throwaway WebView (shared cookie store) and keep the Breakout waiting page, which completes the number check; loading the link into the waiting page discarded it (18:37Z, 18:54Z ended on Sign in). Login only; no order path.",
+  "recorded_decision": {"kind": "operator_decision", "ref": "PHONE-AUTOLOGIN PHONE-AUTOLOGIN-2"}
+}
