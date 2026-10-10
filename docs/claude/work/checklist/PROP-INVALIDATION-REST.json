@@ -1,0 +1,20 @@
+{
+  "id": "PROP-INVALIDATION-REST",
+  "title": "Operator Yes/No 'did you place this?' prompts only for manual-bridge prop accounts",
+  "phase": "build",
+  "state": "landed_unproven",
+  "owner": "lane",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    17379
+  ],
+  "blocked_on": [],
+  "note": "PI-20261007-JOHNSXDJ-0002. Scan-level exclusion already live via #17007 (running sha 9709fbf3a includes it). PR #17379 adds the guard at the source: emit_prop_expiry_prompt and emit_prop_invalidation_prompt refuse rest/phone/browser accounts (velotrade_1, breakout_2, tradeify_1); only breakout_1 (manual) can be prompted. CLOSING OBSERVATION: after #17379 is merged and deployed (git_sha_running descends from it), there are 0 'refused for machine-executed' lines AND 0 'prop_invalidation_prompt: warned' lines for a machine account in ict-trader-live journalctl over a window where a machine-account ticket existed. Not measured this session: prop_tickets is not on the diag allowlist, and the journal relay only covers about 11 minutes.",
+  "updated_at": "2026-10-10T12:37:05Z",
+  "updated_by": "session_01EaTbFfmW8ojDGRZkDEBJ3L",
+  "_seq": 373
+}
