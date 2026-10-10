@@ -13,9 +13,9 @@
     17365
   ],
   "blocked_on": [],
-  "note": "Operator 2026-10-10: login cannot depend on manual input. PR #17365 (draft, hold, manager merges).",
-  "updated_at": "2026-10-10T08:49:44Z",
-  "updated_by": "session_012oBVDq3bkBnB2BvpJJdJAH",
+  "note": "Operator 2026-10-10: login cannot depend on manual input. PR #17365 (draft, hold, manager merges). 2026-10-10 09:35Z manager: merged 9709fbf3, APK artifact 11665937340 sent to operator. Pending: operator installs; observe login_started -> login_ok and fresh account_status on breakout_2.",
+  "updated_at": "2026-10-10T09:34:26Z",
+  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
   "observation": {
     "due_by": "2026-10-13",
     "how_to_check": "curl -s 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_2' | python3 -c \"import json,sys;d=json.load(sys.stdin);print(d['status_age_hours'],[e['kind'] for e in d.get('phone_events') or []][-10:],(d['phone_heartbeat'] or {}).get('state',{}).get('last'))\"",
