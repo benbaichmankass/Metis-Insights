@@ -372,5 +372,74 @@ document.getElementById('f').onsubmit=function(e){e.preventDefault();window.__su
   eq(await lp.evaluate("__ex.loginPick('47')"), "ambiguous", "two controls with the same number: nothing tapped");
   await lg("/box");
   eq(await lp.evaluate("__ex.loginChoices().btn"), [], "one clickable box holding all three numbers is not a lineup control");
+
+  // PHONE-AUTOLOGIN-3 (live 2026-10-10 13:52Z/13:56Z: page_n=0 for 90 s on portal.breakoutprop.com). One synthetic
+  // page per hypothesis; each must now be READ (or, for (c), described) instead of reading as zero.
+  const lp3 = await b.newPage();
+  await lp3.route("https://portal.breakoutprop.com/**", (route) => route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body:
+    "<!doctype html><html><body>" + ({
+      // (b) numbers with an icon child, split digit spans, zero-width characters
+      "/icons": "<p>Select the matching number</p>" +
+        "<button onclick='window.__picked=\"a\"'>47<svg width=8 height=8></svg></button>" +
+        "<button onclick='window.__picked=\"b\"'><span>1</span><span>2</span></button>" +
+        "<button onclick='window.__picked=\"c\"'>​83​</button>",
+      // (b) radios whose number is only in value / aria-label, with a separate text label
+      "/radios": "<p>Choose the number from your email</p>" +
+        "<label><input type=radio name=n value=47 onclick='window.__picked=\"a\"'><span>47</span></label>" +
+        "<label><input type=radio name=n value=12 onclick='window.__picked=\"b\"'><span>12</span></label>" +
+        "<label><input type=radio name=n value=83 onclick='window.__picked=\"c\"'><span>83</span></label>",
+      "/aria": "<p>select</p><div role=button aria-label=47 style='width:20px;height:20px' onclick='window.__picked=\"a\"'></div>" +
+        "<div role=button aria-label=12 style='width:20px;height:20px' onclick='window.__picked=\"b\"'></div>" +
+        "<div role=button aria-label=83 style='width:20px;height:20px' onclick='window.__picked=\"c\"'></div>",
+      // (b) a shadow root and a same-origin iframe
+      "/shadow": "<p>Select the number</p><x-pick id=h></x-pick><script>var r=document.getElementById('h').attachShadow({mode:'open'});" +
+        "r.innerHTML='<button onclick=\"window.__picked=1\">47</button><button onclick=\"window.__picked=2\">12</button><button onclick=\"window.__picked=3\">83</button>';</script>",
+      "/frame": "<p>Select the number</p><iframe src='/inner' style='width:300px;height:200px'></iframe>",
+      "/inner": "<button onclick='parent.__picked=\"f\"'>47</button><button onclick='parent.__picked=\"g\"'>12</button><button>83</button>",
+      // (c) the page only says "check your email": nothing numeric to read, the structure must say so
+      "/check": "<h1>Check your email</h1><p>We sent a sign-in link to b***@example.com. It expires in 15 minutes.</p>" +
+        "<a href='https://portal.breakoutprop.com/help/42'>Need help?</a><button>Resend email</button>",
+      // (a) an email form whose FIRST matching button is a social login; the real submit is in the form
+      "/email": "<button onclick='window.__social=1'>Continue with Google</button><form id=f onsubmit='event.preventDefault()'>" +
+        "<input type=email><button type=submit onclick='window.__sent=1'>Continue</button></form>",
+      // (a) a form with NO button: only Enter submits it
+      "/enter": "<form id=f onsubmit='event.preventDefault();window.__sent=1'><input type=email></form>",
+    }[new URL(route.request().url()).pathname] || "") + "</body></html>" }));
+  const lg3 = async (path) => { await lp3.goto("https://portal.breakoutprop.com" + path); await lp3.waitForTimeout(150); await lp3.addScriptTag({ content: src }); };
+  for (const [path, want, pick] of [["/icons", ["12", "47", "83"], "b"], ["/radios", ["12", "47", "83"], "b"], ["/aria", ["12", "47", "83"], "b"],
+    ["/shadow", ["12", "47", "83"], 2]]) {
+    await lg3(path);
+    ch = await lp3.evaluate("__ex.loginChoices()");
+    eq(ch.btn.sort(), want, `${path}: three tappable choices read`);
+    eq(await lp3.evaluate("__ex.loginPick('12')"), "clicked", `${path}: the one matching choice tapped`);
+    eq(await lp3.evaluate("window.__picked"), pick, `${path}: exactly that control`);
+  }
+  await lg3("/frame");
+  eq((await lp3.evaluate("__ex.loginChoices()")).btn.sort(), ["12", "47", "83"], "/frame: choices read inside a same-origin iframe");
+  eq(await lp3.evaluate("__ex.loginPick('47')"), "clicked", "/frame: tapped inside the iframe");
+  eq(await lp3.evaluate("window.__picked"), "f", "/frame: exactly that control");
+  let pr = await lp3.evaluate("__ex.loginProbe()");
+  eq([pr.frames, pr.frames_xo], [1, 0], "/frame: probe counts one readable iframe");
+  await lg3("/check");
+  eq((await lp3.evaluate("__ex.loginChoices()")).n, 0, "/check: nothing numeric on a check-your-email page");
+  pr = await lp3.evaluate("__ex.loginProbe()");
+  eq([pr.phrases.includes("check_email"), pr.phrases.includes("we_sent"), pr.cands], [true, true, 0], "/check: probe names the shape");
+  eq(/\d|@|example|http/.test(JSON.stringify(pr.texts)), false, "/check: probe texts carry no digit, email or link");
+  eq(pr.texts.includes("Check your email"), true, "/check: heading text kept (scrubbed)");
+  eq(pr.numtok > 0 && typeof pr.sig === "string", true, "/check: numeric tokens COUNTED, sig present");
+  await lg3("/email");
+  const sig0 = (await lp3.evaluate("__ex.loginProbe()")).sig;
+  eq(await lp3.evaluate("__ex.loginEmail('a@b.co')"), "clicked", "/email: submitted");
+  eq(await lp3.evaluate("[window.__social || 0, window.__sent || 0]"), [0, 1], "/email: the form's Continue, never the social button");
+  eq((await lp3.evaluate("__ex.loginSubmitInfo()")).where, "form", "/email: submit info says form");
+  await lp3.evaluate("document.body.insertAdjacentHTML('beforeend', '<p>Check your email</p>')");
+  eq((await lp3.evaluate("__ex.loginProbe()")).sig !== sig0, true, "/email: sig changes when the page advances");
+  await lg3("/enter");
+  eq(await lp3.evaluate("__ex.loginEmail('a@b.co')"), "submitted", "/enter: no button -> form submitted");
+  eq(await lp3.evaluate("__ex.loginEnter()"), "enter+submit", "/enter: Enter path available");
+  eq(await lp3.evaluate("window.__sent"), 1, "/enter: form submitted");
+  // regression: the original lineup still reads exactly as before under the broadened reader
+  await lg("/lineup");
+  eq((await lp.evaluate("__ex.loginChoices()")).n, 3, "lineup: still exactly three candidates");
   await b.close(); console.log("exec_check: all passed");
 })().catch((e) => { console.error(e); process.exit(1); });

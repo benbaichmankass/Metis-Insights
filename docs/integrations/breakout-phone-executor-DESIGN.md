@@ -885,6 +885,48 @@ the two WebViews on this device. The observation that closes it: breakout_2 `pho
 `login_ok` without operator input and a fresh `account_status`. If the engine reports `bg_last=no_answer` repeatedly,
 the next step is moving the whole loop into the service (pipeline item filed with this PR).
 
+### 7.18 Zero numbers after the email click: diagnose, broaden, verify the submit (PHONE-AUTOLOGIN-3, 2026-10-10)
+
+**MEASURED (live `/api/bot/prop/status?account_id=breakout_2` `phone_events`, read by this lane).** The PHONE-AUTOLOGIN-2
+build, installed ~13:50Z, ran in the background engine (`bg=overlay`). Attempt 1: `login_started` 13:50:53Z ->
+`login_diag "eng=overlay email=clicked page_n=0 page_top=0 page_btn=0 step=page host=portal.breakoutprop.com"` 13:52:24Z
+-> `login_retry "no number or lineup on the waiting page within 90 s"`. Attempt 2 (13:54:31Z -> 13:56:03Z) the same. So
+`loginEmail` reported a click, and then for 90 s the page had **zero** visible leaf elements whose whole text was a 1-3
+digit number. The mail step was never reached (it was gated on the page), so nothing is known about the mail either.
+
+**The cause is NOT established.** Three hypotheses, none ruled out by that diag line:
+
+| | hypothesis | what the old build could not see | what this build does |
+|---|---|---|---|
+| a | the click did not submit (wrong control: the old code clicked the FIRST page button matching `continue/next/...`, which on a sign-in page can be "Continue with Google"; or the form needs Enter / a second step) | whether the page changed at all | looks for the continue control in the email field's own form first, never a social/passkey button; then **verifies** the page moved within 12 s (email field gone, code page, or a text-signature change), else presses Enter and waits again. Diag: `sub_where` (form/page/none), `sub_btns`, `sub_label` (scrubbed), `enter`, `adv`, `changed` |
+| b | the numbers are there but the reader missed them | only `div/span/...` leaves with NO child element, raw text | a candidate is the innermost element whose text with all whitespace and zero-width characters removed is a 1-3 digit number (icon children and split digit spans no longer hide it), or a radio/button/option whose `aria-label`/`value` is one; searched in open shadow roots and same-origin iframes; nested candidates resolve to the control (a row of choices) or the whole number (split digits) |
+| c | the page only says "check your email"; the choices are in the mail | what the mail carried | the inbox is polled **in parallel** from the submit on; the page wait stretches to 150 s while no mail has arrived; the diag reports `mails`, `mail_first_s`, `mshape` (`none / numbered_links / numbers / one_login_link / links / text`) and per-shape counts of the newest mail. A `one_login_link` mail is **reported, not opened**: the LINK rule still needs the page's single number |
+
+My lean, stated as an inference: **(c) or (a) are likelier than (b)**. The only flow ever observed (§ 7.9, 2026-10-05)
+was the operator tapping "the number link in Breakout's email" with the waiting page as the other half, and a portal
+sign-in page commonly carries a social-login button that the old selector could pick first. (b) would require all three
+numbers to be hidden from a leaf-text read at once, which is possible (icon children, split digits) but less common.
+The next attempt's diag decides it; this build fixes (a) and (b) where they apply and describes (c).
+
+**The structure snapshot (`exec.js::loginProbe`, posted on every attempt).** Tag histogram (top 15), open shadow roots,
+iframes and cross-origin (unreadable) iframes, visible input types, which phrases are present (check_email, we_sent,
+select, choose, verify, number, code, link, tap, expired, error, social), the COUNT of numeric tokens in the readable
+text (document + shadow roots + same-origin iframes), the number of candidates the reader found, and up to 20
+button / heading / label / alert texts of at most 40 chars with **every digit replaced by `N`** and emails / links
+replaced by `EML` / `URL`. Never a value. Because the server keeps 160 chars of `[A-Za-z0-9 _.:/()=+-]` per event
+(`src/prop/phone_executor.py::record_event`), the diag is posted as up to 7 numbered `login_diag` parts (`d1/N ...`),
+core line first; no server change was needed.
+
+**Tests (synthetic, not Breakout's page):** `tools/phone-executor/test/exec_check.js` adds one page per hypothesis (icon
+children / split digits / zero-width; radios by value; `aria-label`-only controls; a shadow root; a same-origin iframe;
+a check-your-email page whose probe must carry no digit, email or link; a social button before the form's Continue; a
+form with no button) and re-checks the PHONE-AUTOLOGIN-2 lineup. `LoginMatchTest` adds the mail shapes, incl. that a
+magic-link mail is never acted on.
+
+**Not verified (`landed_unproven`):** the real page and mail shapes. The observation that closes the diagnosis: the next
+breakout_2 `login_diag d1..dN` parts with `adv`, `changed`, `cands`, `ph`, `mshape`. The observation that closes the
+row: `login_started` -> `login_ok` without operator input.
+
 ## 8. Open questions for the operator / manager
 
 | # | question | my lean |

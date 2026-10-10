@@ -57,4 +57,18 @@ class LoginMatchTest {
         assertEquals("47", LoginMatch.single(listOf("47"), emptyList()))
         assertNull(LoginMatch.single(listOf("12", "47"), emptyList()))
     }
+
+    // PHONE-AUTOLOGIN-3: the mail shape the diag reports (counts only)
+    @Test fun mailShapes() {
+        assertEquals("none", LoginMatch.mailShape(null))
+        assertEquals("numbered_links", LoginMatch.mailShape(linksMail))
+        assertEquals("numbers", LoginMatch.mailShape(lineupMail))
+        val magic = MailNums.parse("<p>Click below to sign in to Breakout.</p><a href=\"https://portal.breakoutprop.com/auth/callback?t=abc\">Sign in</a>" +
+            "<a href=\"https://breakoutprop.com/help\">Help center</a><p>Expires in 15 minutes.</p>", null)
+        assertEquals(2, magic.allLinks); assertEquals(1, magic.actLinks)
+        assertEquals("one_login_link", LoginMatch.mailShape(magic))
+        // the magic-link mail is NEVER acted on by the matcher: no page number, no lineup -> "none"
+        assertEquals("none", LoginMatch.decide(emptyList(), null, listOf(magic)).kind)
+        assertEquals("text", LoginMatch.mailShape(MailNums.parse(null, "Hello")))
+    }
 }
