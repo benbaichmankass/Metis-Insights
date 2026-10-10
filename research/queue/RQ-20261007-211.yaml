@@ -134,7 +134,7 @@ related:
 - RQ-20261006-034
 - docs/integrations/breakout-instruments-2026-09-27.md
 - scripts/research/p2_breakout_symbol_screen.py
-last_dispatched_at: null
+last_dispatched_at: '2026-10-09T13:53:17+00:00'
 grading:
   auto: true
   confirmatory_run: 1
