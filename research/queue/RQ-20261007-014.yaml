@@ -1,7 +1,7 @@
 id: RQ-20261007-014
 title: 'Stage-0 pairs: silver vs gold ETFs (SLV/GLD 1d) -- relative-value family beyond the M22 sleeve, net of the full cost
   stack'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -78,7 +78,7 @@ related:
 - RQ-20260922-011
 - docs/research/relative-value-families-2026-10-07.md
 - PI-20261006-APBY4NTV-0005
-last_dispatched_at: null
+last_dispatched_at: '2026-10-09T18:02:13+00:00'
 grading:
   auto: true
   confirmatory_run: 1
@@ -86,9 +86,9 @@ grading:
   evidence:
   - research/results/RQ-20261007-014/37970314217.jsonl
   first_fail: 1 row(s), all measured, all fail
-  graded_at: '2026-10-09'
+  graded_at: '2026-10-10'
   grader: scripts/research/queue_grade.py
-  note: 'first FAIL: re-queued for a confirmatory run (last_dispatched_at reset), not killed'
+  note: two consecutive FAIL passes; closed as fail (never on one pass)
   reason: 1 row(s), all measured, all fail
   rows: 1
   verdict: fail
