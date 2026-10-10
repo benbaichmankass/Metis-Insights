@@ -1,0 +1,18 @@
+{
+  "id": "PERF-FOLLOWUP-SKILL",
+  "title": "perf-followup skill: the routine that runs after every /performance-review (tune, lessons, extrapolate, portfolio)",
+  "phase": null,
+  "state": "done",
+  "owner": "lane PERF-FOLLOWUP-SKILL",
+  "lane": "session_01Uh3kGjRuR5RxHaetEx92th",
+  "model": "claude-sonnet-5-5",
+  "ceiling_usd": 6,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Operator request 2026-10-10 ~20:00Z, verbatim: \"I want to make sure we also have a routine for followups from performance review, that should include things like: 1. Further research to tweak the underperforming strategies to see if we can improve them and try again 2. Lessons learned from trades that deserve further research - this means not just grading, but a deep, wider-context review the trades and strategies to identify the systems strong and weak points 3. Extrapolation of lessons to other strategies or new strategies 4. Portfolio level research that ties back to improving overall pnl\". Dispatched by manager session_01Uq7MrjPQDRWqbhCjwuMava. Build: .claude/skills/perf-followup/SKILL.md + hand-off steps in performance-review and manager skills. Tier-1 docs only. The first run (on comms/reviews/performance-review-20261010-191000.json) is dispatched by the manager after landing.  Landed by this PR; first run is dispatched by the manager on comms/reviews/performance-review-20261010-191000.json (not run here).",
+  "updated_at": "2026-10-10T20:04:53Z",
+  "updated_by": "session_01Uh3kGjRuR5RxHaetEx92th",
+  "_seq": 377
+}
