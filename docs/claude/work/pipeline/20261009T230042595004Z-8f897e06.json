@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261009-CJWUMAVA-0002",
+  "kind": "finding",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "PR #17016 / run 37990624139",
+    "rerun": "gh api 'repos/benbaichmankass/Metis-Insights/pulls?state=open&per_page=100' --jq '.[]|select(.head.ref|test(\"research-queue-receipt\"))|[.number,.created_at,.mergeable_state]'"
+  },
+  "state": "queued",
+  "what": "research-queue-dispatch.yml's 'Check for an in-flight receipt PR' step skips 'Land the liveness receipt' whenever ANY receipt PR is open, with no age or mergeability bound. Receipt PR #17016 (opened 2026-10-07, conflicted, no checks) sat open ~50h, so every dispatcher run since skipped the receipt (observed on run 37990624139) and research-queue-dispatch-liveness went red repo-wide at 48.23h while result batches still landed (#17300 merged 2026-10-09T21:38Z). The manager closed #17016 at ~23:02Z 2026-10-09 as a stopgap. Lane task (Tier-1, CI): treat a receipt PR that is dirty/conflicted or older than ~3h as dead (close it with a comment) instead of blocking on it; add a self-test."
+}

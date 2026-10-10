@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "due_date": "2026-10-14",
+    "kind": "date"
+  },
+  "id": "PI-20261010-SABSJT3I-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-14",
+    "how_to_check": "grep -n 'any(s\\[\"ev\"\\] <= 0' scripts/research/prop_ev_grid.py; python3 scripts/research/prop_ev_grid.py --selftest",
+    "what": "prop_ev_grid.py grades per arm; the 7 listed units re-graded; sims/*.json ranking half readable"
+  },
+  "origin": {
+    "kind": "research",
+    "ref": "RESEARCH-READOUT 2026-10-10 (research/results/RQ-20261007-209,211,216,217,218,220,222; unit rules RQ-20261007-206/215)",
+    "rerun": "python3 - <<'X'\nimport json,glob\nfor u in ['209','211','216','217','218','220','222']:\n    r=json.loads(open(sorted(glob.glob(f'research/results/RQ-20261007-{u}/*.jsonl'))[-1]).readline())\n    print(u,r['verdict'],{a:(min(v['ev'] for v in s.values()),max(v['ev'] for v in s.values())) for a,s in r['measurement']['arms'].items()})\nX"
+  },
+  "state": "queued",
+  "what": "GRADER/RULE MISMATCH in scripts/research/prop_ev_grid.py::grade_pass_all_seeds: the prop-EV units' registered rule says PASS IF ev_net_usd_per_life > 0 on ALL seeds at EITHER/ANY arm, but the grader pools every arm's seeds and fails if ANY seed of ANY arm is <= 0. MEASURED from landed results 2026-10-10: RQ-20261007-209, -211, -216, -217, -218, -220, -222 read verdict=fail while at least one arm has ev>0 on every seed (e.g. 216 arms A 413..439 and B 132..150 all positive, only C negative) -> PASS by the unit's own text. Fix the grader (grade per arm, pass if any arm clears), re-grade the 7 landed records, and re-read the ranking half (days_to_pass p50, p_breach_daily_loss) from sims/*.json, which is not on main."
+}
