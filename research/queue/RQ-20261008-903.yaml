@@ -2,7 +2,7 @@ id: RQ-20261008-903
 title: >-
   Regime head as entry gate: does the sol-regime-15m-lgbm-fc-pcv-v2 vol label (advisory) drop
   money-losing entries on SOLUSDT legs out of sample?
-status: queued
+status: done
 cadence: once
 theme: live_strategy
 priority: 2
@@ -84,4 +84,13 @@ related:
 - scripts/research/ml_vol_label_replay.py
 - scripts/research/regime_cell_walkforward.py
 - comms/reviews/ml-review-20261004-125000.json
-last_dispatched_at: null
+last_dispatched_at: '2026-10-10T14:28:00+00:00'
+grading:
+  graded_at: '2026-10-10'
+  graded_by: lane ML-RESEARCH-W41 (manager session_01Uq7MrjPQDRWqbhCjwuMava)
+  verdict: pass
+  decision_rule_id: RULE-RQ1008-903-SOLUSDT-REGIME-HEAD-GATE
+  record: research/results/RQ-20261008-903/38064712331.jsonl
+  disposition: >-
+    Registered rule applied mechanically over 18 cells (3 legs x 6). One PASS-candidate: ict_scalp_sol_15m transitional/volatile (n=27 >= 25, pooled -4.8449 R, stable_drag in both directions, ungated book not all-folds-profitable). Tier-3 DRAFT only (authors nothing): regime_policy.yaml trend_vol.transitional.volatile.ict_scalp_sol_15m {long: off, short: off}. trend_donchian_sol: only stable_drag cell chop/volatile has n=18 < 25 -> not a candidate. sol_pullback_2h: no candidate. Caveats: label verify NOT run (provisional); ict_scalp_sol_15m is on no account roster so a gate would change no order today; no multiplicity correction in the registered rule.
+  evidence: 'trainer-vm-diag issues #17397 (preflight), #17398 (launch), #17407 #17409 #17410 #17411 #17415 (reads), #17413 (live audit rows)'
