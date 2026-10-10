@@ -927,6 +927,51 @@ magic-link mail is never acted on.
 breakout_2 `login_diag d1..dN` parts with `adv`, `changed`, `cands`, `ph`, `mshape`. The observation that closes the
 row: `login_started` -> `login_ok` without operator input.
 
+### 7.19 The dedicated inbox refuses the login: say why, test it in seconds, stop hammering (PHONE-AUTOLOGIN-2, 2026-10-10)
+
+**Reported to this lane by the manager, not re-read here:** every attempt (14:53Z, 15:01Z, 15:19Z, 15:26Z, 15:57Z,
+16:04Z) reached the waiting page and then logged `mail_err=AuthenticationFailedException mails=0 polls=24-28`. The
+operator generated a new Gmail app password twice (~14:58Z, ~15:54Z), states it is the dedicated address and the right
+password, and IMAP is enabled in that Gmail. Taken as fact.
+
+**What the code review found (read, not run on the phone):**
+
+| checked | finding |
+|---|---|
+| stale value in memory | none: `relogin()` reads `INBOX_USER`/`INBOX_PASS` from the store on every attempt |
+| encryption mismatch | not the cause: a value that cannot be decrypted reads as `null` (Store.get catches) and shows "not configured", never an auth failure |
+| wrong key | none: Setup writes and relogin reads the same two keys |
+| mechanism | javamail 1.6 uses AUTHENTICATE PLAIN when Gmail advertises it; XOAUTH2 is off by default. Gmail accepts PLAIN with an app password |
+| **password normalisation** | **Setup removed only the ASCII space** (`replace(" ", "")`). An app password copied from Google's page or a password manager can carry a no-break / narrow space, a zero-width char or a newline in its gaps; any one left in makes a 17-19 char password that Gmail refuses with `Invalid credentials`, however right the 16 letters are. Re-entering it the same way reproduces it. |
+| **hammering** | after a refusal the poller retried the same credential every 10 s for 5 min: 24-28 refused logins per attempt, ~150 in an hour. Gmail throttles an account that does that, and a throttled account refuses even a correct password for a while. |
+| **opacity** | only the exception CLASS was reported, so `Invalid credentials`, `Application-specific password required`, `Please log in via your web browser` and javamail's own `no password specified` all read the same |
+
+**Likely cause (an inference, MEDIUM-LOW confidence):** the normalisation gap, compounded by the hammering. It is the only
+code path that turns a right password into a wrong one; it is NOT proven, because the old build could not say what Gmail
+answered. The `inbox` diag line below settles it: `plen=16 p_other=0` with `Invalid credentials` points away from it
+(then: throttle, or the password/address really do not pair); `plen` 17-19 or `p_other>0` on the OLD stored value
+confirms it.
+
+**What changed (`Creds.kt`, `Mail.kt`, `MainActivity.kt`):**
+- `Creds.pass` removes every whitespace / invisible / control char anywhere; applied at Setup save AND at every read in
+  `Mail.scan`, so a value an older build stored is cleaned without re-entry. `Creds.user` likewise for the address.
+- `Mail.scan` connects with PLAIN, and on a refusal tries the IMAP LOGIN command once (both refused = the credential, not
+  the mechanism); `ssl.enable` and `auth.xoauth2.disable` are explicit.
+- On a refusal the attempt stops polling (one check per attempt, not 24-28) and fails at once with a stated reason.
+- A quiet `login_diag "i1/N inbox err=... mech=... srv=(Gmail's words, scrubbed) ulen= uat= udom= plen= p_upper= p_other="`
+  is posted on the first error and on any refusal. `Creds.scrub` removes the user and password values, any address and
+  any link, and keeps only the server's diag charset. Shapes are counts and booleans, never a value.
+- Setup gains **Test inbox**: one IMAP connect now with what is typed (a blank password = the stored one), the scrubbed
+  result in a dialog and as `login_diag "i1/N inbox_test src=typed|stored ok|FAIL ..."`.
+- Setup save takes effect immediately: the backoff wait is cleared and the running attempt's poller re-reads the store
+  on every poll.
+
+**Tests:** `CredsTest` (synthetic): NBSP / narrow space / zero-width / BOM / newline stripped; the old normalisation
+leaves the NBSP in (19 chars); shapes carry no value; scrub keeps Gmail's words and drops address, password and link.
+
+**Not verified (`landed_unproven`):** that this is the cause. Closing observation: the operator taps **Test inbox** on
+the new build (or the next attempt posts its `inbox` line) and it reads `ok`, then `login_started` -> `login_ok`.
+
 ## 8. Open questions for the operator / manager
 
 | # | question | my lean |

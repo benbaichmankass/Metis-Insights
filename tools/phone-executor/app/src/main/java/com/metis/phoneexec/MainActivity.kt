@@ -275,6 +275,9 @@ class MainActivity : Activity() {
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(32, 16, 32, 0)
             listOf(api, email, user, pass).forEach { addView(it) }
+            // § 7.19: one IMAP connect NOW with what is typed (blank password = the stored one); the answer in seconds
+            addView(Button(this@MainActivity).apply { text = "Test inbox"; isAllCaps = false
+                setOnClickListener { testInbox(user.text.toString(), pass.text.toString()) } })
             addView(Button(this@MainActivity).apply { text = "Allow restart after reboot (display over apps)"; isAllCaps = false
                 setOnClickListener { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) } })
             addView(Button(this@MainActivity).apply { text = "Ignore battery optimisation"; isAllCaps = false
@@ -286,13 +289,38 @@ class MainActivity : Activity() {
             .setPositiveButton("Save") { _, _ ->
                 Store.put(this, Store.API, api.text.toString().trim())
                 Store.put(this, Store.LOGIN_EMAIL, email.text.toString().trim())
-                Store.put(this, Store.INBOX_USER, user.text.toString().trim())
-                if (pass.text.isNotEmpty()) Store.put(this, Store.INBOX_PASS, pass.text.toString().replace(" ", ""))
+                Store.put(this, Store.INBOX_USER, Creds.user(user.text.toString()))
+                // § 7.19: EVERY whitespace / invisible char removed (was: only the ASCII space -- a pasted NBSP stayed in)
+                if (Creds.pass(pass.text.toString()).isNotEmpty()) Store.put(this, Store.INBOX_PASS, Creds.pass(pass.text.toString()))
+                // takes effect now: the running loop re-reads the store on every inbox poll; skip the backoff wait too
+                reloginNextMs = 0L
                 val pm = getSystemService(PowerManager::class.java)
                 setStatus("saved. overlay=${Settings.canDrawOverlays(this)} battery_exempt=${pm.isIgnoringBatteryOptimizations(packageName)}")
             }.setNegativeButton("Cancel", null).create()
         dlg.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         dlg.show()
+    }
+
+    /** § 7.19 "Test inbox": one immediate IMAP connect; the scrubbed result (Gmail's own words + credential SHAPES,
+     *  never a value) is shown on screen and posted as quiet login_diag events ("inbox_test ..."). */
+    private fun testInbox(typedUser: String, typedPass: String) {
+        val u = Creds.user(typedUser).ifEmpty { Store.get(this, Store.INBOX_USER) ?: "" }
+        val pw = if (Creds.pass(typedPass).isNotEmpty()) typedPass else Store.get(this, Store.INBOX_PASS) ?: ""
+        val src = if (Creds.pass(typedPass).isNotEmpty()) "typed" else "stored"
+        if (u.isEmpty() || pw.isEmpty()) { setStatus("inbox test: no inbox address or app password (type them, or Save first)"); return }
+        setStatus("inbox test: connecting to the dedicated inbox...")
+        scope.launch {
+            val r = try { Mail.test(u, pw) } catch (e: Exception) { "FAIL ${e.javaClass.simpleName}" }
+            setStatus("inbox test ($src): $r")
+            AlertDialog.Builder(this@MainActivity).setTitle("Inbox test").setMessage("($src password)\n$r").setPositiveButton("OK", null).show()
+            postChunks("inbox_test src=$src $r")
+        }
+    }
+
+    /** A long scrubbed line as numbered quiet login_diag events inside the server's 160 chars. */
+    private suspend fun postChunks(line: String) {
+        val parts = line.chunked(DIAG_PART_CHARS - 6).take(3)
+        parts.forEachIndexed { i, t -> api.event("login_diag", "i${i + 1}/${parts.size} $t") }
     }
 
     private fun dryTest() {
@@ -623,12 +651,21 @@ class MainActivity : Activity() {
             // says what arrived even when the page never shows a number, and a mail that came early is not waited for twice
             val mailEnd = System.currentTimeMillis() + MAIL_WAIT_MS
             var latest: List<MailNums> = emptyList(); var polls = 0; var mails = 0; var mailErr = ""; var firstMailS = -1L
+            var mailAuthFailed = false
             // its own Job (cancelled in the finally below): an inbox failure can never cancel the tick loop
             val mailJob = CoroutineScope(currentCoroutineContext() + Job()).launch {
                 try {
                     while (isActive && System.currentTimeMillis() < mailEnd) {
-                        val sc = Mail.scan(user, pass, since); polls += 1
+                        // re-read every poll: a Setup save during an attempt takes effect on the next poll (§ 7.19)
+                        val u = Store.get(this@MainActivity, Store.INBOX_USER) ?: user
+                        val pw = Store.get(this@MainActivity, Store.INBOX_PASS) ?: pass
+                        val sc = Mail.scan(u, pw, since); polls += 1
                         latest = sc.mails; mails = maxOf(mails, sc.mails.size); sc.error?.let { mailErr = it }
+                        if (sc.error != null && polls == 1 || sc.authFailed) postChunks("inbox err=${sc.error} mech=${sc.mech.ifEmpty { "-" }} " +
+                            "srv=(${sc.detail}) ${Creds.userShape(Creds.user(u))} ${Creds.passShape(Creds.pass(pw))}")
+                        // Gmail refused the credential: retrying it every 10 s cannot help and invites Gmail's login
+                        // throttle (24-28 refused logins per attempt, MEASURED 2026-10-10). One check per attempt.
+                        if (sc.authFailed) { mailAuthFailed = true; break }
                         if (sc.mails.isNotEmpty() && firstMailS < 0) firstMailS = secs()
                         delay(MAIL_POLL_MS)
                     }
@@ -660,6 +697,7 @@ class MainActivity : Activity() {
                     }
                     if (choices.isNotEmpty() || single != null) break
                     val tNow = System.currentTimeMillis()
+                    if (mailAuthFailed) { mailDiag(); return loginFail("dedicated inbox refused the login (AuthenticationFailedException; see the inbox login_diag)", p, d.put("step", step)) }
                     if (tNow > pageMax || (tNow > pageEnd && mails > 0)) {
                         mailDiag()
                         return loginFail("no number or lineup on the waiting page within ${(tNow - t0) / 1000} s (mail: ${d.optString("mshape")})", p, d.put("step", step))
@@ -672,7 +710,7 @@ class MainActivity : Activity() {
                 setStatus("waiting for the Breakout email in the dedicated inbox (up to ${MAIL_WAIT_MS / 60_000} min)")
                 while (true) {
                     dec = LoginMatch.decide(choices, single, latest)
-                    if (dec.kind != "none" || System.currentTimeMillis() > mailEnd) break
+                    if (dec.kind != "none" || System.currentTimeMillis() > mailEnd || mailAuthFailed) break
                     heartbeat(if (bg) "background" else "login", null)
                     delay(2_000L)
                 }

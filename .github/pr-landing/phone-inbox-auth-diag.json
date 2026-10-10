@@ -1,0 +1,11 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "why": "Phone executor APK only (tools/phone-executor/): the dedicated-inbox app password is normalised of every whitespace/invisible char (was ASCII space only) at save and at read; IMAP connect tries PLAIN then LOGIN; on an auth refusal the attempt stops polling (was 24-28 refused logins per attempt) and posts Gmail's scrubbed reply plus value-free credential shapes as a quiet login_diag; Setup gains 'Test inbox' and its save takes effect immediately. Tickets/order path unchanged; no server change. Declared tier 2 because it changes the deployed phone's login behaviour; held for the manager to merge.",
+  "recorded_decision": {
+    "kind": "operator_decision",
+    "ref": "PHONE-AUTOLOGIN PHONE-AUTOLOGIN-2"
+  },
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 phone runtime; the manager merges it under the PHONE-AUTOLOGIN decision."
+}
