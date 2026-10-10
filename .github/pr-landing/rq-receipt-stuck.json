@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one pipeline record filing a CI-workflow finding; no runtime, order path or config"
+}
