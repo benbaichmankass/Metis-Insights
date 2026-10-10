@@ -375,6 +375,12 @@ def emit_prop_expiry_prompt(ticket: Dict[str, Any], *,
     ticket_id = str(ticket.get("ticket_id") or "")
     if not ticket_id:
         return False
+    if _machine_executed(ticket.get("account_id")):
+        # PI-20261007-JOHNSXDJ-0002: no human places a machine-flow (REST,
+        # phone, browser) ticket, so no human is asked whether one was placed.
+        logger.info("emit_prop_expiry_prompt: refused for machine-executed "
+                    "account %s (ticket %s)", ticket.get("account_id"), ticket_id)
+        return False
     try:
         from src.prop.prop_expiry_prompt import build_expiry_keyboard
         from src.runtime.notify import send_telegram_direct
@@ -485,6 +491,12 @@ def emit_prop_invalidation_prompt(
         return False
     ticket_id = str(ticket.get("ticket_id") or "")
     if not ticket_id:
+        return False
+    if _machine_executed(ticket.get("account_id")):
+        # PI-20261007-JOHNSXDJ-0002: no human places a machine-flow (REST,
+        # phone, browser) ticket, so no human is asked whether one was placed.
+        logger.info("emit_prop_invalidation_prompt: refused for machine-executed "
+                    "account %s (ticket %s)", ticket.get("account_id"), ticket_id)
         return False
     try:
         from src.prop.prop_expiry_prompt import build_expiry_keyboard

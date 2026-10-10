@@ -1,0 +1,25 @@
+{
+  "id": "PROP-INVALIDATION-REST",
+  "title": "Operator Yes/No 'did you place this?' prompts only for manual-bridge prop accounts",
+  "phase": "build",
+  "state": "landed_unproven",
+  "owner": "lane",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    17379
+  ],
+  "blocked_on": [],
+  "note": "PI-20261007-JOHNSXDJ-0002. Scan-level exclusion already live via #17007 (running sha 9709fbf3a includes it). PR #17379 adds the guard at the source: emit_prop_expiry_prompt and emit_prop_invalidation_prompt refuse rest/phone/browser accounts (velotrade_1, breakout_2, tradeify_1); only breakout_1 (manual) can be prompted. CLOSING OBSERVATION: after #17379 is merged and deployed (git_sha_running descends from it), there are 0 'refused for machine-executed' lines AND 0 'prop_invalidation_prompt: warned' lines for a machine account in ict-trader-live journalctl over a window where a machine-account ticket existed. Not measured this session: prop_tickets is not on the diag allowlist, and the journal relay only covers about 11 minutes.",
+  "updated_at": "2026-10-10T12:51:11Z",
+  "updated_by": "session_01EaTbFfmW8ojDGRZkDEBJ3L",
+  "observation": {
+    "what": "after #17379 is deployed (git_sha_running descends from it), no prop_invalidation_prompt warned line and no Yes/No prompt is sent for velotrade_1, breakout_2 or tradeify_1 while one of their tickets is emitted; breakout_1 (manual) still can be prompted",
+    "how_to_check": "bash scripts/ops/diag_fetch.sh 'journalctl?unit=ict-trader-live&lines=2000' | grep -E 'prop_invalidation_prompt: warned|refused for machine-executed'",
+    "due_by": "2026-10-17"
+  },
+  "_seq": 373
+}
