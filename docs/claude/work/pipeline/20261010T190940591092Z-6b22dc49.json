@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "M8 tune-sweep artifacts exist for avax_pullback_2h and sol_pullback_2h and the M7 packet re-grades each with the attempt on record, OR the legs are killed with a stated reason.",
+    "kind": "event",
+    "last_checked": "2026-10-10"
+  },
+  "id": "PI-20261010-WQAPZD8B-0004",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-24",
+    "how_to_check": "python3 scripts/ops/paper_book_tracker.py --trades-json <bybit_1 closed-trades pull> --no-append; ls runtime_logs/strategy_tunes 2>/dev/null",
+    "what": "M8 tune-sweep artifacts exist for avax_pullback_2h and sol_pullback_2h and the M7 packet re-grades each with the attempt on record, OR the legs are killed with a stated reason."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "PERF-REVIEW-W41 (session_01LZL3YVtBKGpvYKwqApZd8b), comms/reviews/performance-review-20261010-*.json",
+    "rerun": "python3 scripts/ops/paper_book_tracker.py --trades-json <bybit_1 closed-trades pull> --no-append; ls runtime_logs/strategy_tunes 2>/dev/null"
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": "1",
+  "what": "[performance] Paper-book tracker 2026-10-10: pullback family net -$10,193.89 vs trend +$7,317.85 over 179 cohort trades on bybit_1; avax_pullback_2h n=8 12.5% WR -$5,529.60, sol_pullback_2h n=11 9.1% WR -$2,612.11, ada_pullback_2h n=35 -$3,566.12. Decay flag is OK (recent 30d +$5,622.72) so this is a family-level sag, not decay. Under tune-before-demote the next step is the M8 sweep per leg, not a demotion; ada_pullback_2h is already tracked (PI-20261004-P24XMV4V-0001); avax/sol are not."
+}
