@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "BLOCKER-WATCH: Tier-1 tooling only (scripts/ops detector + brief/attention_watch/preflight wiring, manager skill step, tests, guard entry). No runtime, order-path, config or strategy change."
+}
