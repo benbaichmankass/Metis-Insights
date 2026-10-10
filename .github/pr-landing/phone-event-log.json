@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "why": "Touches src/prop/phone_executor.py (the phone order-path module): a read-only diagnostics file of the last 40 phone events, served on /api/bot/prop/status, plus one heartbeat allowlist key and a one-line APK heartbeat field. No claim/verify/go/submit logic changed. Held for the manager to merge.",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane brief: landing hold for any change touching phone_executor; the manager merges after review."
+}
