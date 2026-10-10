@@ -435,9 +435,14 @@ class DXtradeApiAdapter(PropPlatformAdapter):
 
     def read_history(self, client_order_ids: List[str]) -> List[Dict[str, Any]]:
         """Final + working orders for these client ids, with their TRADE fills
-        (``lastPrice`` x ``lastQuantity``). No account code in the output."""
+        (``lastPrice`` x ``lastQuantity``). No account code in the output.
+        Raises ``RuntimeError`` on a non-200 (VELO-UNCONFIRMED-1008): an error
+        body has no ``orders`` and parsed as ``[]``, so "could not look" read
+        the same as "the venue has no such order"."""
         q = urllib.parse.quote(",".join(client_order_ids), safe=",")
         r = self._request("GET", f"/accounts/{self._acct()}/orders/history?with-client-id={q}")
+        if not r.ok:
+            raise RuntimeError(f"order history read failed {self.redact(json.dumps(r.error()))}")
         return _history_rows(r.body)
 
     def read_history_today(self, instrument: str) -> List[Dict[str, Any]]:

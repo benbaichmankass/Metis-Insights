@@ -1,0 +1,8 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "phone executor APK (tools/phone-executor); manager merges under the operator's PHONE-AUTOLOGIN directive and the operator's 2026-10-10 18:40Z instruction to reload in this situation",
+  "why": "Login VERIFY step: after the email link, reload the terminal up to 3 times and read each for up to 30 s instead of one reload read at readyState=complete (which landed on the portal's Loading... page). Login only; no order path.",
+  "recorded_decision": {"kind": "operator_decision", "ref": "PHONE-AUTOLOGIN PHONE-AUTOLOGIN-2"}
+}

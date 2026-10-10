@@ -36,6 +36,12 @@ starvation backstop inside a theme; fair share is the backstop between themes. I
 unrun, read why (precondition, gate, route) before lowering anything.
 
 ## 4. What the recurring research-planning session does, every time
+> **Routine cadence = the `research-ops` skill (2026-10-10).** Steps 1, 2 and 5 below (throughput, grade
+> landed results, retire stale units) now run 4x/day as `.claude/skills/research-ops/SKILL.md`, a bounded
+> lane the manager dispatches. This section remains the *weekly planning* session: re-weighting (step 3),
+> drafting from `IDEAS.md` (step 4) and the one-page plan (step 6). Do not re-do what the last research-ops
+> record (`comms/research/ops/`) already holds.
+
 1. **Read throughput and results since the last session:** `python3 scripts/ci/check_research_queue_throughput.py --json`
    (fired 24 h / 7 d, results landed, runnable, idle hours) and the `research/results/` records landed since.
 2. **Grade landed results** against their registered rules (`research_disposition.py --record`; never hand-edit

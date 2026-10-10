@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Checklist row state correction only (RESEARCH-NIGHT-1010: blocked on a PR that has since merged -> landed_unproven with its closing observation). No code, config or queue-unit change."
+}

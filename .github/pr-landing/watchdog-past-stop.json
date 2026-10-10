@@ -1,0 +1,11 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "why": "Order-path monitor (src/runtime/order_monitor.py): the Bybit closed-pnl match now compares the venue record with the entry order's average FILL instead of the journal's intended entry (bybit_2 real-money SL closes 6549 and 6528 were unmatchable at 12.5 / 10.4 bps and fell to the stuck_strategy_watchdog branch), and the venue-order-identity relabel sweep may now relabel a stuck_strategy_watchdog close to sl/tp when the trade's own bracket order ended it. No order placement, no mode change, no self-halt.",
+  "recorded_decision": {
+    "kind": "operator_decision",
+    "ref": "WATCHDOG-PAST-STOP"
+  },
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 order-path monitor change; the manager merges it under WATCHDOG-PAST-STOP."
+}

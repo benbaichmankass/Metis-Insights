@@ -62,6 +62,14 @@ _CADENCE_DAYS = {"daily": 1, "weekly": 7, "monthly": 30}
 #: <uid> that has not reached main yet -- see `pending_stamp_units`.
 STAMP_BRANCH_PREFIX = "automation/research-queue-stamp"
 
+#: An open stamp PR older than this is STRANDED, not in flight (RQ-DISPATCH-STALL,
+#: 2026-10-10). A healthy stamp PR merges inside the land job's own 80 min wait
+#: (commit-to-main), so 3 h is "it is not going to". MEASURED that day: 14 open
+#: stamp PRs (oldest #16790, 2026-10-05) held 72 units' stamps; each PR had gone
+#: red on a transient base failure or conflicted on a unit another stamp PR also
+#: edits, and nothing ever closed or re-landed them.
+STRANDED_STAMP_HOURS = 3.0
+
 
 def _parse_ts(raw: Any) -> Optional[datetime]:
     """An aware UTC datetime from an ISO stamp, or None when unparseable."""
@@ -761,6 +769,61 @@ def pending_stamp_units(api: Any = _gh_api_json) -> Optional[Dict[str, str]]:
     return out
 
 
+_STAMP_PATCH_RE = re.compile(r"^\+last_dispatched_at:\s*'?([^'\s]+)'?\s*$", re.M)
+
+
+def stranded_stamp_adoptions(now: datetime, stale_hours: float = STRANDED_STAMP_HOURS,
+                             api: Any = _gh_api_json) -> Optional[Dict[str, tuple]]:
+    """{unit id -> (stamp datetime, 'PR #n (<branch>)')} for every unit whose stamp
+    sits in an OPEN stamp PR older than ``stale_hours``, or None when GitHub could
+    not be asked.
+
+    ⚠️ WHY THIS EXISTS. `pending_stamp_units` treats a unit in ANY open stamp PR as
+    already dispatched -- right for the minutes before that PR merges, and a
+    permanent park once it never does. A stranded PR leaves main saying the unit
+    never ran (stamp null), the dispatcher refusing to fire it again, and
+    `blocker_watch` reporting NOT_RUNNING for work that did run. The honest repair
+    is not to re-fire (that spends compute twice) and not to wait (it never
+    lands): carry the ORIGINAL stamp, read from the stranded PR's own patch, into
+    this cycle's fresh stamp landing. The unit then reads as dispatched at the
+    time it really was. The stranded PR is left alone (closing it needs write
+    scope this job does not hold); once the adopted stamp is on main the unit is
+    not due and the old PR is inert.
+
+    The newest stamp per unit wins. A PR whose patch carries no readable
+    ``+last_dispatched_at`` line for a unit (GitHub omits very large patches)
+    adopts nothing for it -- unreadable is not "dispatched at now"."""
+    pulls = api("repos/{owner}/{repo}/pulls?state=open&per_page=100")
+    if not isinstance(pulls, list):
+        return None
+    out: Dict[str, tuple] = {}
+    for pr in pulls:
+        if not isinstance(pr, dict):
+            continue
+        ref = str(((pr.get("head") or {}).get("ref")) or "")
+        num = pr.get("number")
+        if not ref.startswith(STAMP_BRANCH_PREFIX) or not isinstance(num, int):
+            continue
+        opened = _parse_ts(pr.get("created_at"))
+        if opened is None or (now - opened).total_seconds() < stale_hours * 3600:
+            continue
+        files = api(f"repos/{{owner}}/{{repo}}/pulls/{num}/files?per_page=100")
+        if not isinstance(files, list):
+            return None
+        for f in files:
+            if not isinstance(f, dict):
+                continue
+            m = _QUEUE_FILE_RE.match(str(f.get("filename") or ""))
+            sm = _STAMP_PATCH_RE.search(str(f.get("patch") or ""))
+            when = _parse_ts(sm.group(1)) if sm else None
+            if not m or when is None:
+                continue
+            prev = out.get(m.group(1))
+            if prev is None or when > prev[0]:
+                out[m.group(1)] = (when, f"PR #{num} ({ref})")
+    return out
+
+
 def _fire(entry: Dict[str, Any], *, route: str, ref: str,
           power_state: str = "") -> tuple:
     """Dispatch via `gh workflow run`. Returns (ok, detail)."""
@@ -830,6 +893,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                          "cycle. research-queue-dispatch.yml passes it with --fire. Without "
                          "it no gh call is made for this purpose (a test or a hand run with "
                          "no GitHub context would otherwise defer every fire and prove nothing).")
+    ap.add_argument("--stranded-stamp-hours", type=float, default=STRANDED_STAMP_HOURS,
+                    help="fire path with --check-open-stamp-prs: an open stamp PR older than this "
+                         "is stranded; its units' ORIGINAL stamps are adopted into this cycle's "
+                         "stamp landing instead of blocking them forever "
+                         "(see stranded_stamp_adoptions)")
     ap.add_argument("--ref", default=os.environ.get("GITHUB_REF_NAME") or "main")
     ap.add_argument("--only", default=None, help="dispatch just this job id")
     ap.add_argument("--max-research-inflight", type=int, default=3,
@@ -906,8 +974,36 @@ def main(argv: Optional[List[str]] = None) -> int:
             print("::warning::research-queue-dispatch could not list open stamp PRs via gh -- "
                   "deferring every fire this cycle (a unit may already be dispatched)", file=sys.stderr)
         elif pending:
-            print("pending stamps (open stamp PRs, treated as dispatched): "
-                  + ", ".join(f"{u} <- {p}" for u, p in sorted(pending.items())), file=sys.stderr)
+            adopted = stranded_stamp_adoptions(now, args.stranded_stamp_hours)
+            if adopted:
+                by_id = {j.id: j for j in jobs}
+                n_ok = 0
+                for uid, (when, src) in sorted(adopted.items()):
+                    job = by_id.get(uid)
+                    if job is None or not job.valid:
+                        continue
+                    cur = _parse_ts(job.raw.get("last_dispatched_at"))
+                    if cur is not None and cur >= when:
+                        pending.pop(uid, None)   # main already carries this stamp or newer
+                        continue
+                    err = _stamp(job.path, when)
+                    if err:
+                        print(f"::warning::{uid}: could not adopt the stranded stamp from {src} ({err})",
+                              file=sys.stderr)
+                        continue
+                    job.raw["last_dispatched_at"] = when.replace(microsecond=0).isoformat()
+                    pending.pop(uid, None)
+                    n_ok += 1
+                print(f"::warning::{n_ok} stamp(s) adopted from stranded open stamp PRs (older than "
+                      f"{args.stranded_stamp_hours:g} h): "
+                      + ", ".join(sorted({src.split(' (')[0] for _w, src in adopted.values()}))
+                      + " -- those PRs are not merging; check their checks/conflicts", file=sys.stderr)
+            elif adopted is None:
+                print("::warning::research-queue-dispatch could not re-read open stamp PRs to look "
+                      "for stranded ones; leaving every pending stamp as-is this cycle", file=sys.stderr)
+            if pending:
+                print("pending stamps (open stamp PRs, treated as dispatched): "
+                      + ", ".join(f"{u} <- {p}" for u, p in sorted(pending.items())), file=sys.stderr)
     gpu_fired = 0
     fired_by_workflow: Dict[str, int] = {}
     for job in jobs:

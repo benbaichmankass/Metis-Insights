@@ -1,0 +1,1 @@
+auto-merge: perf-followup skill (docs only)
