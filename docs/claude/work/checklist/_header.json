@@ -22,18 +22,16 @@
   "updated_at": "2026-10-07T18:50:00Z",
   "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
   "last_review": {
-    "report_id": "WR-20261009-1719Z",
-    "reviewed_at": "2026-10-09T18:00:00Z",
+    "report_id": "WR-20261010-0530Z",
+    "reviewed_at": "2026-10-10T05:58:00Z",
     "by": "session_01Uq7MrjPQDRWqbhCjwuMava",
     "counts": {
-      "due": 76,
+      "due": 85,
       "unrouted": 0,
       "ask_operator_open": 18,
-      "alarms_breached": [
-        "manager (false: probe read the deleted monolith; fixed this commit)"
-      ]
+      "alarms_breached": []
     },
-    "note": "17:53Z review. digestLog 06:00-17:01Z: (1) ask_operator PI-20261009-XQ5RTZKZ-0002 (prop executor clear-halt design) already killed: moot, latch removed under NO-HALT. (2) PI-20261009-72XUJX8U-0005 (risk caps) closed done: operator reversal -> DAILY-DD-SWITCH, #17281 merged ebc17e6a, arming #17282 in CI. (3) RQ-20261006-004 needs_review -> the 10-10 02:47Z readout. (4) breakout_2 phone heartbeat alarm cleared 16:00Z. (5) manager alarm was a false positive: attention_watch.probe_manager probed MANAGER-CHECKLIST.json, deleted at the 10-08 cutover; now reads checklist_store.HISTORY_PATHS. Unrouted 1->0 (switch observation routed to DAILY-DD-SWITCH). Also landed today: NO-HALT x9, TRADEIFY-PLATFORMS row #17285."
+    "note": "05:53Z review. Report present, generated 05:30Z, no errored sections, digest hourly. No alarms (manager alarm cleared 19:01Z after #17288). 7 items came due at 00:01Z: PI-20261006-KX6ZKFNA-0003 killed (prop trail latch removed by NO-HALT #17254); 4 dispatch_lane items routed to the W41 lane queue (SLV fade prop pricing, prop invalidation prompt on REST accounts, pairs harness routing E37, golden fixtures wall-clock); 2 velotrade_1 observations re-dated to 10-12 (no velotrade_1 ticket yet). DAILY-DD-SWITCH rolled to 2026-10-10 cleanly: 11 of 13 armed accounts read ok with fresh day_start_equity, none tripped; ib_live and now breakout_2 could_not_look (PI-20261009-CJWUMAVA-0001, PI-20261010-CJWUMAVA-0001) -> one lane dispatched for both. Overnight: research receipt unstuck (#17016 closed; PI-20261009-CJWUMAVA-0002), research readout #17327 (2 grader findings PI-20261010-SABSJT3I-0001/0002)."
   },
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
