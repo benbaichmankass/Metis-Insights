@@ -327,6 +327,14 @@ class PropRiskManager(RiskManager):
         from src.units.accounts import daily_dd_switch as _dd
         return _dd.prop_equity_reading(self.account_name or "")
 
+    def dd_switch_still_valid(self):
+        """A prop snapshot from before today's window is carried (labelled
+        ``carried_quiescent``, never ``ok``) only while nothing that moves
+        equity has happened since it was read (PI-20261010-CJWUMAVA-0001)."""
+        from src.units.accounts import daily_dd_switch as _dd
+        name = self.account_name or ""
+        return lambda since: _dd.prop_quiescent_since(name, since)
+
     # ------------------------------------------------------------------
     # State-update hooks (persist through to runtime_state/prop_state.json)
     # ------------------------------------------------------------------
