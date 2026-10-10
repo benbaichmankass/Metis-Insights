@@ -1,0 +1,27 @@
+{
+  "id": "RESEARCH-NIGHT-1010",
+  "title": "Research-planning night session 2026-10-10: group why queued units are not runnable, read results landed 26h, refill queue to >=25 runnable, file one row per missing lever",
+  "phase": "W6",
+  "state": "blocked",
+  "owner": "lane RESEARCH-NIGHT-1010",
+  "lane": "RESEARCH-NIGHT-1010",
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    17462
+  ],
+  "blocked_on": [
+    "PR #17462 awaits a human/manager merge (landing: hold, unvouchable_paths: new queue units are not self-landable under check_pr_landing R5); then observe runnable >= 25 via check_research_queue_throughput.py --json"
+  ],
+  "note": "[2026-10-10T21:10Z lane] Registered. Measured 20:49Z: queued 105 runnable 8. Ceiling $8 (manager). One PR, Tier-1 self-land. Observation that closes: next dispatch cycle after merge fires the new units (python3 scripts/ci/check_research_queue_throughput.py --json shows runnable >= 25). [2026-10-10T21:40Z lane] WHY 97 QUEUED UNITS ARE NOT RUNNABLE (MEASURED: dispatch_queue._is_due over research/queue, 105 queued / 8 runnable): 0 unmet requires_result, 0 misconfigured, 0 scope or route refusals. 75 are recurring units inside their cadence window (61 monthly, 14 weekly: they ran recently); 22 are cadence once and already ran but still read status queued (19 hand-written with no verdict -> RESEARCH-GRADE-PILE; the rest graded fail awaiting their confirmatory run). 'Not runnable' meant 'ran recently', not 'stuck': the queue starved because the supply of never-run units was 8. 36 blocked/ units: none cleared by a lever that has since landed; 9 had no owning row anywhere -> 6 lever rows filed (PROP-FIT-DONORS-PB-SQ, REGIME-WEIGHT-VARIANTS, M20-FLIP-EXIT-CELL, EXIT-HEAD-PULLBACK-DRIVER, FUNDING-OI-DATASETS-ETH-SOL, BLOCKED-UNIT-ORPHANS) and RESEARCH-TOOLING-GAPS extended (it now also blocks RQ-20261007-017 and -033). RESULTS READ (29 units landed in 26h, first-row verdicts: 18 pass, 9 fail, 1 no_action_warranted, 1 wiring_only): Stage-0 batch 2 RQ-20261007-224..239: 10 PASS (pullback ZEC/UNI/SUI/AVAX/TRX 1h and LINK 2h; squeeze ZEC/UNI/AVAX 1h and DOGE 2h) / 6 FAIL (pullback FIL/HYPE/AAVE 1h, DOGE 2h; squeeze SUI/HYPE 1h); fails already re-queued once by the grader; passes cannot be prop-fit priced until PROP-FIT-DONORS-PB-SQ lands. RQ-20261007-015 TLT/IEF pairs FAIL (net -14.4R, n=146) and -016 XRP/ADA 1h pairs FAIL (net -58.9R, n=1553): one pass each, confirmatory runs runnable. -017 INDETERMINATE (the harness gate block was not emitted; needs --gate via the extra_args lever). -221 mixed6 Velotrade book PASS (clause R, 15 seeds): any roster call is the manager's Tier-3. RQ-20261008-900 XRP exit head FAIL (k=1 of m=3 folds): exit-head lever for ict_scalp XRP retired per its rule. -902 BTC regime-head gate PASS-candidate cells (chop/calm, transitional/calm) are already authored long:off: no change. -903 SOL: one PASS-candidate, ict_scalp_sol_15m transitional/volatile (n=27): a Tier-3 regime_policy.yaml draft is owed to the operator, NOT authored here. M20 exit-lever sweeps: trend_donchian_eth_prop 5 cells cleared, sol_prop 1, xrp_4h 3, xrp_pullback_2h 0 (no_action): candidates only, any flip is Tier-3. READ FROM OLDER RESULTS: RQ-20261007-904 NOT CONFIRMED (0 of 2 cells, base OOS n=31) -> PI-20261007-ITYCHECK-0001 killed, the trail_mult 5.0->4.0 packet is not drafted. AUTHORED 20 units RQ-20261010-353c-01..20 (11 trend 1h, 4 squeeze 1h, 4 pullback 1h, 1 squeeze 2h; new_strategy_prop; existing research-harness-dispatch driver; rule registered in each file). RUNNABLE 8 -> 28 by the same runnable() the throughput check uses (computed locally, not yet observed on main). Weights unchanged (no evidence to move them). Not done: the 4 PERF-FOLLOWUP-2026W41 tracks; the 17 older ungraded units (RESEARCH-GRADE-PILE).",
+  "updated_at": "2026-10-10T21:00:36Z",
+  "updated_by": "session_0138x92n9BZhYwufSFLpjwvX",
+  "observation": {
+    "what": "after merge, the next dispatch cycle sees the 20 new units: check_research_queue_throughput.py --json shows runnable >= 25 and fired_24h rises",
+    "how_to_check": "python3 scripts/ci/check_research_queue_throughput.py --json",
+    "due_by": "2026-10-12T00:00Z"
+  },
+  "_seq": 378
+}

@@ -1,0 +1,18 @@
+{
+  "id": "BLOCKED-UNIT-ORPHANS",
+  "title": "Three blocked units with no owning row: RQ-20260922-006 (config_fingerprint -> config mapping), RQ-20260922-010 (fvg_range capability inventory), RQ-20261008-904 (MES 5m regime label -> 1d bar aggregation)",
+  "phase": "W6",
+  "state": "queued",
+  "owner": "unassigned",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-10 RESEARCH-NIGHT-1010] Each carries its own clears_when in research/queue/blocked/; none was referenced by any checklist or pipeline row on 2026-10-10 (also RQ-20260928-014, ict_scalp_avax_5m, is accrual-gated to ~3 months past 2026-09-26: due ~2027-01, it should be re-read then, not built). Three separate small levers, one row because each is under a day of Tier-1 work. Observation that would close: each unit either leaves blocked/ or is retired with a reason.",
+  "updated_at": "2026-10-10T20:58:41Z",
+  "updated_by": "session_0138x92n9BZhYwufSFLpjwvX",
+  "_seq": 384
+}
