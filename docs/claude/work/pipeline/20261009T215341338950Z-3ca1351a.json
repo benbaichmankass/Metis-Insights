@@ -1,0 +1,17 @@
+{
+  "based_on": "20261009T195041704411Z-c68d2ded.json",
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261009-VQIPJE2H-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "checklist HEALTH-REVIEW-W41 item 6, 2026-10-09 19:40Z",
+    "rerun": "curl -s https://ict-bot.duckdns.org/api/bot/config | python3 -c \"import json,sys;[print(a['id'],a['daily_dd_switch']['read_state']) for a in json.load(sys.stdin)['accounts'] if a.get('daily_dd_switch')]\"; scripts/ops/diag_fetch.sh 'log_file?name=daily_dd_switch_state'"
+  },
+  "state": "done",
+  "terminal_reason": "Fixed by #17298 (e42de85d, per-tick observe-only fold from on-disk equity). DEPLOYED (VM e42de85db, restart_pending false). OBSERVED 21:53Z on /api/bot/config: read_state ok with day_start_equity and limit_usd on 12 of 13 armed accounts; ib_live could_not_look (filed separately).",
+  "what": "DAILY-DD-SWITCH never folds equity unless an order is evaluated. MEASURED 2026-10-09 19:40Z: all 13 armed accounts read_state=not_observed with day_start_equity null, and log_file name=daily_dd_switch_state present:false, 1h35m after the 18:05Z deploy. Cause (read in code): DailyDDSwitch.observe() is called only from RiskManager.check_dd_switch(), called only from RiskManager.evaluate() (risk.py:932), reached only when a signal produces an order package; the newest order_packages row was 13:33Z (journal?table=order_packages, 15 newest), i.e. no evaluation since arming. Consequences: (1) the criterion 'read_state ok on armed accounts' is unreachable on quiet accounts (prop accounts trade rarely); (2) day_start_equity becomes the equity at the FIRST evaluation after reset, not the day-start equity, so a loss accrued before the first signal of the day is invisible to the 3% limit; (3) trip/reset alerts wait for a signal. Proposed Tier-3 change (risk code; operator to approve before merge): call risk_manager.check_dd_switch() once per tick for every armed account (coordinator tick, after note_live_equity where a live total is known, else the <=2h balance snapshot), observe-only, never refusing there; test: a tick with no signal writes runtime_logs/daily_dd_switch_state.json. Subsumes the per-tick-observe clause of PI-20261009-BKKVRSVQ-0002. Basis: population = the 13 non-retired accounts listed by /api/bot/config accounts[].daily_dd_switch at 2026-10-09T19:40Z (breakout_1 retired, null excluded); the 3% is the configured non-prop limit, not a measurement. Count basis: 13 of 13 armed accounts read not_observed; 0 of 13 had day_start_equity at 2026-10-09T19:40Z."
+}
