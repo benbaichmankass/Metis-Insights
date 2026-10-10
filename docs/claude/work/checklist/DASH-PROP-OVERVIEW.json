@@ -12,7 +12,12 @@
   "prs": [],
   "blocked_on": [],
   "note": "Operator 2026-10-10: Overview Prop view showed all dashes and 'No open prop trades' while velotrade_1 had an OPEN fill (id 96) and fresh equity on two accounts. ROOT CAUSE (SPA, not API): ExecSummary.svelte hard-coded the prop branch to equity=null, open=[] and segPerf=null ('lives on the Prop tab'); Overview never fetched any prop endpoint. FIX: API GET /api/bot/prop/overview (equity over fresh snapshots only, stale listed+excluded; open = open/filled with no closing row; realized over closed fills in window, population stated) + SPA wiring in ict-trader-dashboard. OBSERVATION THAT CLOSES: after the API deploys AND the SPA Pages build publishes, Overview > Prop > 7d shows the open velotrade_1 ETHUSDT long and total equity = sum of fresh accounts.",
-  "updated_at": "2026-10-10T16:05:38Z",
+  "updated_at": "2026-10-10T16:12:29Z",
   "updated_by": "session_01Usus8BBv8MN6cd17xH6SaQ",
+  "observation": {
+    "what": "Overview > Prop > 7d shows the open velotrade_1 ETHUSDT long and total equity equal to the sum of fresh prop accounts",
+    "how_to_check": "curl -s https://ict-bot.duckdns.org/api/bot/prop/overview?window=7d (open_trades non-empty, equity.total_usd = sum of counted accounts) then load the SPA Overview with Prop selected after both PRs (metis-insights #17421, ict-trader-dashboard #221) are deployed",
+    "due_by": "2026-10-17"
+  },
   "_seq": 375
 }
