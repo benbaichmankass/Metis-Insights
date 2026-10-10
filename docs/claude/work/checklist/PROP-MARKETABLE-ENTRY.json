@@ -1,0 +1,18 @@
+{
+  "id": "PROP-MARKETABLE-ENTRY",
+  "title": "REST prop executor places a favourably-marketable entry at market (same SL/TP/size) instead of missing it",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane PROP-MARKETABLE-ENTRY",
+  "lane": "session_015NFBKj3aZNJERjKR9rKnRG",
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Operator 2026-10-10 'This also needs to be fixed'. MEASURED 2026-10-10 velotrade_1 executor journal: ETH long limit 2506.92, 14:33Z ask 2504.16 in band -> presubmit_marketable, not placed; 14:38Z ask 2511.48 left band -> NOT PLACED (trade missed). Alerts: 1 at start + 1 at end, not per cycle. Fix: REST adapter flag MARKETABLE_ENTRY_AT_MARKET; browser/phone keep waiting. OBSERVATION that closes it: the next velotrade_1 marketable ticket logs marketable_entry converted=true, is placed with SL/TP attached (confirm verdict open), and its ledger row carries fill_price + intended_limit with the open report's entry_price = the actual fill.",
+  "updated_at": "2026-10-10T14:50:34Z",
+  "updated_by": "session_015NFBKj3aZNJERjKR9rKnRG",
+  "_seq": 374
+}
