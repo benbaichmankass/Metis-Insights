@@ -1,1 +1,1 @@
-claude/perf-review-w41
+auto-merge: performance-review W41 record
