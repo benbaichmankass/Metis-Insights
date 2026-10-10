@@ -1,0 +1,24 @@
+{
+  "based_on": "20261004T213414767613Z-37334e6c.json",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Gate 2: mechanics flowing AND R3 cost fidelity decisive at >=10 fills/side (RULE-R5-SOAK-BOOK-GRADE-v1)",
+    "kind": "observation",
+    "last_checked": "2026-10-04",
+    "soak": {
+      "declared_at": "2026-07-22",
+      "state_source": "docs/claude/work/soak-state.json",
+      "subject": "bybit_1/ict_scalp_sol_15m"
+    }
+  },
+  "id": "PI-SOAK-20261004-bybit_1-ict_scalp_sol_15m",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04 (scripts/ops/soak_report.py)",
+    "rerun": "python3 scripts/ops/soak_report.py --print-state"
+  },
+  "state": "killed",
+  "terminal_reason": "KILLED (SOAK-GATE1-REGRADE 2026-10-10): stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=84, expectancy -0.066R, net -5.57R, folds 2/4, fidelity faithful, slippage 3.0bps RT; failing clauses: R-CUT-EXPECTANCY exp=-0.066R net=-5.57R; R-CUT-FOLDS 2/4 not a majority. Evidence: comms/strategy_evidence/ict_scalp_sol_15m.json, comms/research/soak_gate1_regrade/2026-10-10.json",
+  "what": "SOAK (stage1): bybit_1/ict_scalp_sol_15m — Stage-1 soak leg. Exit: Gate 2: mechanics flowing AND R3 cost fidelity decisive at >=10 fills/side (RULE-R5-SOAK-BOOK-GRADE-v1). Graded weekly into ready/dead/could-not-look/accruing; due only when not accruing."
+}

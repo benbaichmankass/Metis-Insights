@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "SOAK-GATE1-REGRADE 2026-10-10: soak-contract dispositions + fresh R3 record + pipeline/checklist records, and one read-path tooling change (scripts/ops/soak_state.py: optional `disposition` key that quiets a graded soak until a date). NO config, roster, strategy, mode, risk or order-path change; no mandate fired. Held because the PR carries code, not records only; the manager merges."
+}
