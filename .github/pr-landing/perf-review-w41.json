@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "Checklist only: register PERF-REVIEW-W41 before its lane is dispatched; PACE-W40 spend notes; PHONE-AUTOLOGIN-2 progress note."
+  "why": "Weekly performance-review output: review JSON, one scores row, a paper-book tracker snapshot, pipeline redate/new records and the PERF-REVIEW-W41 checklist row. No code, config or order-path change."
 }
