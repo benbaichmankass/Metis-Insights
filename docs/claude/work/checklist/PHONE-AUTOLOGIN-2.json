@@ -11,9 +11,9 @@
   "tier": 2,
   "prs": [],
   "blocked_on": [],
-  "note": "Root cause MEASURED 12:30:35Z/12:40:45Z: fixed 6 s wait + one read of a single number; the lineup page has 3. Fix: poll page 90 s, inbox 5 min, LoginMatch tap/link exactly-one, quiet login_diag; BgWeb overlay engine. PR draft, hold (manager merges).  | 2026-10-10 lane PHONE-AUTOLOGIN-3 (PR #17392, draft, hold): live 13:52Z/13:56Z login_diag email=clicked page_n=0 for 90 s on portal (cause NOT established: a no-submit / b reader miss / c check-your-email). Submit verified (+Enter), reader broadened (normalised text, aria/value, shadow, iframes), inbox polled in parallel, scrubbed structure diag in parts d1..dN. Next diag decides.",
-  "updated_at": "2026-10-10T14:04:50Z",
-  "updated_by": "session_01P2xQABFS3rYBpvSkFLTVbK",
+  "note": "Root cause MEASURED 12:30:35Z/12:40:45Z: fixed 6 s wait + one read of a single number; the lineup page has 3. Fix: poll page 90 s, inbox 5 min, LoginMatch tap/link exactly-one, quiet login_diag; BgWeb overlay engine. PR draft, hold (manager merges).  | 2026-10-10 lane PHONE-AUTOLOGIN-3 (PR #17392, draft, hold): live 13:52Z/13:56Z login_diag email=clicked page_n=0 for 90 s on portal (cause NOT established: a no-submit / b reader miss / c check-your-email). Submit verified (+Enter), reader broadened (normalised text, aria/value, shadow, iframes), inbox polled in parallel, scrubbed structure diag in parts d1..dN. Next diag decides. 2026-10-10 inbox AuthenticationFailedException lane (design \u00a7 7.19, branch claude/phone-inbox-auth-diag): Setup stripped only ASCII spaces from the app password (pasted NBSP/zero-width survives -> Invalid credentials) and the poller retried a refused credential every 10 s (24-28/attempt, Gmail throttle risk). Fixed: full normalisation at save+read, PLAIN->LOGIN fallback, stop on refusal, scrubbed Gmail reply + value-free shapes in login_diag 'inbox', Setup 'Test inbox', save takes effect now. Cause INFERRED (medium-low), landed_unproven: closes when Test inbox / the inbox diag reads ok and login_started -> login_ok.",
+  "updated_at": "2026-10-10T16:15:32Z",
+  "updated_by": "session_013JG8mRMvH2oRd6LdWWjcGV",
   "observation": {
     "due_by": "2026-10-13",
     "what": "breakout_2 phone_events shows login_started -> login_ok without operator input and a fresh account_status",
