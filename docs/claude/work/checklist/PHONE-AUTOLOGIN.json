@@ -13,8 +13,8 @@
     17365
   ],
   "blocked_on": [],
-  "note": "Operator 2026-10-10: login cannot depend on manual input. PR #17365 (draft, hold, manager merges). 2026-10-10 09:35Z manager: merged 9709fbf3, APK artifact 11665937340 sent to operator. Pending: operator installs; observe login_started -> login_ok and fresh account_status on breakout_2.",
-  "updated_at": "2026-10-10T09:34:26Z",
+  "note": "Operator 2026-10-10: login cannot depend on manual input. PR #17365 (draft, hold, manager merges). 2026-10-10 09:35Z manager: merged 9709fbf3, APK artifact 11665937340 sent to operator. Pending: operator installs; observe login_started -> login_ok and fresh account_status on breakout_2. 2026-10-10 12:40Z OPERATOR DESIGN ASPIRATION (verbatim): 'it would be more stable if it could do it in the background ... then we wouldn't have to worry about it being able to be in the foreground, like, if I'm using the phone at the time for something else ... to the extent that it can run as backgrounded as possible and still function, that is a design aspiration, obviously within what's feasible, but the more automated and backgrounded it could be, the better.' Implication for PHONE-AUTOLOGIN-2 and later builds: prefer running the WebView work (page read, re-login, account panel read, and where feasible ticket fill/submit) without bringing the activity forward, e.g. a foreground service hosting a WebView that is never paused, over bring-to-front wakes; bring-to-front is the fallback, not the design.",
+  "updated_at": "2026-10-10T12:38:34Z",
   "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
   "observation": {
     "due_by": "2026-10-13",
