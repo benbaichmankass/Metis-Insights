@@ -1,0 +1,11 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "why": "Notification path only (src/prop/breakout_notify.py::emit_prop_signal): the human 'BREAKOUT TRADE SETUP ... REPORT BACK' Telegram message and prop_signal push now refuse a machine-flow (rest/phone/browser) prop account at the emitter. Ticket emission, journal row, executors, sizing and order path unchanged. Declared tier 2 because src/prop/ is a runtime surface; held for the manager.",
+  "recorded_decision": {
+    "kind": "operator_decision",
+    "ref": "PROP-FLOW-SEPARATION PROP-MANUAL-MSG-SUPPRESS"
+  },
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 runtime surface (src/prop/); the manager merges it under the PROP-FLOW-SEPARATION decision."
+}
