@@ -5,5 +5,7 @@
   "recorded_decision": {
     "kind": "operator_decision",
     "ref": "PROP-FLOW-SEPARATION PI-20261007-JOHNSXDJ-0002"
-  }
+  },
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 runtime surface (src/prop/); the manager merges it under the PROP-FLOW-SEPARATION decision."
 }
