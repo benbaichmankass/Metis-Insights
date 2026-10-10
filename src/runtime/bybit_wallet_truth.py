@@ -254,3 +254,44 @@ def compute_wallet_truth(
         window_end_ms=window_end_ms,
         by_type=by_type,
     )
+
+
+def daily_buckets(
+    rows: Optional[Iterable[Mapping[str, Any]]],
+) -> Optional[list[dict[str, Any]]]:
+    """Per-UTC-day wallet delta, using the SAME row rules as :func:`compute_wallet_truth`.
+
+    ``None`` in -> ``None`` out (we could not look); an empty iterable -> ``[]``
+    (we looked, nothing there). Each bucket: ``{date, wallet_usd, fees_usd,
+    funding_usd, rows}``. ``wallet_usd`` is the signed ``change`` sum, which
+    ALREADY nets fees and funding -- ``fees_usd`` / ``funding_usd`` are carried
+    so a reader can see how much of a journal-vs-wallet gap they explain, not to
+    be subtracted again. Transfers, non-USD and unreadable-``change`` rows are
+    skipped exactly as in the headline figure so the daily series sums to it.
+    """
+    if rows is None:
+        return None
+    from datetime import datetime, timezone
+
+    days: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        ttype = str(row.get("type") or "").strip().upper()
+        cur = str(row.get("currency") or "").strip().upper()
+        if ttype in NON_PNL_TYPES or (cur and cur not in USD_STABLES):
+            continue
+        change = _f(row.get("change"))
+        ts = _f(row.get("transactionTime"))
+        if change is None or ts is None:
+            continue
+        d = datetime.fromtimestamp(ts / 1000.0, tz=timezone.utc).strftime("%Y-%m-%d")
+        b = days.setdefault(d, {"date": d, "wallet_usd": 0.0, "fees_usd": 0.0,
+                                "funding_usd": 0.0, "rows": 0})
+        b["wallet_usd"] += change
+        b["fees_usd"] += _f(row.get("fee")) or 0.0
+        b["funding_usd"] += _f(row.get("funding")) or 0.0
+        b["rows"] += 1
+    out = [days[k] for k in sorted(days)]
+    for b in out:
+        for k in ("wallet_usd", "fees_usd", "funding_usd"):
+            b[k] = round(b[k], 8)
+    return out

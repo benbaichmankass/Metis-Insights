@@ -33,7 +33,10 @@ def get_broker_truth(account_id: Optional[str] = Query(default=None)) -> dict[st
     figure isn't recorded (render as em-dash, never 0). ``as_of_age_days`` /
     ``stale`` are computed at read time against this ledger's own ``as_of`` —
     it has no scheduled refresh, so its age is the only signal a caller gets
-    that ``realized_usd`` may no longer reflect the account.
+    that ``realized_usd`` may no longer reflect the account. Each account also
+    carries ``live`` (hourly-refreshed API wallet truth SINCE the record's
+    ``window_end``, credentials' own sub-account only, never summed into
+    ``realized_usd``) and ``declared_gaps`` (what no producer can refresh).
     """
     try:
         from src.runtime import broker_truth
@@ -42,7 +45,20 @@ def get_broker_truth(account_id: Optional[str] = Query(default=None)) -> dict[st
         return {"present": False, "error": "broker_truth_unavailable", "accounts": []}
 
     try:
-        return broker_truth.summarize_broker_truth(account_id=account_id)
+        out = broker_truth.summarize_broker_truth(account_id=account_id)
+        # Live block: the hand ledger above is a frozen record; this is the
+        # hourly-refreshed API view beside it (LEDGER-REFRESH). Never summed.
+        from datetime import datetime, timezone
+
+        for rec in out.get("accounts", []):
+            since_ms = None
+            try:
+                since_ms = int(datetime.fromisoformat(
+                    str(rec.get("window_end") or rec.get("as_of"))).replace(tzinfo=timezone.utc).timestamp() * 1000)
+            except (TypeError, ValueError):
+                pass
+            rec["live"] = broker_truth.live_wallet_block(rec["account_id"], since_ms=since_ms)
+        return out
     except Exception as exc:  # allow-silent: read endpoint must never 5xx — logs + empty envelope
         logger.warning("broker_truth: summarize failed: %s", exc)
         return {"present": False, "error": "broker_truth_error", "accounts": []}

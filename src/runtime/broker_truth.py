@@ -135,8 +135,73 @@ def _clean_account(rec: Any, *, now: datetime | None = None) -> dict[str, Any] |
         "window_end": rec.get("window_end"),
         "source": rec.get("source"),
         "sub_accounts": rec.get("sub_accounts") if isinstance(rec.get("sub_accounts"), list) else None,
+        # Parts of this figure NO scheduled producer can refresh, declared with
+        # the reason (LEDGER-REFRESH). `None` = nothing declared, which is not
+        # the claim "nothing is missing" -- only that nobody wrote one down.
+        "declared_gaps": [g for g in rec["declared_gaps"] if isinstance(g, dict)]
+        if isinstance(rec.get("declared_gaps"), list) else None,
         "note": rec.get("note"),
     }
+
+
+#: Hours without a stored transaction-log row after which the live read is
+#: graded `silent`. The puller runs hourly; an account can legitimately be quiet
+#: for a day, so this is "puller dead OR account silent -- go look", not a fault.
+LIVE_MAX_AGE_HOURS = 72
+
+
+def live_wallet_block(
+    account_id: str,
+    *,
+    since_ms: int | None,
+    now: datetime | None = None,
+    lister: Any = None,
+) -> dict[str, Any]:
+    """Live wallet-truth since *since_ms*, from the hourly-refreshed store.
+
+    ``{state, realized_usd_since, rows_counted, latest_row_at,
+    latest_row_age_hours, scope}``. ``state`` is one of the four
+    ``bybit_wallet_truth`` states or ``silent`` (rows exist but the newest is
+    older than :data:`LIVE_MAX_AGE_HOURS`). ``realized_usd_since`` is ``None``,
+    never ``0.0``, unless measured. SCOPE IS THE CREDENTIALS' OWN SUB-ACCOUNT --
+    it cannot see a sub-account the API key does not belong to (see
+    ``bybit_wallet_truth``), so it is reported beside the hand figure, never
+    summed into it. Best-effort: never raises.
+    """
+
+    from src.runtime import bybit_wallet_truth as wt
+
+    ref = now if now is not None else datetime.now(timezone.utc)
+    end_ms = int(ref.timestamp() * 1000)
+    start_ms = since_ms if since_ms is not None else end_ms - 30 * 86_400_000
+    base: dict[str, Any] = {
+        "state": wt.STATE_UNREADABLE, "realized_usd_since": None, "rows_counted": 0,
+        "latest_row_at": None, "latest_row_age_hours": None,
+        "scope": "credentials' own sub-account only",
+    }
+    try:
+        if lister is None:
+            from src.runtime.exchange_fills_store import list_transaction_log as lister
+        rows = lister(account_id, since_ms=start_ms, until_ms=end_ms)
+        # Newest row regardless of the window start: freshness is "when did the
+        # puller last store anything", not "was there activity since as_of".
+        newest = lister(account_id, since_ms=end_ms - 30 * 86_400_000, until_ms=end_ms)
+    except Exception as exc:  # noqa: BLE001  # allow-silent: converted to the DECLARED `unreadable` state with its reason, never to 0 or []
+        base["reason"] = f"store_read_failed: {type(exc).__name__}"
+        return base
+    verdict = wt.compute_wallet_truth(account_id, rows, window_start_ms=start_ms, window_end_ms=end_ms)
+    base["state"] = verdict.state if rows else wt.STATE_NOT_PULLED
+    base["rows_counted"] = verdict.rows_counted
+    base["realized_usd_since"] = verdict.realized_usd if verdict.is_measured else None
+    times = [r.get("transactionTime") for r in newest if r.get("transactionTime") is not None]
+    if times:
+        latest = max(int(t) for t in times)
+        age_h = round((end_ms - latest) / 3_600_000, 1)
+        base["latest_row_at"] = datetime.fromtimestamp(latest / 1000, tz=timezone.utc).isoformat()
+        base["latest_row_age_hours"] = age_h
+        if age_h > LIVE_MAX_AGE_HOURS:
+            base["state"] = "silent"
+    return base
 
 
 def summarize_broker_truth(
