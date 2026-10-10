@@ -1,0 +1,18 @@
+{
+  "id": "RESEARCH-OPS-SKILL",
+  "title": "research-ops skill: routine research-operations pass, 4x/day",
+  "phase": null,
+  "state": "done",
+  "owner": "lane RESEARCH-OPS-SKILL",
+  "lane": "session_01VkQsZqK134BZUbvNGTDPqZ",
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "OPERATOR REQUEST, 2026-10-10 ~21:00Z, verbatim: \"I think we need to create a routine research session skill with instructions for checking the research pipeline, ensuring the que has items that are running, verify blocked items so they can be unlocked, analyzing results and generating the follow up tasks (research and otherwise), that should probably be run 3-4 times a day, just to ensure that we are on track. This doesn't come instead of other research sessions on specific topics, but more to ensure that research operations are working smoothly and effectively\". Dispatched by manager session_01Uq7MrjPQDRWqbhCjwuMava. Builds .claude/skills/research-ops/SKILL.md + manager hook + CLAUDE.md line. Ceiling $6, Sonnet. Built: .claude/skills/research-ops/SKILL.md; manager routine section; CLAUDE.md/PLANNING.md/performance-review pointers; indexes. Routine NOT run by this lane (RESEARCH-NIGHT-1010 owns the one-off pass). First-run findings visible in the guards: runnable=8 < floor 25, templates hold 3 of a 17 deficit; 9 NOT_RUNNING units (5 NEEDS_LANE) from blocker_watch.",
+  "updated_at": "2026-10-10T20:59:32Z",
+  "updated_by": "session_01VkQsZqK134BZUbvNGTDPqZ",
+  "_seq": 378
+}
