@@ -1,0 +1,632 @@
+{
+ "request_id": "performance-review-2026-10-10-w41-lane",
+ "reviewed_at": "2026-10-10T19:30:00+00:00",
+ "reviewer": "claude",
+ "window_start": "2026-10-04T10:38:45+00:00",
+ "window_end": "2026-10-10T19:10:00+00:00",
+ "_window_note": "Anchor = prior review 20261004-103845. Closed trades: /api/bot/trades/closed?include_paper=true (84 rows, closedAt 10-04T15:03Z..10-10T16:03Z); journal trades (82 closed since anchor); order packages 106 (not truncated, <200 cap).",
+ "_scope_note": "LANE SCOPE (bounded by the manager, dollar ceiling $12): grading + pipeline dispositions only. The pipeline drain is NOT the full 70-item performance/research population: 8 items touched this review were re-measured; ~62 other open [performance]/[research] rows were not re-run (see backlog_coverage). breakout_1 retired and excluded by instruction.",
+ "overall_assessment": "caution",
+ "_headline": "Real money: 4 priced closes +$2.10 (n=4, tiny), 2 closes by stuck_strategy_watchdog (one 1.15R, past its stop), 1 open eth_4h short at +1.58R after a 3.2R peak. velotrade_1 first entry is OPEN, filled better than ticket.",
+ "strategy_performance": [
+  {
+   "strategy": "ada_pullback_2h",
+   "n_decisions": 3,
+   "n_filled": 3,
+   "n_rejected": 0,
+   "n_closed": 9,
+   "win_rate": 0.333,
+   "pnl_total": 2368.57,
+   "pnl_measured_n": 6,
+   "pnl_coverage": 0.67,
+   "avg_hold_seconds": 78578,
+   "accounts_touched": [
+    "bybit_1",
+    "bybit_2",
+    "bybit_portfolio"
+   ],
+   "exit_reasons": {
+    "other": 4,
+    "sl": 2,
+    "tp": 3
+   },
+   "note": ""
+  },
+  {
+   "strategy": "ict_scalp_avax_5m",
+   "n_decisions": 1,
+   "n_filled": 0,
+   "n_rejected": 1,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": null,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {},
+   "note": ""
+  },
+  {
+   "strategy": "ict_scalp_eth_15m",
+   "n_decisions": 0,
+   "n_filled": 0,
+   "n_rejected": 0,
+   "n_closed": 1,
+   "win_rate": 1.0,
+   "pnl_total": 569.21,
+   "pnl_measured_n": 0,
+   "pnl_coverage": 0.0,
+   "avg_hold_seconds": 385214,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "tp": 1
+   },
+   "note": ""
+  },
+  {
+   "strategy": "ict_scalp_mgc_15m",
+   "n_decisions": 1,
+   "n_filled": 1,
+   "n_rejected": 0,
+   "n_closed": 1,
+   "win_rate": 0.0,
+   "pnl_total": 0,
+   "pnl_measured_n": 0,
+   "pnl_coverage": 0.0,
+   "avg_hold_seconds": 17293,
+   "accounts_touched": [
+    "ib_paper"
+   ],
+   "exit_reasons": {
+    "other": 1
+   },
+   "note": ""
+  },
+  {
+   "strategy": "ict_scalp_xrp_15m",
+   "n_decisions": 1,
+   "n_filled": 1,
+   "n_rejected": 0,
+   "n_closed": 1,
+   "win_rate": 0.0,
+   "pnl_total": -492.32,
+   "pnl_measured_n": 1,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 1858,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "sl": 1
+   },
+   "note": ""
+  },
+  {
+   "strategy": "ict_scalp_xrp_5m",
+   "n_decisions": 2,
+   "n_filled": 2,
+   "n_rejected": 0,
+   "n_closed": 2,
+   "win_rate": 1.0,
+   "pnl_total": 238.05,
+   "pnl_measured_n": 2,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 2573,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "tp": 1,
+    "sl": 1
+   },
+   "note": ""
+  },
+  {
+   "strategy": "mes_trend_long_1d",
+   "n_decisions": 1,
+   "n_filled": 1,
+   "n_rejected": 0,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": null,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {},
+   "note": ""
+  },
+  {
+   "strategy": "mgc_trend_1h",
+   "n_decisions": 16,
+   "n_filled": 0,
+   "n_rejected": 16,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": null,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {},
+   "note": ""
+  },
+  {
+   "strategy": "pairs_bnb_btc_a",
+   "n_decisions": 14,
+   "n_filled": 14,
+   "n_rejected": 0,
+   "n_closed": 14,
+   "win_rate": 0.714,
+   "pnl_total": 0.31,
+   "pnl_measured_n": 14,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 13882,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "other": 14
+   },
+   "note": "pnl sums all accounts incl paper + portfolio mirrors; bucket-A/B split not applied to pairs (journal exits: pairs_revert/pairs_stop)"
+  },
+  {
+   "strategy": "pairs_bnb_btc_b",
+   "n_decisions": 14,
+   "n_filled": 14,
+   "n_rejected": 0,
+   "n_closed": 14,
+   "win_rate": 0.429,
+   "pnl_total": -4.71,
+   "pnl_measured_n": 14,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 13881,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "other": 14
+   },
+   "note": "pnl sums all accounts incl paper + portfolio mirrors; bucket-A/B split not applied to pairs (journal exits: pairs_revert/pairs_stop)"
+  },
+  {
+   "strategy": "pairs_sol_eth_a",
+   "n_decisions": 15,
+   "n_filled": 15,
+   "n_rejected": 0,
+   "n_closed": 15,
+   "win_rate": 0.533,
+   "pnl_total": -17.19,
+   "pnl_measured_n": 15,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 18059,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "other": 15
+   },
+   "note": "pnl sums all accounts incl paper + portfolio mirrors; bucket-A/B split not applied to pairs (journal exits: pairs_revert/pairs_stop)"
+  },
+  {
+   "strategy": "pairs_sol_eth_b",
+   "n_decisions": 15,
+   "n_filled": 15,
+   "n_rejected": 0,
+   "n_closed": 15,
+   "win_rate": 0.533,
+   "pnl_total": 27.47,
+   "pnl_measured_n": 15,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 18058,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "other": 15
+   },
+   "note": "pnl sums all accounts incl paper + portfolio mirrors; bucket-A/B split not applied to pairs (journal exits: pairs_revert/pairs_stop)"
+  },
+  {
+   "strategy": "qqq_pullback_1h",
+   "n_decisions": 0,
+   "n_filled": 0,
+   "n_rejected": 0,
+   "n_closed": 1,
+   "win_rate": 1.0,
+   "pnl_total": 744.12,
+   "pnl_measured_n": 1,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 871248,
+   "accounts_touched": [
+    "alpaca_paper"
+   ],
+   "exit_reasons": {
+    "sl": 1
+   },
+   "note": ""
+  },
+  {
+   "strategy": "qqq_trend_long_1d",
+   "n_decisions": 2,
+   "n_filled": 0,
+   "n_rejected": 2,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": null,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {},
+   "note": ""
+  },
+  {
+   "strategy": "spy_trend_long_1d",
+   "n_decisions": 2,
+   "n_filled": 0,
+   "n_rejected": 2,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": null,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {},
+   "note": ""
+  },
+  {
+   "strategy": "tlt_pullback_1d",
+   "n_decisions": 1,
+   "n_filled": 0,
+   "n_rejected": 1,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": null,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {},
+   "note": ""
+  },
+  {
+   "strategy": "trend_donchian",
+   "n_decisions": 1,
+   "n_filled": 1,
+   "n_rejected": 0,
+   "n_closed": 1,
+   "win_rate": 1.0,
+   "pnl_total": 48.8,
+   "pnl_measured_n": 0,
+   "pnl_coverage": 0.0,
+   "avg_hold_seconds": 26346,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "sl": 1
+   },
+   "note": ""
+  },
+  {
+   "strategy": "trend_donchian_ada_4h",
+   "n_decisions": 0,
+   "n_filled": 0,
+   "n_rejected": 0,
+   "n_closed": 1,
+   "win_rate": 1.0,
+   "pnl_total": 14.62,
+   "pnl_measured_n": 0,
+   "pnl_coverage": 0.0,
+   "avg_hold_seconds": 1164741,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "tp": 1
+   },
+   "note": ""
+  },
+  {
+   "strategy": "trend_donchian_eth",
+   "n_decisions": 1,
+   "n_filled": 0,
+   "n_rejected": 1,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": null,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {},
+   "note": ""
+  },
+  {
+   "strategy": "trend_donchian_eth_4h",
+   "n_decisions": 1,
+   "n_filled": 1,
+   "n_rejected": 0,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": null,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {},
+   "note": ""
+  },
+  {
+   "strategy": "trend_donchian_eth_prop",
+   "n_decisions": 11,
+   "n_filled": 0,
+   "n_rejected": 0,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": null,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {},
+   "note": ""
+  },
+  {
+   "strategy": "trend_donchian_sol",
+   "n_decisions": 0,
+   "n_filled": 0,
+   "n_rejected": 0,
+   "n_closed": 1,
+   "win_rate": 0.0,
+   "pnl_total": -669.81,
+   "pnl_measured_n": 1,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 89036,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "sl": 1
+   },
+   "note": ""
+  },
+  {
+   "strategy": "trend_donchian_xrp_4h",
+   "n_decisions": 1,
+   "n_filled": 1,
+   "n_rejected": 0,
+   "n_closed": 3,
+   "win_rate": 0.0,
+   "pnl_total": -1391.78,
+   "pnl_measured_n": 0,
+   "pnl_coverage": 0.0,
+   "avg_hold_seconds": 52814,
+   "accounts_touched": [
+    "bybit_1",
+    "bybit_2",
+    "bybit_portfolio"
+   ],
+   "exit_reasons": {
+    "other": 1,
+    "sl": 2
+   },
+   "note": ""
+  },
+  {
+   "strategy": "xrp_pullback_2h",
+   "n_decisions": 3,
+   "n_filled": 3,
+   "n_rejected": 0,
+   "n_closed": 5,
+   "win_rate": 0.0,
+   "pnl_total": 0,
+   "pnl_measured_n": 0,
+   "pnl_coverage": 0.0,
+   "avg_hold_seconds": 0,
+   "accounts_touched": [
+    "bybit_1",
+    "bybit_2",
+    "bybit_portfolio"
+   ],
+   "exit_reasons": {
+    "other": 5
+   },
+   "note": ""
+  }
+ ],
+ "trade_decision_grades": [
+  {
+   "cohort": "grade-closed-trades cron rows joined to window closes by trade id",
+   "n": 78,
+   "grades": {
+    "B": {
+     "n": 9,
+     "pnl": -2401.64,
+     "wins": 3
+    },
+    "C": {
+     "n": 66,
+     "pnl": 5102.5,
+     "wins": 35
+    },
+    "D": {
+     "n": 3,
+     "pnl": -1262.72,
+     "wins": 0
+    }
+   },
+   "order_package_ids": "see comms/claude_strategy_scores.jsonl rows with linked_trade_id in the window",
+   "note": "Graded by cron, not re-graded here. D cohort = ada_pullback_2h 6460/6461/6462 (conf 0.30, entry should_skip, -0.98R sl). 6 closes (6556-6561, pairs, closed 10-10 07:05-16:03Z) not yet graded; next cron 03:10Z."
+  },
+  {
+   "order_package_id": "pkg-2ba157527fdd4732",
+   "strategy": "trend_donchian_eth_prop",
+   "account": "velotrade_1",
+   "decision_grade": "B",
+   "entry_quality": "acceptable",
+   "exit_quality": "unknown",
+   "risk_management": "correct",
+   "note": "OPEN. Ticket 15:00Z long ETH entry 2509.59 SL 2495.0846 TP 2596.6221 (R:R 6.0, real TP), risk $50. Filled 3.44 @ 2509.40 (-0.76 bps = better than ticket, size -0.2% vs 3.447). Graded on setup only."
+  }
+ ],
+ "_trade_decision_grades_note": "Grade-vs-outcome: B cohort net negative with 3/9 wins and D cohort 0/3 negative (D behaves), but B<C in dollars again -> grade_drift stays (PI-20261004-ZBHFJG6X-0004). risk_management unknown 78/78.",
+ "insights_review": [
+  {
+   "endpoint": "summary",
+   "finding": "M13 24h summary (template:v1, generated 18:52Z) reports trades 1/1, 10 packages, -$3.86, 0% WR: that is the REAL-MONEY-only count (6549 ada_pullback_2h watchdog close) rendered without saying so; all-class window had 84 closes and +$1,435 net. Package count 10 is the 24h figure. Not an AI analyst.",
+   "severity": "drift"
+  }
+ ],
+ "proposed_tweaks": [],
+ "_proposed_tweaks_note": "None. No Tier-3 change proposed; no leg has the evidence for one. ada/avax/sol pullback need the M8 tune sweep first (tune-before-demote).",
+ "backlog_drain": [
+  {
+   "id": "PI-20261004-ZBHFJG6X-0001",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun/equivalent measured this window and a redate record appended with the fresh observation (see pipeline record); due 2026-10-17"
+  },
+  {
+   "id": "PI-20261004-ZBHFJG6X-0002",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun/equivalent measured this window and a redate record appended with the fresh observation (see pipeline record); due 2026-10-17"
+  },
+  {
+   "id": "PI-20261004-ZBHFJG6X-0003",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun/equivalent measured this window and a redate record appended with the fresh observation (see pipeline record); due 2026-10-17"
+  },
+  {
+   "id": "PI-20261004-ZBHFJG6X-0004",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun/equivalent measured this window and a redate record appended with the fresh observation (see pipeline record); due 2026-10-17"
+  },
+  {
+   "id": "PI-20261004-ZBHFJG6X-0005",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun/equivalent measured this window and a redate record appended with the fresh observation (see pipeline record); due 2026-10-17"
+  },
+  {
+   "id": "PI-20261004-ZBHFJG6X-0006",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun/equivalent measured this window and a redate record appended with the fresh observation (see pipeline record); due 2026-10-17"
+  },
+  {
+   "id": "PI-20261004-P24XMV4V-0001",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun/equivalent measured this window and a redate record appended with the fresh observation (see pipeline record); due 2026-10-17"
+  },
+  {
+   "id": "PI-20261007-N6TXSAL6-0002",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun/equivalent measured this window and a redate record appended with the fresh observation (see pipeline record); due 2026-10-17"
+  }
+ ],
+ "_backlog_drain_note": "Only the 8 rows this lane's prior review filed or the manager routed to it were re-measured and redated. The rest of the performance/research population was NOT walked.",
+ "backlog_coverage": {
+  "open_at_start": 70,
+  "triaged": 8,
+  "resolved": 0,
+  "fixed_now": 0,
+  "closed_stale": 0,
+  "kept_open": 8,
+  "count_untriaged": 62,
+  "_note": "GATE NOT MET: count_untriaged=62 (population = open [performance]/[research]/SRQ/PB rows, measured by text match, 70 of 890 open). Stopped by the lane's dollar ceiling and the 'bounded' scope, not by a finding. A later lane should walk the remaining 62."
+ },
+ "paper_book_tracker": {
+  "snapshot": {
+   "asof": "2026-10-10",
+   "book_n": 179,
+   "book_net_usd": -2876.05,
+   "book_win_rate": 27.9,
+   "recent_30d": {
+    "n": 50,
+    "net_usd": 5622.72,
+    "mean_usd": 112.45
+   },
+   "prior": {
+    "n": 129,
+    "net_usd": -8498.77,
+    "mean_usd": -65.88
+   },
+   "families": {
+    "trend_net_usd": 7317.85,
+    "pullback_net_usd": -10193.89
+   },
+   "decay_flag": false
+  },
+  "delta_vs_previous": "+6 trades, +$363.52 net since 2026-10-04 snapshot (appended to docs/research/paper-book-tracker.jsonl)",
+  "assessment": "noise/healthy on decay (no sustained sag in recent window); family-level split: trend carries, pullback bleeds (avax n=8 12.5% WR -$5.5k, sol n=11 9.1% WR -$2.6k, ada n=35 -$3.6k). Filed PI-20261010-WQAPZD8B-0004."
+ },
+ "real_money_allocation_benchmark": {
+  "incumbent": "bybit_2 (real money)",
+  "candidate": "alpaca ETF sleeve on alpaca_paper (paper proxy)",
+  "incumbent_expectancy_r": null,
+  "candidate_expectancy_r": null,
+  "incumbent_max_dd": null,
+  "candidate_max_dd": null,
+  "correlation_estimate": null,
+  "diversifies": false,
+  "verdict": "neutral",
+  "proposed_action": "none; keep capital where it is",
+  "note": "Not computed: bybit_2 has 4 priced closes this window (+$2.10, 2 PnL estimated/unpriced, journalTrust known_divergent on prior record) -> n too small for expectancy-R; alpaca_live had 0 closes. Paper-proxy candidate not run (lane bounded). Standing row SRQ-20260715-REALMONEY-ALLOC-BENCHMARK not touched."
+ },
+ "research_pipeline": {
+  "stage3_disposition": {
+   "dispositioned": 129,
+   "unread": 26,
+   "superseded_unread": 295,
+   "no_rows": 0,
+   "corpus_unreadable": 0
+  },
+  "admission": {
+   "accruing": 24,
+   "cleared": 4,
+   "infeasible": 9,
+   "not_queue_dispatched": 413
+  },
+  "note": "26 unread: 16 e35 units n_oos 4-49 vs floor 49.06 (all 'accruing'; eth_pullback_2h, trend_donchian_eth_4h and trend_donchian_eth_prop sit at 49/49.06) plus 10 m20 not_queue_dispatched. NOT read or dispositioned by this lane: reading them was not in the bounded scope. Source: scripts/research/research_disposition.py --report on main c5841126+."
+ },
+ "prop_trade_quality": {
+  "velotrade_1": {
+   "ticket": "prop-manual-6fbebc711fa6",
+   "status": "OPEN (not closed as of 2026-10-10T19:10Z; fill row 96 has exit_price null, closed_at null)",
+   "ticketed": {
+    "entry": 2509.59,
+    "sl": 2495.0846,
+    "tp": 2596.6221,
+    "qty": 3.447
+   },
+   "filled": {
+    "entry": 2509.4,
+    "qty": 3.44,
+    "sl": 2495.08,
+    "tp": 2596.62,
+    "reported_at": "2026-10-10T15:53:18Z"
+   },
+   "entry_slippage_bps": -0.76,
+   "unrealised_estimate": "about +$5 (~+0.1R of $49 risk) using the bybit_1 ETH long mark ~2510.95; ESTIMATED from another venue, not a velotrade reading",
+   "other_tickets": "e705486d2cf5 skipped (price left band, ask 2511.48 vs band to 2510.17); 2ac3f6d3f6ff skipped under the since-removed halt latch; df6e8938ab89 'unconfirmed_submit' qty 0.82 -> see PI-20261010-WQAPZD8B-0003"
+  },
+  "breakout_1": "retired, not graded"
+ },
+ "anomalies": [
+  "REAL MONEY: 2 bybit_2 closes by stuck_strategy_watchdog (6528 xrp 4h short -$3.11 ~0.98R; 6549 ada_2h short -$3.857 = 1.15R, exit 0.2489 beyond stop 0.24767). PnL estimated. PI-20261010-WQAPZD8B-0001.",
+  "mgc_trend_1h: 16 rejected packages (ib_paper) with no recorded cause; sentinel tp_r 50.0. PI-20261010-WQAPZD8B-0002.",
+  "velotrade_1 2026-10-08 'unconfirmed_submit' fill row with qty 0.82 and entry 2471.31 followed by the auto-revert halt; whether a position existed is unrecorded. PI-20261010-WQAPZD8B-0003.",
+  "Paper pullback family -$10.2k vs trend +$7.3k on bybit_1; avax/sol pullback at 12.5%/9.1% WR. PI-20261010-WQAPZD8B-0004.",
+  "OPEN real money: bybit_2 trend_donchian_eth_4h short 6489 (2026-10-07) openR 1.58, peakR 3.22 (lower bound, estimated), giveback 1.63R, 39.6% of its 4.0R cap; TP 2356.35, SL 2568.88. Not a defect; the cap-vs-peak gap is the TP-doctrine question.",
+  "Exit-reason labelling: API closeReason 'other' = 60 of 70 bybit_1 closes (journal says pairs_revert/pairs_stop); use journal shape for bucketing, as the skill warns.",
+  "trend_donchian_eth_prop emitted 11 prop tickets in 6 days (4 suppressed, 1 expired, 3 skipped, 1 filled) after a short->long flip on 10-10; all prop tickets render accountClass real_money with no trade row (expected, see ZBHFJG6X-0001 observation).",
+  "Grade drift persists (B cohort -$2,401.64, 3/9 wins). Grading cron healthy: landings 10-05..10-10.",
+  "Not done: 62 open performance/research pipeline rows not walked; 26 unread research units not dispositioned; 6 closes (10-10) not yet graded."
+ ],
+ "recommended_action": "(1) Manager: take PI-20261010-WQAPZD8B-0001 (real-money watchdog closes, one past the stop) and -0003 (velotrade 10-08 unconfirmed 0.82 ETH) first. (2) Tier-1: run the M8 tune sweep for ada/avax/sol pullback before any demotion. (3) Re-run this review's open-position read when prop-manual-6fbebc711fa6 closes.",
+ "operator_attention_required": true,
+ "claude_channel_ping": "/performance-review 10-04..10-10: 84 closes; real money 4 priced +$2.10, 2 watchdog closes (1 past stop); velotrade ETH long OPEN, fill beat ticket. 0 Tier-3 tweaks; 8/70 backlog (62 not walked); 4 filed."
+}
