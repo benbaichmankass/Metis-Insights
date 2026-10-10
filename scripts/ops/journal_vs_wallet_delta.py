@@ -47,7 +47,10 @@ def compute(account: str, wallet: Any, closed: Any) -> Dict[str, Any]:
         days.append({"date": d["date"], "wallet": d["wallet_usd"], "journal": round(jb["pnl"], 4),
                      "delta": round(d["wallet_usd"] - jb["pnl"], 4), "fees": d["fees_usd"],
                      "funding": d["funding_usd"], "journal_rows": jb["n"], "null_pnl_rows": jb["null_pnl"]})
-    tot = lambda k: round(sum(x[k] for x in days), 4)
+
+    def tot(k: str) -> float:
+        return round(sum(x[k] for x in days), 4)
+
     return {"account": account, "state": "read", "days": days, "n_days": len(days),
             "total": {k: tot(k) for k in ("wallet", "journal", "delta", "fees", "funding")}}
 

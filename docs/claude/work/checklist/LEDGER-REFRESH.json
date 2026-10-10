@@ -14,7 +14,12 @@
   ],
   "blocked_on": [],
   "note": "CLOSES WHEN (after PR #17469 merges+deploys): (1) curl /api/bot/pnl/broker-truth shows accounts[bybit_2].live.state=measured_api and declared_gaps; (2) the 'Broker-truth ledger freshness' issue (label broker-truth-freshness) exists with Last checked <6h and bybit_2 graded declared_gap. OPEN, needs operator: bybit_2 SUB (-261.01 frozen 2026-07-13) has no API path -> either a fresh operator UM export or SUB-credential lane; bybit_1/bybit_portfolio still have NO ledger record (journalTrust no_record = unreconciled, not clean). Deltas measured 2026-10-10 (bybit_1 14d: wallet -5335 vs journal -3433, delta -1902, wallet fees 2279 explains it with +377 unexplained, 9 null-pnl + 85 estimated rows of 304; bybit_portfolio 14d n=9 journal rows vs 50 wallet rows, delta -72, fees 242).",
-  "updated_at": "2026-10-10T22:24:08Z",
+  "updated_at": "2026-10-10T22:32:02Z",
   "updated_by": "session_01DMnHPv2LMxuy1RrVVxjKr4",
+  "observation": {
+    "what": "broker-truth freshness issue exists, Last checked <6h, bybit_2 graded declared_gap, and /api/bot/pnl/broker-truth bybit_2.live.state=measured_api",
+    "how_to_check": "curl https://ict-bot.duckdns.org/api/bot/pnl/broker-truth and open the issue labelled broker-truth-freshness",
+    "due_by": "2026-10-17"
+  },
   "_seq": 233
 }
