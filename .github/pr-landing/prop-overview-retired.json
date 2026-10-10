@@ -1,1 +1,8 @@
-{"tier":1,"landing":"self","why":"read-only API projection (prop overview) excludes retired accounts; tests"}
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "src/prop/ read-path change; the manager merges under the operator's breakout_1 retirement decision",
+  "why": "read-only API projection (/api/bot/prop/overview) excludes retired prop accounts; no order path, no writes",
+  "recorded_decision": {"kind": "operator_decision", "ref": "DASH-PROP-OVERVIEW"}
+}
