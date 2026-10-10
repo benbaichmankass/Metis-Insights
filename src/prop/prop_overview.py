@@ -47,9 +47,12 @@ def _parse(ts: Any) -> Optional[datetime]:
 
 
 def prop_account_ids(accounts: Dict[str, Any]) -> List[str]:
-    from src.prop.prop_identity import is_prop_account
+    """Live prop accounts. A ``retired: true`` account (breakout_1, operator
+    2026-10-09: it "shouldn't be coming up again") is excluded -- its equity and
+    its never-closed historical fill rows are not this book's."""
+    from src.prop.prop_identity import is_prop_account, is_retired_account
     return [aid for aid, a in (accounts or {}).items()
-            if isinstance(a, dict) and is_prop_account(a)]
+            if isinstance(a, dict) and is_prop_account(a) and not is_retired_account(a)]
 
 
 def _key(f: Dict[str, Any]) -> Optional[tuple]:

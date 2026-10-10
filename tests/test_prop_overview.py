@@ -84,3 +84,17 @@ def test_route_degrades(monkeypatch):
     from src.web.api.routers import prop as router
     monkeypatch.setattr(po, "build_overview", lambda w: (_ for _ in ()).throw(RuntimeError("x")))
     assert router.get_overview("7d")["present"] is False
+
+
+def test_retired_account_excluded(monkeypatch):
+    # breakout_1 is retired (operator 2026-10-09): its stale equity and its
+    # never-closed historical fills must not appear in the live prop book.
+    accts = dict(ACCTS, breakout_1={"account_class": "prop", "mode": "dry_run", "retired": True})
+    EQ["breakout_1"] = (4698.0, "stale")
+    try:
+        _patch(monkeypatch, [_fill(1, "breakout_1", "open"), _fill(2, "velotrade_1", "open")])
+        o = po.build_overview("7d", accounts=accts, now=NOW)
+        assert [a["account_id"] for a in o["equity"]["accounts"]].count("breakout_1") == 0
+        assert [t["account_id"] for t in o["open_trades"]] == ["velotrade_1"]
+    finally:
+        EQ.pop("breakout_1", None)
