@@ -887,6 +887,12 @@ class RiskManager:
             return self._live_equity, None
         return _dd.snapshot_equity_reading(self.account_id)
 
+    def dd_switch_still_valid(self):
+        """Callable ``(since) -> bool`` that may carry a pre-day reading
+        forward (``carried_quiescent``); None = never (an exchange account
+        reads live / hourly, so a pre-day reading is simply not today's)."""
+        return None
+
     def dd_switch_equity(self) -> Optional[float]:
         """The equity reading the daily-DD switch folds in (None = could not look)."""
         return self.dd_switch_reading()[0]
@@ -895,7 +901,8 @@ class RiskManager:
         """Observe equity into the switch; True when it blocks NEW entries."""
         try:
             equity, read_at = self.dd_switch_reading()
-            row = self.dd_switch.observe(equity, reading_ts=read_at)
+            row = self.dd_switch.observe(equity, reading_ts=read_at,
+                                         still_valid=self.dd_switch_still_valid())
             return self.dd_switch.blocks_new_entries(row)
         except Exception as exc:  # noqa: BLE001 — a switch bug must not refuse or halt
             logger.warning("daily_dd_switch: check failed for %s: %s", self.account_id, exc)

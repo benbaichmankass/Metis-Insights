@@ -230,6 +230,28 @@ def test_dry_test_request_serves_exactly_one_dry_ticket(monkeypatch):
     assert pe.claim_next(_dev()) is None  # same request id is never served twice
 
 
+def test_login_retry_is_logged_quietly_and_the_red_flag_pings(_iso):
+    """PHONE-AUTOLOGIN: no latch, retries forever -- each retry is logged in phone_events but not pinged; the ONE
+    login_failed red flag (after 3 in a row) and the recovery login_ok are pinged."""
+    n = len(_iso)
+    for i in range(5):
+        pe.record_event(_dev(), {"event": "login_retry", "reason": f"failed ({i + 1}): email step; next try in 5 min"})
+    assert len(_iso) == n
+    pe.record_event(_dev(), {"event": "login_failed", "reason": "auto re-login failed 3 times in a row; STILL RETRYING"})
+    pe.record_event(_dev(), {"event": "login_ok", "reason": "RECOVERED (auto re-login via dedicated inbox)"})
+    assert len(_iso) == n + 2
+    assert [e["kind"] for e in pe.recent_events("breakout_2")][-3:] == ["login_retry", "login_failed", "login_ok"]
+
+
+def test_account_status_age_hours(_iso):
+    assert pe.account_status_age_hours("breakout_2") is None  # no row: not told, never "fresh"
+    from src.prop import prop_journal
+    prop_journal.insert_account_status({"account_id": "breakout_2", "balance": 100.0, "equity": 100.0,
+                                        "source": "phone_executor"})
+    age = pe.account_status_age_hours("breakout_2")
+    assert age is not None and 0.0 <= age < 0.1
+
+
 def test_terminal_miss_keeps_latest_controls_scrubbed_and_does_not_ping(_iso):
     n = len(_iso)
     assert pe.last_diag("breakout_2") is None
@@ -250,14 +272,38 @@ def test_heartbeat_keeps_latest_allowlisted_state_and_does_not_ping(_iso):
     assert pe.last_heartbeat("breakout_2") is None
     pe.record_event(_dev(), {"event": "heartbeat", "reason": "logged in, not on the terminal; acct 12345678",
                              "state": {"st": "logged_in", "hold": True, "tabs": 3, "host": "trade.breakoutprop.com",
-                                       "secret": "x", "onAccount": False, "armed": True}})
+                                       "secret": "x", "onAccount": False, "armed": True, "last": "login"}})
     hb = pe.last_heartbeat("breakout_2")
     assert len(_iso) == n
     assert "12345678" not in hb["status"] and hb["state"] == {"st": "logged_in", "hold": True, "tabs": 3,
-                                                               "host": "trade.breakoutprop.com", "onAccount": False}
+                                                               "host": "trade.breakoutprop.com", "onAccount": False,
+                                                               "last": "login"}
     from src.web.api import main as api_main
     body = TestClient(api_main.app, raise_server_exceptions=False).get("/api/bot/prop/status?account_id=breakout_2").json()
     assert body["phone_heartbeat"]["state"]["hold"] is True
+
+
+def test_event_log_keeps_last_events_scrubbed_and_dedupes_heartbeats(_iso, monkeypatch):
+    assert pe.recent_events("breakout_2") is None
+    pe.record_event(_dev(), {"event": "login_started", "reason": "attempt 1"})
+    pe.record_event(_dev(), {"event": "login_failed", "ticket_id": "t-1!",
+                             "reason": "no password field at https://x.example/login acct 12345678 me@x.com"})
+    for _ in range(3):
+        pe.record_event(_dev(), {"event": "heartbeat", "reason": "background: no ticket waiting", "state": {}})
+    pe.record_event(_dev(), {"event": "heartbeat", "reason": "logged in", "state": {}})
+    ev = pe.recent_events("breakout_2")
+    assert [e["kind"] for e in ev] == ["login_started", "login_failed", "heartbeat", "heartbeat"]
+    fail = ev[1]
+    assert fail["ticket"] == "t-1" and fail["at"]
+    assert "12345678" not in fail["reason"] and "@" not in fail["reason"] and "http" not in fail["reason"]
+    monkeypatch.setattr(pe, "_EVENTS_MAX", 5)
+    for i in range(10):
+        pe.record_event(_dev(), {"event": "login_failed", "reason": f"try {i}"})
+    ev = pe.recent_events("breakout_2")
+    assert len(ev) == 5 and ev[-1]["reason"] == "try 9"
+    from src.web.api import main as api_main
+    body = TestClient(api_main.app, raise_server_exceptions=False).get("/api/bot/prop/status?account_id=breakout_2").json()
+    assert body["phone_events"][-1] == ev[-1]
 
 
 def test_pending_peek_counts_without_claiming(monkeypatch):
@@ -267,7 +313,7 @@ def test_pending_peek_counts_without_claiming(monkeypatch):
     c = TestClient(api_main.app, raise_server_exceptions=False)
     assert c.get("/api/bot/prop/phone/pending").status_code == 401
     h = {"Authorization": "Bearer " + TOKEN}
-    assert c.get("/api/bot/prop/phone/pending", headers=h).json() == {"ok": True, "pending": 0}
+    assert c.get("/api/bot/prop/phone/pending", headers=h).json() == {"ok": True, "pending": 0, "status_age_hours": None}
     _ticket("old", minutes=-1)
     _ticket("t1")
     assert c.get("/api/bot/prop/phone/pending", headers=h).json()["pending"] == 1

@@ -63,6 +63,26 @@ def test_heartbeat_edges():
     assert ps.probe_phone_heartbeat(NOW, lambda _p: ("read", {}), lambda _a: None)["status"] == "unknown"
 
 
+def _login(hb_min, age_h, mode="live", state=None):
+    body = {"account_id": "breakout_2", "status_age_hours": age_h,
+            "phone_heartbeat": None if hb_min is None else
+            {"at": (NOW - timedelta(minutes=hb_min)).isoformat(), "state": state or {"last": "login"}}}
+    return ps.probe_phone_login(NOW, lambda _p: ("read", body), lambda _a: mode)
+
+
+def test_silent_logout_edges():
+    """PHONE-AUTOLOGIN: heartbeat alive + stale account_status = breached; a dead heartbeat is the other probe's."""
+    assert _login(1, 0.5)["status"] == "ok"
+    b = _login(1, 15.0)
+    assert (b["status"], b["priority"]) == ("breached", "urgent") and "'login'" in b["detail"]
+    assert _login(30, 15.0)["status"] == "ok"           # heartbeat dead: phone_hb_ owns it (one alarm per cause)
+    assert _login(None, 15.0)["status"] == "ok"
+    assert _login(1, None)["status"] == "unknown"       # no dateable row: did not look, never "fresh"
+    assert _login(1, 15.0, mode="dry_run")["status"] == "ok"
+    assert ps.probe_phone_login(NOW, lambda _p: ("unreadable", "x"), lambda _a: "live")["status"] == "unknown"
+    assert ps.login_key() in a.PROBE_LABEL
+
+
 def _view(probes):
     base = {k: {"status": "ok", "detail": "fine"} for k in a.PROBE_LABEL}
     base.update(probes)
