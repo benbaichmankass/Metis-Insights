@@ -45,6 +45,21 @@ Semantics
   clears a trip already latched today). After ``UNREADABLE_FLAG_AFTER``
   consecutive unreadable checks on an armed account, ONE red flag is sent;
   checks keep running (NO-HALT rule 7).
+* **Carried, quiescent** (``carried_quiescent``, PI-20261010-CJWUMAVA-0001) —
+  a prop snapshot read before today's carry window is yesterday's equity and
+  normally "could not look". It is folded anyway, under its OWN read state
+  (never ``ok``), only when the caller's ``still_valid`` check establishes
+  that nothing which moves equity has happened since it was read: no fill
+  reported after it, no open position, no ticket that can still take
+  exposure (:func:`prop_quiescent_since`). A phone-flow prop account
+  (breakout_2) reports equity only while a ticket waits, so a quiet day
+  otherwise reads "could not look" all day. Re-checked every observe: the
+  first fill or ticket after the snapshot drops it back to could-not-look.
+* **Dry account** (``dry_run_not_read``, PI-20261009-CJWUMAVA-0001) — an
+  armed account whose ``mode`` is not ``live`` places no order the switch
+  could refuse, and the read path never dials a dry gateway (ib_live), so the
+  tick observe records "not read, by design" instead of counting toward the
+  unreadable red flag. It is still not ``ok`` and never trips.
 
 * **Observed every trader tick** — ``observe_armed_accounts`` (called once
   per tick from ``src/main.py``) folds one on-disk equity reading per armed
@@ -82,6 +97,8 @@ BASIS_PROP = "prop_firm_daily_limit_minus_buffer"
 READ_OK = "ok"
 READ_UNREADABLE = "could_not_look"
 READ_NOT_OBSERVED = "not_observed"
+READ_CARRIED = "carried_quiescent"
+READ_DRY_NOT_READ = "dry_run_not_read"
 
 
 def _f(x: Any) -> Optional[float]:
@@ -274,14 +291,22 @@ class DailyDDSwitch:
 
     # -- the check -----------------------------------------------------------
     def observe(self, equity: Optional[float], now: Optional[datetime] = None, *,
-                reading_ts: Optional[datetime] = None) -> Dict[str, Any]:
+                reading_ts: Optional[datetime] = None,
+                still_valid: Optional[Callable[[datetime], bool]] = None,
+                unread_state: str = READ_UNREADABLE) -> Dict[str, Any]:
         """Fold one equity reading into today's state; alert on transitions.
 
         ``reading_ts`` is when the equity was READ (a balance snapshot can be
         up to 2h old); it defaults to ``now`` (a live read). A reading older
         than the one already folded never regresses the row, and a reading
         from before today's carry window is not today's equity — both leave
-        the row's verdict as it was / "could not look" respectively.
+        the row's verdict as it was / "could not look" respectively — unless
+        ``still_valid(reading_ts)`` returns True (nothing moved equity since
+        it was read), when it is folded as ``carried_quiescent``.
+
+        ``unread_state`` labels a missing reading; anything but
+        ``could_not_look`` (``dry_run_not_read``) is "not read by design" and
+        never counts toward the unreadable red flag.
 
         Returns the account's row (see :meth:`status`)."""
         if not self.account_id:
@@ -319,10 +344,22 @@ class DailyDDSwitch:
                 # after a dispatch's live read): no new information.
                 self._put_if_changed(before, row)
                 return row
+        carried = False
+        if eq is not None and eq > 0:
             if reading_ts < day_boundary(day, self.cfg.reset_utc) - CARRY_DAY_START_WINDOW:
-                eq = None      # yesterday's equity is not a reading of today
+                # Yesterday's equity is not a reading of today -- unless the
+                # caller shows nothing has moved it since (carried, labelled).
+                carried = _still_valid(still_valid, reading_ts)
+                if not carried:
+                    eq = None
 
         if eq is None or eq <= 0:
+            if unread_state != READ_UNREADABLE:
+                # Not read BY DESIGN (a dry account): honest, never ok, no flag.
+                row["unreadable_streak"] = 0
+                row["read_state"] = unread_state
+                self._put_if_changed(before, row)
+                return row
             row["unreadable_streak"] = int(row.get("unreadable_streak") or 0) + 1
             row["read_state"] = READ_UNREADABLE
             if (self.cfg.armed and row["unreadable_streak"] >= UNREADABLE_FLAG_AFTER
@@ -334,7 +371,8 @@ class DailyDDSwitch:
 
         row["unreadable_streak"] = 0
         row["red_flagged"] = False
-        row["read_state"] = READ_OK
+        row["read_state"] = READ_CARRIED if carried else READ_OK
+        row["carried_from"] = reading_ts.isoformat() if carried else None
         row["last_equity"] = eq
         row["last_equity_ts"] = reading_ts.isoformat()
         if not row.get("day_start_equity"):
@@ -387,8 +425,19 @@ class DailyDDSwitch:
             "tripped": self.blocks_new_entries(row),
             "tripped_at": row.get("tripped_at"),
             "read_state": row.get("read_state") or READ_NOT_OBSERVED,
+            "carried_from": row.get("carried_from"),
             "unreadable_streak": int(row.get("unreadable_streak") or 0),
         }
+
+
+def _still_valid(check: Optional[Callable[[datetime], bool]], since: datetime) -> bool:
+    if check is None:
+        return False
+    try:
+        return check(since) is True
+    except Exception as exc:  # noqa: BLE001 -- an unreadable check = could not look
+        logger.warning("daily_dd_switch: still_valid check failed: %s", exc)
+        return False
 
 
 def switch_for_account(account_id: str, account_cfg: Mapping[str, Any], **kw: Any) -> DailyDDSwitch:
@@ -435,7 +484,11 @@ def snapshot_equity_reading(account_id: str, *, max_age_hours: float = SNAPSHOT_
 def prop_equity_reading(account_id: str, *, now: Optional[datetime] = None) -> Reading:
     """``(equity, read_at)`` from the latest operator/executor-reported prop
     status row (``prop_sizing_balance``: equity preferred over balance), only
-    when that row is fresh — a stale or absent row is "could not look"."""
+    when that row is fresh — a stale or absent row is "could not look".
+
+    ``read_at`` is the row's own ``reported_at``: deriving it as ``now - age``
+    jittered by microseconds per call, so a re-read of the SAME row looked
+    older than itself and never advanced the unreadable streak."""
     if not account_id:
         return None, None
     try:
@@ -445,9 +498,51 @@ def prop_equity_reading(account_id: str, *, now: Optional[datetime] = None) -> R
         return None, None
     if state != "ok" or val is None:
         return None, None
-    age = _f((meta or {}).get("age_hours"))
     now = now or datetime.now(timezone.utc)
+    try:
+        from src.prop import prop_journal
+        row = prop_journal.latest_account_status(account_id) or {}
+        ts = _parse_ts(row.get("reported_at") or row.get("created_at"))
+    except Exception:  # noqa: BLE001
+        ts = None
+    if ts is not None:
+        return val, ts
+    age = _f((meta or {}).get("age_hours"))
     return val, (now - timedelta(hours=age)) if age is not None else now
+
+
+def prop_quiescent_since(account_id: str, since: datetime, *,
+                         now: Optional[datetime] = None) -> bool:
+    """True only when we LOOKED and nothing that moves equity has happened on
+    the prop account since ``since`` (the snapshot's read time).
+
+    Three conditions, each read from ``prop_journal`` (any read failure is
+    "could not look" -> False, never quiescent):
+
+    * no fill reported, opened or closed after ``since`` — a close realizes
+      P&L, so ``prop_status_request``'s QUIESCENT (which deliberately ignores
+      fills for the cushion) is NOT sufficient here;
+    * no open position (unrealized P&L moves equity);
+    * ``prop_status_request.assess_activity`` is QUIESCENT — no ticket that
+      can still take exposure was created after ``since``.
+    """
+    if not account_id or since is None:
+        return False
+    now = now or datetime.now(timezone.utc)
+    from src.prop import prop_journal
+    from src.prop.prop_monitor_pulse import find_open_prop_positions
+    from src.prop.prop_status_request import QUIESCENT, assess_activity
+    fills = prop_journal.list_fills(account_id=account_id, limit=2000)
+    tickets = prop_journal.list_tickets(account_id=account_id, limit=500)
+    for f in fills:
+        for key in ("reported_at", "closed_at", "opened_at", "created_at"):
+            ts = _parse_ts(f.get(key))
+            if ts is None or ts > since:
+                return False   # undateable counts as "after" (fail toward could-not-look)
+    open_positions = find_open_prop_positions(account_id=account_id, now=now) if fills else []
+    verdict, _ = assess_activity(snapshot_reported_at=since.isoformat(),
+                                 open_positions=open_positions, tickets=tickets, now=now)
+    return verdict == QUIESCENT
 
 
 def observe_armed_accounts(accounts_path: Optional[Path] = None,
@@ -484,9 +579,18 @@ def observe_armed_accounts(accounts_path: Optional[Path] = None,
             sw = switch_for_account(str(name), cfg)
             if not sw.cfg.armed:
                 continue
-            reading = (prop_equity_reading(str(name), now=now) if is_prop_account(cfg)
+            if str(cfg.get("mode") or "live").lower() != "live":
+                # A dry account sends no order the switch could refuse, and its
+                # gateway is never dialled from the read path: not read, by design.
+                row = sw.observe(None, now, unread_state=READ_DRY_NOT_READ)
+                out[str(name)] = str(row.get("read_state") or READ_NOT_OBSERVED)
+                continue
+            prop = is_prop_account(cfg)
+            reading = (prop_equity_reading(str(name), now=now) if prop
                        else snapshot_equity_reading(str(name), now=now))
-            row = sw.observe(reading[0], now, reading_ts=reading[1])
+            still = ((lambda since, _n=str(name): prop_quiescent_since(_n, since, now=now))
+                     if prop else None)
+            row = sw.observe(reading[0], now, reading_ts=reading[1], still_valid=still)
             out[str(name)] = str(row.get("read_state") or READ_NOT_OBSERVED)
         except Exception as exc:  # noqa: BLE001 — one account never stops the rest
             logger.warning("daily_dd_switch: tick observe failed for %s: %s", name, exc)
@@ -498,4 +602,5 @@ __all__ = [
     "BASIS_PCT", "BASIS_PROP", "SwitchConfig", "DailyDDSwitch", "parse_config",
     "prop_firm_terms", "trading_day", "switch_for_account", "load_state",
     "snapshot_equity_reading", "prop_equity_reading", "observe_armed_accounts",
+    "prop_quiescent_since", "READ_CARRIED", "READ_DRY_NOT_READ",
 ]

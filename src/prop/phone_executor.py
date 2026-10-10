@@ -49,6 +49,7 @@ import os
 import re
 import secrets
 import sqlite3
+import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -70,7 +71,7 @@ PHONE_PLATFORM = "breakout_phone"
 CLAIM_TIMEOUT_S = 180  # design § 3.3: "suggest 3 minutes without a report"
 _FP_RE = re.compile(r"^[0-9a-f]{64}$")
 _EVENT_KINDS = {
-    "login_ok", "login_failed", "logout_seen", "login_started", "refusal",
+    "login_ok", "login_failed", "logout_seen", "login_started", "login_retry", "refusal",
     "mismatch", "flattened", "dry_fill_ok", "submitted", "app_started", "error", "terminal_miss", "heartbeat",
 }
 # terminal_miss carries the control texts the page showed (our own UI labels, scrubbed like a reason) so the
@@ -483,11 +484,14 @@ def record_event(device: PhoneDevice, body: Dict[str, Any], *, send=None) -> Dic
     msg = f"📱 phone {device.account_id}: {kind}" + (f" [{ticket}]" if ticket else "") + (
         f" — {reason}" if reason else "")
     logger.info("phone_executor event %s %s %s", device.account_id, kind, ticket)
+    _append_event(device.account_id, kind, reason, ticket)
     if kind == "terminal_miss":
         _write_diag(device.account_id, reason, body.get("controls"))
     if kind == "heartbeat":
         _write_heartbeat(device.account_id, reason, body.get("state"))
-    quiet = (kind == "app_started" and not body.get("ping")) or kind in ("terminal_miss", "heartbeat")
+    # login_retry: an auto re-login attempt/failure inside a streak (PHONE-AUTOLOGIN, no latch, retried forever) is
+    # logged in phone_events but not pinged; the phone sends ONE login_failed red flag after 3 in a row instead.
+    quiet = (kind == "app_started" and not body.get("ping")) or kind in ("terminal_miss", "heartbeat", "login_retry")
     sent = False
     if not quiet:
         try:
@@ -523,7 +527,7 @@ def _write_diag(account_id: str, reason: str, controls: Any) -> None:
 # tick path at most every 2 min; only the latest is kept. Keys are a fixed allowlist; values are bools, small
 # ints or scrubbed short strings.
 _HB_KEYS = {"st", "paused", "hold", "host", "onAccount", "path_depth", "ready", "probe", "panels", "orderControl",
-            "ticketOpen", "buySell", "tabs", "inputs", "build", "fg", "jsTimeouts", "pending", "acct"}
+            "ticketOpen", "buySell", "tabs", "inputs", "build", "fg", "jsTimeouts", "pending", "acct", "last"}
 
 
 def _write_heartbeat(account_id: str, reason: str, state: Any) -> None:
@@ -539,6 +543,57 @@ def _write_heartbeat(account_id: str, reason: str, state: Any) -> None:
         _heartbeat_path(account_id).write_text(json.dumps({"at": _now().isoformat(), "status": reason, "state": st}))
     except OSError:  # allow-silent: diagnostics only; the event is still acknowledged
         logger.warning("phone_executor: heartbeat write failed", exc_info=True)
+
+
+# event log (2026-10-10: the phone posted login_started/login_failed for an hour and the reasons were readable only in
+# Telegram -- the logger line above never reached the journal a session can read). The last _EVENTS_MAX events per
+# account (kind, the already-scrubbed reason, ticket, at) are kept beside the diag/heartbeat files and served on
+# /api/bot/prop/status as ``phone_events``. A heartbeat is logged only when its status line changes, so the 2-minute
+# heartbeat cadence cannot push the login events out of the window.
+_EVENTS_MAX = 40
+_EVENTS_LOCK = threading.Lock()
+
+
+def _events_path(account_id: str) -> Path:
+    return _diag_path(account_id).with_name(f"prop_phone_events_{re.sub(r'[^a-z0-9_]', '', account_id)}.json")
+
+
+def _append_event(account_id: str, kind: str, reason: str, ticket: str) -> None:
+    path = _events_path(account_id)
+    try:
+        with _EVENTS_LOCK:
+            events = recent_events(account_id) or []
+            if kind == "heartbeat":
+                last_hb = next((e for e in reversed(events) if e.get("kind") == "heartbeat"), None)
+                if last_hb is not None and last_hb.get("reason") == reason:
+                    return
+            events.append({"at": _now().isoformat(), "kind": kind, "reason": reason, "ticket": ticket or None})
+            tmp = path.with_name(path.name + ".tmp")
+            tmp.write_text(json.dumps(events[-_EVENTS_MAX:]))
+            tmp.replace(path)
+    except OSError:  # allow-silent: diagnostics only; the event is still acknowledged
+        logger.warning("phone_executor: event log write failed", exc_info=True)
+
+
+def recent_events(account_id: str) -> list | None:
+    """The last _EVENTS_MAX phone events for the account, oldest first, or None when none was ever posted."""
+    try:
+        got = json.loads(_events_path(account_id).read_text())
+    except (OSError, ValueError):
+        return None
+    return got if isinstance(got, list) else None
+
+
+def account_status_age_hours(account_id: str) -> Optional[float]:
+    """Age (h) of the account's latest ``prop_account_status`` row, or None (no row / unreadable / undateable).
+    Served on GET /phone/pending so a backgrounded phone brings itself forward to check its login when it is stale
+    (PHONE-AUTOLOGIN; the phone posts account_status only while logged in on the terminal)."""
+    try:
+        from src.prop import prop_balance, prop_journal
+        return prop_balance.status_age_hours(prop_journal.latest_account_status(account_id))
+    except Exception:  # noqa: BLE001  # allow-silent: None = "not told"; the phone's own 30-min check still runs
+        logger.warning("phone_executor: account_status age read failed", exc_info=True)
+        return None
 
 
 def _heartbeat_path(account_id: str) -> Path:

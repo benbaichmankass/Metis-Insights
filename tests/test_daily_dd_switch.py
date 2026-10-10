@@ -400,3 +400,118 @@ def test_prop_accounts_are_observed_on_the_tick_from_their_status_row(tick_env, 
 def test_main_loop_calls_the_tick_observe():
     src = (_REPO / "src/main.py").read_text()
     assert "observe_armed_accounts()" in src
+
+
+# ── PI-20261009-CJWUMAVA-0001 / PI-20261010-CJWUMAVA-0001 ──────────────────
+# ib_live (armed, mode dry_run) read could_not_look with a climbing streak:
+# the read path never dials a dry gateway, so it can never be read. breakout_2
+# (phone-flow prop) read could_not_look all of 2026-10-10: its only equity
+# source is the phone, which reports while a ticket waits, and its 15:01Z
+# snapshot predated the 00:30 reset's carry window.
+
+def test_dry_account_is_not_read_by_design_never_ok_never_flagged(tick_env):
+    tick_env["write_accounts"]({"acct_dry": {"exchange": "interactive_brokers", "mode": "dry_run",
+                                             "risk": {"daily_dd_switch": {"armed": True}}}})
+    for m in range(5):
+        assert tick_env["tick"](_ts(9, 14, m))["acct_dry"] == dd.READ_DRY_NOT_READ
+    row = tick_env["state"]()["acct_dry"]
+    assert row["unreadable_streak"] == 0 and row["tripped"] is False
+    assert row.get("day_start_equity") is None
+    assert not [a for a in tick_env["alerts"] if a[1] == "acct_dry"]
+
+
+def test_quiescent_pre_day_reading_is_carried_under_its_own_label(tmp_path):
+    sw, alerts = _switch(tmp_path)
+    row = sw.observe(5_000.0, _ts(10, 5, 0), reading_ts=_ts(9, 15, 0), still_valid=lambda s: True)
+    assert row["read_state"] == dd.READ_CARRIED != dd.READ_OK
+    assert row["carried_from"] == _ts(9, 15, 0).isoformat()
+    assert row["day_start_equity"] == 5_000.0 and row["last_equity_ts"] == _ts(9, 15, 0).isoformat()
+    assert sw.status(row)["read_state"] == "carried_quiescent"
+    # The first equity-moving event since the snapshot drops it to could-not-look.
+    row = sw.observe(5_000.0, _ts(10, 6, 0), reading_ts=_ts(9, 15, 0), still_valid=lambda s: False)
+    assert row["read_state"] == dd.READ_UNREADABLE
+    # A failing check is "could not look", never carried.
+    def boom(_s):
+        raise RuntimeError("db gone")
+    row = sw.observe(5_000.0, _ts(10, 7, 0), reading_ts=_ts(9, 15, 0), still_valid=boom)
+    assert row["read_state"] == dd.READ_UNREADABLE and not alerts
+    # A fresh reading is ok again and clears carried_from.
+    row = sw.observe(4_990.0, _ts(10, 8, 0), reading_ts=_ts(10, 7, 59), still_valid=lambda s: False)
+    assert row["read_state"] == dd.READ_OK and row["carried_from"] is None
+
+
+def test_carried_reading_lets_a_later_fresh_loss_trip(tmp_path):
+    sw, alerts = _switch(tmp_path)
+    sw.observe(10_000.0, _ts(10, 1, 0), reading_ts=_ts(9, 15, 0), still_valid=lambda s: True)
+    row = sw.observe(9_650.0, _ts(10, 9, 0), reading_ts=_ts(10, 9, 0))
+    assert row["tripped"] is True and alerts == ["trip"]
+
+
+def _prop_rows(monkeypatch, *, fills=(), tickets=()):
+    import src.prop.prop_journal as pj
+    import src.prop.prop_monitor_pulse as pmp
+    monkeypatch.setattr(pj, "list_fills", lambda **k: list(fills))
+    monkeypatch.setattr(pj, "list_tickets", lambda **k: list(tickets))
+    monkeypatch.setattr(pmp, "find_open_prop_positions",
+                        lambda **k: [f for f in fills if f.get("status") in ("open", "filled")])
+
+
+def test_prop_quiescent_since(monkeypatch):
+    since, now = _ts(9, 15, 0), _ts(10, 5, 0)
+    old = {"status": "closed", "reported_at": _ts(8, 1).isoformat(), "closed_at": _ts(8, 1).isoformat(),
+           "opened_at": _ts(8, 0).isoformat(), "created_at": _ts(8, 1).isoformat()}
+    dry_test = {"status": "dry_filled", "created_at": _ts(7, 18).isoformat()}
+    _prop_rows(monkeypatch, fills=[old], tickets=[dry_test])
+    assert dd.prop_quiescent_since("breakout_2", since, now=now) is True
+    # A fill after the snapshot realized P&L: not quiescent (the cushion's QUIESCENT ignores it).
+    _prop_rows(monkeypatch, fills=[dict(old, reported_at=_ts(9, 20).isoformat())])
+    assert dd.prop_quiescent_since("breakout_2", since, now=now) is False
+    # An open position.
+    _prop_rows(monkeypatch, fills=[dict(old, status="open", closed_at=None)])
+    assert dd.prop_quiescent_since("breakout_2", since, now=now) is False
+    # A live ticket created after the snapshot.
+    _prop_rows(monkeypatch, tickets=[{"status": "emitted", "created_at": _ts(10, 4).isoformat(),
+                                      "valid_until": _ts(10, 6).isoformat()}])
+    assert dd.prop_quiescent_since("breakout_2", since, now=now) is False
+
+    import src.prop.prop_journal as pj
+    def boom(**k):
+        raise RuntimeError("locked")
+    monkeypatch.setattr(pj, "list_fills", boom)
+    with pytest.raises(RuntimeError):   # the switch's _still_valid turns this into could-not-look
+        dd.prop_quiescent_since("breakout_2", since, now=now)
+
+
+def test_tick_carries_a_quiet_prop_account_across_its_reset(tick_env, monkeypatch):
+    accounts = yaml.safe_load((_REPO / "config/accounts.yaml").read_text())["accounts"]
+    cfg = dict(accounts["breakout_2"])
+    tick_env["write_accounts"]({"breakout_2": cfg})
+    import src.prop.prop_balance as pb
+    import src.prop.prop_journal as pj
+    monkeypatch.setattr(pb, "prop_sizing_balance",
+                        lambda aid: ("ok", 5_000.0, {"age_hours": 14.9}) if aid == "breakout_2"
+                        else ("absent", None, {}))
+    monkeypatch.setattr(pj, "latest_account_status",
+                        lambda aid: {"reported_at": _ts(9, 15, 1).isoformat(), "equity": 5_000.0})
+    _prop_rows(monkeypatch)
+    assert tick_env["tick"](_ts(10, 5, 54))["breakout_2"] == dd.READ_CARRIED
+    row = tick_env["state"]()["breakout_2"]
+    assert row["day_start_equity"] == 5_000.0 and row["limit_usd"] == pytest.approx(120.0)
+    # A ticket placed after the snapshot: could-not-look again, counting toward the flag.
+    _prop_rows(monkeypatch, tickets=[{"status": "placed", "created_at": _ts(10, 6).isoformat()}])
+    for m in range(3):
+        assert tick_env["tick"](_ts(10, 7, m))["breakout_2"] == dd.READ_UNREADABLE
+    assert ("unreadable", "breakout_2") in tick_env["alerts"]   # the streak now advances (no ts jitter)
+
+
+def test_prop_risk_manager_carries_quiescent_reading(monkeypatch, tmp_path):
+    monkeypatch.setattr(dd, "prop_quiescent_since", lambda name, since, now=None: True)
+    monkeypatch.setattr(dd, "prop_equity_reading",
+                        lambda aid, now=None: (5_000.0, datetime.now(timezone.utc) - timedelta(days=1)))
+    accounts = yaml.safe_load((_REPO / "config/accounts.yaml").read_text())["accounts"]
+    rm = PropRiskManager.__new__(PropRiskManager)
+    rm.account_name = "breakout_2"
+    rm.account_id = "breakout_2"
+    rm.dd_switch = dd.switch_for_account("breakout_2", accounts["breakout_2"])
+    assert rm.check_dd_switch() is False
+    assert dd.load_state()["breakout_2"]["read_state"] == dd.READ_CARRIED

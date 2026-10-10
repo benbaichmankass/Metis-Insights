@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-13",
+    "kind": "date"
+  },
+  "id": "PI-20261010-GKFNZSH4-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PHONE-LOGIN session_01A6p3gTETFMHtBiGkFNZSh4, 2026-10-10",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_2' | python3 -c \"import json,sys;d=json.load(sys.stdin);print(d['phone_heartbeat'],d.get('phone_events'),d['status_age_hours'])\""
+  },
+  "state": "queued",
+  "what": "Phone executor (breakout_2) cannot see a Breakout logout while backgrounded. MEASURED 2026-10-10 from the web-api access log: the app polled only GET /phone/pending (background tick) from 03:32Z to 06:24Z with zero /phone/claim, and the last account_status is 2026-10-09T15:01Z; the background tick never reads the WebView (by design, PI-20261006-APBY4NTV-0006), so relogin() and logout_seen run only once the app is foreground. A session expiry overnight is therefore invisible until a ticket arrives (bring-to-front) or the operator opens the app: a missed-ticket window with no flag. PR claude/phone-event-log adds heartbeat key `last` (the last foreground page state) as observability only. Decide the fix: e.g. a bounded periodic bring-to-front (every ~30 min, then moveTaskToBack) to read the page and run auto re-login, or a server-side flag when account_status age > N h while the heartbeat is alive. Also: relogin() on a codeWait page left by a MANUAL attempt searches mail since now-60s, so it cannot find the operator's mail and burns one of the 2 latch failures."
+}
