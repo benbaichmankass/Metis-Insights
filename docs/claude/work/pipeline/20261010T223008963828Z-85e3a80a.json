@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-17",
+    "kind": "date"
+  },
+  "id": "PI-20261010-ERFFUW41-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "lane PERF-FOLLOWUP-2026W41 L7",
+    "rerun": "python3 - config/accounts.yaml roster for bybit_1/bybit_2/bybit_portfolio vs per_cell keys of the newest docs/research/paper-book-tracker.jsonl row"
+  },
+  "state": "queued",
+  "what": "paper-book tracker (docs/research/paper-book-tracker.jsonl, 10-10 row) still counts legs that left every roster on 2026-10-05 (MD-S1-CUT-ON-STAGE0-FAIL + SOAK-GATE1): avax_pullback_2h (n=8, -$5,530) and sol_pullback_2h (n=11, -$2,612) are 69% of the pullback family's -$10,194, yet config/accounts.yaml (read this session) names only xrp_pullback_2h and ada_pullback_2h on the Bybit rosters. The review's headline 'pullback bleeds' and its 'run the M8 tune sweep for ada/avax/sol' therefore point partly at legs with no consumer. Fix: the tracker emits a second split over the CURRENT roster (live legs only) beside the historical cohort, and the performance-review skill's M8-sweep recommendation is restricted to rostered legs."
+}
