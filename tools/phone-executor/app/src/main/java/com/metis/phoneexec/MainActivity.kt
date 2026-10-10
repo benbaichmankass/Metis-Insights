@@ -727,19 +727,32 @@ class MainActivity : Activity() {
                     d.put("pick", r)
                     if (r != "clicked") return loginFail("lineup tap: $r", p, d.put("step", step))
                 }
-                else -> { step = "link"; p.load(dec.value!!) }   // same WebView profile, same cookie store
+                // The link opens in a throwaway WebView (same profile, same cookie store) and the WAITING PAGE STAYS:
+                // with the number check, it is the waiting page that completes once the link is confirmed. Loading the
+                // link into the waiting page itself discarded it, and 2026-10-10 18:37Z / 18:54Z ended on "Sign in".
+                else -> { step = "link"; d.put("link_view", openLinkAside(dec.value!!)) }
             }
-            // VERIFY: let the waiting page finish on its own (up to 30 s), then the terminal must read logged in
+            // VERIFY: let the waiting page finish on its own (up to 60 s), then the terminal must read logged in
             step = "verify"
             var ok = false
-            for (i in 0 until 10) {
+            for (i in 0 until 20) {
                 delay(PAGE_POLL_MS)
                 val a = try { p.ensure(); p.obj("__ex.state()") } catch (e: JsTimeout) { null }
                 if (a?.optBoolean("loggedIn") == true) { ok = true; break }
             }
-            if (!ok) {
-                p.load(home())
-                ok = p.settle(45_000L)?.optBoolean("loggedIn") == true
+            // Not yet: reload the terminal and keep reading. 2026-10-10 18:37Z the first reload landed on the portal's
+            // "Loading..." page and settle() returned at readyState=complete, before the session reached the
+            // terminal, so a good link read as a failed login (operator: "can also try reloading in that situation").
+            // Up to 3 reloads, each read for up to 30 s, stopping the moment the terminal reads logged in.
+            for (r in 0 until 3) {
+                if (ok) break
+                p.load(home()); d.put("reloads", r + 1)
+                val end = System.currentTimeMillis() + 30_000L
+                while (System.currentTimeMillis() < end) {
+                    if (p.settle(6_000L)?.optBoolean("loggedIn") == true) { ok = true; break }
+                    heartbeat(if (bg) "background" else "login", null)
+                    delay(PAGE_POLL_MS)
+                }
             }
             d.put("verify_s", secs())
             if (ok) {
@@ -758,6 +771,35 @@ class MainActivity : Activity() {
 
     /** PHONE-AUTOLOGIN-3: did the page move after the email submit? (the email field is gone, a code page or a login
      *  reads, or the text signature changed) -- polled every 1.5 s for up to [maxMs]. */
+    /** Open the mail's link in a separate, never-shown WebView that shares the app's cookie store, wait until its
+     *  document completes (up to 25 s), then destroy it. Returns a short diag token: "done", "timeout" or "err".
+     *  Never logs the URL (it carries the one-time code). */
+    @SuppressLint("SetJavaScriptEnabled")
+    private suspend fun openLinkAside(url: String): String {
+        val w = try { WebView(applicationContext) } catch (e: Exception) { return "err" }
+        try {
+            w.settings.javaScriptEnabled = true; w.settings.domStorageEnabled = true
+            w.settings.allowFileAccess = false; w.settings.allowContentAccess = false
+            CookieManager.getInstance().setAcceptThirdPartyCookies(w, true)
+            w.webViewClient = WebViewClient()
+            val dm = resources.displayMetrics
+            w.measure(android.view.View.MeasureSpec.makeMeasureSpec(dm.widthPixels, android.view.View.MeasureSpec.EXACTLY),
+                android.view.View.MeasureSpec.makeMeasureSpec(dm.heightPixels, android.view.View.MeasureSpec.EXACTLY))
+            w.layout(0, 0, dm.widthPixels, dm.heightPixels)
+            w.onResume(); w.resumeTimers()
+            val aside = Page(w, "")
+            w.loadUrl(url)
+            val end = System.currentTimeMillis() + 25_000L
+            delay(2_000L)
+            while (System.currentTimeMillis() < end) {
+                val rs = try { aside.js("document.readyState") } catch (e: JsTimeout) { "" }
+                if (rs == "complete") { delay(3_000L); CookieManager.getInstance().flush(); return "done" }
+                delay(1_000L)
+            }
+            return "timeout"
+        } finally { try { w.stopLoading(); w.destroy() } catch (e: Exception) { } }
+    }
+
     private suspend fun advanced(p: Page, sig0: String, maxMs: Long): Boolean {
         val end = System.currentTimeMillis() + maxMs
         while (System.currentTimeMillis() < end) {

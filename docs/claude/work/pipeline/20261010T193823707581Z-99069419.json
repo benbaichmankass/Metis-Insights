@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-17",
+    "kind": "date"
+  },
+  "id": "PI-20261010-RNCT2YDP-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "WATCHDOG-PAST-STOP (session_01FKmg4ZrDWBViBwRncT2yDP); PI-20261010-WQAPZD8B-0001",
+    "rerun": "Diag relay (label vm-diag-request), body lines: journal?table=trades&limit=1&offset=<N> for ids 6549/6528 and api/bot/pnl/exchange/fills?account_id=bybit_2&days=14 ; compare trades.exit_price/exit_price_source with the fill whose order_id == trades.sl_order_id"
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": "2",
+  "what": "[performance][health] Re-price bybit_2 real-money rows 6549 and 6528 from their own stop-order fills, and price watchdog/reconciler closes from the trade's OWN bracket-order fills before the close-time candle. MEASURED 2026-10-10 (diag #17451/#17454): 6549 ADAUSDT short 406 entry fill 0.2391, own sl order e3bf5ffb filled 406 @ 0.2477 at 2026-10-10T01:32:08Z, journal exit 0.2489 candle_at_close at 01:34:33 (pnl -3.857 ESTIMATED; gross from fills (0.2391-0.2477)*406 = -3.4916 before fees). 6528 XRPUSDT short 56.9, own sl order a189d840 filled 56.9 @ 1.4024 at 2026-10-09T06:40:00Z, journal exit 1.4011 candle_at_close at 06:42:22 (pnl -3.11243). The WATCHDOG-PAST-STOP PR fixes the label (relabel sweep now covers stuck_strategy_watchdog) and the cause (closed-pnl match on the venue entry fill), but NOT these two rows' pnl/exit_price/closed_at: the local sweep only selects pnl IS NULL and backfill_fabricated_exits.py skips ESTIMATED rows. Re-pricing is a Tier-2 DB writeback."
+}

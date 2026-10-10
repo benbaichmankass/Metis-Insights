@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The two closes are root-caused (venue stop present/absent at close, from bybit order history) AND either a fix is merged or each is shown to be a journal-only stale row with the venue closing correctly.",
+    "kind": "event",
+    "last_checked": "2026-10-10"
+  },
+  "id": "PI-20261010-WQAPZD8B-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-17",
+    "how_to_check": "curl -s 'https://ict-bot.duckdns.org/api/bot/trades/closed?account_id=bybit_2&limit=200' | python3 -c \"import json,sys; [print(t['id'],t['pattern'],t['closeReason'],t['realizedPnl'],t['pnlProvenance']) for t in json.load(sys.stdin) if t['id'] in ('6528','6549')]\"; scripts/ops/diag_fetch.sh 'journal?table=trades&limit=200' | python3 -c \"import json,sys; d=json.load(sys.stdin); r=d.get('rows',d); print(sum(1 for x in r if x.get('exit_reason')=='stuck_strategy_watchdog'),'watchdog closes in last 200')\"",
+    "what": "The two closes are root-caused (venue stop present/absent at close, from bybit order history) AND either a fix is merged or each is shown to be a journal-only stale row with the venue closing correctly."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "PERF-REVIEW-W41 (session_01LZL3YVtBKGpvYKwqApZd8b), comms/reviews/performance-review-20261010-*.json",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/trades/closed?account_id=bybit_2&limit=200' | python3 -c \"import json,sys; [print(t['id'],t['pattern'],t['closeReason'],t['realizedPnl'],t['pnlProvenance']) for t in json.load(sys.stdin) if t['id'] in ('6528','6549')]\"; scripts/ops/diag_fetch.sh 'journal?table=trades&limit=200' | python3 -c \"import json,sys; d=json.load(sys.stdin); r=d.get('rows',d); print(sum(1 for x in r if x.get('exit_reason')=='stuck_strategy_watchdog'),'watchdog closes in last 200')\""
+  },
+  "severity": "high",
+  "state": "queued",
+  "tier": "1",
+  "what": "[performance][health] REAL MONEY: 2 bybit_2 closes ended `stuck_strategy_watchdog`, not TP/SL/strategy-close: 6528 trend_donchian_xrp_4h short (2026-10-09T06:42Z, entry 1.3464 exit 1.4011 stop 1.40214, -$3.11) and 6549 ada_pullback_2h short (2026-10-10T01:34Z, entry 0.2394 exit 0.2489 vs stop 0.24767, -$3.857 = 1.15R, i.e. exited past its stop by 0.0012 on a 0.2394 entry, i.e. about 0.5%; population: 2 of 4 priced bybit_2 closes, window 2026-10-04..2026-10-10, journal trades n=82 closed across all accounts). Both pnl cost_source=estimate. A real-money close by a watchdog, one beyond the stop, means the venue SL did not close the trade; root cause (missing/rejected venue stop vs stale journal row) not established in this review. Not fixed here (runtime)."
+}

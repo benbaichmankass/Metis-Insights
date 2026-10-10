@@ -1,0 +1,8 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; changes how the prop executor resolves an unconfirmed submit (reads only at the venue; no order endpoint added)",
+  "recorded_decision": {"kind": "operator_decision", "ref": "VELO-UNCONFIRMED-1008"},
+  "why": "VELO-UNCONFIRMED-1008: velotrade_1 prop-manual-df6e8938ab89 (2026-10-08 15:28Z) was written off as skipped: unconfirmed_submit after N terminal re-reads with nothing recording whether a position existed. Venue order history proves it never filled (no 2026-10-08 execution in the account's full history). Fix: an unconfirmed submit is resolved by the venue's order history by the ticket's own client id (filled -> journaled open at the venue fill; final with nothing filled / absent -> skipped with the venue's reason); a failed or still-working read keeps it watched instead of writing it off. read_history now raises on a non-200 so could-not-look never reads as absent."
+}

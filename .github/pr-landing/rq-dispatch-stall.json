@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research-queue dispatcher + blocker_watch tooling, their tests and a checklist row. scripts/research/dispatch_queue.py and scripts/ops/blocker_watch.py are CI/ops tooling: no order path, no strategy config, no risk caps, no src/, no deploy/, no live-VM runtime file. The dispatcher change only carries an already-written last_dispatched_at from a stranded stamp PR into the current cycle's stamp landing; it fires nothing it would not have fired and never moves a stamp backwards."
+}

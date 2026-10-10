@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Rejected packages carry a recorded cause (journal close_reason or audit event), AND the 16 are explained (market closed / already-in-position / gateway), OR the leg is shown not to be emitting while a position is open.",
+    "kind": "event",
+    "last_checked": "2026-10-10"
+  },
+  "id": "PI-20261010-WQAPZD8B-0002",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-17",
+    "how_to_check": "curl -s 'https://ict-bot.duckdns.org/api/bot/order-packages?since=2026-10-04T00:00:00Z&limit=200&include_paper=true&strategy=mgc_trend_1h' | python3 -c \"import json,sys,collections as C; r=json.load(sys.stdin)['rows']; print(C.Counter((x['status'],x['closeReason']) for x in r))\"",
+    "what": "Rejected packages carry a recorded cause (journal close_reason or audit event), AND the 16 are explained (market closed / already-in-position / gateway), OR the leg is shown not to be emitting while a position is open."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "PERF-REVIEW-W41 (session_01LZL3YVtBKGpvYKwqApZd8b), comms/reviews/performance-review-20261010-*.json",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/order-packages?since=2026-10-04T00:00:00Z&limit=200&include_paper=true&strategy=mgc_trend_1h' | python3 -c \"import json,sys,collections as C; r=json.load(sys.stdin)['rows']; print(C.Counter((x['status'],x['closeReason']) for x in r))\""
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": "1",
+  "what": "[performance][health] mgc_trend_1h (ib_paper): 16 order packages rejected in 2026-10-04..10-10 (most recent 2026-10-09T07:00Z), each ~5 min after creation, with `close_reason` NULL and no rejection cause on the package or the API row. Packages fire on consecutive hourly bars (05:16, 06:02, 07:00Z). Also tp_r 50.0 (sentinel TP, non-compliant with the TP doctrine). A rejection with no recorded cause cannot be told from a bug: `we did not look` and `nothing wrong` are not distinguishable (collapsed state)."
+}
