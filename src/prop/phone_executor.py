@@ -71,7 +71,7 @@ PHONE_PLATFORM = "breakout_phone"
 CLAIM_TIMEOUT_S = 180  # design § 3.3: "suggest 3 minutes without a report"
 _FP_RE = re.compile(r"^[0-9a-f]{64}$")
 _EVENT_KINDS = {
-    "login_ok", "login_failed", "logout_seen", "login_started", "refusal",
+    "login_ok", "login_failed", "logout_seen", "login_started", "login_retry", "refusal",
     "mismatch", "flattened", "dry_fill_ok", "submitted", "app_started", "error", "terminal_miss", "heartbeat",
 }
 # terminal_miss carries the control texts the page showed (our own UI labels, scrubbed like a reason) so the
@@ -489,7 +489,9 @@ def record_event(device: PhoneDevice, body: Dict[str, Any], *, send=None) -> Dic
         _write_diag(device.account_id, reason, body.get("controls"))
     if kind == "heartbeat":
         _write_heartbeat(device.account_id, reason, body.get("state"))
-    quiet = (kind == "app_started" and not body.get("ping")) or kind in ("terminal_miss", "heartbeat")
+    # login_retry: an auto re-login attempt/failure inside a streak (PHONE-AUTOLOGIN, no latch, retried forever) is
+    # logged in phone_events but not pinged; the phone sends ONE login_failed red flag after 3 in a row instead.
+    quiet = (kind == "app_started" and not body.get("ping")) or kind in ("terminal_miss", "heartbeat", "login_retry")
     sent = False
     if not quiet:
         try:
@@ -580,6 +582,18 @@ def recent_events(account_id: str) -> list | None:
     except (OSError, ValueError):
         return None
     return got if isinstance(got, list) else None
+
+
+def account_status_age_hours(account_id: str) -> Optional[float]:
+    """Age (h) of the account's latest ``prop_account_status`` row, or None (no row / unreadable / undateable).
+    Served on GET /phone/pending so a backgrounded phone brings itself forward to check its login when it is stale
+    (PHONE-AUTOLOGIN; the phone posts account_status only while logged in on the terminal)."""
+    try:
+        from src.prop import prop_balance, prop_journal
+        return prop_balance.status_age_hours(prop_journal.latest_account_status(account_id))
+    except Exception:  # noqa: BLE001  # allow-silent: None = "not told"; the phone's own 30-min check still runs
+        logger.warning("phone_executor: account_status age read failed", exc_info=True)
+        return None
 
 
 def _heartbeat_path(account_id: str) -> Path:

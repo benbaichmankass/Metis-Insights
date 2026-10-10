@@ -230,6 +230,28 @@ def test_dry_test_request_serves_exactly_one_dry_ticket(monkeypatch):
     assert pe.claim_next(_dev()) is None  # same request id is never served twice
 
 
+def test_login_retry_is_logged_quietly_and_the_red_flag_pings(_iso):
+    """PHONE-AUTOLOGIN: no latch, retries forever -- each retry is logged in phone_events but not pinged; the ONE
+    login_failed red flag (after 3 in a row) and the recovery login_ok are pinged."""
+    n = len(_iso)
+    for i in range(5):
+        pe.record_event(_dev(), {"event": "login_retry", "reason": f"failed ({i + 1}): email step; next try in 5 min"})
+    assert len(_iso) == n
+    pe.record_event(_dev(), {"event": "login_failed", "reason": "auto re-login failed 3 times in a row; STILL RETRYING"})
+    pe.record_event(_dev(), {"event": "login_ok", "reason": "RECOVERED (auto re-login via dedicated inbox)"})
+    assert len(_iso) == n + 2
+    assert [e["kind"] for e in pe.recent_events("breakout_2")][-3:] == ["login_retry", "login_failed", "login_ok"]
+
+
+def test_account_status_age_hours(_iso):
+    assert pe.account_status_age_hours("breakout_2") is None  # no row: not told, never "fresh"
+    from src.prop import prop_journal
+    prop_journal.insert_account_status({"account_id": "breakout_2", "balance": 100.0, "equity": 100.0,
+                                        "source": "phone_executor"})
+    age = pe.account_status_age_hours("breakout_2")
+    assert age is not None and 0.0 <= age < 0.1
+
+
 def test_terminal_miss_keeps_latest_controls_scrubbed_and_does_not_ping(_iso):
     n = len(_iso)
     assert pe.last_diag("breakout_2") is None
@@ -291,7 +313,7 @@ def test_pending_peek_counts_without_claiming(monkeypatch):
     c = TestClient(api_main.app, raise_server_exceptions=False)
     assert c.get("/api/bot/prop/phone/pending").status_code == 401
     h = {"Authorization": "Bearer " + TOKEN}
-    assert c.get("/api/bot/prop/phone/pending", headers=h).json() == {"ok": True, "pending": 0}
+    assert c.get("/api/bot/prop/phone/pending", headers=h).json() == {"ok": True, "pending": 0, "status_age_hours": None}
     _ticket("old", minutes=-1)
     _ticket("t1")
     assert c.get("/api/bot/prop/phone/pending", headers=h).json()["pending"] == 1

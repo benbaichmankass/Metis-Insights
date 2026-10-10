@@ -42,10 +42,14 @@ import kotlin.math.round
  * Phase-1b executor (design docs/integrations/breakout-phone-executor-DESIGN.md § 3, § 7.9).
  *
  * A screen-on kiosk WebView on trade.breakoutprop.com, with the stock WebView identity (no UA change, no
- * stealth, no challenge solving: a challenge STOPS the loop). Every 30 s it:
+ * stealth, no challenge solving: a challenge page is never interacted with; the app reloads the terminal every
+ * 30 min to re-check it). Every 30 s it:
  *   - logged out  -> auto re-login: type the account email, read the number the page shows, find the ONE link
- *                    with that number in the newest Breakout mail in the dedicated inbox, open it in THIS WebView.
- *                    Two failures latch it off and ping the operator.
+ *                    with that number in the newest matching Breakout mail in the dedicated inbox, open it in THIS
+ *                    WebView. NO LATCH (operator 2026-10-09 "There is no halting"; 2026-10-10 "the login cannot depend
+ *                    on manual input from me"): a failure is retried after 2, 5, 10, 20, then every 30 min, forever;
+ *                    the 3rd consecutive failure sends ONE login_failed red flag ("still retrying"), the recovery one
+ *                    login_ok. A tap on the screen defers re-login by at most 60 s (RELOGIN_DEFER_MS), never longer.
  *   - logged in   -> claim the next ticket from the VM (atomic, one attempt per ticket), fill it, read EVERY field
  *                    back (the submit label must carry the side), then:
  *                      DRY  (any test ticket, or the server says dry): do NOT submit,
@@ -65,6 +69,12 @@ import kotlin.math.round
  * and while the Activity is NOT resumed the loop never touches the WebView: it peeks GET /phone/pending (read-only,
  * claims nothing), and when a ticket waits it brings this Activity to the front. The claim + fill + every gate run
  * only once resumed; afterwards the task is moved back so the phone returns to what the operator was doing.
+ *
+ * BACKGROUND LOGIN CHECK (PI-20261010-GKFNZSH4-0001, MEASURED 2026-10-10: breakout_2 posted no account_status after
+ * 10-09 15:01Z, background all night, and a logout_seen at 08:19Z was followed by no login_started): a backgrounded
+ * app could never see a logout. The background tick now also brings the Activity forward (same BG_WAKE mechanism)
+ * every LOGIN_CHECK_MS, when a re-login retry is due, or when the VM says account_status is stale; the resumed tick
+ * reads the page, re-logs in if needed, posts account_status, and the task goes back unless the operator touched it.
  */
 class MainActivity : Activity() {
     private lateinit var web: WebView
@@ -83,7 +93,13 @@ class MainActivity : Activity() {
     private var pausedUntilMs = 0L
     private lateinit var pauseBtn: Button
     private var lastState = ""
-    private var reloginFailures = 0
+    private var reloginFailures = 0     // CONSECUTIVE failed auto re-logins; reset by any logged-in read
+    private var reloginNextMs = 0L      // backoff: no new attempt before this
+    private var reloginFlagged = false  // the ONE red flag for this failure streak was sent
+    private var lastPageReadMs = 0L     // last time a foreground tick read the page state
+    private var statusStaleH = -1.0     // the VM's account_status age (h) from /phone/pending; < 0 = not told
+    private var lastStaleWakeMs = 0L
+    private var challengeRecheckMs = 0L
     private var execSrc = ""
     private var resumed = false
     private var jsTimeouts = 0
@@ -109,6 +125,15 @@ class MainActivity : Activity() {
         const val PAUSE_MAX_MS = 10 * 60_000L
         const val JS_TIMEOUT_MS = 10_000L
         const val BG_WAKE_MAX_MS = 3 * 60_000L
+        // a tap defers auto re-login by at most this; the old 5-min USER_HOLD_MS let an operator merely OPENING the
+        // app (one tap, then background) block the login indefinitely (MEASURED 2026-10-10 08:19Z)
+        const val RELOGIN_DEFER_MS = 60_000L
+        val RELOGIN_BACKOFF_MIN = listOf(2L, 5L, 10L, 20L, 30L)   // then 30 min forever
+        const val RELOGIN_FLAG_AFTER = 3
+        const val LOGIN_CHECK_MS = 30 * 60_000L         // backgrounded: bring forward to read the page at least this often
+        const val STALE_WAKE_MIN_MS = 10 * 60_000L      // ...and on a stale-account_status hint at most this often
+        const val STATUS_STALE_H = 1.0
+        const val CHALLENGE_RECHECK_MS = 30 * 60_000L
         // Server read-back (design 3.4): "key=value" lines in THIS order, hashed with SHA-256. Must equal
         // src/prop/phone_executor.py READBACK_FIELDS (tests/test_phone_executor.py compares the two lists).
         val READBACK_FIELDS = listOf("ticket_id", "symbol", "side", "order_type", "price", "qty", "qty_unit", "tp", "sl", "submit_label", "submit_disabled", "tpsl")
@@ -120,6 +145,7 @@ class MainActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setSecure(true)   // fail closed: secure until the state machine has SEEN the logged-in terminal
         api = Api(this); ledger = Ledger(this)
+        Store.setFlag(this, Store.RELOGIN_LATCHED, false)   // an older build's latch must not survive the update
         execSrc = assets.open("exec.js").bufferedReader().readText()
 
         web = WebView(this)
@@ -152,7 +178,8 @@ class MainActivity : Activity() {
             addView(Button(this@MainActivity).apply { pauseBtn = this; isAllCaps = false; text = "Pause"; setOnClickListener { togglePause() } })
             btn("Login") { lastUserInputMs = System.currentTimeMillis(); setStatus("login: opening app.breakoutprop.com (log in there, then tap Reload)"); web.loadUrl(APP_URL) }
             btn("Reload") { web.loadUrl(home()) }
-            btn("Reset login") { Store.setFlag(this@MainActivity, Store.RELOGIN_LATCHED, false); reloginFailures = 0; setStatus("auto re-login re-enabled") }
+            // harmless: there is no latch any more; this only skips the current backoff wait and the touch defer
+            btn("Retry login") { reloginNextMs = 0L; lastUserInputMs = 0L; setStatus("auto re-login: retrying on the next tick") }
         }
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -195,6 +222,8 @@ class MainActivity : Activity() {
     /** The touch-hold protects a HUMAN LOGIN only (operator 2026-10-06 09:06Z): once logged in it never blocks claim,
      *  navigation or execution. The Pause button is the only manual stop. */
     private fun userActive() = lastState != "logged_in" && System.currentTimeMillis() - lastUserInputMs < USER_HOLD_MS
+    /** Auto re-login is deferred only while the operator is touching the screen RIGHT NOW (60 s), never longer. */
+    private fun loginDeferred() = resumed && System.currentTimeMillis() - lastUserInputMs < RELOGIN_DEFER_MS
     private fun paused() = System.currentTimeMillis() < pausedUntilMs
     private fun togglePause() {
         pausedUntilMs = if (paused()) 0L else System.currentTimeMillis() + PAUSE_MAX_MS
@@ -280,20 +309,25 @@ class MainActivity : Activity() {
                 else -> "other"
             }
             setSecure(st != "logged_in")
+            lastPageReadMs = System.currentTimeMillis()
             if (paused()) {
                 if (st == "logged_in") { pausedUntilMs = 0L; pauseBtn.text = "Pause"; setStatus("logged in: pause lifted") }
                 else { setStatus("paused (${(pausedUntilMs - System.currentTimeMillis()) / 60_000 + 1} min left): no automatic action"); return }
             } else if (pauseBtn.text.toString() != "Pause") pauseBtn.text = "Pause"
             if (st != lastState) {
-                // Any arrival at the login page pings at once (also right after a restart), so one human tap can
-                // re-log in while auto re-login is unconfigured or latched. No claim/fill/submit happens while logged out.
-                if (st == "login") api.event("logout_seen", if (Store.get(this, Store.INBOX_PASS) == null || Store.flag(this, Store.RELOGIN_LATCHED)) "LOGGED OUT: open the app and log in (no orders until then)" else "logged out; trying auto re-login (no orders until logged in)")
-                if (st == "challenged") api.event("error", "challenge page shown; executor stopped (no solving, no retry loop)")
+                // Any arrival at the login page pings at once (also right after a restart). Auto re-login starts at
+                // once; only an unconfigured inbox needs a human. No claim/fill/submit happens while logged out.
+                if (st == "login") api.event("logout_seen", if (Store.get(this, Store.INBOX_PASS) == null) "LOGGED OUT and auto re-login not configured: open the app, Setup (no orders until then)" else "logged out; trying auto re-login (no orders until logged in)")
+                if (st == "challenged") { api.event("error", "challenge page shown; not solved; re-checked by a terminal reload every 30 min"); challengeRecheckMs = System.currentTimeMillis() + CHALLENGE_RECHECK_MS }
                 lastState = st
             }
             when (st) {
-                "challenged" -> setStatus("STOPPED: challenge page. Operator: open the app and check.")
-                "logged_in" -> { reloginFailures = 0; onLoggedIn(s) }
+                // never interact with a challenge; only re-check it by reloading the terminal on a slow cadence
+                "challenged" -> if (System.currentTimeMillis() >= challengeRecheckMs && !userActive()) {
+                    challengeRecheckMs = System.currentTimeMillis() + CHALLENGE_RECHECK_MS
+                    setStatus("challenge page: reloading the terminal to re-check (no solving)"); web.loadUrl(home())
+                } else setStatus("challenge page (not solved): re-checking every 30 min. Operator: open the app and check.")
+                "logged_in" -> { loginRecovered("logged in"); onLoggedIn(s) }
                 "login" -> relogin(s)
                 else -> if (userActive()) setStatus("not on the terminal; you are using the screen, so no reload")
                         else { setStatus("not on the terminal (${s.optString("host")}); reloading"); web.loadUrl(home()) }
@@ -301,9 +335,11 @@ class MainActivity : Activity() {
         } catch (e: JsTimeout) {
             setStatus("page did not answer within ${JS_TIMEOUT_MS / 1000} s (${if (resumed) "foreground" else "went to background"}); no action this tick")
         } finally {
-            try { heartbeat(st, s) } catch (e: Exception) { }
-            // We brought the Activity forward for a waiting ticket: once the claim ran (ticket or none), or the wake
-            // window passed, hand the screen back -- unless the operator touched it meanwhile.
+            // a woken tick always heartbeats (and reads the account panel when logged in) before going back
+            try { heartbeat(st, s, force = wokeAtMs > 0) } catch (e: Exception) { }
+            // We brought the Activity forward (a waiting ticket, or a login check): once the claim ran (ticket or none),
+            // or the wake window passed, hand the screen back -- unless the operator touched it meanwhile. A successful
+            // re-login extends the window so the next tick reads the terminal and posts account_status first.
             val now = System.currentTimeMillis()
             if (wokeAtMs > 0 && (claimedThisTick || now > bgWakeUntilMs)) {
                 val touched = lastUserInputMs > wokeAtMs
@@ -319,15 +355,26 @@ class MainActivity : Activity() {
     private suspend fun backgroundTick() {
         busy = true
         try {
-            val n = api.pending()
+            val p = api.pendingInfo()
+            val n = p?.first
+            statusStaleH = p?.second ?: -1.0
             lastPending = n ?: -1
             val now = System.currentTimeMillis()
+            // LOGIN CHECK (PI-20261010-GKFNZSH4-0001): the page is never read in the background, so a logout is only
+            // seen by bringing the Activity forward. Why now, or null:
+            val loginWhy = when {
+                lastState == "login" && now >= reloginNextMs && Store.get(this, Store.INBOX_PASS) != null -> "logged out; re-login retry due"
+                now - lastPageReadMs >= LOGIN_CHECK_MS -> "periodic login check"
+                statusStaleH >= STATUS_STALE_H && now - lastStaleWakeMs >= STALE_WAKE_MIN_MS -> { lastStaleWakeMs = now; "VM says account_status is ${"%.1f".format(statusStaleH)} h old" }
+                else -> null
+            }
             when {
+                paused() -> setStatus("background: paused" + if ((n ?: 0) > 0) " ($n ticket(s) waiting)" else "")
+                now < bgWakeUntilMs -> setStatus("background: bring-to-front already requested")
+                (n ?: 0) > 0 -> { bgWakeUntilMs = now + BG_WAKE_MAX_MS; setStatus("background: $n ticket(s) waiting; bringing the executor to the front"); bringToFront() }
+                loginWhy != null -> { bgWakeUntilMs = now + BG_WAKE_MAX_MS; setStatus("background: $loginWhy; bringing the executor to the front"); bringToFront() }
                 n == null -> setStatus("background: pending check failed (VM unreachable or refused); no claim")
-                n == 0 -> setStatus("background: no ticket waiting")
-                paused() -> setStatus("background: $n ticket(s) waiting, but paused")
-                now < bgWakeUntilMs -> setStatus("background: $n ticket(s) waiting; bring-to-front already requested")
-                else -> { bgWakeUntilMs = now + BG_WAKE_MAX_MS; setStatus("background: $n ticket(s) waiting; bringing the executor to the front"); bringToFront() }
+                else -> setStatus("background: no ticket waiting")
             }
         } finally {
             try { heartbeat("background", null) } catch (e: Exception) { }
@@ -344,9 +391,9 @@ class MainActivity : Activity() {
     /** HEARTBEAT (2026-10-06 08:15Z: an hour with no claim and no event, because every no-claim branch but one only
      *  set the on-screen status). On EVERY tick path, at most every 2 min: the status line, the page state, the
      *  pause / touch-hold flags and the terminal gate. Our own state and UI labels only; never links or values. */
-    private suspend fun heartbeat(st: String, s: JSONObject?) {
+    private suspend fun heartbeat(st: String, s: JSONObject?, force: Boolean = false) {
         val now = System.currentTimeMillis()
-        if (now - lastHbMs < HEARTBEAT_MS) return
+        if (!force && now - lastHbMs < HEARTBEAT_MS) return
         lastHbMs = now
         val state = JSONObject().put("st", st).put("paused", paused()).put("hold", userActive())
             .put("host", s?.optString("host") ?: "").put("onAccount", s?.optBoolean("onAccount") ?: false)
@@ -356,6 +403,9 @@ class MainActivity : Activity() {
             // a backgrounded heartbeat says st=background and nothing else, so a logout overnight stayed invisible
             // until the app was opened (2026-10-10, breakout_2 last balance 10-09 15:01Z, background all night).
             .put("last", lastState)
+            // auto re-login: consecutive failures, minutes to the next retry, whether the red flag was sent
+            .put("relogin_failures", reloginFailures).put("relogin_flagged", reloginFlagged)
+            .put("relogin_next_min", if (reloginNextMs > now) (reloginNextMs - now) / 60_000 + 1 else 0L)
         // never touch the WebView while backgrounded (jsObj is bounded anyway and yields null on a timeout)
         if (resumed) jsObj("__ex.terminal()")?.let { tm ->
             for (k in listOf("ready", "probe", "panels", "orderControl", "ticketOpen", "buySell")) state.put(k, tm.optBoolean(k))
@@ -424,22 +474,29 @@ class MainActivity : Activity() {
 
     // ---------------- auto re-login ----------------
     private suspend fun relogin(s: JSONObject) {
-        if (userActive()) { setStatus("logged out; you are using the screen, so auto re-login waits 5 min after your last tap"); return }
-        if (Store.flag(this, Store.RELOGIN_LATCHED)) { setStatus("logged out; auto re-login STOPPED after 2 failures (tap Reset login after logging in by hand)"); return }
+        val now = System.currentTimeMillis()
+        if (loginDeferred()) { setStatus("logged out; you are touching the screen, so auto re-login waits until 60 s after your last tap"); return }
+        if (now < reloginNextMs) { setStatus("logged out; auto re-login attempt ${reloginFailures + 1} in ${(reloginNextMs - now) / 60_000 + 1} min (failed $reloginFailures in a row)"); return }
         val email = Store.get(this, Store.LOGIN_EMAIL)
         val user = Store.get(this, Store.INBOX_USER)
         val pass = Store.get(this, Store.INBOX_PASS)
         if (email == null || user == null || pass == null) { setStatus("logged out; auto re-login not configured (Setup)"); return }
-        setStatus("logged out: starting email login")
-        api.event("login_started", "")
-        val since = Date(System.currentTimeMillis() - 60_000)
+        setStatus("logged out: starting email login (attempt ${reloginFailures + 1})")
+        // the first attempt of a streak pings; retries are logged quietly (the red flag comes from loginFail)
+        if (reloginFailures == 0) api.event("login_started", "") else api.event("login_retry", "attempt ${reloginFailures + 1} starting")
+        // MAIL WINDOW: a code page this attempt reached by submitting the email can only be answered by a mail sent
+        // after that submit; a code page we FOUND (an earlier attempt, ours or the operator's) by one up to 30 min old
+        // (the old fixed now-60s window could never find it and burned a failure). Either way the link must still be
+        // the ONE whose text is the number the page shows now.
+        var since = Date(now - 30 * 60_000L)
         var st0 = s
         if (!st0.optBoolean("codeWait") && st0.optString("host").startsWith("trade.")) {
             web.loadUrl(APP_URL); delay(10_000); ensure()
             st0 = jsObj("__ex.state()") ?: return loginFail("app.breakoutprop.com not readable")
-            if (st0.optBoolean("challenged")) return loginFail("app.breakoutprop.com shows a challenge; manual login needed")
+            if (st0.optBoolean("challenged")) return loginFail("app.breakoutprop.com shows a challenge (not solved)")
         }
         if (!st0.optBoolean("codeWait")) {
+            since = Date(System.currentTimeMillis() - 60_000)
             val r = js("__ex.loginEmail(${q(email)})")
             if (r != "clicked" && r != "submitted") return loginFail("email step: $r")
             delay(6000); ensure()
@@ -455,19 +512,33 @@ class MainActivity : Activity() {
         web.loadUrl(home()); delay(10_000); ensure()
         val after = jsObj("__ex.state()")
         if (after?.optBoolean("loggedIn") == true) {
-            reloginFailures = 0; lastState = "logged_in"; setStatus("re-login OK")
-            api.event("login_ok", "auto re-login via dedicated inbox")
+            lastState = "logged_in"; setStatus("re-login OK")
+            loginRecovered("auto re-login via dedicated inbox")
+            if (wokeAtMs > 0) bgWakeUntilMs = System.currentTimeMillis() + BG_WAKE_MAX_MS   // read the terminal before going back
         } else loginFail("not logged in after opening the link")
     }
 
+    /** NO LATCH: every failure schedules the next attempt (2, 5, 10, 20, then 30 min forever). Failures before and
+     *  after the red flag are logged quietly (login_retry); the RELOGIN_FLAG_AFTER-th sends ONE login_failed. */
     private suspend fun loginFail(why: String) {
         reloginFailures += 1
-        if (reloginFailures >= 2) {
-            Store.setFlag(this, Store.RELOGIN_LATCHED, true)
-            api.event("login_failed", "STOPPED after 2 failures; manual login needed: $why")
-        } else api.event("login_failed", why)
-        setStatus("login failed ($reloginFailures): $why")
+        val waitMin = RELOGIN_BACKOFF_MIN[minOf(reloginFailures - 1, RELOGIN_BACKOFF_MIN.size - 1)]
+        reloginNextMs = System.currentTimeMillis() + waitMin * 60_000L
+        if (reloginFailures >= RELOGIN_FLAG_AFTER && !reloginFlagged) {
+            reloginFlagged = true
+            api.event("login_failed", "auto re-login failed $reloginFailures times in a row; STILL RETRYING every <= 30 min: $why")
+        } else api.event("login_retry", "failed ($reloginFailures): $why; next try in $waitMin min")
+        setStatus("login failed ($reloginFailures in a row): $why; retrying in $waitMin min")
         if (!userActive()) web.loadUrl(home())
+    }
+
+    /** Logged in (by us or by hand): end the failure streak; ONE recovery event only if the red flag was sent,
+     *  else the usual login_ok after an auto re-login. */
+    private suspend fun loginRecovered(how: String) {
+        val auto = how.startsWith("auto")
+        if (reloginFlagged) api.event("login_ok", "RECOVERED ($how) after $reloginFailures failed auto re-logins")
+        else if (auto) api.event("login_ok", how)
+        reloginFailures = 0; reloginNextMs = 0L; reloginFlagged = false
     }
 
     // ---------------- tickets ----------------
