@@ -1,0 +1,28 @@
+{
+  "based_on": "20261005T055912310635Z-790628ca.json",
+  "due_when": {
+    "clears_when": "A committed reconciliation of the offline slv_trend_1h record (+53.14R, n=68, 4/4 folds, fee 0 + slip 5 bps) against the 13 live closes (0 wins, -$5,375, 2026-08-24 operator demote) shows the divergence is explained -> then flip, else kill",
+    "due_date": "2026-10-24",
+    "kind": "date"
+  },
+  "id": "PI-SOAK-20261004-slv_trend_1h",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-24",
+    "how_to_check": "python3 scripts/ops/soak_report.py --print-state; ls comms/strategy_evidence",
+    "what": "A committed reconciliation of the offline slv_trend_1h record (+53.14R, n=68, 4/4 folds, fee 0 + slip 5 bps) against the 13 live closes (0 wins, -$5,375, 2026-08-24 operator demote) shows the divergence is explained -> then flip, else kill"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04 (scripts/ops/soak_report.py)",
+    "rerun": "python3 scripts/ops/soak_report.py --print-state"
+  },
+  "redate": {
+    "evidence": "comms/research/soak_gate1_regrade/2026-10-10.json",
+    "observation": "NEEDS_DATA: missing a trade-level reconciliation of Stage-0 (n=68, +0.781R, 4/4 folds, 5.0bps) against the live record that drove the 2026-08-24 operator demote (0/13 wins, -$5,375): replay the harness over the live window and match entries/exits; THEN a Tier-3 flip to execution: live on alpaca_paper to open a real Stage-1 soak (PI-20261004-JC8KDKLF-0010)",
+    "observed_at": "2026-10-10"
+  },
+  "routed_to": "Rule is passed on paper but the offline window (365d to 2026-09) overlaps the live losing period, so the two disagree; flip withheld (it reverses a standing operator Tier-3 demote). Task filed under PI-20261005-OAKGATE1-0001 series.",
+  "state": "routed",
+  "what": "SOAK (shadow): slv_trend_1h — execution: shadow strategy. Exit: Gate 1: a committed Stage-0 evidence record clearing its registered rule → flip to live, else kill (evidence record present). Graded weekly into ready/dead/could-not-look/accruing; due only when not accruing. | SOAK-GATE1 2026-10-05 (lane of manager session_01MM8o5js6TcDFeNAPBY4Ntv): NEEDS_DATA."
+}

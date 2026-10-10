@@ -1,0 +1,23 @@
+{
+  "based_on": "20261005T060409050317Z-5b2c926c.json",
+  "due_when": {
+    "clears_when": "After the flip is merged+deployed: >=10 ib_paper closes graded for R3 cost fidelity (Gate 2) -- else kill/revert to shadow",
+    "due_date": "2026-10-19",
+    "kind": "date"
+  },
+  "id": "PI-SOAK-20261004-mgc_trend_1h",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-19",
+    "how_to_check": "python3 scripts/check_strategy_coverage.py --self-test after the flip; python3 scripts/ops/soak_report.py --print-state",
+    "what": "After the flip is merged+deployed: >=10 ib_paper closes graded for R3 cost fidelity (Gate 2) -- else kill/revert to shadow"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04 (scripts/ops/soak_report.py)",
+    "rerun": "python3 scripts/ops/soak_report.py --print-state"
+  },
+  "state": "killed",
+  "terminal_reason": "REFUSE (SOAK-GATE1-REGRADE 2026-10-10): Soak question answered, no extension. (1) Stage-0 n=118, +0.217R, net +25.61R but folds 2/4 — NOT a majority, so the MD-PROMOTE bar's fold clause refuses (PR #16561 called it PASS on the pooled-net rule only). (2) R3 venue cell ibkr_futures|simulator is DIVERGENT: round-trip 20.7bps CI95 [12.5, 29.3] vs 5.0 modelled (n_entry 23, n_exit 19), so the record's cost stack is optimistic. (3) Signal parity: 279 packages in 114d vs ~36.8 expected (Poisson95 of observed [247.2, 313.7]) — OUTSIDE the contract's pass rule. Resolver S0->S1: REFUSE R-NO-OP (shadow->live flip is not modelled; no mandate covers it). Leg is still shadow on ib_paper; removing it is a Tier-3 proposal. Evidence: comms/strategy_evidence/mgc_trend_1h.json, comms/research/r3_cost_fidelity/2026-10-10.json, comms/research/soak_gate1_regrade/2026-10-10.json",
+  "what": "SOAK (shadow): mgc_trend_1h — execution: shadow strategy. Exit: Gate 1: a committed Stage-0 evidence record clearing its registered rule → flip to live, else kill (evidence record present). Graded weekly into ready/dead/could-not-look/accruing; due only when not accruing. | SOAK-GATE1 2026-10-05 (lane of manager session_01MM8o5js6TcDFeNAPBY4Ntv): PASS candidate. | SOAK-GATE1: flip blocked by two guards (see routed_to)."
+}

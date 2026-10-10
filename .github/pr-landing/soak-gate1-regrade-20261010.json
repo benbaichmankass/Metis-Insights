@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "SOAK-GATE1-REGRADE 2026-10-10: soak-contract dispositions, fresh R3 record, pipeline/checklist records, and one read-path tooling change (scripts/ops/soak_state.py optional `disposition` key, 3 tests). No config, roster, strategy, mode, risk or order-path change; no mandate fired. Every changed path is inside TIER1_SURFACE per pr-landing-guard R14."
+}

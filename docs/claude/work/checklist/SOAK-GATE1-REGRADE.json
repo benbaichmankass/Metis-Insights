@@ -1,0 +1,23 @@
+{
+  "id": "SOAK-GATE1-REGRADE",
+  "title": "Gate-1 regrade of every ready/overdue/dead/unknown soak in the 2026-10-10 work report; close the contracts the 2026-10-05 cuts already settled",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "manager-dispatched lane",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "2026-10-10 lane session_01Vvom6qxDS8nCR2trJxC189, ceiling ~$7. 28 of 29 non-accruing soaks given a recorded disposition on SOAKS.json (22 KILLED: already cut 2026-10-05 by #16556/#16561 but contracts never closed; 3 NEEDS_DATA S2 copies + slv_trend_1h + splg_trend_long_1d until 2026-10-24; mgc_trend_1h REFUSE). Fresh R3 comms/research/r3_cost_fidelity/2026-10-10.json: 48/55 legs insufficient_n, no Gate-1 promotion fires. New: soak_state.py disposition key (quiet until a date). Evidence comms/research/soak_gate1_regrade/2026-10-10.json. No config change.",
+  "updated_at": "2026-10-10T18:01:00Z",
+  "updated_by": "session_01Vvom6qxDS8nCR2trJxC189",
+  "observation": {
+    "what": "GET /api/bot/work/report sections.soaks lists none of the 22 KILLED soaks and none of the 6 NEEDS_DATA/REFUSE soaks before 2026-10-24; the NEEDS_DATA ones reappear on 2026-10-25",
+    "how_to_check": "curl /api/bot/work/report | jq .sections.soaks.data after the deploy of this branch",
+    "due_by": "2026-10-25"
+  },
+  "_seq": 376
+}
