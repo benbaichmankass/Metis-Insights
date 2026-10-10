@@ -22,11 +22,15 @@ import android.widget.EditText
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -135,6 +139,9 @@ class MainActivity : Activity() {
         // LINEUP LOGIN (PHONE-AUTOLOGIN-2, operator 2026-10-10: "it's way not waiting long enough to see the email. That
         // can take at least up to a minute"): the waiting page is polled for its number(s), the inbox for the mail
         const val PAGE_WAIT_MS = 90_000L
+        const val DIAG_PARTS = 7                        // login_diag parts per attempt (phone_events keeps 40)
+        const val DIAG_PART_CHARS = 148                 // + "dI/N " stays inside the server's 160
+        const val PAGE_WAIT_MAX_MS = 150_000L           // ...extended while no mail has arrived yet (PHONE-AUTOLOGIN-3)
         const val PAGE_POLL_MS = 3_000L
         const val MAIL_WAIT_MS = 5 * 60_000L
         const val MAIL_POLL_MS = 10_000L
@@ -555,7 +562,10 @@ class MainActivity : Activity() {
      *  4. LoginMatch decides: LINEUP (>= 2 numbers on the page) -> tap the ONE the mail names; ONE number on the page ->
      *     open the ONE mail link whose text is that number. Zero or several candidates: nothing is acted on;
      *  5. the page must then read logged in.
-     *  Every attempt posts ONE quiet login_diag: counts, steps and timings only (never a number, link or address). */
+     *  PHONE-AUTOLOGIN-3 (live 13:52Z/13:56Z: page_n=0 for 90 s after "email=clicked"): the submit is VERIFIED to move
+     *  the page (else Enter), the inbox is polled IN PARALLEL from the submit on, the page wait stretches to 150 s while
+     *  no mail has arrived, and each attempt posts its login_diag in parts with the scrubbed page structure (postDiag).
+     *  Counts, steps and timings only (never a number, link or address). */
     private suspend fun relogin(p: Page, s: JSONObject, bg: Boolean) {
         val now = System.currentTimeMillis()
         // the engine already logged in: the kiosk only needs a reload to pick up the shared session
@@ -586,48 +596,89 @@ class MainActivity : Activity() {
                 st0 = p.settle(20_000L) ?: return loginFail("app.breakoutprop.com not readable", p, d.put("step", step))
                 if (st0.optBoolean("challenged")) return loginFail("app.breakoutprop.com shows a challenge (not solved)", p, d.put("step", step))
             }
+            var dec = LoginMatch.Decision("none", null, 0)
+            // PHONE-AUTOLOGIN-3: a structure snapshot BEFORE the submit, so the diag can say whether the page changed
+            val sig0 = p.obj("__ex.loginProbe()")?.optString("sig") ?: ""
+            d.put("_sig0", sig0)
             if (!st0.optBoolean("codeWait")) {
                 step = "email"
                 since = Date(System.currentTimeMillis() - 60_000)
                 p.ensure()
                 val r = p.js("__ex.loginEmail(${q(email)})")
                 d.put("email", r)
-                if (r != "clicked" && r != "submitted") return loginFail("email step: $r", p, d.put("step", step))
-            } else d.put("found_code_page", true)
-            // PAGE: poll until the number(s) render
-            step = "page"
-            var choices = emptyList<String>(); var single: String? = null
-            val pageEnd = System.currentTimeMillis() + PAGE_WAIT_MS
-            while (true) {
-                delay(PAGE_POLL_MS)
-                try { p.ensure() } catch (e: JsTimeout) { }
-                val c = p.obj("__ex.loginChoices()")
-                if (c != null) {
-                    val top = strs(c.optJSONArray("top")); val btn = strs(c.optJSONArray("btn"))
-                    choices = LoginMatch.lineup(top, btn); single = LoginMatch.single(top, btn)
-                    d.put("page_n", c.optInt("n")).put("page_top", top.size).put("page_btn", btn.size)
+                p.obj("__ex.loginSubmitInfo()")?.let { d.put("sub_where", it.optString("where")).put("sub_btns", it.optInt("buttons")).put("sub_label", "(" + it.optString("label") + ")") }
+                if (r != "clicked" && r != "submitted" && r != "no_button") return loginFail("email step: $r", p, d.put("step", step))
+                // VERIFY THE SUBMIT ADVANCED the page (live 13:52Z/13:56Z: zero numbers for 90 s after "clicked"):
+                // up to 12 s for the page to change, else press Enter in the field and wait again
+                var adv = if (r == "no_button") false else advanced(p, sig0, 12_000L)
+                if (!adv) {
+                    val e = try { p.ensure(); p.js("__ex.loginEnter()") } catch (x: JsTimeout) { "js_timeout" }
+                    d.put("enter", e)
+                    adv = advanced(p, sig0, 12_000L)
                 }
-                if (choices.isNotEmpty() || single != null) break
-                if (System.currentTimeMillis() > pageEnd) return loginFail("no number or lineup on the waiting page within ${PAGE_WAIT_MS / 1000} s", p, d.put("step", step))
-                heartbeat(if (bg) "background" else "login", null)
-            }
-            d.put("shape", if (choices.isNotEmpty()) "lineup" else "single").put("choices", choices.size).put("page_s", secs())
-            // MAIL: poll the dedicated inbox
-            step = "mail"
-            setStatus("waiting for the Breakout email in the dedicated inbox (up to ${MAIL_WAIT_MS / 60_000} min)")
-            var dec = LoginMatch.Decision("none", null, 0)
-            var polls = 0; var mails = 0; var mailErr = ""
+                d.put("adv", adv).put("adv_s", secs())
+                if (r == "no_button" && !adv) return loginFail("email step: no continue control and Enter did not advance the page", p, d.put("step", step))
+            } else d.put("found_code_page", true)
+            // MAIL, IN PARALLEL with the page poll (PHONE-AUTOLOGIN-3): the inbox is read from the submit on, so the diag
+            // says what arrived even when the page never shows a number, and a mail that came early is not waited for twice
             val mailEnd = System.currentTimeMillis() + MAIL_WAIT_MS
-            while (true) {
-                val sc = Mail.scan(user, pass, since); polls += 1
-                mails = maxOf(mails, sc.mails.size); sc.error?.let { mailErr = it }
-                dec = LoginMatch.decide(choices, single, sc.mails)
-                if (dec.kind != "none" || System.currentTimeMillis() > mailEnd) break
-                heartbeat(if (bg) "background" else "login", null)
-                delay(MAIL_POLL_MS)
+            var latest: List<MailNums> = emptyList(); var polls = 0; var mails = 0; var mailErr = ""; var firstMailS = -1L
+            // its own Job (cancelled in the finally below): an inbox failure can never cancel the tick loop
+            val mailJob = CoroutineScope(currentCoroutineContext() + Job()).launch {
+                try {
+                    while (isActive && System.currentTimeMillis() < mailEnd) {
+                        val sc = Mail.scan(user, pass, since); polls += 1
+                        latest = sc.mails; mails = maxOf(mails, sc.mails.size); sc.error?.let { mailErr = it }
+                        if (sc.mails.isNotEmpty() && firstMailS < 0) firstMailS = secs()
+                        delay(MAIL_POLL_MS)
+                    }
+                } catch (e: CancellationException) { throw e } catch (e: Exception) { mailErr = e.javaClass.simpleName }
             }
-            d.put("mails", mails).put("polls", polls).put("match", dec.n).put("tier", dec.tier).put("mail_s", secs())
-            if (mailErr.isNotEmpty()) d.put("mail_err", mailErr)
+            fun mailDiag() {
+                d.put("mails", mails).put("polls", polls).put("mail_first_s", firstMailS)
+                if (mailErr.isNotEmpty()) d.put("mail_err", mailErr)
+                val n = latest.firstOrNull()
+                d.put("mshape", LoginMatch.mailShape(n))
+                if (n != null) d.put("m_numlinks", n.links.size).put("m_shown", n.shown.size).put("m_phrased", n.phrased.size)
+                    .put("m_links", n.allLinks).put("m_act", n.actLinks)
+            }
+            try {
+                // PAGE: poll until the number(s) render; past PAGE_WAIT_MS keep going while no mail has arrived yet, up to
+                // PAGE_WAIT_MAX_MS (the page may only move once the mail is sent)
+                step = "page"
+                var choices = emptyList<String>(); var single: String? = null
+                val pageEnd = System.currentTimeMillis() + PAGE_WAIT_MS
+                val pageMax = System.currentTimeMillis() + PAGE_WAIT_MAX_MS
+                while (true) {
+                    delay(PAGE_POLL_MS)
+                    try { p.ensure() } catch (e: JsTimeout) { }
+                    val c = p.obj("__ex.loginChoices()")
+                    if (c != null) {
+                        val top = strs(c.optJSONArray("top")); val btn = strs(c.optJSONArray("btn"))
+                        choices = LoginMatch.lineup(top, btn); single = LoginMatch.single(top, btn)
+                        d.put("page_n", c.optInt("n")).put("page_top", top.size).put("page_btn", btn.size)
+                    }
+                    if (choices.isNotEmpty() || single != null) break
+                    val tNow = System.currentTimeMillis()
+                    if (tNow > pageMax || (tNow > pageEnd && mails > 0)) {
+                        mailDiag()
+                        return loginFail("no number or lineup on the waiting page within ${(tNow - t0) / 1000} s (mail: ${d.optString("mshape")})", p, d.put("step", step))
+                    }
+                    heartbeat(if (bg) "background" else "login", null)
+                }
+                d.put("shape", if (choices.isNotEmpty()) "lineup" else "single").put("choices", choices.size).put("page_s", secs())
+                // MAIL: decide on what the parallel poller has read
+                step = "mail"
+                setStatus("waiting for the Breakout email in the dedicated inbox (up to ${MAIL_WAIT_MS / 60_000} min)")
+                while (true) {
+                    dec = LoginMatch.decide(choices, single, latest)
+                    if (dec.kind != "none" || System.currentTimeMillis() > mailEnd) break
+                    heartbeat(if (bg) "background" else "login", null)
+                    delay(2_000L)
+                }
+                mailDiag()
+                d.put("match", dec.n).put("tier", dec.tier).put("mail_s", secs())
+            } finally { mailJob.cancel() }
             when (dec.kind) {
                 "ambiguous" -> return loginFail("the mail matches ${dec.n} candidates; nothing tapped (fail closed)", p, d.put("step", "match"))
                 "none" -> return loginFail(if (mails == 0 && mailErr.isNotEmpty()) "dedicated inbox not readable ($mailErr)"
@@ -654,7 +705,7 @@ class MainActivity : Activity() {
             }
             d.put("verify_s", secs())
             if (ok) {
-                d.put("step", "ok"); api.event("login_diag", diagLine(d))
+                d.put("step", "ok"); postDiag(p, d)
                 lastState = "logged_in"; setStatus("re-login OK${if (bg) " (background)" else ""}")
                 if (bg) bgLoginAtMs = System.currentTimeMillis()
                 loginRecovered("auto re-login via dedicated inbox (${d.optString("shape")}${if (bg) ", background" else ""})")
@@ -667,8 +718,51 @@ class MainActivity : Activity() {
 
     private fun strs(a: JSONArray?): List<String> = if (a == null) emptyList() else (0 until a.length()).map { a.optString(it) }
 
-    /** The login_diag line: "k=v" pairs of COUNTS, step names and timings (the server scrubs it again). */
-    private fun diagLine(d: JSONObject): String = d.keys().asSequence().joinToString(" ") { "$it=${d.opt(it)}" }
+    /** PHONE-AUTOLOGIN-3: did the page move after the email submit? (the email field is gone, a code page or a login
+     *  reads, or the text signature changed) -- polled every 1.5 s for up to [maxMs]. */
+    private suspend fun advanced(p: Page, sig0: String, maxMs: Long): Boolean {
+        val end = System.currentTimeMillis() + maxMs
+        while (System.currentTimeMillis() < end) {
+            delay(1_500L)
+            try {
+                p.ensure()
+                val s = p.obj("__ex.state()") ?: continue
+                if (!s.optBoolean("email") || s.optBoolean("codeWait") || s.optBoolean("loggedIn")) return true
+                val sig = p.obj("__ex.loginProbe()")?.optString("sig")
+                if (sig != null && sig0.isNotEmpty() && sig != sig0) return true
+            } catch (e: JsTimeout) { }
+        }
+        return false
+    }
+
+    /** The login_diag events: "k=v" COUNTS, step names and timings, then the scrubbed page STRUCTURE (exec.js
+     *  loginProbe: tag histogram, shadow roots, iframes, input types, phrases present, numeric tokens COUNTED, and
+     *  button / heading / label texts with every digit turned into "N" and emails / links dropped). The server keeps
+     *  160 chars of [A-Za-z0-9 _.:/()=+-] per event, so the tokens are packed into numbered parts ("dI/N ..."), at
+     *  most DIAG_PARTS; the core line comes first. Keys starting with "_" are internal. Never a value. */
+    private suspend fun postDiag(p: Page, d: JSONObject) {
+        val toks = d.keys().asSequence().filter { !it.startsWith("_") }.map { "$it=${d.opt(it)}" }.toMutableList()
+        val pr = try { p.ensure(); p.obj("__ex.loginProbe()") } catch (e: Exception) { null }
+        if (pr != null) {
+            val sig0 = d.optString("_sig0")
+            if (sig0.isNotEmpty()) toks += "changed=${pr.optString("sig") != sig0}"
+            for (k in listOf("cands", "numtok", "digits", "chars", "shadow", "frames", "frames_xo")) toks += "$k=${pr.optInt(k)}"
+            toks += "ph=" + strs(pr.optJSONArray("phrases")).joinToString("+").ifEmpty { "-" }
+            val inp = pr.optJSONObject("inputs")
+            toks += "in=" + (inp?.keys()?.asSequence()?.joinToString("+") { "$it.${inp.optInt(it)}" } ?: "").ifEmpty { "-" }
+            toks += "tags=" + strs(pr.optJSONArray("tags")).joinToString("+")
+            toks += strs(pr.optJSONArray("texts")).map { "(" + it.replace("(", " ").replace(")", " ").take(40) + ")" }
+        } else toks += "probe=unread"
+        val parts = mutableListOf<String>(); var cur = ""
+        for (raw in toks) {
+            val tk = raw.take(DIAG_PART_CHARS)
+            if (cur.isNotEmpty() && cur.length + 1 + tk.length > DIAG_PART_CHARS) { parts += cur; cur = "" }
+            cur = if (cur.isEmpty()) tk else "$cur $tk"
+        }
+        if (cur.isNotEmpty()) parts += cur
+        val n = minOf(parts.size, DIAG_PARTS)
+        for (i in 0 until n) api.event("login_diag", "d${i + 1}/$n ${parts[i]}")
+    }
 
     /** NO LATCH: every failure schedules the next attempt (2, 5, 10, 20, then 30 min forever). Failures before and
      *  after the red flag are logged quietly (login_retry); the RELOGIN_FLAG_AFTER-th sends ONE login_failed.
@@ -678,7 +772,7 @@ class MainActivity : Activity() {
         val waitMin = RELOGIN_BACKOFF_MIN[minOf(reloginFailures - 1, RELOGIN_BACKOFF_MIN.size - 1)]
         reloginNextMs = System.currentTimeMillis() + waitMin * 60_000L
         try { d.put("host", p.obj("__ex.state()")?.optString("host") ?: "unread") } catch (e: Exception) { d.put("host", "unread") }
-        try { api.event("login_diag", diagLine(d)) } catch (e: Exception) { }
+        try { postDiag(p, d) } catch (e: Exception) { }
         if (reloginFailures >= RELOGIN_FLAG_AFTER && !reloginFlagged) {
             reloginFlagged = true
             api.event("login_failed", "auto re-login failed $reloginFailures times in a row; STILL RETRYING every <= 30 min: $why")

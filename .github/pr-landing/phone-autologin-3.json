@@ -1,0 +1,11 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "why": "Phone executor APK only (tools/phone-executor/): the auto re-login's page reader is broadened (whitespace/zero-width-normalised text, icon/split-digit children, aria-label/value, open shadow roots, same-origin iframes), the email submit is verified to move the page (else Enter), the inbox is polled in parallel with the page, and every attempt posts a scrubbed page-structure login_diag in parts. Matching stays fail-closed; tickets/order path unchanged; no server change. Declared tier 2 because it changes the deployed phone's login behaviour; held for the manager to merge.",
+  "recorded_decision": {
+    "kind": "operator_decision",
+    "ref": "PHONE-AUTOLOGIN PHONE-AUTOLOGIN-2"
+  },
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 phone runtime; the manager merges it under the PHONE-AUTOLOGIN decision."
+}

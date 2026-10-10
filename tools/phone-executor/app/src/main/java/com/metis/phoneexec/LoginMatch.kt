@@ -16,17 +16,26 @@ class MailNums(
     val shown: Set<String>,
     /** numbers bound to a phrase ("number", "code", "select", "tap", "choose", "matching") within a few words */
     val phrased: Set<String>,
+    /** PHONE-AUTOLOGIN-3 (counts only, for the login_diag): distinct https links in the mail, and how many of them
+     *  read as a sign-in action ("log in", "sign in", "verify", "confirm", "approve", "continue", or a login/auth/verify
+     *  path) -- the "one magic link, no lineup" shape */
+    val allLinks: Int = 0,
+    val actLinks: Int = 0,
 ) {
     companion object {
         private val A_RE = Regex("<a\\b[^>]*href\\s*=\\s*\"([^\"]+)\"[^>]*>(.*?)</a>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
         private val NUM = Regex("^\\d{1,3}$")
         private val PHRASE = Regex("(?:number|code|select|tap|choose|matching)\\D{0,25}?\\b(\\d{1,3})\\b(?!\\s*(?:min|sec|hour|%))", RegexOption.IGNORE_CASE)
 
+        private val ACT = Regex("log ?in|sign ?in|verify|confirm|approve|continue|magic", RegexOption.IGNORE_CASE)
+        private val ACT_HREF = Regex("login|log-in|signin|sign-in|auth|verify|magic|token|confirm", RegexOption.IGNORE_CASE)
+
         private fun clean(s: String) = s.replace("&nbsp;", " ").replace("&#160;", " ").trim()
 
         fun parse(html: String?, plain: String?): MailNums {
             val links = HashMap<String, MutableList<String>>()
             val shown = HashSet<String>()
+            val all = HashSet<String>(); val act = HashSet<String>()
             var text = ""
             if (html != null) {
                 // drop <style>/<script>/<head> so CSS numbers are never read as content
@@ -34,6 +43,10 @@ class MailNums(
                 for (m in A_RE.findAll(h)) {
                     val t = clean(m.groupValues[2].replace(Regex("<[^>]+>"), ""))
                     val href = m.groupValues[1].replace("&amp;", "&")
+                    if (href.startsWith("https://")) {
+                        all.add(href)
+                        if (!NUM.matches(t) && (ACT.containsMatchIn(t) || ACT_HREF.containsMatchIn(href.substringBefore('?')))) act.add(href)
+                    }
                     if (NUM.matches(t) && href.startsWith("https://")) {
                         val l = links.getOrPut(t) { mutableListOf() }
                         if (href !in l) l.add(href)
@@ -47,12 +60,25 @@ class MailNums(
                 if (text.isEmpty()) text = plain.replace(Regex("\\s+"), " ")
             }
             val phrased = PHRASE.findAll(text).map { it.groupValues[1] }.toSet()
-            return MailNums(links, shown, phrased)
+            return MailNums(links, shown, phrased, all.size, act.size)
         }
     }
 }
 
 object LoginMatch {
+    /** PHONE-AUTOLOGIN-3: the shape of the newest Breakout mail, for the diag only (never acted on here):
+     *  "none" (no mail), "numbered_links" (>= 1 https link whose text is a number), "numbers" (numbers shown, no
+     *  number links), "one_login_link" (exactly one sign-in link and no number to match: the magic-link shape),
+     *  "links" (other links only), "text" (no links, no numbers). */
+    fun mailShape(newest: MailNums?): String = when {
+        newest == null -> "none"
+        newest.links.isNotEmpty() -> "numbered_links"
+        newest.shown.isNotEmpty() || newest.phrased.isNotEmpty() -> "numbers"
+        newest.actLinks == 1 -> "one_login_link"
+        newest.allLinks > 0 -> "links"
+        else -> "text"
+    }
+
     /** kind: "tap" (value = the page choice to tap), "link" (value = the link to open), "none" (nothing matched
      *  yet: keep polling), "ambiguous" (more than one candidate: fail closed). n = candidates in the deciding mail. */
     class Decision(val kind: String, val value: String?, val n: Int, val tier: String = "")
