@@ -1,0 +1,18 @@
+{
+  "id": "DASH-PROP-OVERVIEW",
+  "title": "Overview Prop book shows live prop equity, open trades and realized P&L",
+  "phase": "A",
+  "state": "landed_unproven",
+  "owner": "lane (manager-dispatched)",
+  "lane": "session_01Usus8BBv8MN6cd17xH6SaQ",
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Operator 2026-10-10: Overview Prop view showed all dashes and 'No open prop trades' while velotrade_1 had an OPEN fill (id 96) and fresh equity on two accounts. ROOT CAUSE (SPA, not API): ExecSummary.svelte hard-coded the prop branch to equity=null, open=[] and segPerf=null ('lives on the Prop tab'); Overview never fetched any prop endpoint. FIX: API GET /api/bot/prop/overview (equity over fresh snapshots only, stale listed+excluded; open = open/filled with no closing row; realized over closed fills in window, population stated) + SPA wiring in ict-trader-dashboard. OBSERVATION THAT CLOSES: after the API deploys AND the SPA Pages build publishes, Overview > Prop > 7d shows the open velotrade_1 ETHUSDT long and total equity = sum of fresh accounts.",
+  "updated_at": "2026-10-10T16:05:38Z",
+  "updated_by": "session_01Usus8BBv8MN6cd17xH6SaQ",
+  "_seq": 375
+}
