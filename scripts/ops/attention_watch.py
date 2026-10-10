@@ -508,6 +508,20 @@ def probe_inflight(now: datetime, shallow: bool | None) -> dict:
                          if stale else "")}
 
 
+def read_blocker_watch() -> tuple[str, list[dict]]:
+    """BLOCKER-WATCH findings (``scripts/ops/blocker_watch.py``) as
+    ``(read_state, findings)``. ``unreadable`` = we could not look; it never
+    reads as 'no findings' and never clears a seen key."""
+    try:
+        from scripts.ops import blocker_watch  # noqa: PLC0415
+        rep = blocker_watch.build(_now())
+    except Exception:  # noqa: BLE001 — unreadable is a state, not a crash
+        return "unreadable", []
+    if not rep.get("readable"):
+        return "unreadable", []
+    return "read", list(rep["findings"])
+
+
 # ── the pass ─────────────────────────────────────────────────────────────────
 def build(now: datetime | None = None) -> dict:
     now = now or _now()
@@ -517,7 +531,9 @@ def build(now: datetime | None = None) -> dict:
     shallow = _is_shallow()
     soak_read, soaks = read_soak_states()
     nr_read, nr_rows = read_needs_review()
+    bw_read, bw_rows = read_blocker_watch()
     return {
+        "blocker_read": bw_read, "blocker_findings": bw_rows,
         "needs_review_read": nr_read, "needs_review": nr_rows,
         "now": now, "today": today, "pipeline_readable": res.healthy,
         "pipeline_unreadable": len(res.unreadable),
@@ -666,6 +682,35 @@ def plan_messages(v: dict, state: dict, digest_now: bool = False) -> tuple[list[
                                    f"(listed in the daily digest)"))
             new["seed_needs_review_sent_at"] = now.isoformat()
         new["seen_needs_review"] = sorted(cur_nr)
+
+    # (b4) BLOCKER-WATCH: a blocked row whose blocker is gone, a queued unit that is
+    # not being dispatched, an operator wait > 7 d, a landed_unproven past due.
+    # ONE alert per NEW finding, keyed row+kind (+edge); a key that is still
+    # present is never re-sent. A key that disappears is forgotten, so a finding
+    # that recurs after being fixed alerts again. Same seeding rule as (b1)/(b3):
+    # the first pass sends ONE count line, never silently and never per item.
+    if v.get("blocker_read") == "read":
+        cur_bw = {f["key"]: f for f in v.get("blocker_findings", [])}
+        seen_bw = set(state.get("seen_blocker_findings", []))
+        fresh_bw = [cur_bw[k] for k in sorted(cur_bw) if k not in seen_bw]
+        if fresh_bw and "seen_blocker_findings" in state:
+            L = [f"🧱 {len(fresh_bw)} new blocker-watch finding(s) — act this turn "
+                 f"(unblock, re-queue, dispatch, or drop with a reason):"]
+            for f in fresh_bw[:6]:
+                L.append(f"• {f['kind']} {f['id']}: {_short(f.get('evidence'), 150)}")
+            if len(fresh_bw) > 6:
+                L.append(f"…and {len(fresh_bw) - 6} more — python3 scripts/ops/blocker_watch.py")
+            msgs.append(("high" if any(f["kind"] == "STALE_BLOCK" for f in fresh_bw) else "normal",
+                         "\n".join(L)))
+        if "seed_blocker_watch_sent_at" not in state:
+            by: dict[str, int] = {}
+            for f in cur_bw.values():
+                by[f["kind"]] = by.get(f["kind"], 0) + 1
+            msgs.append(("normal", "🧱 blocker-watch at deploy: " +
+                         (" · ".join(f"{k} {n}" for k, n in sorted(by.items())) or "no findings") +
+                         " (listed in the daily brief; only NEW findings alert from here)"))
+            new["seed_blocker_watch_sent_at"] = now.isoformat()
+        new["seen_blocker_findings"] = sorted(cur_bw)
 
     # (c) silence alarms — send on breach, re-send every REALERT_HOURS, one clear.
     alarms = dict(state.get("alarms", {}))
