@@ -15,8 +15,11 @@ What one cycle does (:func:`run_cycle`):
    THIS cycle. A read that does not parse holds new entries for THIS cycle
    only (selector drift); the next cycle reads again (NO-HALT, 2026-10-09).
 3. **Reconcile the intent ledger**: every ticket we clicked for is confirmed
-   by RE-READ (never by click success), contained per § 3.5, or after
-   ``unconfirmed_reads`` cycles reported ``skipped: unconfirmed_submit``.
+   by RE-READ (never by click success), contained per § 3.5, or -- when no
+   re-read finds it -- resolved by the VENUE's order history for its client id
+   where the adapter has one (VELO-UNCONFIRMED-1008); only an adapter with no
+   history read still reports ``skipped: unconfirmed_submit`` after
+   ``unconfirmed_reads`` cycles.
 4. **Reconcile the journal** (open ``prop_fills``) against the terminal by
    ``prop_position_identity`` (account + bot symbol + direction): closed on the
    terminal on two consecutive reads → ``closed``; a terminal position nobody
@@ -2661,6 +2664,87 @@ def _supersede_resting(res: CycleResult, adapter: Any, page: Any, api: Any, cfg:
     return False
 
 
+#: Order statuses after which the venue will never fill the entry.
+_VENUE_FINAL = ("COMPLETED", "CANCELED", "CANCELLED", "REJECTED", "EXPIRED")
+
+
+def venue_entry_outcome(adapter: Any, spec: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
+    """VELO-UNCONFIRMED-1008: what the VENUE's order history says became of a
+    submitted entry that no re-read can find (no working order, no position).
+
+    Asked by the ticket's own client order id (``client_ids(ticket)["entry"]``)
+    through the adapter's ``read_history`` (DXtrade REST). Returns None when the
+    adapter has no such read (the browser terminals), else one of:
+      * ``{"outcome": "filled", "price", "qty", "status"}`` -- the entry traded:
+        a position existed, and is gone from the terminal (closed by its
+        bracket or by hand before the re-read);
+      * ``{"outcome": "never_filled", "status"}`` -- final with nothing filled
+        (cancelled / rejected / expired);
+      * ``{"outcome": "working", "status"}`` -- the venue still lists it live;
+      * ``{"outcome": "absent"}`` -- the read succeeded and the venue has no
+        order under this id: the POST never created one;
+      * ``{"outcome": "unread", "why"}`` -- the read failed: could not look,
+        which is never read as "absent".
+    Read-only; never touches an order."""
+    reader = getattr(adapter, "read_history", None)
+    tid = str(spec.get("ticket_id") or "")
+    if reader is None or not tid:
+        return None
+    from src.prop.platform.dxtrade_api import client_ids
+    entry_id = client_ids(tid)["entry"]
+    try:
+        rows = [r for r in reader([entry_id]) if str(r.get("client_id") or "") == entry_id]
+    except Exception as exc:  # noqa: BLE001 -- a failed read is "unread", never "absent"
+        return {"outcome": "unread", "why": f"{type(exc).__name__}: {str(exc)[:160]}"}
+    if not rows:
+        return {"outcome": "absent"}
+    r = rows[-1]
+    status = str(r.get("status") or "").upper()
+    qty = _f(r.get("filled_qty"))
+    if not qty:
+        qty = sum(_f(x.get("qty")) or 0.0 for x in r.get("fills") or []) or None
+    if qty:
+        price = _f(r.get("avg_price"))
+        if price is None:
+            fills = [x for x in r.get("fills") or [] if _f(x.get("price")) is not None and _f(x.get("qty"))]
+            tot = sum(_f(x["qty"]) for x in fills)
+            price = sum(_f(x["price"]) * _f(x["qty"]) for x in fills) / tot if tot else None
+        return {"outcome": "filled", "price": price, "qty": qty, "status": status}
+    final = r.get("final")
+    if status in _VENUE_FINAL or (final not in (None, False, "") and str(final).upper() != "FALSE"):
+        return {"outcome": "never_filled", "status": status or str(final).upper()}
+    return {"outcome": "working", "status": status}
+
+
+def _resolve_from_venue(res: CycleResult, live: bool, post: Any, ledger: IntentLedger, cfg: ExecutorConfig,
+                        tid: str, row: Mapping[str, Any], spec: Mapping[str, Any], venue: Mapping[str, Any],
+                        n: int) -> None:
+    """Write the venue's answer for an unconfirmed submit (``filled`` /
+    ``never_filled`` / ``absent``) to the ledger and the journal."""
+    res.log("unconfirmed_resolved", ticket_id=tid, misses=n, **venue)
+    if venue["outcome"] == "filled":
+        # The position existed. Journal it OPEN at the venue's fill price: the
+        # journal reconcile (step 4) then finds it flat on the terminal, closes
+        # it and reads its exit from the venue's trade history -- the same path
+        # every bracket close takes.
+        res.alerts.append(f"{tid}: submit unconfirmed on the terminal, but the venue's order history shows "
+                          f"the entry FILLED ({venue.get('qty')} @ {venue.get('price')}) and it is already "
+                          f"gone from the terminal -- journaled open; the journal reconcile closes it")
+        if live:
+            ledger.record(tid, "open", fill_price=venue.get("price"), resolved_by="venue_history", misses=n)
+            _report(res, post, _fill_body(cfg, row, spec, "open", entry=venue.get("price")))
+        return
+    if venue["outcome"] == "never_filled":
+        why = f"venue: entry {venue.get('status') or 'final'} with nothing filled"
+        if row.get("leg_fix_tried"):
+            why += " (cancelled by the executor's own containment)"
+    else:
+        why = "venue: no order under this ticket's client id (the submit never created one)"
+    if live:
+        ledger.record(tid, "skipped", reason=why, resolved_by="venue_history", misses=n)
+        _report(res, post, {**_fill_body(cfg, row, spec, "skipped"), "reason": why})
+
+
 def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, ledger: IntentLedger,
              cfg: ExecutorConfig, tid: str, row: Mapping[str, Any], spec: Mapping[str, Any],
              found: Mapping[str, Any], verdict: str) -> Optional[str]:
@@ -2720,6 +2804,31 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
         return trip
     if verdict == "not_found":
         n = int(row.get("misses") or 0) + 1
+        # VELO-UNCONFIRMED-1008: a submit nothing on the terminal matches is
+        # resolved by the VENUE's order history, never by counting misses
+        # alone. 2026-10-08 prop-manual-df6e8938ab89 was written off as
+        # `skipped: unconfirmed_submit` with no record of whether a position
+        # had existed. A final answer (filled / never filled) resolves the row
+        # now; "absent" only once the miss budget is spent (a just-accepted
+        # POST may not be listed yet); "working" / "unread" keep it watched.
+        venue = venue_entry_outcome(adapter, spec)
+        if venue is not None:
+            res.log("unconfirmed_venue_read", ticket_id=tid, misses=n, **venue)
+            if venue["outcome"] in ("filled", "never_filled") or (
+                    venue["outcome"] == "absent" and n >= cfg.unconfirmed_reads):
+                _resolve_from_venue(res, live, post, ledger, cfg, tid, row, spec, venue, n)
+                return None
+            if n >= cfg.unconfirmed_reads:
+                # Could not look, or the venue still lists it working while no
+                # read of open orders finds it: NOT written off. The row stays
+                # watched (and holds its symbol) and asks the venue again next
+                # cycle; the failure streak raises the red flag if it persists.
+                why = ("venue history unread: " + str(venue.get("why"))) if venue["outcome"] == "unread" \
+                    else f"venue lists the entry {venue.get('status') or 'working'} but no open-order read finds it"
+                res.alerts.append(f"{tid}: submitted but not found after {n} re-reads; {why} -- kept unresolved")
+                if live:
+                    ledger.record(tid, "unconfirmed", misses=n)
+                return f"{tid}: unconfirmed placement ({why})"
         if n >= cfg.unconfirmed_reads:
             res.alerts.append(f"{tid}: submitted but not found after {n} re-reads — skipped: unconfirmed_submit")
             if live:
