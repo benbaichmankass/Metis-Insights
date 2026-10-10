@@ -277,6 +277,18 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ops/work_report.py", "--self-test"]],
     },
     {
+        # BLOCKER-WATCH, 2026-10-10: blocked rows whose blocker is finished, queued
+        # research units never dispatched, landed_unproven past due. The self-test
+        # includes a positive control (every finding kind is shown it can fire) and
+        # a smoke run against the live stores.
+        "name": "blocker-watch",
+        "when": {"globs": ["scripts/ops/blocker_watch.py", "scripts/ops/attention_watch.py",
+                            "scripts/ops/render_daily_brief.py", "scripts/ops/manager_preflight.py",
+                            "tests/test_blocker_watch.py", "research/queue/**",
+                            "docs/claude/work/checklist/**"]},
+        "steps": [["python3", "scripts/ops/blocker_watch.py", "--self-test"]],
+    },
+    {
         # FIX-SA-09, 2026-09-29: the SessionStart hook, three slash commands and
         # four skills told sessions to drain review backlogs archived on
         # 2026-09-21. This is the detector: no live `.claude/` line may name a

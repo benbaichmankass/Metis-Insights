@@ -1141,6 +1141,40 @@ def check_blocked_claims(ck_doc: Optional[Any], ck_readable: bool) -> Dict[str, 
               population=pop)
 
 
+def check_blocker_watch(report: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Do the blocked / 'running' claims still hold? (BLOCKER-WATCH)
+
+    FAIL only on what is cheap and unambiguous to fix at session start: a
+    STALE_BLOCK (a row marked blocked whose blocker is finished or unresolvable)
+    or an OPERATOR_WAIT past its bound. NOT_RUNNING / UNPROVEN_OVERDUE are a
+    standing queue the review works through, so they are counted in the message
+    and carried in ``findings`` but do not by themselves hold the manager.
+    ``report`` is ``blocker_watch.build()``'s dict, or None when it could not run."""
+    if not isinstance(report, dict) or not report.get("readable"):
+        return _c("blocker_watch", UNKNOWN,
+                  "blocker_watch could not read every input "
+                  f"({(report or {}).get('sources')}), so blocked rows could not be checked "
+                  "against their blockers. WE DID NOT LOOK.")
+    c, d = report["counts"], report["denominators"]
+    pop = (f"population: {d['blocked_rows']} blocked row(s) of {d['rows_scanned']}; "
+           f"{d['research_units_queued']} queued research unit(s) of {d['research_units_scanned']}; "
+           f"{d['landed_unproven_rows']} landed_unproven row(s) "
+           f"({d['landed_unproven_no_observation']} with no observation)")
+    tail = (f" Also standing: NOT_RUNNING {c['NOT_RUNNING']}, UNPROVEN_OVERDUE "
+            f"{c['UNPROVEN_OVERDUE']} (work them in the review: python3 scripts/ops/blocker_watch.py).")
+    hard = [f for f in report["findings"] if f["kind"] in ("STALE_BLOCK", "OPERATOR_WAIT")]
+    if hard:
+        return _c("blocker_watch", FAIL,
+                  f"{len(hard)} blocked row(s) are not actually holding work: "
+                  + "; ".join(f"{f['kind']} {f['id']}" for f in hard[:8])
+                  + ". Unblock, re-queue, dispatch to a lane, or drop with a stated reason "
+                    "this turn — a stale block is never left standing. " + pop + tail,
+                  findings=hard, population=pop)
+    return _c("blocker_watch", PASS,
+              "every blocked row is held by a blocker that still stands. " + pop + tail,
+              population=pop)
+
+
 # --------------------------------------------------------------------------
 # 9 · lease — delegated entirely, so the policy cannot drift from handoff_check
 # --------------------------------------------------------------------------
@@ -1175,6 +1209,14 @@ def grade(checks: List[Dict[str, Any]]) -> str:
     if any(c["state"] == UNKNOWN for c in checks):
         return "unknown"
     return "ready"
+
+
+def _blocker_report() -> Optional[Dict[str, Any]]:
+    try:
+        import blocker_watch  # noqa: PLC0415 — flat import, like the other scripts/ops siblings
+        return blocker_watch.build()
+    except Exception:  # noqa: BLE001 — unreadable is a state, not a crash
+        return None
 
 
 def run(observation: Optional[Any] = None, manager_session_id: Optional[str] = None,
@@ -1217,6 +1259,7 @@ def run(observation: Optional[Any] = None, manager_session_id: Optional[str] = N
         check_register_edits(base, open_prs),
         check_merge_driver(),
         check_blocked_claims(ck, ck_ok),
+        check_blocker_watch(_blocker_report()),
         check_lease(lease, lease_ok, manager_session_id),
     ]
     # Omitted entirely when no branch is named — see the check's docstring.
@@ -1584,6 +1627,23 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
     check("all three real blocked_on SHAPES normalise (list, dict, bare string)",
           [len(_norm_edges([{"kind": "object"}])), len(_norm_edges({"kind": "object"})),
            len(_norm_edges("a string"))], [1, 1, 1])
+
+    # 9b · blocker_watch
+    _bw = lambda **kw: {"readable": True, "sources": {}, "findings": kw.get("f", []),  # noqa: E731
+                        "counts": {"STALE_BLOCK": 0, "NOT_RUNNING": 0, "OPERATOR_WAIT": 0,
+                                   "UNPROVEN_OVERDUE": 0},
+                        "denominators": {"blocked_rows": 1, "rows_scanned": 9, "research_units_queued": 2,
+                                         "research_units_scanned": 5, "landed_unproven_rows": 1,
+                                         "landed_unproven_no_observation": 0}}
+    check("a STALE_BLOCK finding FAILS the preflight",
+          check_blocker_watch(_bw(f=[{"kind": "STALE_BLOCK", "id": "X"}]))["state"], FAIL)
+    check("an OPERATOR_WAIT finding FAILS the preflight",
+          check_blocker_watch(_bw(f=[{"kind": "OPERATOR_WAIT", "id": "X"}]))["state"], FAIL)
+    check("standing NOT_RUNNING alone does not hold the manager, and says so",
+          check_blocker_watch(_bw(f=[{"kind": "NOT_RUNNING", "id": "RQ-1"}]))["state"], PASS)
+    check("an unreadable blocker_watch is UNKNOWN, never a pass",
+          [check_blocker_watch(None)["state"], check_blocker_watch({"readable": False})["state"]],
+          [UNKNOWN, UNKNOWN])
 
     # 9 · lease
     mine = {"state": "held", "holder": "S1",
