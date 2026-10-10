@@ -14,8 +14,12 @@
   ],
   "blocked_on": [],
   "note": "Operator 2026-10-10: login cannot depend on manual input. PR #17365 (draft, hold, manager merges).",
-  "updated_at": "2026-10-10T08:40:42Z",
+  "updated_at": "2026-10-10T08:49:44Z",
   "updated_by": "session_012oBVDq3bkBnB2BvpJJdJAH",
-  "observation": "breakout_2 phone_events shows login_started -> logged-in and a fresh account_status after the new APK (phone-executor-apk.yml artifact phone-executor-1b-apk) is installed",
+  "observation": {
+    "due_by": "2026-10-13",
+    "how_to_check": "curl -s 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_2' | python3 -c \"import json,sys;d=json.load(sys.stdin);print(d['status_age_hours'],[e['kind'] for e in d.get('phone_events') or []][-10:],(d['phone_heartbeat'] or {}).get('state',{}).get('last'))\"",
+    "what": "breakout_2 phone_events shows login_started -> logged-in (login_ok or a logged_in heartbeat) and a fresh account_status after the new APK (phone-executor-apk.yml artifact phone-executor-1b-apk) is installed"
+  },
   "_seq": 372
 }
