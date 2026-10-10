@@ -305,3 +305,63 @@ def test_each_landing_returns_to_the_checked_out_base():
     assert any(receipt < r < stamp for r in resets), "the stamp landing starts from the base"
     stamp_reset = next(steps[r] for r in resets if receipt < r < stamp)
     assert str(stamp_reset.get("if", "")).strip() == "env.FIRE == 'true'", "gated like the stamp step itself"
+
+
+# ── 4. stranded stamp PRs (RQ-DISPATCH-STALL, 2026-10-10) ─────────────────────
+
+def _stamp_patch(ts: str) -> str:
+    return f"@@ -73,4 +73,4 @@ related:\n- x\n-last_dispatched_at: null\n+last_dispatched_at: '{ts}'"
+
+
+_OLD = (NOW - timedelta(hours=9)).isoformat().replace("+00:00", "Z")
+_NEW = (NOW - timedelta(minutes=20)).isoformat().replace("+00:00", "Z")
+STRANDED_PULLS = [
+    {"number": 7, "created_at": _OLD, "head": {"ref": f"{dq.STAMP_BRANCH_PREFIX}-1-1"}},
+    {"number": 9, "created_at": _NEW, "head": {"ref": f"{dq.STAMP_BRANCH_PREFIX}-3-1"}},
+    {"number": 8, "created_at": _OLD, "head": {"ref": "automation/research-result-2-1"}},
+]
+STRANDED_FILES = {
+    7: [{"filename": f"research/queue/{UID}.yaml", "patch": _stamp_patch("2030-01-10T01:02:03+00:00")},
+        {"filename": ".github/merge-slots/x.json"}],
+    9: [{"filename": f"research/queue/{UID2}.yaml", "patch": _stamp_patch("2030-01-10T11:40:00+00:00")}],
+    8: [{"filename": f"research/queue/{UID2}.yaml", "patch": _stamp_patch("2030-01-10T02:00:00+00:00")}],
+}
+
+
+def test_only_stamp_prs_older_than_the_bound_are_stranded_and_carry_their_original_stamp():
+    got = dq.stranded_stamp_adoptions(NOW, 3.0, _api(STRANDED_PULLS, STRANDED_FILES))
+    assert set(got) == {UID}                       # #9 is fresh, #8 is not a stamp branch
+    when, src = got[UID]
+    assert when == datetime(2030, 1, 10, 1, 2, 3, tzinfo=timezone.utc) and "PR #7" in src
+
+
+def test_a_stranded_pr_with_no_readable_patch_adopts_nothing():
+    files = {7: [{"filename": f"research/queue/{UID}.yaml"}], 9: [], 8: []}   # patch omitted by GitHub
+    assert dq.stranded_stamp_adoptions(NOW, 3.0, _api(STRANDED_PULLS, files)) == {}
+
+
+def test_stranded_adoption_is_none_when_github_cannot_be_asked():
+    assert dq.stranded_stamp_adoptions(NOW, 3.0, lambda path: None) is None
+    assert dq.stranded_stamp_adoptions(NOW, 3.0, _api(STRANDED_PULLS, {7: None})) is None
+
+
+def test_a_stranded_stamp_is_adopted_not_refired_and_lands_in_this_cycles_tree(tmp_path, monkeypatch):
+    when = datetime(2030, 1, 10, 1, 2, 3, tzinfo=timezone.utc)
+    monkeypatch.setattr(dq, "stranded_stamp_adoptions",
+                        lambda now, hours=3.0, api=None: {UID: (when, "PR #7 (automation/research-queue-stamp-1-1)")})
+    fired, dec, stamps = _cycle(tmp_path, monkeypatch, [(UID, {}), (UID2, {})],
+                                pending={UID: "PR #7 (automation/research-queue-stamp-1-1)"})
+    assert fired == [f"research_unit={UID2}"]                      # UID was NOT dispatched a second time
+    assert dec[UID]["outcome"] == dq.NOT_DUE and "cadence=once and it ran at" in dec[UID]["reason"]
+    assert stamps[UID] == "2030-01-10T01:02:03+00:00"              # the ORIGINAL dispatch time, on this tree
+    assert stamps[UID2] is not None
+
+
+def test_adoption_never_moves_a_newer_stamp_backwards(tmp_path, monkeypatch):
+    when = datetime(2030, 1, 10, 1, 2, 3, tzinfo=timezone.utc)
+    monkeypatch.setattr(dq, "stranded_stamp_adoptions",
+                        lambda now, hours=3.0, api=None: {UID: (when, "PR #7 (automation/research-queue-stamp-1-1)")})
+    _fired, _dec, stamps = _cycle(tmp_path, monkeypatch,
+                                  [(UID, {"last_dispatched_at": "2030-01-10T05:00:00+00:00"})],
+                                  pending={UID: "PR #7 (automation/research-queue-stamp-1-1)"})
+    assert stamps[UID] == "2030-01-10T05:00:00+00:00"

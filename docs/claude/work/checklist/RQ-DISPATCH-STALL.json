@@ -1,0 +1,27 @@
+{
+  "id": "RQ-DISPATCH-STALL",
+  "title": "Research-queue dispatch stall: stamps stranded in stale open stamp PRs; blocker_watch NOT_RUNNING false positives",
+  "phase": "A",
+  "state": "landed_unproven",
+  "owner": "lane RQ-DISPATCH-STALL",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "MEASURED 2026-10-10 from run 38070463721's dispatch log: 72 units held in 14 OPEN stamp PRs (oldest #16790, 2026-10-05); every unit the dispatcher would fire (811, 006-002, 007-004, 010-001, 007-005, 007-015, 007-016, 007-239) was in one, so the dispatcher correctly refused a re-fire while main read last_dispatched_at null. Stamp PRs strand on a transient red base guard (trainer-capture-watch, PR 17338 guards check) or a conflict (#17406 failed_conflict) and nothing closes or re-lands them. FIX: dispatch_queue.stranded_stamp_adoptions carries the ORIGINAL stamp from a >3h-old stamp PR's patch into the current cycle's tree. blocker_watch._cadence_not_elapsed uses the dispatcher's _is_due so monthly/once units inside cadence are no longer NOT_RUNNING (9 of the 13 flagged). NOT done: stranded PRs are not closed (no write scope); 5 units stay NEEDS_LANE (session-bound).",
+  "updated_at": "2026-10-10T17:25:23Z",
+  "updated_by": "session_01VwwAVXmHRxbvZaaZAhMMYz",
+  "observation": {
+    "what": "the next dispatch cycle after merge adopts the stamps stranded in stale open stamp PRs onto main, so last_dispatched_at is non-null on RQ-20261005-811, RQ-20261006-002, RQ-20261007-004 and RQ-20261010-001, and blocker_watch NOT_RUNNING falls to the NEEDS_LANE set only",
+    "how_to_check": "python3 scripts/ops/blocker_watch.py --json | jq [.findings[]|select(.kind==\"NOT_RUNNING\" and .needs_lane==false)|.id] -> []; and the run log of research-queue-dispatch carries a ::warning:: N stamp(s) adopted from stranded open stamp PRs",
+    "due_by": "2026-10-12T00:00Z"
+  },
+  "recorded_decision": {
+    "kind": "operator_decision",
+    "ref": "BLOCKER-WATCH RQ-DISPATCH-STALL"
+  },
+  "_seq": 375
+}

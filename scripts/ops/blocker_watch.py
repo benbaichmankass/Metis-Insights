@@ -188,11 +188,36 @@ def unit_finished(u: dict) -> tuple[bool, str]:
     return False, f"unit status={st or '?'}, no grading, no results"
 
 
+def _cadence_not_elapsed(u: dict, now: datetime) -> bool:
+    """True when the DISPATCHER itself says nothing is owed yet: a ``cadence: once``
+    unit that already ran, or a recurring unit whose cadence has not elapsed.
+
+    The 48 h bound alone read every healthy monthly unit as stalled the moment its
+    stamp aged past two days (RQ-DISPATCH-STALL, 2026-10-10: 9 of the 13 units a
+    scan flagged were exactly that or a once-unit awaiting grading). The cadence
+    verdict is the dispatcher's own ``_is_due`` -- one definition of "owed", not
+    a second copy here. ONLY the cadence/idempotence reasons exempt a unit; a unit
+    that is not due because it is MISCONFIGURED or has an unmet precondition still
+    surfaces. If the dispatcher cannot be imported the answer is False (we did not
+    look; the old bound applies)."""
+    wf = str((u.get("run") or {}).get("workflow") or "").strip()
+    if not wf.endswith((".yml", ".yaml")) or any(ch.isspace() for ch in wf):
+        return False   # session-bound: a stamp there is a hand note, not a dispatch the cadence can vouch for
+    try:
+        from scripts.research import dispatch_queue as dq  # noqa: PLC0415
+        due, why = dq._is_due(u, now)
+    except Exception:  # noqa: BLE001 -- "could not look" must fall back to the bound, not hide the unit
+        return False
+    return (not due) and (why.startswith("cadence=once") or "not yet elapsed" in why)
+
+
 def unit_not_running(u: dict, now: datetime) -> str | None:
     """Evidence string when the unit is queued but not being dispatched."""
     if str(u.get("status") or "") != "queued":
         return None
     if unit_finished(u)[0]:
+        return None
+    if _cadence_not_elapsed(u, now):
         return None
     ld = u.get("last_dispatched_at")
     t = _parse_ts(ld)
@@ -480,6 +505,12 @@ def _self_test() -> int:
             "RQ-G": {"id": "RQ-G", "status": "queued", "last_dispatched_at": None, "grading": {"v": 1}},
             "RQ-RES": {"id": "RQ-RES", "status": "queued", "last_dispatched_at": None, "_has_results": True},
             "RQ-DONE": {"id": "RQ-DONE", "status": "done"},
+            "RQ-MONTHLY": {"id": "RQ-MONTHLY", "status": "queued", "cadence": "monthly",
+                           "last_dispatched_at": "2026-10-01T00:00:00+00:00", "run": {"workflow": "real.yml"}},
+            "RQ-ONCE-RAN": {"id": "RQ-ONCE-RAN", "status": "queued", "cadence": "once",
+                            "last_dispatched_at": "2026-10-01T00:00:00+00:00", "run": {"workflow": "real.yml"}},
+            "RQ-MONTHLY-ELAPSED": {"id": "RQ-MONTHLY-ELAPSED", "status": "queued", "cadence": "monthly",
+                                   "last_dispatched_at": "2026-08-01T00:00:00+00:00", "run": {"workflow": "real.yml"}},
         }
         rep = scan(rows, pipe, units, now, wf)
         keys = {f["key"] for f in rep["findings"]}
@@ -503,6 +534,9 @@ def _self_test() -> int:
         check("unit never dispatched", "NOT_RUNNING:RQ-Q" in keys, True)
         check("unit dispatched 9d ago", "NOT_RUNNING:RQ-OLD" in keys, True)
         check("fresh unit is fine", "NOT_RUNNING:RQ-FRESH" in keys, False)
+        check("monthly unit inside its cadence is NOT 'not running'", "NOT_RUNNING:RQ-MONTHLY" in keys, False)
+        check("cadence=once unit that ran is NOT 'not running'", "NOT_RUNNING:RQ-ONCE-RAN" in keys, False)
+        check("monthly unit past its cadence IS 'not running'", "NOT_RUNNING:RQ-MONTHLY-ELAPSED" in keys, True)
         check("graded unit is not 'not running'", "NOT_RUNNING:RQ-G" in keys, False)
         check("unit with results is not 'not running'", "NOT_RUNNING:RQ-RES" in keys, False)
         check("done unit is not 'not running'", "NOT_RUNNING:RQ-DONE" in keys, False)
