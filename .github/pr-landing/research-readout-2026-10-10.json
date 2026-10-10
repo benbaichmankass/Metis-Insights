@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Daily research readout: appends two PIPELINE items and notes on four checklist rows (PROP-FIRM-SCAN, PAIRS-STOCKTAKE, NEWS-VETO-EVAL, PM-SURPRISE-EVAL). Docs/register content on the Tier-1 surface only; no src/, config/, order path, strategy, risk, deploy or live-VM file is touched. No Tier-3 proposal is made; the notes record that none was warranted."
+}
