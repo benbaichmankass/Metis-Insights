@@ -16,6 +16,9 @@ Endpoints:
 - ``GET  /api/bot/prop/tickets?account_id=&status=&limit=`` — outbound tickets.
 - ``GET  /api/bot/prop/status?account_id=`` — latest account-status snapshot +
   computed rule-distance (distance to the $150 daily-loss / $300 static-DD).
+- ``GET  /api/bot/prop/overview?window=24h|7d|30d|all`` — whole prop book in one
+  read for the SPA Overview (equity over fresh accounts, open trades, windowed
+  realized P&L; DASH-PROP-OVERVIEW).
 - ``GET  /api/bot/prop/reconcile?account_id=`` — un-acted tickets (emitted, past
   validity, no matching fill) + a summary.
 
@@ -184,6 +187,18 @@ def get_status(account_id: str | None = None) -> dict[str, Any]:
         return {"account_id": acct, "present": False, "status": None,
                 "status_age_hours": None, "status_freshness": "error",
                 "rule_distance": None}
+
+
+@router.get("/overview")
+def get_overview(window: str = "7d") -> dict[str, Any]:
+    from src.prop import prop_overview
+
+    try:
+        return {"present": True, **prop_overview.build_overview(window)}
+    except Exception:  # noqa: BLE001  # allow-silent: degrade to present:false, not a 500
+        logger.warning("prop: /overview read failed; degrading to present:false", exc_info=True)
+        return {"present": False, "equity": None, "open_trades": None,
+                "realized": None, "unrealized_pnl": None}
 
 
 @router.get("/reconcile")

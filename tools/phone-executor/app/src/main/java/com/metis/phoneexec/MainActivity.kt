@@ -22,18 +22,19 @@ import android.widget.EditText
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Date
-import kotlin.coroutines.resume
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.round
@@ -44,9 +45,10 @@ import kotlin.math.round
  * A screen-on kiosk WebView on trade.breakoutprop.com, with the stock WebView identity (no UA change, no
  * stealth, no challenge solving: a challenge page is never interacted with; the app reloads the terminal every
  * 30 min to re-check it). Every 30 s it:
- *   - logged out  -> auto re-login: type the account email, read the number the page shows, find the ONE link
- *                    with that number in the newest matching Breakout mail in the dedicated inbox, open it in THIS
- *                    WebView. NO LATCH (operator 2026-10-09 "There is no halting"; 2026-10-10 "the login cannot depend
+ *   - logged out  -> auto re-login (PHONE-AUTOLOGIN-2, relogin()): type the account email, POLL the waiting page for
+ *                    its number(s) (up to 90 s), POLL the dedicated inbox (up to 5 min), then either tap the ONE
+ *                    lineup choice the mail names, or open the ONE mail link whose text is the page's single number
+ *                    (LoginMatch; anything else fails closed). NO LATCH (operator 2026-10-09 "There is no halting"; 2026-10-10 "the login cannot depend
  *                    on manual input from me"): a failure is retried after 2, 5, 10, 20, then every 30 min, forever;
  *                    the 3rd consecutive failure sends ONE login_failed red flag ("still retrying"), the recovery one
  *                    login_ok. A tap on the screen defers re-login by at most 60 s (RELOGIN_DEFER_MS), never longer.
@@ -75,6 +77,12 @@ import kotlin.math.round
  * app could never see a logout. The background tick now also brings the Activity forward (same BG_WAKE mechanism)
  * every LOGIN_CHECK_MS, when a re-login retry is due, or when the VM says account_status is stale; the resumed tick
  * reads the page, re-logs in if needed, posts account_status, and the task goes back unless the operator touched it.
+ *
+ * BACKGROUND ENGINE (PHONE-AUTOLOGIN-2, 2026-10-10: the bring-to-front was refused by Android's background-activity-start
+ * limits, "bring-to-front already requested" at ~12:33Z with a retry due): those same login checks, the re-login and the
+ * account panel read now run in BgWeb, a second WebView sharing this one's session, attached to a transparent
+ * non-touchable overlay only while a job runs. Bring-to-front stays for tickets, and for login checks only after two
+ * engine jobs in a row got no answer from the page. The heartbeat reports the engine (bg, bg_runs, bg_ok, bg_last).
  */
 class MainActivity : Activity() {
     private lateinit var web: WebView
@@ -102,15 +110,19 @@ class MainActivity : Activity() {
     private var challengeRecheckMs = 0L
     private var execSrc = ""
     private var resumed = false
-    private var jsTimeouts = 0
+    private lateinit var fg: Page       // the kiosk WebView as a Page (bounded js calls)
+    private var loginAttempted = false  // this tick started a re-login attempt (the wake window is handed back after it)
+    // BACKGROUND ENGINE (PHONE-AUTOLOGIN-2): login checks, re-login and the account read run in BgWeb while backgrounded
+    private var bgRuns = 0; private var bgOk = 0; private var bgLast = ""; private var bgLastMs = 0L
+    private var bgNoAnswer = 0          // consecutive bg jobs whose page did not answer: >= 2 -> bring-to-front fallback
+    private var bgLoginAtMs = 0L        // the engine logged in at this time; the kiosk reloads once to pick it up
+    private var fgReloadMs = 0L
     private var lastPending = -1
     private var claimedThisTick = false
     private var claim5xx = 0
     private var claimBackoffUntilMs = 0L
     private var bgWakeUntilMs = 0L      // a bring-to-front was requested; retried only after this passes
     private var wokeAtMs = 0L           // > 0 while WE brought the Activity forward (it goes back afterwards)
-
-    private class JsTimeout : Exception("page did not answer")
 
     companion object {
         const val TRADE_URL = "https://trade.breakoutprop.com/"
@@ -123,7 +135,17 @@ class MainActivity : Activity() {
         const val ACCT_MS = 300_000L
         const val USER_HOLD_MS = 5 * 60_000L
         const val PAUSE_MAX_MS = 10 * 60_000L
-        const val JS_TIMEOUT_MS = 10_000L
+        const val JS_TIMEOUT_MS = Page.JS_TIMEOUT_MS
+        // LINEUP LOGIN (PHONE-AUTOLOGIN-2, operator 2026-10-10: "it's way not waiting long enough to see the email. That
+        // can take at least up to a minute"): the waiting page is polled for its number(s), the inbox for the mail
+        const val PAGE_WAIT_MS = 90_000L
+        const val DIAG_PARTS = 7                        // login_diag parts per attempt (phone_events keeps 40)
+        const val DIAG_PART_CHARS = 148                 // + "dI/N " stays inside the server's 160
+        const val PAGE_WAIT_MAX_MS = 150_000L           // ...extended while no mail has arrived yet (PHONE-AUTOLOGIN-3)
+        const val PAGE_POLL_MS = 3_000L
+        const val MAIL_WAIT_MS = 5 * 60_000L
+        const val MAIL_POLL_MS = 10_000L
+        const val BG_CHECK_MS = 15 * 60_000L            // backgrounded + logged in: engine login check + account read
         const val BG_WAKE_MAX_MS = 3 * 60_000L
         // a tap defers auto re-login by at most this; the old 5-min USER_HOLD_MS let an operator merely OPENING the
         // app (one tap, then background) block the login indefinitely (MEASURED 2026-10-10 08:19Z)
@@ -149,6 +171,7 @@ class MainActivity : Activity() {
         execSrc = assets.open("exec.js").bufferedReader().readText()
 
         web = WebView(this)
+        fg = Page(web, execSrc)
         // TOUCH-HOLD counts only a real finger-down on the page (fix 2026-10-06 09:06Z: the operator saw "paused because
         // you are using it" with the app open and untouched; Activity.onUserInteraction also fires for keys, resumes and
         // system-dispatched events). Our own dispatchKeyEvent typing never reaches a touch listener.
@@ -203,6 +226,8 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume(); resumed = true
+        // the background engine logged in while we were away: reload the kiosk once so it picks up the shared session
+        if (bgLoginAtMs > fgReloadMs) { fgReloadMs = System.currentTimeMillis(); web.loadUrl(home()) }
         if (bgWakeUntilMs > System.currentTimeMillis()) { wokeAtMs = System.currentTimeMillis(); scope.launch { delay(3000); tick() } }
     }
 
@@ -250,6 +275,9 @@ class MainActivity : Activity() {
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(32, 16, 32, 0)
             listOf(api, email, user, pass).forEach { addView(it) }
+            // § 7.19: one IMAP connect NOW with what is typed (blank password = the stored one); the answer in seconds
+            addView(Button(this@MainActivity).apply { text = "Test inbox"; isAllCaps = false
+                setOnClickListener { testInbox(user.text.toString(), pass.text.toString()) } })
             addView(Button(this@MainActivity).apply { text = "Allow restart after reboot (display over apps)"; isAllCaps = false
                 setOnClickListener { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) } })
             addView(Button(this@MainActivity).apply { text = "Ignore battery optimisation"; isAllCaps = false
@@ -261,13 +289,38 @@ class MainActivity : Activity() {
             .setPositiveButton("Save") { _, _ ->
                 Store.put(this, Store.API, api.text.toString().trim())
                 Store.put(this, Store.LOGIN_EMAIL, email.text.toString().trim())
-                Store.put(this, Store.INBOX_USER, user.text.toString().trim())
-                if (pass.text.isNotEmpty()) Store.put(this, Store.INBOX_PASS, pass.text.toString().replace(" ", ""))
+                Store.put(this, Store.INBOX_USER, Creds.user(user.text.toString()))
+                // § 7.19: EVERY whitespace / invisible char removed (was: only the ASCII space -- a pasted NBSP stayed in)
+                if (Creds.pass(pass.text.toString()).isNotEmpty()) Store.put(this, Store.INBOX_PASS, Creds.pass(pass.text.toString()))
+                // takes effect now: the running loop re-reads the store on every inbox poll; skip the backoff wait too
+                reloginNextMs = 0L
                 val pm = getSystemService(PowerManager::class.java)
                 setStatus("saved. overlay=${Settings.canDrawOverlays(this)} battery_exempt=${pm.isIgnoringBatteryOptimizations(packageName)}")
             }.setNegativeButton("Cancel", null).create()
         dlg.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         dlg.show()
+    }
+
+    /** § 7.19 "Test inbox": one immediate IMAP connect; the scrubbed result (Gmail's own words + credential SHAPES,
+     *  never a value) is shown on screen and posted as quiet login_diag events ("inbox_test ..."). */
+    private fun testInbox(typedUser: String, typedPass: String) {
+        val u = Creds.user(typedUser).ifEmpty { Store.get(this, Store.INBOX_USER) ?: "" }
+        val pw = if (Creds.pass(typedPass).isNotEmpty()) typedPass else Store.get(this, Store.INBOX_PASS) ?: ""
+        val src = if (Creds.pass(typedPass).isNotEmpty()) "typed" else "stored"
+        if (u.isEmpty() || pw.isEmpty()) { setStatus("inbox test: no inbox address or app password (type them, or Save first)"); return }
+        setStatus("inbox test: connecting to the dedicated inbox...")
+        scope.launch {
+            val r = try { Mail.test(u, pw) } catch (e: Exception) { "FAIL ${e.javaClass.simpleName}" }
+            setStatus("inbox test ($src): $r")
+            AlertDialog.Builder(this@MainActivity).setTitle("Inbox test").setMessage("($src password)\n$r").setPositiveButton("OK", null).show()
+            postChunks("inbox_test src=$src $r")
+        }
+    }
+
+    /** A long scrubbed line as numbered quiet login_diag events inside the server's 160 chars. */
+    private suspend fun postChunks(line: String) {
+        val parts = line.chunked(DIAG_PART_CHARS - 6).take(3)
+        parts.forEachIndexed { i, t -> api.event("login_diag", "i${i + 1}/${parts.size} $t") }
     }
 
     private fun dryTest() {
@@ -279,13 +332,10 @@ class MainActivity : Activity() {
     }
 
     // ---------------- page bridge ----------------
-    private fun unq(raw: String?): String = try { JSONArray("[" + raw + "]").get(0).toString() } catch (e: Exception) { raw ?: "" }
-    /** Every page call is bounded: a frozen (backgrounded) WebView never answers, and an unbounded wait wedged the loop. */
-    private suspend fun js(code: String): String =
-        withTimeoutOrNull(JS_TIMEOUT_MS) { suspendCancellableCoroutine<String> { c -> web.evaluateJavascript(code) { if (c.isActive) c.resume(unq(it)) } } }
-            ?: run { jsTimeouts += 1; throw JsTimeout() }
-    private suspend fun ensure() { if (js("typeof window.__ex") != "object") { js(execSrc + ";'ok'"); delay(100) } }
-    private suspend fun jsObj(code: String): JSONObject? = try { JSONObject(js("JSON.stringify($code)")) } catch (e: Exception) { null }
+    /** Every page call is bounded (Page): a frozen (backgrounded) WebView never answers, and an unbounded wait wedged the loop. */
+    private suspend fun js(code: String): String = fg.js(code)
+    private suspend fun ensure() = fg.ensure()
+    private suspend fun jsObj(code: String): JSONObject? = fg.obj(code)
     private fun q(s: String) = JSONObject.quote(s)
     private fun typeKeys(s: String) {
         val evs = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD).getEvents(s.toCharArray()) ?: return
@@ -297,6 +347,7 @@ class MainActivity : Activity() {
         if (!resumed) { backgroundTick(); return }
         busy = true
         claimedThisTick = false
+        loginAttempted = false
         var st = "unread"
         var s: JSONObject? = null
         try {
@@ -328,7 +379,7 @@ class MainActivity : Activity() {
                     setStatus("challenge page: reloading the terminal to re-check (no solving)"); web.loadUrl(home())
                 } else setStatus("challenge page (not solved): re-checking every 30 min. Operator: open the app and check.")
                 "logged_in" -> { loginRecovered("logged in"); onLoggedIn(s) }
-                "login" -> relogin(s)
+                "login" -> relogin(fg, s, bg = false)
                 else -> if (userActive()) setStatus("not on the terminal; you are using the screen, so no reload")
                         else { setStatus("not on the terminal (${s.optString("host")}); reloading"); web.loadUrl(home()) }
             }
@@ -341,7 +392,9 @@ class MainActivity : Activity() {
             // or the wake window passed, hand the screen back -- unless the operator touched it meanwhile. A successful
             // re-login extends the window so the next tick reads the terminal and posts account_status first.
             val now = System.currentTimeMillis()
-            if (wokeAtMs > 0 && (claimedThisTick || now > bgWakeUntilMs)) {
+            // (a finished re-login attempt, ok or failed, also hands it back: 12:30Z the window outlived a failed attempt and
+            // the due retry at ~12:32:41Z was skipped as "bring-to-front already requested")
+            if (wokeAtMs > 0 && (claimedThisTick || now > bgWakeUntilMs || (loginAttempted && lastState != "logged_in"))) {
                 val touched = lastUserInputMs > wokeAtMs
                 wokeAtMs = 0L; bgWakeUntilMs = 0L
                 if (!touched && resumed) moveTaskToBack(true)
@@ -368,11 +421,16 @@ class MainActivity : Activity() {
                 statusStaleH >= STATUS_STALE_H && now - lastStaleWakeMs >= STALE_WAKE_MIN_MS -> { lastStaleWakeMs = now; "VM says account_status is ${"%.1f".format(statusStaleH)} h old" }
                 else -> null
             }
+            // the background engine checks the login / reads the account without the Activity, on the same triggers and
+            // also every BG_CHECK_MS while logged in (fresh account_status with the app backgrounded)
+            val bgWhy = loginWhy ?: if (now - maxOf(lastPageReadMs, bgLastMs) >= BG_CHECK_MS) "background check" else null
             when {
                 paused() -> setStatus("background: paused" + if ((n ?: 0) > 0) " ($n ticket(s) waiting)" else "")
                 now < bgWakeUntilMs -> setStatus("background: bring-to-front already requested")
+                // tickets (orders) stay on the foreground path
                 (n ?: 0) > 0 -> { bgWakeUntilMs = now + BG_WAKE_MAX_MS; setStatus("background: $n ticket(s) waiting; bringing the executor to the front"); bringToFront() }
-                loginWhy != null -> { bgWakeUntilMs = now + BG_WAKE_MAX_MS; setStatus("background: $loginWhy; bringing the executor to the front"); bringToFront() }
+                bgWhy != null && bgNoAnswer < 2 -> bgJob(bgWhy)
+                loginWhy != null -> { bgWakeUntilMs = now + BG_WAKE_MAX_MS; setStatus("background: $loginWhy; engine unavailable, bringing the executor to the front"); bgNoAnswer = 0; bringToFront() }
                 n == null -> setStatus("background: pending check failed (VM unreachable or refused); no claim")
                 else -> setStatus("background: no ticket waiting")
             }
@@ -380,6 +438,54 @@ class MainActivity : Activity() {
             try { heartbeat("background", null) } catch (e: Exception) { }
             busy = false
         }
+    }
+
+    /** One BACKGROUND ENGINE job (BgWeb): read the page; logged out -> the same re-login as the kiosk; logged in -> open
+     *  the terminal and post account_status. Never a ticket. A job whose page never answers counts toward the
+     *  bring-to-front fallback (2 in a row), which resets the count so the engine is tried again afterwards. */
+    private suspend fun bgJob(why: String) {
+        val p = BgWeb.attach(this, execSrc)
+        bgRuns += 1; bgLastMs = System.currentTimeMillis()
+        if (p == null) { bgLast = "no_engine"; bgNoAnswer = 2; setStatus("background: $why; engine could not be created"); return }
+        setStatus("background: $why; checking in the background engine (${BgWeb.engine})")
+        try {
+            p.load(home())
+            var s = p.settle(30_000L)
+            if (s == null) { bgNoAnswer += 1; bgLast = "no_answer"; setStatus("background: engine page did not answer ($bgNoAnswer in a row)"); return }
+            bgNoAnswer = 0; bgOk += 1
+            lastPageReadMs = System.currentTimeMillis()
+            val st = when {
+                s.optBoolean("challenged") -> "challenged"
+                s.optBoolean("loggedIn") -> "logged_in"
+                s.optBoolean("pw") || s.optBoolean("email") || s.optBoolean("codeWait") -> "login"
+                else -> "other"
+            }
+            if (st != lastState) {
+                if (st == "login") api.event("logout_seen", "logged out (background engine); trying auto re-login (no orders until logged in)")
+                lastState = st
+            }
+            bgLast = st
+            when (st) {
+                "login" -> {
+                    loginAttempted = false
+                    relogin(p, s, bg = true)
+                    bgLast = if (lastState == "logged_in") "login_ok" else if (loginAttempted) "login_fail" else "login_wait"
+                }
+                "logged_in" -> {
+                    loginRecovered("logged in")
+                    if (!s.optBoolean("onAccount") && s.optString("singleAccountLink").startsWith("https://trade.breakoutprop.com/")) {
+                        p.load(s.optString("singleAccountLink")); s = p.settle(20_000L) ?: s
+                    }
+                    var acct = "busy"
+                    for (i in 0 until 10) { acct = readAccount(p); if (acct != "busy") break; delay(2000) }
+                    if (acct == "posted") lastAcctMs = System.currentTimeMillis()
+                    bgLast = "logged_in+$acct"
+                }
+                "challenged" -> setStatus("background: challenge page (not solved); re-checked on the next background check")
+                else -> setStatus("background: engine not on the terminal (${s.optString("host")})")
+            }
+        } catch (e: JsTimeout) { bgNoAnswer += 1; bgLast = "js_timeout" }
+        finally { BgWeb.detach(this) }
     }
 
     /** Allowed from the background because the operator granted "Display over other apps" (as for the boot restart). */
@@ -398,7 +504,7 @@ class MainActivity : Activity() {
         val state = JSONObject().put("st", st).put("paused", paused()).put("hold", userActive())
             .put("host", s?.optString("host") ?: "").put("onAccount", s?.optBoolean("onAccount") ?: false)
             .put("path_depth", s?.optInt("path_depth") ?: 0)
-            .put("fg", resumed).put("jsTimeouts", jsTimeouts).put("pending", lastPending)
+            .put("fg", resumed).put("jsTimeouts", fg.timeouts).put("pending", lastPending)
             // the page state the LAST foreground tick read (logged_in / login / challenged / other; "" = never read):
             // a backgrounded heartbeat says st=background and nothing else, so a logout overnight stayed invisible
             // until the app was opened (2026-10-10, breakout_2 last balance 10-09 15:01Z, background all night).
@@ -406,21 +512,24 @@ class MainActivity : Activity() {
             // auto re-login: consecutive failures, minutes to the next retry, whether the red flag was sent
             .put("relogin_failures", reloginFailures).put("relogin_flagged", reloginFlagged)
             .put("relogin_next_min", if (reloginNextMs > now) (reloginNextMs - now) / 60_000 + 1 else 0L)
+            // background engine: which one, jobs run / jobs whose page answered, the last job's result and its age
+            .put("bg", BgWeb.engine).put("bg_runs", bgRuns).put("bg_ok", bgOk).put("bg_last", bgLast)
+            .put("bg_last_min", if (bgLastMs > 0) (now - bgLastMs) / 60_000 else -1L)
         // never touch the WebView while backgrounded (jsObj is bounded anyway and yields null on a timeout)
         if (resumed) jsObj("__ex.terminal()")?.let { tm ->
             for (k in listOf("ready", "probe", "panels", "orderControl", "ticketOpen", "buySell")) state.put(k, tm.optBoolean(k))
             state.put("tabs", tm.optInt("tabs")).put("inputs", tm.optInt("inputs"))
         }
-        if (resumed && st == "logged_in" && now - lastAcctMs >= ACCT_MS) { lastAcctMs = now; state.put("acct", readAccount()) }
+        if (resumed && st == "logged_in" && now - lastAcctMs >= ACCT_MS) { lastAcctMs = now; state.put("acct", readAccount(fg)) }
         api.heartbeat(lastStatus, state)
     }
 
     /** Read the account panel (read-only) and post it as account_status; only on the terminal with no ticket open.
      *  Returns a short state for the heartbeat: posted / unread / busy. Nothing is posted unless a value was read. */
-    private suspend fun readAccount(): String {
-        val tm = jsObj("__ex.terminal()") ?: return "busy"
+    private suspend fun readAccount(p: Page): String {
+        val tm = p.obj("__ex.terminal()") ?: return "busy"
         if (!tm.optBoolean("ready") || tm.optBoolean("ticketOpen")) return "busy"
-        val a = jsObj("__ex.accountPanel()") ?: return "unread"
+        val a = p.obj("__ex.accountPanel()") ?: return "unread"
         val bal = if (a.isNull("balance")) null else a.optDouble("balance")
         val eqRead = if (a.isNull("equity")) null else a.optDouble("equity")
         val pf = if (a.isNull("portfolio")) null else a.optDouble("portfolio")
@@ -473,63 +582,241 @@ class MainActivity : Activity() {
     }
 
     // ---------------- auto re-login ----------------
-    private suspend fun relogin(s: JSONObject) {
+    /** PHONE-AUTOLOGIN-2. Runs on the kiosk page ([bg] false) or the background engine's page ([bg] true).
+     *  1. email submitted (or a code page found);
+     *  2. the waiting page is POLLED (every 3 s, up to 90 s) until its number(s) render -- the old build read it ONCE
+     *     6 s after the submit and failed "no single number on the waiting page" (MEASURED 12:30:35Z, 12:40:45Z);
+     *  3. the dedicated inbox is POLLED (every 10 s, up to 5 min: "that can take at least up to a minute");
+     *  4. LoginMatch decides: LINEUP (>= 2 numbers on the page) -> tap the ONE the mail names; ONE number on the page ->
+     *     open the ONE mail link whose text is that number. Zero or several candidates: nothing is acted on;
+     *  5. the page must then read logged in.
+     *  PHONE-AUTOLOGIN-3 (live 13:52Z/13:56Z: page_n=0 for 90 s after "email=clicked"): the submit is VERIFIED to move
+     *  the page (else Enter), the inbox is polled IN PARALLEL from the submit on, the page wait stretches to 150 s while
+     *  no mail has arrived, and each attempt posts its login_diag in parts with the scrubbed page structure (postDiag).
+     *  Counts, steps and timings only (never a number, link or address). */
+    private suspend fun relogin(p: Page, s: JSONObject, bg: Boolean) {
         val now = System.currentTimeMillis()
-        if (loginDeferred()) { setStatus("logged out; you are touching the screen, so auto re-login waits until 60 s after your last tap"); return }
+        // the engine already logged in: the kiosk only needs a reload to pick up the shared session
+        if (!bg && bgLoginAtMs > fgReloadMs) { fgReloadMs = now; setStatus("logged in by the background engine: reloading the terminal"); p.load(home()); return }
+        if (!bg && bgLoginAtMs > 0 && now - fgReloadMs < 45_000L) { setStatus("reloading after the background engine's login; not starting another"); return }
+        if (!bg && loginDeferred()) { setStatus("logged out; you are touching the screen, so auto re-login waits until 60 s after your last tap"); return }
         if (now < reloginNextMs) { setStatus("logged out; auto re-login attempt ${reloginFailures + 1} in ${(reloginNextMs - now) / 60_000 + 1} min (failed $reloginFailures in a row)"); return }
         val email = Store.get(this, Store.LOGIN_EMAIL)
         val user = Store.get(this, Store.INBOX_USER)
         val pass = Store.get(this, Store.INBOX_PASS)
         if (email == null || user == null || pass == null) { setStatus("logged out; auto re-login not configured (Setup)"); return }
-        setStatus("logged out: starting email login (attempt ${reloginFailures + 1})")
+        loginAttempted = true
+        setStatus("logged out: starting email login (attempt ${reloginFailures + 1}${if (bg) ", background" else ""})")
         // the first attempt of a streak pings; retries are logged quietly (the red flag comes from loginFail)
-        if (reloginFailures == 0) api.event("login_started", "") else api.event("login_retry", "attempt ${reloginFailures + 1} starting")
-        // MAIL WINDOW: a code page this attempt reached by submitting the email can only be answered by a mail sent
-        // after that submit; a code page we FOUND (an earlier attempt, ours or the operator's) by one up to 30 min old
-        // (the old fixed now-60s window could never find it and burned a failure). Either way the link must still be
-        // the ONE whose text is the number the page shows now.
-        var since = Date(now - 30 * 60_000L)
-        var st0 = s
-        if (!st0.optBoolean("codeWait") && st0.optString("host").startsWith("trade.")) {
-            web.loadUrl(APP_URL); delay(10_000); ensure()
-            st0 = jsObj("__ex.state()") ?: return loginFail("app.breakoutprop.com not readable")
-            if (st0.optBoolean("challenged")) return loginFail("app.breakoutprop.com shows a challenge (not solved)")
+        if (reloginFailures == 0) api.event("login_started", if (bg) "background engine" else "") else api.event("login_retry", "attempt ${reloginFailures + 1} starting")
+        val d = JSONObject().put("eng", if (bg) BgWeb.engine else "fg")   // scrubbed diag: counts, steps, timings
+        val t0 = now
+        var step = "start"
+        fun secs() = (System.currentTimeMillis() - t0) / 1000
+        try {
+            // MAIL WINDOW: a code page this attempt reached by submitting the email is answered by mail sent after that
+            // submit (-60 s clock slack); a code page we FOUND (an earlier attempt, ours or the operator's) by mail up to
+            // 30 min old.
+            var since = Date(now - 30 * 60_000L)
+            var st0 = s
+            if (!st0.optBoolean("codeWait") && st0.optString("host").startsWith("trade.")) {
+                step = "app"; p.load(APP_URL)
+                st0 = p.settle(20_000L) ?: return loginFail("app.breakoutprop.com not readable", p, d.put("step", step))
+                if (st0.optBoolean("challenged")) return loginFail("app.breakoutprop.com shows a challenge (not solved)", p, d.put("step", step))
+            }
+            var dec = LoginMatch.Decision("none", null, 0)
+            // PHONE-AUTOLOGIN-3: a structure snapshot BEFORE the submit, so the diag can say whether the page changed
+            val sig0 = p.obj("__ex.loginProbe()")?.optString("sig") ?: ""
+            d.put("_sig0", sig0)
+            if (!st0.optBoolean("codeWait")) {
+                step = "email"
+                since = Date(System.currentTimeMillis() - 60_000)
+                p.ensure()
+                val r = p.js("__ex.loginEmail(${q(email)})")
+                d.put("email", r)
+                p.obj("__ex.loginSubmitInfo()")?.let { d.put("sub_where", it.optString("where")).put("sub_btns", it.optInt("buttons")).put("sub_label", "(" + it.optString("label") + ")") }
+                if (r != "clicked" && r != "submitted" && r != "no_button") return loginFail("email step: $r", p, d.put("step", step))
+                // VERIFY THE SUBMIT ADVANCED the page (live 13:52Z/13:56Z: zero numbers for 90 s after "clicked"):
+                // up to 12 s for the page to change, else press Enter in the field and wait again
+                var adv = if (r == "no_button") false else advanced(p, sig0, 12_000L)
+                if (!adv) {
+                    val e = try { p.ensure(); p.js("__ex.loginEnter()") } catch (x: JsTimeout) { "js_timeout" }
+                    d.put("enter", e)
+                    adv = advanced(p, sig0, 12_000L)
+                }
+                d.put("adv", adv).put("adv_s", secs())
+                if (r == "no_button" && !adv) return loginFail("email step: no continue control and Enter did not advance the page", p, d.put("step", step))
+            } else d.put("found_code_page", true)
+            // MAIL, IN PARALLEL with the page poll (PHONE-AUTOLOGIN-3): the inbox is read from the submit on, so the diag
+            // says what arrived even when the page never shows a number, and a mail that came early is not waited for twice
+            val mailEnd = System.currentTimeMillis() + MAIL_WAIT_MS
+            var latest: List<MailNums> = emptyList(); var polls = 0; var mails = 0; var mailErr = ""; var firstMailS = -1L
+            var mailAuthFailed = false
+            // its own Job (cancelled in the finally below): an inbox failure can never cancel the tick loop
+            val mailJob = CoroutineScope(currentCoroutineContext() + Job()).launch {
+                try {
+                    while (isActive && System.currentTimeMillis() < mailEnd) {
+                        // re-read every poll: a Setup save during an attempt takes effect on the next poll (§ 7.19)
+                        val u = Store.get(this@MainActivity, Store.INBOX_USER) ?: user
+                        val pw = Store.get(this@MainActivity, Store.INBOX_PASS) ?: pass
+                        val sc = Mail.scan(u, pw, since); polls += 1
+                        latest = sc.mails; mails = maxOf(mails, sc.mails.size); sc.error?.let { mailErr = it }
+                        if (sc.error != null && polls == 1 || sc.authFailed) postChunks("inbox err=${sc.error} mech=${sc.mech.ifEmpty { "-" }} " +
+                            "srv=(${sc.detail}) ${Creds.userShape(Creds.user(u))} ${Creds.passShape(Creds.pass(pw))}")
+                        // Gmail refused the credential: retrying it every 10 s cannot help and invites Gmail's login
+                        // throttle (24-28 refused logins per attempt, MEASURED 2026-10-10). One check per attempt.
+                        if (sc.authFailed) { mailAuthFailed = true; break }
+                        if (sc.mails.isNotEmpty() && firstMailS < 0) firstMailS = secs()
+                        delay(MAIL_POLL_MS)
+                    }
+                } catch (e: CancellationException) { throw e } catch (e: Exception) { mailErr = e.javaClass.simpleName }
+            }
+            fun mailDiag() {
+                d.put("mails", mails).put("polls", polls).put("mail_first_s", firstMailS)
+                if (mailErr.isNotEmpty()) d.put("mail_err", mailErr)
+                val n = latest.firstOrNull()
+                d.put("mshape", LoginMatch.mailShape(n))
+                if (n != null) d.put("m_numlinks", n.links.size).put("m_shown", n.shown.size).put("m_phrased", n.phrased.size)
+                    .put("m_links", n.allLinks).put("m_act", n.actLinks)
+            }
+            try {
+                // PAGE: poll until the number(s) render; past PAGE_WAIT_MS keep going while no mail has arrived yet, up to
+                // PAGE_WAIT_MAX_MS (the page may only move once the mail is sent)
+                step = "page"
+                var choices = emptyList<String>(); var single: String? = null
+                val pageEnd = System.currentTimeMillis() + PAGE_WAIT_MS
+                val pageMax = System.currentTimeMillis() + PAGE_WAIT_MAX_MS
+                while (true) {
+                    delay(PAGE_POLL_MS)
+                    try { p.ensure() } catch (e: JsTimeout) { }
+                    val c = p.obj("__ex.loginChoices()")
+                    if (c != null) {
+                        val top = strs(c.optJSONArray("top")); val btn = strs(c.optJSONArray("btn"))
+                        choices = LoginMatch.lineup(top, btn); single = LoginMatch.single(top, btn)
+                        d.put("page_n", c.optInt("n")).put("page_top", top.size).put("page_btn", btn.size)
+                    }
+                    if (choices.isNotEmpty() || single != null) break
+                    val tNow = System.currentTimeMillis()
+                    if (mailAuthFailed) { mailDiag(); return loginFail("dedicated inbox refused the login (AuthenticationFailedException; see the inbox login_diag)", p, d.put("step", step)) }
+                    if (tNow > pageMax || (tNow > pageEnd && mails > 0)) {
+                        mailDiag()
+                        return loginFail("no number or lineup on the waiting page within ${(tNow - t0) / 1000} s (mail: ${d.optString("mshape")})", p, d.put("step", step))
+                    }
+                    heartbeat(if (bg) "background" else "login", null)
+                }
+                d.put("shape", if (choices.isNotEmpty()) "lineup" else "single").put("choices", choices.size).put("page_s", secs())
+                // MAIL: decide on what the parallel poller has read
+                step = "mail"
+                setStatus("waiting for the Breakout email in the dedicated inbox (up to ${MAIL_WAIT_MS / 60_000} min)")
+                while (true) {
+                    dec = LoginMatch.decide(choices, single, latest)
+                    if (dec.kind != "none" || System.currentTimeMillis() > mailEnd || mailAuthFailed) break
+                    heartbeat(if (bg) "background" else "login", null)
+                    delay(2_000L)
+                }
+                mailDiag()
+                d.put("match", dec.n).put("tier", dec.tier).put("mail_s", secs())
+            } finally { mailJob.cancel() }
+            when (dec.kind) {
+                "ambiguous" -> return loginFail("the mail matches ${dec.n} candidates; nothing tapped (fail closed)", p, d.put("step", "match"))
+                "none" -> return loginFail(if (mails == 0 && mailErr.isNotEmpty()) "dedicated inbox not readable ($mailErr)"
+                    else "no Breakout mail naming exactly one of the page's numbers within ${MAIL_WAIT_MS / 60_000} min ($mails mail(s) seen)", p, d.put("step", step))
+                "tap" -> {
+                    step = "tap"; p.ensure()
+                    val r = p.js("__ex.loginPick(${q(dec.value!!)})")
+                    d.put("pick", r)
+                    if (r != "clicked") return loginFail("lineup tap: $r", p, d.put("step", step))
+                }
+                else -> { step = "link"; p.load(dec.value!!) }   // same WebView profile, same cookie store
+            }
+            // VERIFY: let the waiting page finish on its own (up to 30 s), then the terminal must read logged in
+            step = "verify"
+            var ok = false
+            for (i in 0 until 10) {
+                delay(PAGE_POLL_MS)
+                val a = try { p.ensure(); p.obj("__ex.state()") } catch (e: JsTimeout) { null }
+                if (a?.optBoolean("loggedIn") == true) { ok = true; break }
+            }
+            if (!ok) {
+                p.load(home())
+                ok = p.settle(45_000L)?.optBoolean("loggedIn") == true
+            }
+            d.put("verify_s", secs())
+            if (ok) {
+                d.put("step", "ok"); postDiag(p, d)
+                lastState = "logged_in"; setStatus("re-login OK${if (bg) " (background)" else ""}")
+                if (bg) bgLoginAtMs = System.currentTimeMillis()
+                loginRecovered("auto re-login via dedicated inbox (${d.optString("shape")}${if (bg) ", background" else ""})")
+                if (wokeAtMs > 0) bgWakeUntilMs = System.currentTimeMillis() + BG_WAKE_MAX_MS   // read the terminal before going back
+            } else loginFail("not logged in after the ${dec.kind}", p, d.put("step", step))
+        } catch (e: JsTimeout) {
+            loginFail("page stopped answering at the $step step", p, d.put("step", step).put("js_timeout", true))
         }
-        if (!st0.optBoolean("codeWait")) {
-            since = Date(System.currentTimeMillis() - 60_000)
-            val r = js("__ex.loginEmail(${q(email)})")
-            if (r != "clicked" && r != "submitted") return loginFail("email step: $r")
-            delay(6000); ensure()
+    }
+
+    private fun strs(a: JSONArray?): List<String> = if (a == null) emptyList() else (0 until a.length()).map { a.optString(it) }
+
+    /** PHONE-AUTOLOGIN-3: did the page move after the email submit? (the email field is gone, a code page or a login
+     *  reads, or the text signature changed) -- polled every 1.5 s for up to [maxMs]. */
+    private suspend fun advanced(p: Page, sig0: String, maxMs: Long): Boolean {
+        val end = System.currentTimeMillis() + maxMs
+        while (System.currentTimeMillis() < end) {
+            delay(1_500L)
+            try {
+                p.ensure()
+                val s = p.obj("__ex.state()") ?: continue
+                if (!s.optBoolean("email") || s.optBoolean("codeWait") || s.optBoolean("loggedIn")) return true
+                val sig = p.obj("__ex.loginProbe()")?.optString("sig")
+                if (sig != null && sig0.isNotEmpty() && sig != sig0) return true
+            } catch (e: JsTimeout) { }
         }
-        val num = js("__ex.loginNumber()")
-        if (!Regex("^\\d{1,3}$").matches(num)) return loginFail("no single number on the waiting page")
-        setStatus("waiting for the Breakout email in the dedicated inbox")
-        var link: String? = null
-        for (i in 0 until 18) { link = Mail.findLink(user, pass, num, since); if (link != null) break; delay(10_000) }
-        if (link == null) return loginFail("no Breakout mail with exactly one matching link within 3 min")
-        web.loadUrl(link)            // same WebView, same cookie store
-        delay(8000)
-        web.loadUrl(home()); delay(10_000); ensure()
-        val after = jsObj("__ex.state()")
-        if (after?.optBoolean("loggedIn") == true) {
-            lastState = "logged_in"; setStatus("re-login OK")
-            loginRecovered("auto re-login via dedicated inbox")
-            if (wokeAtMs > 0) bgWakeUntilMs = System.currentTimeMillis() + BG_WAKE_MAX_MS   // read the terminal before going back
-        } else loginFail("not logged in after opening the link")
+        return false
+    }
+
+    /** The login_diag events: "k=v" COUNTS, step names and timings, then the scrubbed page STRUCTURE (exec.js
+     *  loginProbe: tag histogram, shadow roots, iframes, input types, phrases present, numeric tokens COUNTED, and
+     *  button / heading / label texts with every digit turned into "N" and emails / links dropped). The server keeps
+     *  160 chars of [A-Za-z0-9 _.:/()=+-] per event, so the tokens are packed into numbered parts ("dI/N ..."), at
+     *  most DIAG_PARTS; the core line comes first. Keys starting with "_" are internal. Never a value. */
+    private suspend fun postDiag(p: Page, d: JSONObject) {
+        val toks = d.keys().asSequence().filter { !it.startsWith("_") }.map { "$it=${d.opt(it)}" }.toMutableList()
+        val pr = try { p.ensure(); p.obj("__ex.loginProbe()") } catch (e: Exception) { null }
+        if (pr != null) {
+            val sig0 = d.optString("_sig0")
+            if (sig0.isNotEmpty()) toks += "changed=${pr.optString("sig") != sig0}"
+            for (k in listOf("cands", "numtok", "digits", "chars", "shadow", "frames", "frames_xo")) toks += "$k=${pr.optInt(k)}"
+            toks += "ph=" + strs(pr.optJSONArray("phrases")).joinToString("+").ifEmpty { "-" }
+            val inp = pr.optJSONObject("inputs")
+            toks += "in=" + (inp?.keys()?.asSequence()?.joinToString("+") { "$it.${inp.optInt(it)}" } ?: "").ifEmpty { "-" }
+            toks += "tags=" + strs(pr.optJSONArray("tags")).joinToString("+")
+            toks += strs(pr.optJSONArray("texts")).map { "(" + it.replace("(", " ").replace(")", " ").take(40) + ")" }
+        } else toks += "probe=unread"
+        val parts = mutableListOf<String>(); var cur = ""
+        for (raw in toks) {
+            val tk = raw.take(DIAG_PART_CHARS)
+            if (cur.isNotEmpty() && cur.length + 1 + tk.length > DIAG_PART_CHARS) { parts += cur; cur = "" }
+            cur = if (cur.isEmpty()) tk else "$cur $tk"
+        }
+        if (cur.isNotEmpty()) parts += cur
+        val n = minOf(parts.size, DIAG_PARTS)
+        for (i in 0 until n) api.event("login_diag", "d${i + 1}/$n ${parts[i]}")
     }
 
     /** NO LATCH: every failure schedules the next attempt (2, 5, 10, 20, then 30 min forever). Failures before and
-     *  after the red flag are logged quietly (login_retry); the RELOGIN_FLAG_AFTER-th sends ONE login_failed. */
-    private suspend fun loginFail(why: String) {
+     *  after the red flag are logged quietly (login_retry); the RELOGIN_FLAG_AFTER-th sends ONE login_failed.
+     *  Each failure also posts ONE quiet login_diag (the scrubbed structure snapshot) so it is diagnosable from the VM. */
+    private suspend fun loginFail(why: String, p: Page, d: JSONObject) {
         reloginFailures += 1
         val waitMin = RELOGIN_BACKOFF_MIN[minOf(reloginFailures - 1, RELOGIN_BACKOFF_MIN.size - 1)]
         reloginNextMs = System.currentTimeMillis() + waitMin * 60_000L
+        try { d.put("host", p.obj("__ex.state()")?.optString("host") ?: "unread") } catch (e: Exception) { d.put("host", "unread") }
+        try { postDiag(p, d) } catch (e: Exception) { }
         if (reloginFailures >= RELOGIN_FLAG_AFTER && !reloginFlagged) {
             reloginFlagged = true
             api.event("login_failed", "auto re-login failed $reloginFailures times in a row; STILL RETRYING every <= 30 min: $why")
         } else api.event("login_retry", "failed ($reloginFailures): $why; next try in $waitMin min")
         setStatus("login failed ($reloginFailures in a row): $why; retrying in $waitMin min")
-        if (!userActive()) web.loadUrl(home())
+        if (p !== fg || !userActive()) p.load(home())
     }
 
     /** Logged in (by us or by hand): end the failure streak; ONE recovery event only if the red flag was sent,

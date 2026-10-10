@@ -238,6 +238,94 @@
     });
   }
 
+  // login lineup helpers (PHONE-AUTOLOGIN-3, 2026-10-10: the live page read page_n=0 for 90 s after the email click on
+  // portal.breakoutprop.com, so the reader is broadened and every miss is described). A candidate is the innermost
+  // element whose text, with ALL whitespace and zero-width characters removed, is exactly a 1-3 digit number (an icon
+  // child or split digit spans no longer hide it), or a radio / button / option whose aria-label or value is one.
+  // Searched in the document, open shadow roots and same-origin iframes. Matching stays fail-closed (loginPick).
+  var ZW = /[\s\u200B-\u200D\u2060\uFEFF\u00A0]+/g;
+  function nt(el) { return ((el && (el.innerText || el.textContent)) || "").replace(ZW, ""); }
+  function gcs(e) { return (e.ownerDocument.defaultView || window).getComputedStyle(e); }
+  // every tree we can read: the document, open shadow roots, same-origin iframes (3 levels); xo = unreadable frames
+  function roots() {
+    var out = [], st = {shadow: 0, frames: 0, xo: 0};
+    (function walk(r, depth) {
+      out.push(r);
+      var els = r.querySelectorAll("*");
+      for (var i = 0; i < els.length; i++) {
+        var e = els[i];
+        if (e.shadowRoot) { st.shadow++; walk(e.shadowRoot, depth); }
+        if (/^I?FRAME$/.test(e.tagName)) {
+          st.frames++;
+          var d = null; try { d = e.contentDocument; } catch (x) { }
+          if (d && d.documentElement && depth < 3) walk(d, depth + 1); else st.xo++;
+        }
+      }
+    })(document, 0);
+    out.st = st; return out;
+  }
+  function deep(sel) {
+    var a = []; roots().forEach(function (r) { a = a.concat(Array.prototype.slice.call(r.querySelectorAll(sel))); }); return a;
+  }
+  function up(n) { return n.parentElement || (n.parentNode && n.parentNode.host) || null; }
+  function ctl(n) {
+    return /^(BUTTON|A|INPUT|OPTION|LABEL)$/.test(n.tagName) || /^(button|radio|option|checkbox|link)$/.test(n.getAttribute("role") || "") ||
+      n.hasAttribute("onclick");
+  }
+  var SKIP = /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE|HTML|HEAD|BODY|svg|SVG|PATH|path)$/;
+  function numCands() {
+    var c = [];
+    deep("*").forEach(function (e) {
+      if (SKIP.test(e.tagName) || !vis(e)) return;
+      var v = nt(e);
+      if (/^\d{1,3}$/.test(v)) {
+        // the innermost element carrying the whole number: a child with the same text represents it
+        for (var i = 0; i < e.children.length; i++) if (nt(e.children[i]) === v) return;
+        c.push({e: e, v: v});
+        return;
+      }
+      if (v) return;   // has other text: never read an attribute behind visible words
+      var a = (e.getAttribute("aria-label") || "").replace(ZW, "");
+      var val = (/^(radio|button|submit)$/.test(e.type || "") || /^(BUTTON|OPTION)$/.test(e.tagName)) ? String(e.value || "").replace(ZW, "") : "";
+      if (/^\d{1,3}$/.test(a)) c.push({e: e, v: a}); else if (/^\d{1,3}$/.test(val)) c.push({e: e, v: val});
+    });
+    // nested candidates (split digits "4" "2" inside "42"; or two choices "1" "2" inside a row reading "12"): a
+    // control inside wins over its container, else the container (the whole number) wins over its pieces
+    return c.filter(function (x) {
+      for (var i = 0; i < c.length; i++) {
+        var y = c[i]; if (y === x) continue;
+        if (y.e !== x.e && y.e.contains(x.e) && !ctl(x.e) && !hasCtlInside(y, c)) return false;   // a piece of y
+        if (y.e !== x.e && x.e.contains(y.e) && hasCtlInside(x, c)) return false;                  // a row of controls
+      }
+      return true;
+    });
+  }
+  function hasCtlInside(x, c) { return c.some(function (y) { return y !== x && x.e.contains(y.e) && ctl(y.e); }); }
+  function clickable(e) {
+    for (var n = e, d = 0; n && d < 5; n = up(n), d++) {
+      if (!/^\D*\d{1,3}\D*$/.test(t(n)) && !(n === e && nt(n) === "")) return null;   // a container holding SEVERAL numbers is never "the" choice
+      if (n.tagName === "LABEL" && n.control) return n.control;
+      if (/^(BUTTON|A|INPUT|OPTION)$/.test(n.tagName) || /^(button|radio|option|checkbox)$/.test(n.getAttribute("role") || "") ||
+          n.hasAttribute("onclick") || (gcs(n).cursor === "pointer" &&
+          !(up(n) && up(n).nodeType === 1 && gcs(up(n)).cursor === "pointer"))) return n;   // cursor inherits: only where it is SET
+    }
+    return null;
+  }
+  // scrubbed text for the diag: emails, links and EVERY digit removed, 40 chars
+  function scrub(s) {
+    return (s || "").replace(/\S+@\S+/g, "EML").replace(/(https?:\/\/|www\.)\S*/gi, "URL").replace(/\d+/g, "N")
+      .replace(/[^A-Za-z .:\/+=_-]/g, " ").replace(/\s+/g, " ").trim().slice(0, 40);
+  }
+  function deepText() {
+    var parts = [];
+    roots().forEach(function (r) {
+      if (r.body) parts.push(r.body.innerText || "");
+      else Array.prototype.forEach.call(r.children || [], function (k) { if (!SKIP.test(k.tagName)) parts.push(k.innerText || k.textContent || ""); });
+    });
+    return parts.join("\n");
+  }
+  function sig(s) { var h = 5381; for (var i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36); }
+
   window.__ex = {
     state: function () {
       var pw = all("input[type=password]").length > 0;
@@ -266,16 +354,69 @@
         challenged: /just a moment|verify you are human|cf-chl/i.test(body)};
     },
     // LOGIN step 1: type the account email and continue. The email value is never returned.
+    // PHONE-AUTOLOGIN-3: the continue control is looked for in the email field's own form first, a social / passkey
+    // button ("Continue with Google") is never the one, and window.__exSubmit records which kind was used (scrubbed).
     loginEmail: function (email) {
       if (!hostOk()) return "bad_host";
-      var el = all("input[type=email],input[autocomplete=email],input[name*=mail i]")[0];
+      var el = deep("input[type=email],input[autocomplete=email],input[name*=mail i]").filter(vis)[0];
       if (!el) return "no_email_field";
       el.focus(); setVal(el, email);
       if (el.value !== email) return "not_set";
-      var b = all("button").filter(function (b) { return /continue|log ?in|sign ?in|next|send|submit/i.test(t(b) + " " + (b.getAttribute("aria-label") || "")); })[0];
-      if (b && !(b.disabled || b.getAttribute("aria-disabled") === "true")) { b.click(); return "clicked"; }
+      var lab = function (b) { return t(b) + " " + (b.getAttribute("aria-label") || "") + " " + (b.value || ""); };
+      var ok = function (b) {
+        var s = lab(b);
+        return /continue|log ?in|sign ?in|next|send|submit|get (a |the )?(code|link)|verify/i.test(s) &&
+          !/google|apple|microsoft|facebook|github|passkey|sso|discord|wallet/i.test(s) && !(b.disabled || b.getAttribute("aria-disabled") === "true");
+      };
+      var scope = el.form || el.closest("form,[role=dialog],main") || document;
+      var sel = "button,input[type=submit],[role=button]";
+      var inForm = Array.prototype.slice.call(scope.querySelectorAll(sel)).filter(vis);
+      var b = inForm.filter(function (x) { return x.type === "submit" && ok(x); })[0] || inForm.filter(ok)[0];
+      var where = "form";
+      if (!b) { b = deep(sel).filter(vis).filter(ok)[0]; where = "page"; }
+      window.__exSubmit = {where: b ? where : "none", label: b ? scrub(lab(b)) : "", buttons: inForm.length};
+      if (b) { b.click(); return "clicked"; }
       if (el.form && el.form.requestSubmit) { el.form.requestSubmit(); return "submitted"; }
       return "no_button";
+    },
+    // The email submit did not move the page: press Enter in the email field (keydown/keypress/keyup), then submit
+    // its form. The value is not touched.
+    loginEnter: function () {
+      if (!hostOk()) return "bad_host";
+      var el = deep("input[type=email],input[autocomplete=email],input[name*=mail i]").filter(vis)[0];
+      if (!el) return "no_email_field";
+      el.focus();
+      ["keydown", "keypress", "keyup"].forEach(function (k) {
+        el.dispatchEvent(new KeyboardEvent(k, {key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true}));
+      });
+      if (el.form && el.form.requestSubmit) { try { el.form.requestSubmit(); return "enter+submit"; } catch (e) { } }
+      return "enter";
+    },
+    // What the submit recorded (scrubbed: no digits, no email, no link).
+    loginSubmitInfo: function () { return window.__exSubmit || {where: "unread", label: "", buttons: 0}; },
+    // A scrubbed STRUCTURE snapshot of whatever page is in front of us, for the login_diag (never a value: numbers
+    // are COUNTED, every digit in a text becomes "N", emails and links are dropped). sig = a hash of the readable
+    // text, compared before/after the email submit ("did the page change").
+    loginProbe: function () {
+      var rs = roots(), tags = {}, inputs = {}, texts = [];
+      rs.forEach(function (r) {
+        Array.prototype.forEach.call(r.querySelectorAll("*"), function (e) {
+          var k = e.tagName.toLowerCase(); tags[k] = (tags[k] || 0) + 1;
+          if (k === "input" && vis(e)) inputs[e.type || "text"] = (inputs[e.type || "text"] || 0) + 1;
+        });
+      });
+      var top = Object.keys(tags).sort(function (a, b) { return tags[b] - tags[a]; }).slice(0, 15).map(function (k) { return k + "." + tags[k]; });
+      deep("button,[role=button],a,h1,h2,h3,h4,h5,h6,[role=heading],label,legend,[role=alert],[role=status]").filter(vis).forEach(function (e) {
+        var s = scrub(t(e) || e.getAttribute("aria-label") || ""); if (s && texts.indexOf(s) < 0 && texts.length < 20) texts.push(s);
+      });
+      var body = deepText();
+      var ph = {check_email: /check your (e-?mail|inbox)/i, we_sent: /we('ve| have)? sent|sent (you )?(an? )?(e-?mail|link|code)/i,
+        select: /\bselect/i, choose: /\bchoose/i, verify: /verif/i, number: /\bnumber/i, code: /\bcode\b/i, link: /\blink\b/i,
+        tap: /\b(tap|click)\b/i, expired: /expir/i, error: /error|invalid|wrong|try again|too many/i, social: /google|apple|passkey/i};
+      var hits = Object.keys(ph).filter(function (k) { return ph[k].test(body); });
+      return {tags: top, shadow: rs.st.shadow, frames: rs.st.frames, frames_xo: rs.st.xo, inputs: inputs, texts: texts,
+        phrases: hits, numtok: (body.match(/(^|[^\d])\d{1,3}(?![\d])/g) || []).length, digits: (body.match(/\d+/g) || []).length,
+        cands: numCands().length, chars: body.length, sig: sig(body), host: location.hostname};
     },
     // LOGIN step 2: the number the waiting page shows (the one to pick in the email). Exactly one prominent
     // 1-3 digit number, else "" (fail closed).
@@ -286,6 +427,32 @@
       var top = parseFloat(getComputedStyle(c[0]).fontSize);
       var same = c.filter(function (e) { return parseFloat(getComputedStyle(e).fontSize) === top && t(e) !== t(c[0]); });
       return same.length ? "" : t(c[0]);
+    },
+    // LOGIN step 2, LINEUP form (PHONE-AUTOLOGIN-2, operator 2026-10-10: "a login check that verifies you can choose
+    // the correct 2 digit number from a line up of 3"). The VALUES go to the app's memory only (never logged,
+    // reported or stored); the app reports counts. top = distinct numbers at the largest font size; btn = distinct
+    // numbers that sit in a clickable control (the lineup to tap); n = every visible 1-3 digit leaf.
+    loginChoices: function () {
+      var c = numCands();
+      if (!c.length) return {n: 0, top: [], btn: []};
+      var fs = function (x) { return parseFloat(gcs(x.e).fontSize) || 0; };
+      var max = Math.max.apply(null, c.map(fs));
+      var uniq = function (a) { return a.filter(function (x, i) { return a.indexOf(x) === i; }); };
+      var v = function (x) { return x.v; };
+      return {n: c.length, top: uniq(c.filter(function (x) { return fs(x) === max; }).map(v)),
+        btn: uniq(c.filter(function (x) { return !!clickable(x.e); }).map(v))};
+    },
+    // Tap the ONE lineup entry whose text is exactly [n]. More than one distinct control for it, or none: nothing is
+    // tapped ("ambiguous" / "none"), the app fails closed.
+    loginPick: function (n) {
+      if (!hostOk()) return "bad_host";
+      var hits = numCands().filter(function (x) { return x.v === String(n); }).map(function (x) { return clickable(x.e) || x.e; });
+      hits = hits.filter(function (x, i) { return hits.indexOf(x) === i; });
+      if (hits.length !== 1) return hits.length ? "ambiguous" : "none";
+      var el = hits[0];
+      ["pointerdown", "mousedown", "pointerup", "mouseup"].forEach(function (k) { el.dispatchEvent(new MouseEvent(k, {bubbles: true})); });
+      el.click();
+      return "clicked";
     },
     // TERMINAL GATE (2026-10-06 05:21Z dry test: claimed on an /account/ page that was not the trading terminal,
     // "order control not found"). Ready = an "Order" control, an open ticket, or Buy+Sell tabs are on the page;

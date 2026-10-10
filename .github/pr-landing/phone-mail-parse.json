@@ -1,0 +1,8 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "phone executor APK (tools/phone-executor); manager merges under the operator's PHONE-AUTOLOGIN directive",
+  "why": "Mail.kt body parsing: handle Part.content returned as a raw IMAPInputStream (no mailcap on Android) instead of casting to Multipart. Inbox read only; no order path.",
+  "recorded_decision": {"kind": "operator_decision", "ref": "PHONE-AUTOLOGIN PHONE-AUTOLOGIN-2"}
+}

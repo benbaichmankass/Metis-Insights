@@ -42,7 +42,7 @@ import json
 import math
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
@@ -1317,13 +1317,20 @@ def _run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: 
                     continue
                 still, qwhy = _still_marketable(adapter, page, venue, spec_row.get("side"),
                                                 _f(spec_row.get("limit_price")))
-                if still is not False:
+                if still is True and _marketable_entry_at_market(adapter):
+                    # PROP-MARKETABLE-ENTRY: a REST executor does not wait for
+                    # price to come back; the place path below converts the
+                    # entry to MARKET (same SL/TP, same size) after its own
+                    # fresh-quote checks, or keeps waiting if they fail.
+                    res.log("marketable_entry_retry", ticket_id=t["ticket_id"], why=qwhy, check=checks)
+                elif still is not False:
                     # At/through the market still (or could not look): no form,
                     # no click, no attempt spent. Logged every tick.
                     res.log("awaiting_resting_price", ticket_id=t["ticket_id"], check=checks,
                             why=qwhy, limit=spec_row.get("limit_price"), valid_until=t.get("valid_until"))
                     continue
-                res.log("resting_price_reached", ticket_id=t["ticket_id"], why=qwhy, check=checks)
+                else:
+                    res.log("resting_price_reached", ticket_id=t["ticket_id"], why=qwhy, check=checks)
             if verdict in ("wait", "blind"):
                 res.log("band_wait", ticket_id=t["ticket_id"], why=why)
                 # A wait is not an attempt and records nothing, so remember it:
@@ -1434,6 +1441,21 @@ def _run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: 
     # enabled one (long limit 120.91, ask 120.90) and the order never appeared.
     # A LIMIT must rest strictly away from the market, or nothing is clicked.
     guard_kind, guard_why = _presubmit_limit_check(adapter, page, spec)
+    intended_limit: Optional[float] = None
+    if guard_kind == "marketable" and _marketable_entry_at_market(adapter):
+        # PROP-MARKETABLE-ENTRY: price already moved through the limit in the
+        # trade's favour. A REST executor places it NOW at market with the SAME
+        # SL/TP and the SAME size (sized off the limit->stop distance, so a
+        # better fill only lowers the $ at risk), on a fresh quote that is still
+        # inside the entry band and strictly between SL and TP.
+        mspec, mwhy = _marketable_entry_spec(adapter, page, spec, candidate)
+        res.log("marketable_entry", ticket_id=spec.ticket_id, converted=mspec is not None, why=mwhy,
+                limit=spec.limit_price)
+        if mspec is not None:
+            intended_limit, spec = spec.limit_price, mspec
+            guard_kind, guard_why = None, mwhy
+        else:
+            guard_why = f"{guard_why}; not taken at market: {mwhy}"
     if guard_kind:
         ledger.record(spec.ticket_id, AWAIT_REST_STATE, attempts=int((seen.get(spec.ticket_id) or {}).get("attempts") or 0),
                       spec=spec.as_dict(), valid_until=candidate.get("valid_until"), last_detail=guard_why)
@@ -1446,7 +1468,9 @@ def _run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: 
                               f"entry band, until {candidate.get('valid_until')} — do NOT place by hand")
         return res
     ledger.record(spec.ticket_id, "intended", spec=spec.as_dict(), facts=dict(facts),
-                  valid_until=candidate.get("valid_until"))
+                  valid_until=candidate.get("valid_until"),
+                  **({"intended_limit": intended_limit, "entry_mode": "marketable_at_market"}
+                     if intended_limit is not None else {}))
     att: PlaceAttempt = adapter.place_bracket(page, spec, arm=True)
     res.log("place_bracket", ticket_id=spec.ticket_id, attempt=_attempt_public(att))
     _one_click_alert(res, adapter)
@@ -2055,6 +2079,51 @@ def _presubmit_limit_check(adapter: Any, page: Any, spec: Any) -> Tuple[Optional
     return None, f"{key} {px} vs {side} limit {limit}: resting"
 
 
+def _marketable_entry_at_market(adapter: Any) -> bool:
+    """True for an executor whose adapter places a favourably-marketable entry
+    at market (``MARKETABLE_ENTRY_AT_MARKET``: the DXtrade REST adapter only)."""
+    return bool(getattr(adapter, "MARKETABLE_ENTRY_AT_MARKET", False))
+
+
+def _marketable_entry_spec(adapter: Any, page: Any, spec: Any,
+                           ticket: Mapping[str, Any]) -> Tuple[Optional[Any], str]:
+    """PROP-MARKETABLE-ENTRY. ``(market_spec, why)`` when a LIMIT entry the
+    market has moved through may be placed NOW at market, else ``(None, why)``.
+
+    On ONE fresh quote (the ask for a long, the bid for a short), all of:
+      * the move is in the trade's favour (long ask <= limit, short bid >= limit);
+      * the price is inside the ticket's own entry band (the wait path's rule);
+      * the price is strictly between the stop and the target.
+    The returned spec is the same bracket -- same quantity, SL and TP -- with
+    ``order_type="market"``. The size is NOT recomputed: it was sized off the
+    limit->stop distance, and a fill at a better price has a shorter one, so
+    the $ at risk can only fall. Any unreadable input fails closed (None)."""
+    limit, side = _f(getattr(spec, "limit_price", None)), getattr(spec, "side", None)
+    sl, tp = _f(getattr(spec, "stop_loss", None)), _f(getattr(spec, "take_profit", None))
+    if limit is None or sl is None or tp is None or side not in ("long", "short"):
+        return None, "no limit/side/SL/TP on the spec"
+    band = _entry_band(ticket)
+    if band is None:
+        return None, "entry band unreadable in the ticket message"
+    key = "ask" if side == "long" else "bid"
+    try:
+        q = adapter.read_quote(page, getattr(spec, "venue_symbol", "") or "")
+    except Exception as exc:
+        return None, f"no quote ({type(exc).__name__}; could not look)"
+    px = _f((q or {}).get(key))
+    if px is None:
+        return None, f"no {key} (could not look)"
+    if (side == "long" and px > limit) or (side == "short" and px < limit):
+        return None, f"{key} {px} is not through the {side} limit {limit} (it would rest)"
+    if not (band[0] <= px <= band[1]):
+        return None, f"{key} {px} outside the ticket's entry band {band[0]}..{band[1]}"
+    if not (min(sl, tp) < px < max(sl, tp)):
+        return None, f"{key} {px} not strictly between SL {sl} and TP {tp}"
+    return (replace(spec, order_type="market", limit_price=None),
+            f"{key} {px} through the {side} limit {limit} in the trade's favour, inside the band "
+            f"{band[0]}..{band[1]}: placed at market, same SL {sl} / TP {tp} / size {spec.quantity}")
+
+
 def _end_await(res: "CycleResult", state: "ExecutorState", st: Dict[str, Any], ledger: "IntentLedger",
                live: bool, post: Any, cfg: Optional["ExecutorConfig"], ticket: Mapping[str, Any], tid: str,
                why: str, report: bool) -> None:
@@ -2631,7 +2700,22 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
     if verdict == "open":
         if live:
             p = found["positions"][0]
-            ledger.record(tid, "open")
+            lim = _f(row.get("intended_limit"))
+            if lim is not None:
+                # PROP-MARKETABLE-ENTRY: the actual fill against the limit the
+                # ticket asked for. Worse than the limit = the market moved
+                # between the quote and the fill; the $ at risk then exceeds
+                # the ticket's by (fill - limit) x size -- said, never silent.
+                fill = _f(p.entry_price)
+                worse = fill is not None and ((spec.get("side") == "long" and fill > lim)
+                                              or (spec.get("side") == "short" and fill < lim))
+                res.log("marketable_entry_fill", ticket_id=tid, fill_price=fill, intended_limit=lim,
+                        worse_than_limit=worse)
+                if worse or fill is None:
+                    res.alerts.append(f"{tid}: market entry filled at {fill} vs the ticket's limit {lim}"
+                                      f"{' (WORSE than the limit: risk above the ticket)' if worse else ' (fill price unread)'}"
+                                      f"; SL/TP attached")
+            ledger.record(tid, "open", **({"fill_price": p.entry_price} if lim is not None else {}))
             _report(res, post, _fill_body(cfg, row, spec, "open", entry=p.entry_price))
         return trip
     if verdict == "not_found":

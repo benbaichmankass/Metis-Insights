@@ -1,0 +1,11 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "why": "Telegram notification path only (src/prop/breakout_notify.py): the two operator Yes/No 'did you place this?' emitters (emit_prop_expiry_prompt, emit_prop_invalidation_prompt) now refuse a machine-flow (rest/phone/browser) prop account at the emitter itself, on top of the scan-level exclusion that landed in #17007 (PROP-FLOW-SEPARATION). No order path, no ticket emission, no executor, no strategy/risk/config change. Declared tier 2 because src/prop/ is a runtime surface; held for the manager to merge.",
+  "recorded_decision": {
+    "kind": "operator_decision",
+    "ref": "PROP-FLOW-SEPARATION PI-20261007-JOHNSXDJ-0002"
+  },
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 runtime surface (src/prop/); the manager merges it under the PROP-FLOW-SEPARATION decision."
+}

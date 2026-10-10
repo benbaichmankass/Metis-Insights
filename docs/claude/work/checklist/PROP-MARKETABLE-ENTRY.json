@@ -1,0 +1,23 @@
+{
+  "id": "PROP-MARKETABLE-ENTRY",
+  "title": "REST prop executor places a favourably-marketable entry at market (same SL/TP/size) instead of missing it",
+  "phase": "W6",
+  "state": "landed_unproven",
+  "owner": "lane PROP-MARKETABLE-ENTRY",
+  "lane": "session_015NFBKj3aZNJERjKR9rKnRG",
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": 17403,
+  "blocked_on": [],
+  "note": "Operator 2026-10-10 'This also needs to be fixed'. MEASURED 2026-10-10 velotrade_1 executor journal: ETH long limit 2506.92, 14:33Z ask 2504.16 in band -> presubmit_marketable, not placed; 14:38Z ask 2511.48 left band -> NOT PLACED (trade missed). Alerts: 1 at start + 1 at end, not per cycle. Fix: REST adapter flag MARKETABLE_ENTRY_AT_MARKET; browser/phone keep waiting. OBSERVATION that closes it: the next velotrade_1 marketable ticket logs marketable_entry converted=true, is placed with SL/TP attached (confirm verdict open), and its ledger row carries fill_price + intended_limit with the open report's entry_price = the actual fill. 2026-10-10 16:40Z OBSERVED (manager): #17403 merged c5f3bc02, VM running c5f3bc027 at 15:50Z. velotrade_1 ticket prop-manual-6fbebc711fa6 (long limit 2509.59) placed at 15:53:18Z: fill id 96, 3.44 ETH entry 2509.40 (better than limit), sl 2495.08, tp 2596.62 attached (/api/bot/prop/fills). Closing observation met for the REST path.",
+  "updated_at": "2026-10-10T16:38:36Z",
+  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
+  "observation": {
+    "what": "the next velotrade_1 ticket whose entry limit is favourably marketable is placed at market with SL/TP attached (confirm verdict open) and journaled with its fill price",
+    "how_to_check": "velotrade_1 executor journal (/api/diag/journalctl?unit=ict-prop-executor%40velotrade_1.service): marketable_entry converted=true then marketable_entry_fill with fill_price; /api/bot/prop/tickets?account_id=velotrade_1 shows the ticket open with entry_price = that fill",
+    "due_by": "2026-10-24T00:00Z"
+  },
+  "_seq": 374
+}

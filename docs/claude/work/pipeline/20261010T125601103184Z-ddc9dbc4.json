@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-14",
+    "kind": "date"
+  },
+  "id": "PI-20261010-UYZJSGJY-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "PHONE-AUTOLOGIN-2 (docs/integrations/breakout-phone-executor-DESIGN.md 7.17)",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_2' and read phone_heartbeat.state bg/bg_runs/bg_ok/bg_last plus phone_events: bg_ok growing with bg_last logged_in+posted means the overlay engine works on this phone and can carry tickets; bg_last no_answer means it needs a different host"
+  },
+  "state": "queued",
+  "what": "Phone executor: move the whole tick loop (pending peek, login, account read AND ticket claim/fill) from MainActivity into the foreground service so no step needs bring-to-front (operator 2026-10-10: 'the more automated and backgrounded it could be, the better'). PHONE-AUTOLOGIN-2 moved login checks, re-login and the account read into BgWeb (overlay WebView); tickets still bring the Activity forward, which Android background-activity-start limits can refuse (MEASURED 2026-10-10 ~12:33Z 'bring-to-front already requested'). Next: after the PHONE-AUTOLOGIN-2 APK is installed, read the heartbeat bg fields for 24 h; if the engine answers, design ticket execution in the service-owned WebView (Tier-2, order path) and propose it to the manager."
+}

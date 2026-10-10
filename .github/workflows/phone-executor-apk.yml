@@ -84,6 +84,9 @@ jobs:
       - name: Build release APK
         working-directory: tools/phone-executor
         run: gradle assembleRelease --no-daemon --stacktrace
+      - name: Login matcher unit tests (JVM, synthetic mails)
+        working-directory: tools/phone-executor
+        run: gradle testReleaseUnitTest --no-daemon --stacktrace
       - name: Page-side check (headless Chromium, synthetic ticket)
         timeout-minutes: 10
         run: |
