@@ -14,11 +14,18 @@ import pytest
 
 from src.prop import prop_executor as pe
 from src.prop.platform.dxtrade_api import DXtradeApiAdapter, client_ids
-
-from tests.test_prop_executor import SPEC, FakeAdapter, FakeApi, env, run  # noqa: F401 (fixture)
-from tests.test_prop_platform_dxtrade_api import A, BASE, FakeServer
+from tests.test_prop_executor import NOW, SPEC, FakeAdapter, FakeApi, run
+from tests.test_prop_platform_dxtrade_api import BASE, A, FakeServer
 
 EID = client_ids("t1")["entry"]
+
+
+@pytest.fixture
+def env(tmp_path):
+    ledger = pe.IntentLedger(tmp_path / "ledger.jsonl")
+    state = pe.ExecutorState(tmp_path)
+    state.save({"day": pe.trading_day(NOW), "day_start_captured": 5000.0})
+    return ledger, state
 
 
 class HistAdapter(FakeAdapter):
@@ -46,7 +53,7 @@ def _submitted(ledger, **extra):
 
 
 def test_cancelled_entry_is_skipped_with_the_venue_reason_on_the_first_miss(env):
-    ledger, state = env
+    ledger, _ = env
     _submitted(ledger, leg_fix_tried=True)
     api = FakeApi()
     ad = HistAdapter(history=[_h("CANCELED", filled=0.0)])
