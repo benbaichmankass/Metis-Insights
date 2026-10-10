@@ -1,0 +1,865 @@
+{
+  "data": "data/BTCUSDT_5m.csv",
+  "split": "2025-07-01",
+  "leg": "ict_scalp_5m",
+  "symbol": "BTCUSDT",
+  "timeframe": "5m",
+  "tp_at_r": 1.5,
+  "declared_base": [],
+  "baseline": {
+    "IS": {
+      "trades": 353,
+      "total_r": 8.9982,
+      "max_dd_r": 77.153,
+      "expectancy_r": 0.0255,
+      "win_rate_pct": 46.74,
+      "by_outcome": {
+        "timeout": 157,
+        "be_stop": 20,
+        "tp_hit": 68,
+        "sl_hit": 108
+      },
+      "error": null
+    },
+    "OOS": {
+      "trades": 153,
+      "total_r": 2.8536,
+      "max_dd_r": 35.9728,
+      "expectancy_r": 0.0187,
+      "win_rate_pct": 45.1,
+      "by_outcome": {
+        "tp_hit": 29,
+        "sl_hit": 50,
+        "timeout": 72,
+        "be_stop": 2
+      },
+      "error": null
+    }
+  },
+  "cells": {
+    "tpx_live_a0.85_e0.5_m3": {
+      "lever": "tp_extend",
+      "extra": [
+        "--tp-extend-r",
+        "0.5",
+        "--tp-approach-frac",
+        "0.85",
+        "--tp-max-extends",
+        "3",
+        "--tp-thesis",
+        "native"
+      ],
+      "IS": {
+        "trades": 353,
+        "total_r": 6.7905,
+        "max_dd_r": 79.4032,
+        "expectancy_r": 0.0192,
+        "win_rate_pct": 46.74,
+        "by_outcome": {
+          "timeout": 163,
+          "be_stop": 24,
+          "tp_hit": 58,
+          "sl_hit": 108
+        },
+        "error": null,
+        "tp_geometry": {
+          "n_trades": 353,
+          "n_with_target": 353,
+          "n_extended_trades": 24,
+          "n_retargeted_trades": 0,
+          "total_extends": 29,
+          "total_retargets": 0,
+          "tp_hits": 0,
+          "calibration_band": 0.2,
+          "calibration_share": 0.1671,
+          "exit_over_target_p50": -0.0621,
+          "exit_over_target_sd": 0.5958,
+          "read_state": "measured",
+          "params": {
+            "tp_extend_r": 0.5,
+            "tp_approach_frac": 0.85,
+            "tp_max_extends": 3,
+            "tp_thesis": "native"
+          }
+        }
+      },
+      "OOS": {
+        "trades": 153,
+        "total_r": -1.9648,
+        "max_dd_r": 39.8899,
+        "expectancy_r": -0.0128,
+        "win_rate_pct": 45.1,
+        "by_outcome": {
+          "be_stop": 5,
+          "sl_hit": 50,
+          "tp_hit": 23,
+          "timeout": 75
+        },
+        "error": null,
+        "tp_geometry": {
+          "n_trades": 153,
+          "n_with_target": 153,
+          "n_extended_trades": 9,
+          "n_retargeted_trades": 0,
+          "total_extends": 11,
+          "total_retargets": 0,
+          "tp_hits": 0,
+          "calibration_band": 0.2,
+          "calibration_share": 0.1634,
+          "exit_over_target_p50": -0.0802,
+          "exit_over_target_sd": 0.5987,
+          "read_state": "measured",
+          "params": {
+            "tp_extend_r": 0.5,
+            "tp_approach_frac": 0.85,
+            "tp_max_extends": 3,
+            "tp_thesis": "native"
+          }
+        }
+      },
+      "is_beat": false,
+      "oos_beat": false,
+      "verdict": "honest_negative",
+      "tp_geometry": {
+        "IS": {
+          "cell": {
+            "n_trades": 353,
+            "n_with_target": 353,
+            "n_extended_trades": 24,
+            "n_retargeted_trades": 0,
+            "total_extends": 29,
+            "total_retargets": 0,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.1671,
+            "exit_over_target_p50": -0.0621,
+            "exit_over_target_sd": 0.5958,
+            "read_state": "measured",
+            "params": {
+              "tp_extend_r": 0.5,
+              "tp_approach_frac": 0.85,
+              "tp_max_extends": 3,
+              "tp_thesis": "native"
+            }
+          },
+          "base": {
+            "n_trades": 353,
+            "n_with_target": 353,
+            "n_extended_trades": 0,
+            "n_retargeted_trades": 0,
+            "total_extends": 0,
+            "total_retargets": 0,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.1955,
+            "exit_over_target_p50": -0.0621,
+            "exit_over_target_sd": 0.6162,
+            "read_state": "measured",
+            "params": {
+              "tp_report": true
+            }
+          },
+          "calibration_share_cell": 0.1671,
+          "calibration_share_base": 0.1955,
+          "calibration_ge_base": false
+        },
+        "OOS": {
+          "cell": {
+            "n_trades": 153,
+            "n_with_target": 153,
+            "n_extended_trades": 9,
+            "n_retargeted_trades": 0,
+            "total_extends": 11,
+            "total_retargets": 0,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.1634,
+            "exit_over_target_p50": -0.0802,
+            "exit_over_target_sd": 0.5987,
+            "read_state": "measured",
+            "params": {
+              "tp_extend_r": 0.5,
+              "tp_approach_frac": 0.85,
+              "tp_max_extends": 3,
+              "tp_thesis": "native"
+            }
+          },
+          "base": {
+            "n_trades": 153,
+            "n_with_target": 153,
+            "n_extended_trades": 0,
+            "n_retargeted_trades": 0,
+            "total_extends": 0,
+            "total_retargets": 0,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.2026,
+            "exit_over_target_p50": -0.0802,
+            "exit_over_target_sd": 0.6305,
+            "read_state": "measured",
+            "params": {
+              "tp_report": true
+            }
+          },
+          "calibration_share_cell": 0.1634,
+          "calibration_share_base": 0.2026,
+          "calibration_ge_base": false
+        }
+      }
+    },
+    "tpx_live_a0.85_e1_m3": {
+      "lever": "tp_extend",
+      "extra": [
+        "--tp-extend-r",
+        "1",
+        "--tp-approach-frac",
+        "0.85",
+        "--tp-max-extends",
+        "3",
+        "--tp-thesis",
+        "native"
+      ],
+      "IS": {
+        "trades": 353,
+        "total_r": 10.5669,
+        "max_dd_r": 75.6612,
+        "expectancy_r": 0.0299,
+        "win_rate_pct": 46.74,
+        "by_outcome": {
+          "timeout": 163,
+          "be_stop": 25,
+          "tp_hit": 57,
+          "sl_hit": 108
+        },
+        "error": null,
+        "tp_geometry": {
+          "n_trades": 353,
+          "n_with_target": 353,
+          "n_extended_trades": 24,
+          "n_retargeted_trades": 0,
+          "total_extends": 29,
+          "total_retargets": 0,
+          "tp_hits": 0,
+          "calibration_band": 0.2,
+          "calibration_share": 0.1615,
+          "exit_over_target_p50": -0.0621,
+          "exit_over_target_sd": 0.5913,
+          "read_state": "measured",
+          "params": {
+            "tp_extend_r": 1.0,
+            "tp_approach_frac": 0.85,
+            "tp_max_extends": 3,
+            "tp_thesis": "native"
+          }
+        }
+      },
+      "OOS": {
+        "trades": 153,
+        "total_r": -1.9648,
+        "max_dd_r": 39.8899,
+        "expectancy_r": -0.0128,
+        "win_rate_pct": 45.1,
+        "by_outcome": {
+          "be_stop": 5,
+          "sl_hit": 50,
+          "tp_hit": 23,
+          "timeout": 75
+        },
+        "error": null,
+        "tp_geometry": {
+          "n_trades": 153,
+          "n_with_target": 153,
+          "n_extended_trades": 9,
+          "n_retargeted_trades": 0,
+          "total_extends": 9,
+          "total_retargets": 0,
+          "tp_hits": 0,
+          "calibration_band": 0.2,
+          "calibration_share": 0.1503,
+          "exit_over_target_p50": -0.0802,
+          "exit_over_target_sd": 0.5944,
+          "read_state": "measured",
+          "params": {
+            "tp_extend_r": 1.0,
+            "tp_approach_frac": 0.85,
+            "tp_max_extends": 3,
+            "tp_thesis": "native"
+          }
+        }
+      },
+      "is_beat": true,
+      "oos_beat": false,
+      "verdict": "honest_negative",
+      "tp_geometry": {
+        "IS": {
+          "cell": {
+            "n_trades": 353,
+            "n_with_target": 353,
+            "n_extended_trades": 24,
+            "n_retargeted_trades": 0,
+            "total_extends": 29,
+            "total_retargets": 0,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.1615,
+            "exit_over_target_p50": -0.0621,
+            "exit_over_target_sd": 0.5913,
+            "read_state": "measured",
+            "params": {
+              "tp_extend_r": 1.0,
+              "tp_approach_frac": 0.85,
+              "tp_max_extends": 3,
+              "tp_thesis": "native"
+            }
+          },
+          "base": {
+            "n_trades": 353,
+            "n_with_target": 353,
+            "n_extended_trades": 0,
+            "n_retargeted_trades": 0,
+            "total_extends": 0,
+            "total_retargets": 0,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.1955,
+            "exit_over_target_p50": -0.0621,
+            "exit_over_target_sd": 0.6162,
+            "read_state": "measured",
+            "params": {
+              "tp_report": true
+            }
+          },
+          "calibration_share_cell": 0.1615,
+          "calibration_share_base": 0.1955,
+          "calibration_ge_base": false
+        },
+        "OOS": {
+          "cell": {
+            "n_trades": 153,
+            "n_with_target": 153,
+            "n_extended_trades": 9,
+            "n_retargeted_trades": 0,
+            "total_extends": 9,
+            "total_retargets": 0,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.1503,
+            "exit_over_target_p50": -0.0802,
+            "exit_over_target_sd": 0.5944,
+            "read_state": "measured",
+            "params": {
+              "tp_extend_r": 1.0,
+              "tp_approach_frac": 0.85,
+              "tp_max_extends": 3,
+              "tp_thesis": "native"
+            }
+          },
+          "base": {
+            "n_trades": 153,
+            "n_with_target": 153,
+            "n_extended_trades": 0,
+            "n_retargeted_trades": 0,
+            "total_extends": 0,
+            "total_retargets": 0,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.2026,
+            "exit_over_target_p50": -0.0802,
+            "exit_over_target_sd": 0.6305,
+            "read_state": "measured",
+            "params": {
+              "tp_report": true
+            }
+          },
+          "calibration_share_cell": 0.1503,
+          "calibration_share_base": 0.2026,
+          "calibration_ge_base": false
+        }
+      }
+    },
+    "tpr_atr_live": {
+      "lever": "tp_retarget",
+      "extra": [
+        "--tp-retarget-mode",
+        "atr_rescale"
+      ],
+      "IS": {
+        "trades": 353,
+        "total_r": 1.6744,
+        "max_dd_r": 84.0433,
+        "expectancy_r": 0.0047,
+        "win_rate_pct": 46.74,
+        "by_outcome": {
+          "timeout": 165,
+          "be_stop": 28,
+          "sl_hit": 109,
+          "tp_hit": 51
+        },
+        "error": null,
+        "tp_geometry": {
+          "n_trades": 353,
+          "n_with_target": 353,
+          "n_extended_trades": 0,
+          "n_retargeted_trades": 348,
+          "total_extends": 0,
+          "total_retargets": 6091,
+          "tp_hits": 0,
+          "calibration_band": 0.2,
+          "calibration_share": 0.1473,
+          "exit_over_target_p50": -0.0814,
+          "exit_over_target_sd": 0.5989,
+          "read_state": "measured",
+          "params": {
+            "tp_retarget_mode": "atr_rescale",
+            "tp_retarget_stall_bars": 3,
+            "tp_retarget_pull_r": 0.0
+          }
+        }
+      },
+      "OOS": {
+        "trades": 153,
+        "total_r": 3.3183,
+        "max_dd_r": 35.0335,
+        "expectancy_r": 0.0217,
+        "win_rate_pct": 45.1,
+        "by_outcome": {
+          "tp_hit": 27,
+          "sl_hit": 50,
+          "timeout": 74,
+          "be_stop": 2
+        },
+        "error": null,
+        "tp_geometry": {
+          "n_trades": 153,
+          "n_with_target": 153,
+          "n_extended_trades": 0,
+          "n_retargeted_trades": 149,
+          "total_extends": 0,
+          "total_retargets": 2630,
+          "tp_hits": 0,
+          "calibration_band": 0.2,
+          "calibration_share": 0.183,
+          "exit_over_target_p50": -0.1349,
+          "exit_over_target_sd": 0.6317,
+          "read_state": "measured",
+          "params": {
+            "tp_retarget_mode": "atr_rescale",
+            "tp_retarget_stall_bars": 3,
+            "tp_retarget_pull_r": 0.0
+          }
+        }
+      },
+      "is_beat": false,
+      "oos_beat": true,
+      "verdict": "honest_negative",
+      "tp_geometry": {
+        "IS": {
+          "cell": {
+            "n_trades": 353,
+            "n_with_target": 353,
+            "n_extended_trades": 0,
+            "n_retargeted_trades": 348,
+            "total_extends": 0,
+            "total_retargets": 6091,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.1473,
+            "exit_over_target_p50": -0.0814,
+            "exit_over_target_sd": 0.5989,
+            "read_state": "measured",
+            "params": {
+              "tp_retarget_mode": "atr_rescale",
+              "tp_retarget_stall_bars": 3,
+              "tp_retarget_pull_r": 0.0
+            }
+          },
+          "base": {
+            "n_trades": 353,
+            "n_with_target": 353,
+            "n_extended_trades": 0,
+            "n_retargeted_trades": 0,
+            "total_extends": 0,
+            "total_retargets": 0,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.1955,
+            "exit_over_target_p50": -0.0621,
+            "exit_over_target_sd": 0.6162,
+            "read_state": "measured",
+            "params": {
+              "tp_report": true
+            }
+          },
+          "calibration_share_cell": 0.1473,
+          "calibration_share_base": 0.1955,
+          "calibration_ge_base": false
+        },
+        "OOS": {
+          "cell": {
+            "n_trades": 153,
+            "n_with_target": 153,
+            "n_extended_trades": 0,
+            "n_retargeted_trades": 149,
+            "total_extends": 0,
+            "total_retargets": 2630,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.183,
+            "exit_over_target_p50": -0.1349,
+            "exit_over_target_sd": 0.6317,
+            "read_state": "measured",
+            "params": {
+              "tp_retarget_mode": "atr_rescale",
+              "tp_retarget_stall_bars": 3,
+              "tp_retarget_pull_r": 0.0
+            }
+          },
+          "base": {
+            "n_trades": 153,
+            "n_with_target": 153,
+            "n_extended_trades": 0,
+            "n_retargeted_trades": 0,
+            "total_extends": 0,
+            "total_retargets": 0,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.2026,
+            "exit_over_target_p50": -0.0802,
+            "exit_over_target_sd": 0.6305,
+            "read_state": "measured",
+            "params": {
+              "tp_report": true
+            }
+          },
+          "calibration_share_cell": 0.183,
+          "calibration_share_base": 0.2026,
+          "calibration_ge_base": false
+        }
+      }
+    },
+    "tpr_stall3_live": {
+      "lever": "tp_retarget",
+      "extra": [
+        "--tp-retarget-mode",
+        "stall_pull_in",
+        "--tp-retarget-stall-bars",
+        "3"
+      ],
+      "IS": {
+        "trades": 353,
+        "total_r": -2.7039,
+        "max_dd_r": 88.5958,
+        "expectancy_r": -0.0077,
+        "win_rate_pct": 58.07,
+        "by_outcome": {
+          "tp_hit": 182,
+          "be_stop": 11,
+          "sl_hit": 91,
+          "timeout": 69
+        },
+        "error": null,
+        "tp_geometry": {
+          "n_trades": 353,
+          "n_with_target": 353,
+          "n_extended_trades": 0,
+          "n_retargeted_trades": 297,
+          "total_extends": 0,
+          "total_retargets": 297,
+          "tp_hits": 0,
+          "calibration_band": 0.2,
+          "calibration_share": 0.5184,
+          "exit_over_target_p50": 1.0,
+          "exit_over_target_sd": 270.3748,
+          "read_state": "measured",
+          "params": {
+            "tp_retarget_mode": "stall_pull_in",
+            "tp_retarget_stall_bars": 3,
+            "tp_retarget_pull_r": 0.0
+          }
+        }
+      },
+      "OOS": {
+        "trades": 153,
+        "total_r": -0.7931,
+        "max_dd_r": 39.2896,
+        "expectancy_r": -0.0052,
+        "win_rate_pct": 55.56,
+        "by_outcome": {
+          "tp_hit": 78,
+          "sl_hit": 41,
+          "timeout": 32,
+          "be_stop": 2
+        },
+        "error": null,
+        "tp_geometry": {
+          "n_trades": 153,
+          "n_with_target": 153,
+          "n_extended_trades": 0,
+          "n_retargeted_trades": 120,
+          "total_extends": 0,
+          "total_retargets": 120,
+          "tp_hits": 0,
+          "calibration_band": 0.2,
+          "calibration_share": 0.5229,
+          "exit_over_target_p50": 1.0,
+          "exit_over_target_sd": 12.5623,
+          "read_state": "measured",
+          "params": {
+            "tp_retarget_mode": "stall_pull_in",
+            "tp_retarget_stall_bars": 3,
+            "tp_retarget_pull_r": 0.0
+          }
+        }
+      },
+      "is_beat": false,
+      "oos_beat": false,
+      "verdict": "honest_negative",
+      "tp_geometry": {
+        "IS": {
+          "cell": {
+            "n_trades": 353,
+            "n_with_target": 353,
+            "n_extended_trades": 0,
+            "n_retargeted_trades": 297,
+            "total_extends": 0,
+            "total_retargets": 297,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.5184,
+            "exit_over_target_p50": 1.0,
+            "exit_over_target_sd": 270.3748,
+            "read_state": "measured",
+            "params": {
+              "tp_retarget_mode": "stall_pull_in",
+              "tp_retarget_stall_bars": 3,
+              "tp_retarget_pull_r": 0.0
+            }
+          },
+          "base": {
+            "n_trades": 353,
+            "n_with_target": 353,
+            "n_extended_trades": 0,
+            "n_retargeted_trades": 0,
+            "total_extends": 0,
+            "total_retargets": 0,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.1955,
+            "exit_over_target_p50": -0.0621,
+            "exit_over_target_sd": 0.6162,
+            "read_state": "measured",
+            "params": {
+              "tp_report": true
+            }
+          },
+          "calibration_share_cell": 0.5184,
+          "calibration_share_base": 0.1955,
+          "calibration_ge_base": true
+        },
+        "OOS": {
+          "cell": {
+            "n_trades": 153,
+            "n_with_target": 153,
+            "n_extended_trades": 0,
+            "n_retargeted_trades": 120,
+            "total_extends": 0,
+            "total_retargets": 120,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.5229,
+            "exit_over_target_p50": 1.0,
+            "exit_over_target_sd": 12.5623,
+            "read_state": "measured",
+            "params": {
+              "tp_retarget_mode": "stall_pull_in",
+              "tp_retarget_stall_bars": 3,
+              "tp_retarget_pull_r": 0.0
+            }
+          },
+          "base": {
+            "n_trades": 153,
+            "n_with_target": 153,
+            "n_extended_trades": 0,
+            "n_retargeted_trades": 0,
+            "total_extends": 0,
+            "total_retargets": 0,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.2026,
+            "exit_over_target_p50": -0.0802,
+            "exit_over_target_sd": 0.6305,
+            "read_state": "measured",
+            "params": {
+              "tp_report": true
+            }
+          },
+          "calibration_share_cell": 0.5229,
+          "calibration_share_base": 0.2026,
+          "calibration_ge_base": true
+        }
+      }
+    },
+    "tpr_stall6_live": {
+      "lever": "tp_retarget",
+      "extra": [
+        "--tp-retarget-mode",
+        "stall_pull_in",
+        "--tp-retarget-stall-bars",
+        "6"
+      ],
+      "IS": {
+        "trades": 353,
+        "total_r": 4.1478,
+        "max_dd_r": 81.8663,
+        "expectancy_r": 0.0118,
+        "win_rate_pct": 53.82,
+        "by_outcome": {
+          "tp_hit": 149,
+          "be_stop": 16,
+          "sl_hit": 102,
+          "timeout": 86
+        },
+        "error": null,
+        "tp_geometry": {
+          "n_trades": 353,
+          "n_with_target": 353,
+          "n_extended_trades": 0,
+          "n_retargeted_trades": 241,
+          "total_extends": 0,
+          "total_retargets": 241,
+          "tp_hits": 0,
+          "calibration_band": 0.2,
+          "calibration_share": 0.4249,
+          "exit_over_target_p50": 0.2584,
+          "exit_over_target_sd": 267.6188,
+          "read_state": "measured",
+          "params": {
+            "tp_retarget_mode": "stall_pull_in",
+            "tp_retarget_stall_bars": 6,
+            "tp_retarget_pull_r": 0.0
+          }
+        }
+      },
+      "OOS": {
+        "trades": 153,
+        "total_r": -2.7366,
+        "max_dd_r": 41.3093,
+        "expectancy_r": -0.0179,
+        "win_rate_pct": 47.71,
+        "by_outcome": {
+          "tp_hit": 60,
+          "sl_hit": 48,
+          "timeout": 43,
+          "be_stop": 2
+        },
+        "error": null,
+        "tp_geometry": {
+          "n_trades": 153,
+          "n_with_target": 153,
+          "n_extended_trades": 0,
+          "n_retargeted_trades": 107,
+          "total_extends": 0,
+          "total_retargets": 107,
+          "tp_hits": 0,
+          "calibration_band": 0.2,
+          "calibration_share": 0.4052,
+          "exit_over_target_p50": -0.0231,
+          "exit_over_target_sd": 12.5504,
+          "read_state": "measured",
+          "params": {
+            "tp_retarget_mode": "stall_pull_in",
+            "tp_retarget_stall_bars": 6,
+            "tp_retarget_pull_r": 0.0
+          }
+        }
+      },
+      "is_beat": false,
+      "oos_beat": false,
+      "verdict": "honest_negative",
+      "tp_geometry": {
+        "IS": {
+          "cell": {
+            "n_trades": 353,
+            "n_with_target": 353,
+            "n_extended_trades": 0,
+            "n_retargeted_trades": 241,
+            "total_extends": 0,
+            "total_retargets": 241,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.4249,
+            "exit_over_target_p50": 0.2584,
+            "exit_over_target_sd": 267.6188,
+            "read_state": "measured",
+            "params": {
+              "tp_retarget_mode": "stall_pull_in",
+              "tp_retarget_stall_bars": 6,
+              "tp_retarget_pull_r": 0.0
+            }
+          },
+          "base": {
+            "n_trades": 353,
+            "n_with_target": 353,
+            "n_extended_trades": 0,
+            "n_retargeted_trades": 0,
+            "total_extends": 0,
+            "total_retargets": 0,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.1955,
+            "exit_over_target_p50": -0.0621,
+            "exit_over_target_sd": 0.6162,
+            "read_state": "measured",
+            "params": {
+              "tp_report": true
+            }
+          },
+          "calibration_share_cell": 0.4249,
+          "calibration_share_base": 0.1955,
+          "calibration_ge_base": true
+        },
+        "OOS": {
+          "cell": {
+            "n_trades": 153,
+            "n_with_target": 153,
+            "n_extended_trades": 0,
+            "n_retargeted_trades": 107,
+            "total_extends": 0,
+            "total_retargets": 107,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.4052,
+            "exit_over_target_p50": -0.0231,
+            "exit_over_target_sd": 12.5504,
+            "read_state": "measured",
+            "params": {
+              "tp_retarget_mode": "stall_pull_in",
+              "tp_retarget_stall_bars": 6,
+              "tp_retarget_pull_r": 0.0
+            }
+          },
+          "base": {
+            "n_trades": 153,
+            "n_with_target": 153,
+            "n_extended_trades": 0,
+            "n_retargeted_trades": 0,
+            "total_extends": 0,
+            "total_retargets": 0,
+            "tp_hits": 0,
+            "calibration_band": 0.2,
+            "calibration_share": 0.2026,
+            "exit_over_target_p50": -0.0802,
+            "exit_over_target_sd": 0.6305,
+            "read_state": "measured",
+            "params": {
+              "tp_report": true
+            }
+          },
+          "calibration_share_cell": 0.4052,
+          "calibration_share_base": 0.2026,
+          "calibration_ge_base": true
+        }
+      }
+    }
+  }
+}
