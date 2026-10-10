@@ -1,0 +1,24 @@
+{
+  "based_on": "20261004T213415790177Z-b538be34.json",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Gate 2: mechanics flowing AND R3 cost fidelity decisive at >=10 fills/side (RULE-R5-SOAK-BOOK-GRADE-v1)",
+    "kind": "observation",
+    "last_checked": "2026-10-04",
+    "soak": {
+      "declared_at": "2026-07-07",
+      "state_source": "docs/claude/work/soak-state.json",
+      "subject": "bybit_1/trend_donchian_eth"
+    }
+  },
+  "id": "PI-SOAK-20261004-bybit_1-trend_donchian_eth",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04 (scripts/ops/soak_report.py)",
+    "rerun": "python3 scripts/ops/soak_report.py --print-state"
+  },
+  "state": "killed",
+  "terminal_reason": "KILLED (SOAK-GATE1-REGRADE 2026-10-10): stage1 soak ended: leg is on NO roster since the 2026-10-05 cut (MD-S1-CUT-ON-STAGE0-FAIL, #16556); Stage-0 n=107, expectancy +0.151R, net +16.18R, folds 2/4, fidelity approximate, slippage 3.0bps RT; failing clauses: R-CUT-FOLDS 2/4 not a majority. Evidence: comms/strategy_evidence/trend_donchian_eth.json, comms/research/soak_gate1_regrade/2026-10-10.json",
+  "what": "SOAK (stage1): bybit_1/trend_donchian_eth — Stage-1 soak leg. Exit: Gate 2: mechanics flowing AND R3 cost fidelity decisive at >=10 fills/side (RULE-R5-SOAK-BOOK-GRADE-v1). Graded weekly into ready/dead/could-not-look/accruing; due only when not accruing."
+}

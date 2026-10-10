@@ -66,6 +66,11 @@ DEAD_EXPECTED = 3.0     # events the backtest says we should have seen, with non
 #: of 48 soaks dead until this gate existed.
 JOURNAL_FRESH_DAYS = 3
 STATES = ("accruing", "ready", "overdue", "dead", "unknown")
+#: A soak a session has GRADED carries a ``disposition`` (verdict + evidence +
+#: reason). It is quiet — omitted from ``soak_states()`` — until ``until`` (if
+#: given) passes, so a NEEDS_DATA verdict re-surfaces on its own date instead of
+#: reading "ready" forever (2026-10-10, SOAK-GATE1-REGRADE).
+DISPOSITION_VERDICTS = ("PASS", "FAIL", "REFUSE", "KILLED", "NEEDS_DATA")
 REQUIRED = ("id", "leg", "account", "kind", "verifies", "metric", "n_needed", "power",
             "started", "end_date", "pass_rule", "fail_rule", "design")
 
@@ -150,6 +155,26 @@ def contract_problems(c: Dict[str, Any]) -> List[str]:
         p.append(f"design must be ok|too_long|no_backtest_rate|not_soaking, got {c.get('design')!r}")
     if c.get("design") != "ok" and not str(c.get("recommended_fix") or "").strip():
         p.append(f"design {c.get('design')!r} needs a recommended_fix — the tool must say what to change")
+    d = c.get("disposition")
+    if d is not None:
+        if not isinstance(d, dict):
+            p.append("disposition must be an object")
+        else:
+            if d.get("verdict") not in DISPOSITION_VERDICTS:
+                p.append(f"disposition.verdict must be one of {DISPOSITION_VERDICTS}")
+            for k in ("reason", "decided_at"):
+                if not str(d.get(k) or "").strip():
+                    p.append(f"disposition needs `{k}`")
+            if not d.get("evidence"):
+                p.append("disposition needs `evidence` (paths/refs the verdict was read from)")
+            for k in ("decided_at", "until"):
+                if d.get(k):
+                    try:
+                        date.fromisoformat(str(d[k]))
+                    except ValueError:
+                        p.append(f"disposition.{k} not an ISO date")
+            if d.get("verdict") == "NEEDS_DATA" and not (d.get("until") and d.get("missing")):
+                p.append("NEEDS_DATA disposition needs `until` (dated) and `missing` (the exact quantity)")
     if c.get("end_date") and c.get("started"):
         try:
             if (date.fromisoformat(c["end_date"]) - date.fromisoformat(c["started"])).days > MAX_SOAK_DAYS \
@@ -231,6 +256,21 @@ def grade(c: Dict[str, Any], observed: Optional[int], today: date,
     return out
 
 
+def _disposition_holds(c: Dict[str, Any], today: date) -> bool:
+    """True when a graded soak's disposition is still in force (no ``until``, or
+    ``until`` not yet passed). An unreadable ``until`` holds NOTHING — it fails
+    loud (the soak shows again) rather than hiding."""
+    d = c.get("disposition")
+    if not isinstance(d, dict) or d.get("verdict") not in DISPOSITION_VERDICTS:
+        return False
+    if not d.get("until"):
+        return True
+    try:
+        return today <= date.fromisoformat(str(d["until"]))
+    except ValueError:
+        return False
+
+
 def soak_states(today: Optional[date] = None, db_path: Optional[str] = None,
                 contracts_path: Path = CONTRACTS) -> List[Dict[str, Any]]:
     """THE soak state computation. One row per contract:
@@ -265,6 +305,8 @@ def soak_states(today: Optional[date] = None, db_path: Optional[str] = None,
             # decision, but it is never reported as a soak — a permanent "dead"
             # row for a thing nothing runs is noise, not an alarm (manager,
             # 2026-10-04 17:52Z review).
+            continue
+        if _disposition_holds(c, today):
             continue
         observed, held = None, 0
         if conn is not None and c.get("design") in ("ok", "too_long"):

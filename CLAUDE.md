@@ -593,6 +593,8 @@ autonomously; Tier-2 after an operator OK in chat. Allowlist:
 
 ## Skills
 
+**`research-ops`** (`.claude/skills/research-ops/SKILL.md`) is the routine research-operations pass — 4×/day, bounded Sonnet lane dispatched by the manager: pipeline health, runnable floor, blocked-unit audit, results read, follow-ups filed. It keeps research flowing; it does not replace topic research (`perf-followup`, ML, readouts).
+
 Workflows live under [`.claude/skills/`](.claude/skills/). **Skill-first lookup
 is binding** — before generating any task output, scan the catalog; if a skill
 matches, derive from it rather than from a precedent artifact. Precedents are

@@ -1,0 +1,20 @@
+{
+  "id": "VELO-UNCONFIRMED-1008",
+  "title": "velotrade_1 2026-10-08 unconfirmed_submit: establish venue outcome; resolve unconfirmed submits against venue order history",
+  "phase": null,
+  "state": "in_flight",
+  "owner": "lane VELO-UNCONFIRMED-1008",
+  "lane": "VELO-UNCONFIRMED-1008",
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    17463
+  ],
+  "blocked_on": [],
+  "note": "MEASURED: venue order history (system-action #17459, unfiltered GET orders/history: 10 orders, 3 executions) has NO 2026-10-08 execution; prop-manual-df6e8938ab89 never filled - executor journal (#17458) shows POST http 200 then its own partial_no_sl_tp 'repair' cancelled the resting entry in the same 15:28:19Z cycle; balance 4999.97 before and after. No position existed. Journal row status 'skipped' is true; its reason 'unconfirmed_submit' is a mislabel (cancelled by containment) - not rewritten (no P&L/position impact). Fix in this PR: unconfirmed submits resolved from venue order history. Close PI-20261010-WQAPZD8B-0003 once #17442 lands (item not on main yet). landed_unproven until an unconfirmed submit on velotrade_1 is observed resolving via 'unconfirmed_resolved' in the executor journal.",
+  "updated_at": "2026-10-10T21:17:38Z",
+  "updated_by": "session_01QzpbUoN8G8iUk9j4LdQPQY",
+  "_seq": 378
+}

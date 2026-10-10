@@ -311,6 +311,31 @@ A Tier-1 lane self-lands its PR using a fixed process: create `.github/pr-landin
 - **Tier-1 lanes:** self-land when the classifier arms auto-merge; report blocked arming to the manager in one line; manager lands if blocked.
 - **Tier-2/3 lanes:** hold for manager (T2) or operator approval (T3); never self-land.
 
+### After a `/performance-review` merges: dispatch `PERF-FOLLOWUP-<week>` (operator, 2026-10-10)
+
+When a `/performance-review` PR merges, dispatch **one** lane, `PERF-FOLLOWUP-<week>`
+(`<week>` = ISO week of the review, e.g. `PERF-FOLLOWUP-2026W41`), on the
+`perf-followup` skill (`.claude/skills/perf-followup/SKILL.md`): **Sonnet**, ceiling
+**$6**, checklist row written before dispatch, prompt naming the review file
+(`comms/reviews/performance-review-<stamp>.json`). Its Step 0 reads the previous run's
+units, so do not dispatch a second run for the same review. When it reports, apply what
+its pre-registered rules decide and surface its Tier-3 proposals per § "Before any
+operator popup" — they are classified, not forwarded.
+
+### Routine: `RESEARCH-OPS-<date>-<slot>` four times a day (operator, 2026-10-10)
+
+The manager keeps a recurring routine that dispatches **one** lane, `RESEARCH-OPS-<date>-<slot>`
+(e.g. `RESEARCH-OPS-2026-10-11-0247`), at **02:47, 08:47, 14:47 and 20:47 UTC**, on the
+`research-ops` skill (`.claude/skills/research-ops/SKILL.md`): **Sonnet**, ceiling **$6**
+(~$5 target), checklist row written before dispatch. It is the research *operations* check
+(pipeline flowing, runnable floor, blocked units, results read, follow-ups filed); it does not
+replace topic lanes such as `PERF-FOLLOWUP-<week>`. **Skip a slot while the previous
+research-ops lane still runs** (check the checklist row / `get_session`; never stack two). When a
+lane reports, land and archive it per § "Archive protocol"; its record is
+`comms/research/ops/<stamp>.json` and its one-line report goes in the daily brief's
+"what moved". Apply any Tier-3 proposal it leaves as a checklist note per § "Before any operator
+popup".
+
 ### Model by task class
 
 | Task | Model |

@@ -180,10 +180,10 @@ point: registration is not optional, and it is not left to memory.
 
 ## The table
 
-**Population: 1073 documents** — every file matching the git pathspecs
+**Population: 1074 documents** — every file matching the git pathspecs
 `:(glob)docs/**/*.md`, `ROADMAP*.md`, `CLAUDE.md`, `:(glob).claude/skills/**/*.md`
 as tracked by `git ls-files` (so an untracked scratch file can never silently
-enter or leave the register). **1073 registered.**
+enter or leave the register). **1074 registered.**
 
 ⚠️ **The `:(glob)` prefix is part of the population, not decoration.** These are
 git PATHSPECS: without it, `*` crosses `/` and `**/` needs a literal intervening
@@ -217,8 +217,10 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `.claude/skills/model-training/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/new-broker/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/new-strategy/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
+| `.claude/skills/perf-followup/SKILL.md` | instruction | live | — | 2026-10-10 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/performance-review/SKILL.md` | instruction | live | — | 2026-09-24 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/regime-selectivity/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
+| `.claude/skills/research-ops/SKILL.md` | instruction | live | — | 2026-10-10 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/sprint-format/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/system-report/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/vm-migration/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
