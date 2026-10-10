@@ -143,6 +143,12 @@ def _phone_heartbeat(acct: str) -> dict[str, Any] | None:
     return phone_executor.last_heartbeat(acct) if phone_executor.is_phone_account(acct) else None
 
 
+def _phone_events(acct: str) -> list[dict[str, Any]] | None:
+    from src.prop import phone_executor
+
+    return phone_executor.recent_events(acct) if phone_executor.is_phone_account(acct) else None
+
+
 @router.get("/status")
 def get_status(account_id: str | None = None) -> dict[str, Any]:
     from src.prop import prop_journal, prop_reconcile
@@ -167,6 +173,9 @@ def get_status(account_id: str | None = None) -> dict[str, Any]:
             "phone_diag": _phone_diag(acct),
             # the phone's latest heartbeat: status line + gate/pause/touch-hold state (null = none posted)
             "phone_heartbeat": _phone_heartbeat(acct),
+            # the phone's last ~40 events (login_started/login_failed/... with the scrubbed reason), oldest first
+            # (null = none posted since the log existed)
+            "phone_events": _phone_events(acct),
         }
     except Exception:  # noqa: BLE001  # allow-silent: degrade to present:false, not a 500
         logger.warning("prop: /status read failed; degrading to present:false", exc_info=True)
@@ -259,10 +268,12 @@ async def phone_claim(request: Request,
 async def phone_pending(accepts: str = "",
                         authorization: str | None = Header(default=None)) -> dict[str, Any]:
     """READ-ONLY: how many tickets are waiting for the device's account. Claims nothing; the backgrounded app
-    polls this and brings itself to the front before it claims (PI-20261006-APBY4NTV-0006)."""
+    polls this and brings itself to the front before it claims (PI-20261006-APBY4NTV-0006). ``status_age_hours``
+    (null = no dateable row) lets it also come forward to check its login when account_status is stale (PHONE-AUTOLOGIN)."""
     from src.prop import phone_executor as pe
     dev = _phone_device(authorization)
-    return {"ok": True, "pending": await asyncio.to_thread(pe.pending_count, dev, None, _accepts(accepts))}
+    return {"ok": True, "pending": await asyncio.to_thread(pe.pending_count, dev, None, _accepts(accepts)),
+            "status_age_hours": await asyncio.to_thread(pe.account_status_age_hours, dev.account_id)}
 
 
 @router.post("/phone/report")
