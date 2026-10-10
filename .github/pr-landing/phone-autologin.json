@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "why": "PHONE-AUTOLOGIN: the breakout_2 phone executor must log itself back in with no human (operator 2026-10-10) and never self-halt (2026-10-09). Removes the 2-failure RELOGIN_LATCHED latch (backoff 2/5/10/20/30 min forever, one login_failed red flag after 3), brings a backgrounded app forward every 30 min / on a due retry / on a stale account_status hint to check its login, caps the touch defer at 60 s, widens the code-mail window; server: quiet login_retry event, status_age_hours on GET /phone/pending, and a phone_login_breakout_2 silent-logout probe in the hourly attention watch.",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 (prop execution app + its VM route). Approval already given: the operator's 2026-10-10 directive, relayed by the manager, who merges. The new APK still needs the operator's one install step."
+}

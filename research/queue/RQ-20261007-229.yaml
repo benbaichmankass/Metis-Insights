@@ -1,6 +1,6 @@
 id: RQ-20261007-229
 title: 'Stage-0 backtest for a FASTER prop leg: pullback harness on AVAXUSDT 1h (PI-20261006-APBY4NTV-0001 batch 2 breadth)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -77,3 +77,11 @@ related:
 last_dispatched_at: '2026-10-10T00:57:03+00:00'
 grading:
   auto: true
+  decision_rule_id: RULE-RQ1007-229-AVAXUSDT-1h-PULLBACK-STAGE0
+  evidence:
+  - research/results/RQ-20261007-229/38011221228.jsonl
+  graded_at: '2026-10-10'
+  grader: scripts/research/queue_grade.py
+  reason: 1 row(s), all measured, all pass
+  rows: 1
+  verdict: pass
