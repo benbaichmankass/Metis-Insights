@@ -1,7 +1,7 @@
 id: RQ-20261007-218
 title: 'PROP BOOK COMPOSITION under Velotrade Classic 1-Step $5k: book ''fast6'' (6 legs) at flat 0.5% / 0.75% / 1.0% per
   leg -- does stacking raise pace to +target in <= 60 d without breaching (PI-20261006-APBY4NTV-0001 batch 2)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 1
@@ -219,7 +219,7 @@ related:
 - RQ-20261007-201
 - scripts/research/prop_ev_grid.py
 - scripts/research/p2_breakout_symbol_screen.py
-last_dispatched_at: null
+last_dispatched_at: '2026-10-09T18:00:30+00:00'
 grading:
   auto: true
   confirmatory_run: 1
@@ -227,9 +227,9 @@ grading:
   evidence:
   - research/results/RQ-20261007-218/37948432358.jsonl
   first_fail: 1 row(s), all measured, all fail
-  graded_at: '2026-10-09'
+  graded_at: '2026-10-10'
   grader: scripts/research/queue_grade.py
-  note: 'first FAIL: re-queued for a confirmatory run (last_dispatched_at reset), not killed'
+  note: two consecutive FAIL passes; closed as fail (never on one pass)
   reason: 1 row(s), all measured, all fail
   rows: 1
   verdict: fail
