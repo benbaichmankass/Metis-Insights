@@ -352,6 +352,10 @@ class MainActivity : Activity() {
             .put("host", s?.optString("host") ?: "").put("onAccount", s?.optBoolean("onAccount") ?: false)
             .put("path_depth", s?.optInt("path_depth") ?: 0)
             .put("fg", resumed).put("jsTimeouts", jsTimeouts).put("pending", lastPending)
+            // the page state the LAST foreground tick read (logged_in / login / challenged / other; "" = never read):
+            // a backgrounded heartbeat says st=background and nothing else, so a logout overnight stayed invisible
+            // until the app was opened (2026-10-10, breakout_2 last balance 10-09 15:01Z, background all night).
+            .put("last", lastState)
         // never touch the WebView while backgrounded (jsObj is bounded anyway and yields null on a timeout)
         if (resumed) jsObj("__ex.terminal()")?.let { tm ->
             for (k in listOf("ready", "probe", "panels", "orderControl", "ticketOpen", "buySell")) state.put(k, tm.optBoolean(k))
