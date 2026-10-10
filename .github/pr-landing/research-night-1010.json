@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "Research-planning session: 20 new Stage-0 research units (existing research-harness-dispatch driver, decision rule registered before run), a session grade of RQ-20261007-904 with its pipeline item closed, and checklist rows for the missing research levers. No runtime, config, strategy or order-path change; config/strategies.yaml and config/accounts.yaml untouched."
+  "landing": "hold",
+  "why": "Research-planning session: 20 new hand-written Stage-0 research units (existing research-harness-dispatch driver, decision rule registered before run), a session grade of RQ-20261007-904 with its pipeline item closed, and checklist rows for missing research levers. Held for a human because check_pr_landing R5 does not vouch for new queue units (a new unit is a registration, E57). No runtime, config, strategy or order-path change; config/strategies.yaml and config/accounts.yaml untouched.",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "New hand-written research/queue units are a registration, not a stamp (check_pr_landing R5/E57); a human reads the 20 units and their registered rules before merge."
 }
