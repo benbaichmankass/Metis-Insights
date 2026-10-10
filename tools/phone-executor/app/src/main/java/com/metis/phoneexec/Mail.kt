@@ -9,7 +9,11 @@ import javax.mail.Folder
 import javax.mail.Multipart
 import javax.mail.Part
 import javax.mail.Session
+import javax.mail.internet.ContentType
+import javax.mail.internet.MimeMultipart
 import javax.mail.search.FromStringTerm
+import javax.mail.util.ByteArrayDataSource
+import java.io.InputStream
 
 /**
  * The DEDICATED inbox (a Gmail used only for Breakout; the operator's main Gmail forwards Breakout login
@@ -81,12 +85,30 @@ object Mail {
         return "$res ${Creds.userShape(u)} ${Creds.passShape(p)} raw_plen=${rawPass.length}"
     }
 
+    /** A part's text of the wanted MIME type, or null. On Android the JavaMail data handlers are often not
+     *  registered (no mailcap), so `Part.content` can come back as the RAW stream (IMAPInputStream) instead of a
+     *  String / Multipart -- MEASURED 2026-10-10 20:35 local: Test inbox, first successful login, failed with
+     *  "IMAPInputStream cannot be cast to javax.mail.Multipart". Both shapes are handled here; anything else is null. */
     private fun body(p: Part, mime: String): String? {
-        if (p.isMimeType(mime)) return p.content as? String
+        if (p.isMimeType(mime)) return when (val c = content(p)) {
+            is String -> c
+            is InputStream -> c.use { String(it.readBytes(), charsetOf(p)) }
+            else -> null
+        }
         if (p.isMimeType("multipart/*")) {
-            val mp = p.content as Multipart
+            val mp: Multipart = when (val c = content(p)) {
+                is Multipart -> c
+                is InputStream -> c.use { MimeMultipart(ByteArrayDataSource(it, p.contentType)) }
+                else -> null
+            } ?: return null
             for (i in 0 until mp.count) body(mp.getBodyPart(i), mime)?.let { return it }
         }
         return null
     }
+
+    private fun content(p: Part): Any? = try { p.content } catch (e: Exception) { null }
+
+    private fun charsetOf(p: Part): java.nio.charset.Charset = try {
+        java.nio.charset.Charset.forName(ContentType(p.contentType).getParameter("charset") ?: "UTF-8")
+    } catch (e: Exception) { Charsets.UTF_8 }
 }
