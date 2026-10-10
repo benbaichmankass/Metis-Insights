@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs-only: new perf-followup skill (the routine run after each /performance-review), small hand-off steps in the performance-review and manager skills, skills index and document-index registration, and the PERF-FOLLOWUP-SKILL checklist row. No src/, config/ or workflow change."
+}

@@ -808,6 +808,16 @@ Each `note`/`rationale` ≤240 chars; cite `order_package_id`,
 `trade_id`, strategy name, and numbers so the operator can verify
 fast.
 
+## Hand-off: `/perf-followup` (operator, 2026-10-10)
+
+Grading is not the end of the review. Once the response JSON is committed, say in the
+PR body and the Claude-channel ping that the review **hands off to `/perf-followup`**
+(`.claude/skills/perf-followup/SKILL.md`): the routine that tunes underperformers, runs
+the wider-context lessons post-mortem, extrapolates lessons, and files portfolio-level
+research. The manager dispatches it as one lane when this review's PR merges — you do
+not run it in this session. Anything in this review you leave open for research
+(`proposed_tweaks[]` demote candidates, `grade_drift`, benchmark verdicts) is its input.
+
 ## What you DO write (and what you don't)
 
 **Write:**

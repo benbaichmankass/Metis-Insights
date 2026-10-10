@@ -311,6 +311,17 @@ A Tier-1 lane self-lands its PR using a fixed process: create `.github/pr-landin
 - **Tier-1 lanes:** self-land when the classifier arms auto-merge; report blocked arming to the manager in one line; manager lands if blocked.
 - **Tier-2/3 lanes:** hold for manager (T2) or operator approval (T3); never self-land.
 
+### After a `/performance-review` merges: dispatch `PERF-FOLLOWUP-<week>` (operator, 2026-10-10)
+
+When a `/performance-review` PR merges, dispatch **one** lane, `PERF-FOLLOWUP-<week>`
+(`<week>` = ISO week of the review, e.g. `PERF-FOLLOWUP-2026W41`), on the
+`perf-followup` skill (`.claude/skills/perf-followup/SKILL.md`): **Sonnet**, ceiling
+**$6**, checklist row written before dispatch, prompt naming the review file
+(`comms/reviews/performance-review-<stamp>.json`). Its Step 0 reads the previous run's
+units, so do not dispatch a second run for the same review. When it reports, apply what
+its pre-registered rules decide and surface its Tier-3 proposals per § "Before any
+operator popup" — they are classified, not forwarded.
+
 ### Model by task class
 
 | Task | Model |
