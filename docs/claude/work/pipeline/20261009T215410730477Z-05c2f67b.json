@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-11",
+    "kind": "date"
+  },
+  "id": "PI-20261009-CJWUMAVA-0001",
+  "kind": "finding",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "deploy",
+    "ref": "checklist:DAILY-DD-SWITCH",
+    "rerun": "curl -sS https://ict-bot.duckdns.org/api/bot/config | jq '.accounts[] | select(.name==\"ib_live\") | .daily_dd_switch'"
+  },
+  "state": "queued",
+  "what": "ib_live daily drawdown switch reads could_not_look after the per-tick observe fix (#17298): 12 of 13 armed accounts read ok at 2026-10-09T21:53Z on /api/bot/config, ib_live alone has no fresh equity (no balance_snapshots.json entry younger than 2h, or none at all). Until fixed, ib_live's switch cannot trip, and it will raise one 'unreadable' red flag after 3 ticks. Lane task: read runtime_logs/balance_snapshots.json for ib_live on the VM (diag log_file) and the snapshot writer's account list; fix the writer or the IB live connection (IB-GATEWAY-DOWN was closed today) so ib_live gets an equity reading younger than 2h."
+}

@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "due_date": "2026-10-14",
+    "kind": "date"
+  },
+  "id": "PI-20261010-SABSJT3I-0002",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-14",
+    "how_to_check": "git fetch origin claude/m20-sweep-corpus; git show FETCH_HEAD:docs/research/m20-sweep-corpus.jsonl | grep -c tp_extend",
+    "what": "corpus rows for the 2026-10-08 run ids readable (tp_extend rows with tp_cal_cell_*/tp_cal_base_*)"
+  },
+  "origin": {
+    "kind": "research",
+    "ref": "RESEARCH-READOUT 2026-10-10 stage-3 read of research/results/RQ-20261007-001/37724750138.jsonl",
+    "rerun": "git fetch -q origin claude/m20-sweep-corpus && git show FETCH_HEAD:docs/research/m20-sweep-corpus.jsonl | python3 -c \"import sys,json;rs=[json.loads(l) for l in sys.stdin if l.strip()];print(len(rs),max(str(r.get('sweep_generated_at')) for r in rs),sum(r.get('lever')=='tp_extend' for r in rs))\""
+  },
+  "state": "queued",
+  "what": "COLLECTOR GAP: the m20 sweep corpus rows are not retrievable, so the unit rules' secondary clauses cannot be graded. MEASURED 2026-10-10: result records for RQ-20261007-001/003/040..043 (run ids 37720491020..37796457348, generated 2026-10-08) say rows_landed 16-24 in docs/research/m20-sweep-corpus.jsonl on branch claude/m20-sweep-corpus, but that branch's newest rows are sweep_generated_at 2026-10-05 (1,874 rows, 0 with lever=tp_extend, 0 with run_id in those runs) and main's copy is dated 2026-10-06. So tp_cal_* calibration shares (001/003 clause a), walk-forward fold counts and ADX-exit attribution (040/042/043) are unreadable; 001/003 passes cannot become Tier-3 notes. Find where the 10-08 rows went (branch retarget / landing step) and land or re-run."
+}
