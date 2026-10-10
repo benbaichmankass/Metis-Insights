@@ -268,10 +268,12 @@ async def phone_claim(request: Request,
 async def phone_pending(accepts: str = "",
                         authorization: str | None = Header(default=None)) -> dict[str, Any]:
     """READ-ONLY: how many tickets are waiting for the device's account. Claims nothing; the backgrounded app
-    polls this and brings itself to the front before it claims (PI-20261006-APBY4NTV-0006)."""
+    polls this and brings itself to the front before it claims (PI-20261006-APBY4NTV-0006). ``status_age_hours``
+    (null = no dateable row) lets it also come forward to check its login when account_status is stale (PHONE-AUTOLOGIN)."""
     from src.prop import phone_executor as pe
     dev = _phone_device(authorization)
-    return {"ok": True, "pending": await asyncio.to_thread(pe.pending_count, dev, None, _accepts(accepts))}
+    return {"ok": True, "pending": await asyncio.to_thread(pe.pending_count, dev, None, _accepts(accepts)),
+            "status_age_hours": await asyncio.to_thread(pe.account_status_age_hours, dev.account_id)}
 
 
 @router.post("/phone/report")

@@ -30,8 +30,10 @@ class Api(private val c: Context) {
     }
 
     /** READ-ONLY peek used while the Activity is backgrounded: tickets waiting for this device's account, or null
-     *  when the VM is unreachable / refused. Claims nothing (the claim happens only once the Activity is resumed). */
-    suspend fun pending(): Int? = withContext(Dispatchers.IO) {
+     *  when the VM is unreachable / refused. Claims nothing (the claim happens only once the Activity is resumed).
+     *  Second: the VM's account_status age in hours (null when the server did not say; older servers don't), so the
+     *  backgrounded app brings itself forward to check its login when that age is stale. */
+    suspend fun pendingInfo(): Pair<Int, Double?>? = withContext(Dispatchers.IO) {
         try {
             // accepts=amend: this build executes trail amends (PROP-TRAIL-PHONE), so a waiting amend wakes it too
             val u = URL(base() + "/api/bot/prop/phone/pending?accepts=amend")
@@ -40,7 +42,12 @@ class Api(private val c: Context) {
             conn.connectTimeout = 10000; conn.readTimeout = 20000
             conn.setRequestProperty("Authorization", "Bearer " + Store.token(c))
             if (conn.responseCode !in 200..299) null
-            else JSONObject(conn.inputStream.bufferedReader().readText()).optInt("pending", -1).takeIf { it >= 0 }
+            else {
+                val j = JSONObject(conn.inputStream.bufferedReader().readText())
+                val n = j.optInt("pending", -1)
+                if (n < 0) null
+                else Pair(n, if (j.isNull("status_age_hours")) null else j.optDouble("status_age_hours").takeIf { !it.isNaN() })
+            }
         } catch (e: Exception) { null }
     }
 
