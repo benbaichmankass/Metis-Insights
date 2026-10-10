@@ -68,8 +68,19 @@ def emit_prop_signal(ticket: Ticket, *, push: bool = True, telegram: bool = True
     ``{"push": bool, "telegram": bool}`` — ``True`` means the leg was attempted
     without an exception (delivery itself is fire-and-forget downstream).
     """
-    fields = ticket_to_fields(ticket, account_id=account_id, ticket_id=ticket_id)
     out = {"push": False, "telegram": False}
+    if _machine_executed(account_id):
+        # PROP-MANUAL-MSG-SUPPRESS: the "BREAKOUT TRADE SETUP … REPORT BACK" text
+        # asks a human to place and report the trade. A machine-flow (REST, phone,
+        # browser) account's executor places and reports it, so nothing on it
+        # asks for manual input. The journal row keeps the rendered body
+        # (`prop_tickets.message`, read by prop_executor's entry-band check);
+        # only the human-facing sends (Telegram + prop_signal push) are refused.
+        logger.info("emit_prop_signal: refused for machine-executed account %s "
+                    "(ticket %s)", account_id, ticket_id)
+        return out
+
+    fields = ticket_to_fields(ticket, account_id=account_id, ticket_id=ticket_id)
 
     if push:
         try:

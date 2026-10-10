@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-11",
+    "kind": "date"
+  },
+  "id": "PI-20261010-JD1HZX7C-0002",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "ML-RESEARCH-W41 / RQ-20261008-903",
+    "rerun": "python3 scripts/research/research_result.py --validate research/results/RQ-20261008-903/38064712331.jsonl; grep -n ict_scalp_sol_15m config/accounts.yaml config/regime_policy.yaml"
+  },
+  "state": "queued",
+  "what": "Tier-3 DRAFT from RQ-20261008-903 (registered rule PASS-candidate): config/regime_policy.yaml trend_vol.transitional.volatile.ict_scalp_sol_15m: { long: off, short: off }. Evidence: n=27, pooled -4.8449 R (long n15 -1.4526, short n12 -3.3923), stable_drag both directions under FOLD_PANEL (3,4,5); ungated leg book -7.13 R, not all-folds-profitable; research/results/RQ-20261008-903/38064712331.jsonl. Caveats the operator should weigh: label verify not run (provisional), no multiplicity correction over 18 cells, and ict_scalp_sol_15m is execution: live but on NO account roster in accounts.yaml so the cell would change no order today. Suggest: hold the flip until the leg is rostered AND item -0003 verify clears; decision is a preference/sequencing call, not a missing-data one."
+}

@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-24",
+    "kind": "date"
+  },
+  "id": "PI-20261010-JD1HZX7C-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "ML-RESEARCH-W41 / RQ-20261008-902",
+    "rerun": "python3 -c \"import json;print(json.loads(open('research/results/RQ-20261008-902/38062126362.jsonl').readline())['measurement']['cells']['trending/volatile'])\""
+  },
+  "state": "queued",
+  "what": "RQ-20261008-902: BTC trend_donchian trending/volatile (authored live long: off) is insufficient_n (n=9 < 25 floor, fold-sensitive) on the 730-day window, so that authored cell is neither confirmed nor refuted. Data task: re-run regime_cell_walkforward.py --strategy trend_donchian --regime trending --vol volatile --vol-labels <BTC labels> with a longer --days (candles allow multi-year) to reach n >= 25, then apply the same registered rule. File as a new research unit with its rule registered before the run."
+}

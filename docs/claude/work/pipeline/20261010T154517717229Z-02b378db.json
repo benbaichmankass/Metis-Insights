@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-17",
+    "kind": "date"
+  },
+  "id": "PI-20261010-JD1HZX7C-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "ML-RESEARCH-W41 / RQ-20261008-900",
+    "rerun": "python3 -c \"import json;print([json.loads(l)['verdict'] for l in open('research/results/RQ-20261008-900/38059199318.jsonl')])\" and grep ict_scalp_xrp_15m docs/research/exit-refinement-coverage.json to see whether the retirement is recorded"
+  },
+  "state": "queued",
+  "what": "RQ-20261008-900 graded FAIL (k=1 of 3 folds positive, pooled R -1.938; 5-fold table 2 of 5 positive). Rule: retire the exit-head lever for ict_scalp XRP. Follow-through: mark ict_scalp_xrp_15m exit-head as retired in docs/research/exit-refinement-coverage.json (and any M19-S2EXIT note) citing research/results/RQ-20261008-900/38059199318.jsonl; free the trainer time for trend_donchian."
+}
