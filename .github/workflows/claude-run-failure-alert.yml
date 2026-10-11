@@ -37,6 +37,9 @@ name: claude-run-failure-alert
 on:
   workflow_run:
     workflows:
+      # LEDGER-REFRESH (2026-10-10): the broker-truth freshness grader; its death
+      # would silently end the only alarm on a stale ledger.
+      - broker-truth-freshness
       # E57 (2026-09-24): the research loss detector. It FAILS DELIBERATELY when
       # a question could not be read, and its death is otherwise silent until
       # its receipt goes stale in CI 36h later.

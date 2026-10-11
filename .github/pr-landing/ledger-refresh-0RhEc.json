@@ -1,0 +1,11 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "why": "LEDGER-REFRESH. Read paths only, no order path, no mode change, no self-halt: /api/bot/pnl/broker-truth gains a per-account `live` block (hourly-refreshed transaction-log store) and `declared_gaps`; /api/diag/bybit_wallet_truth gains an optional by_day series; bybit_2's ledger record declares the SUB sub-account as a CSV-only gap; a 6h Tier-1 workflow grades ledger freshness and records the daily journal-vs-wallet delta. Held because it touches src/** (runtime) and adds a scheduled workflow.",
+  "recorded_decision": {
+    "kind": "operator_decision",
+    "ref": "LEDGER-REFRESH"
+  },
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 runtime read-path + scheduled workflow; the manager merges it under LEDGER-REFRESH."
+}
