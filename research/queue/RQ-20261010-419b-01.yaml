@@ -1,0 +1,148 @@
+id: RQ-20261010-419b-01
+title: >-
+  TP doctrine, real money, gating-gap re-run: do the REACHABLE finite targets (tp_r <= 4.0) of trend_donchian_eth_4h
+  pass the IS/OOS gate? (RQ-20261006-060 and its 10-10 re-sweep gated only unreachable tp6 cells)
+status: queued
+cadence: once
+kind: experiment
+theme: live_strategy
+priority: 1
+question: >-
+  Perf-followup 2026-W41, Track 1 (exit shape). READ 2026-10-10 of the e35 corpus rows for leg
+
+  trend_donchian_eth_4h from RQ-20261006-060 (6 rows) and RQ-20261010-008 (199 rows, tp_cap_pct 0.099):
+
+  on the single `tp` axis every reachable finite target LOSES net R to the sentinel base over the 1830
+  d
+
+  window (base_net_total_r 40.67; tp4 d_net -7.6, tp2.5 -5.8, tp3 -13.6, tp2 -17.7), BUT with gate_top=2
+
+  per axis the IS/OOS gate admitted only the two tp6 cells, and tp6 is ABOVE the leg's cap_r (~5.6R at
+
+  atr_stop_mult 2.5: bybit_2 open trade 6489 stop 46.38 = 1.77% of entry vs a 9.9% venue cap) - i.e. the
+
+  sentinel under another name. No tp_r <= 4.0 cell, and none of the tp+stop cells that look best in-sample
+
+  (tp3_sm1.5_to96 d_net +18.0, tp4_sm1.5_to96 +17.8), ever reached the OOS gate. Question: with the gate
+
+  widened (gate_top 12 per axis, same leg, same 1830 d window, same split), does at least one finite
+
+  reachable target cell (tp_r <= 4.0) read is_oos_pass with base_oos_trades >= 39?
+why_this_matters: >-
+  Real money: trend_donchian_eth_4h is on bybit_2 (+ the bybit_portfolio mirror and bybit_1) with a 50R
+
+  sentinel TP that rests at the 9.9% venue cap; the open bybit_2 short 6489 (opened 2026-10-07, TP 2356.35,
+
+  SL 2568.88) peaked ~3.2R (estimated lower bound) and was ~1.58R at the 10-10 review - a giveback the
+  TP
+
+  doctrine (docs/ARCHITECTURE-CANONICAL.md) says the target should anticipate. RQ-20261006-060 was registered
+
+  to answer exactly this but its dispatch gated only the unreachable tp6 cells, so its honest_negative
+  branch
+
+  cannot be read from it. Lessons L5 in comms/perf_followup/perf-followup-20261010-191000.json.
+power:
+  expected_n: 49
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    n is the e35 sweep's own achieved base_oos_trades for this leg: 49 on the RQ-20260922-005 run (2026-09-24)
+    and 59 on the RQ-20260830-002 run (2026-09-29), read from docs/research/e35-bracket-corpus.jsonl via
+    `scripts/research/research_disposition.py --report`. The floor at d=0.45 is (1.96+0.8416)^2 / 0.45^2
+    = 38.76 -> 39, so 49 clears it by 10. Declared as the MINIMUM of the two observed counts, not the
+    maximum, so a run that lands at the lower boundary still grades as powered. Read a null as "no finite
+    cell beats the sentinel by half a standard deviation", never as "a finite target is worse".
+  feasibility:
+    source: corpus
+    corpus: e35
+    statistic: min_per_leg
+    legs:
+    - trend_donchian_eth_4h
+    basis: >-
+      Grounded on e35 because this unit's run IS an e35 bracket sweep, so the corpus statistic and the
+      run's own count are the same measurement. min_per_leg over this one leg reads 49 (2026-10-06), against
+      the 38.76 floor.
+decision_rule:
+  id: RULE-RQ-20261010-419b-01-REACHABLE-FINITE-TP-OOS
+  registered_at: '2026-10-10'
+  registered_before_run: true
+  statistic: >-
+    Over this run's rows for leg trend_donchian_eth_4h (research_unit RQ-20261010-419b-01): the set G
+    of DISTINCT
+
+    cells with finite tp_r <= 4.0 whose gate_verdict is not null (i.e. that reached the IS/OOS gate),
+    their
+
+    gate_verdict (is_oos_pass / is_oos_fail / wf_fail), gate_oos_d_net_r, and base_oos_trades. Net of
+    the
+
+    harness cost stack (execution_costs.resolve_cost_policy via the e35 sweep).
+  rule: >-
+    PASS IF |G| >= 4 AND at least one cell in G reads is_oos_pass AND base_oos_trades >= 39 -> a Tier-3
+
+    proposal to declare that cell's tp_r (best by gate_oos_d_net_r) on trend_donchian_eth_4h, applied
+    to
+
+    bybit_2, bybit_portfolio and bybit_1 in one PR (mirror-equality tests); a single passing cell is a
+
+    data-backed Tier-3 decision under the 2026-09-27 standing authorization (decide, ship, notify), two
+    or more
+
+    that differ only by preference go to the operator. FAIL (honest_negative) IF |G| >= 4 AND no cell
+    in G
+
+    passes AND base_oos_trades >= 39 -> a FIXED R-multiple does not beat the sentinel at OOS on this leg;
+    record
+
+    the honest_negative on RQ-20261006-060 too and route the doctrine answer to RQ-20261009-900 /
+
+    PI-20261006-5FUGHVX8-0001 (per-leg MFE-quantile target, extended while the thesis holds); never a
+    demotion.
+
+    INDETERMINATE IF |G| < 4 (the gate still did not reach the reachable cells - then fix the instrument,
+    do not
+
+    re-read) OR base_oos_trades < 39. NULL: any other landing is indeterminate.
+  what_it_does_not_do: >-
+    Touches no config. Does not demote the leg. Does not say a finite target is worse than the sentinel
+    on
+
+    full-window net R - the 10-10 corpus read already shows it is, on the tp axis; this unit asks only
+    whether
+
+    any reachable cell survives the OOS gate. Does not pre-empt RQ-20261009-900 (conditional prediction).
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 45
+  basis: >-
+    Runner. e35-bracket-sweep.yml shards one leg per job and fetches ETHUSDT 4h candles from data.binance.vision;
+    the leg is in plan_legs' runnable set (verified 2026-10-06 by calling plan_legs(..., ignore_missing_data=True)).
+    est_minutes is the template's per-leg timing (199 cells, ~6 min measured 2026-09-24, plus fetch),
+    not a measurement of this run.
+run:
+  workflow: e35-bracket-sweep.yml
+  inputs:
+    only: trend_donchian_eth_4h
+    days: '1830'
+    gate_top: '12'
+    singles_only: 'false'
+    max_parallel: '1'
+    research_unit: RQ-20261010-419b-01
+lands:
+  store: docs/research/e35-bracket-corpus.jsonl
+  assert_field: leg
+  min_rows: 1
+related:
+- RQ-20261006-060
+- RQ-20261010-008
+- RQ-20261009-900
+- RQ-20261007-080
+- PI-20261006-5FUGHVX8-0001
+- comms/perf_followup/perf-followup-20261010-191000.json
+last_dispatched_at: null

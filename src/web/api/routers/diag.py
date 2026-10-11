@@ -3216,6 +3216,7 @@ def get_bybit_wallet_truth(
     request: Request,
     account_id: str | None = None,
     days: int = 30,
+    by_day: bool = False,
 ) -> dict[str, Any]:
     """**Live** account-level wallet truth for Bybit, from the venue's own
     transaction log — the read surface for the API figure that replaced a
@@ -3286,6 +3287,10 @@ def get_bybit_wallet_truth(
                 window_start_ms=start_ms, window_end_ms=end_ms,
             )
             d = v.as_dict()
+            if by_day:
+                # Per-UTC-day series for the journal-vs-wallet delta
+                # (LEDGER-REFRESH); sums to the headline `realized_usd`.
+                d["daily"] = _wt.daily_buckets(rows)
             if not rows:
                 # The store holding nothing for this account is ambiguous from
                 # the store alone: never pulled, or pulled and genuinely empty.
