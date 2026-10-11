@@ -1,0 +1,8 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_decision",
+  "hold_text": "Checklist-row-only change recording that the PROP-EVIDENCE-2 confirming test (RQ-20261004-652, FAIL) already landed and dispositioning #16260 as close-with-reason. The manager merges.",
+  "why": "Docs-only row update; no config, code or runtime file touched.",
+  "recorded_decision": {"kind": "operator_decision", "ref": "PROP-EVIDENCE-2"}
+}

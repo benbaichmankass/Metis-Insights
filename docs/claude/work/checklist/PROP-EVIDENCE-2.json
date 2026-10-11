@@ -2,20 +2,20 @@
   "id": "PROP-EVIDENCE-2",
   "title": "Confirming test for HELD Tier-3 #16269 (SOL prop bracket tp_r 2.0 / atr_stop 3.5): out-of-sample walk-forward, neighbourhood plateau, tradeify ruleset; pre-registered",
   "phase": "W6",
-  "state": "queued",
+  "state": "done",
   "owner": "lane PROP-EVIDENCE-2",
   "lane": "session_018skNe5EqyibonwsfrvQeQ6",
   "model": "claude-opus-5-5",
   "ceiling_usd": 25,
-  "spend_usd": null,
+  "spend_usd": 0,
   "tier": 1,
   "prs": [
     16244,
     16269
   ],
   "blocked_on": null,
-  "note": "[2026-10-04T14:10Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Replaces stalled PROP-EVIDENCE. #16269 stays HELD; goes to the operator only if the pre-registered confirming test passes (operator directive 2026-09-29: file the data task instead of asking). 2026-10-10 unblocked (operator OK 2026-10-10): its blocker WORK-SYSTEM is done. Re-queued in the manager lane queue.",
-  "updated_at": "2026-10-10T12:34:41Z",
-  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
+  "note": "[2026-10-04T14:10Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Replaces stalled PROP-EVIDENCE. #16269 stays HELD; goes to the operator only if the pre-registered confirming test passes (operator directive 2026-09-29: file the data task instead of asking). 2026-10-10 unblocked (operator OK 2026-10-10): its blocker WORK-SYSTEM is done. Re-queued in the manager lane queue. [2026-10-11 lane session_01DbQjjtBYi5NGjPdRAPWTxz] NO RE-RUN NEEDED: the confirming test already ran and landed on main as RQ-20261004-652 (rule RULE-RQ1004-652-SOL-BRACKET-CONFIRM registered at b13a6a5b before the script existed; row research/results/RQ-20261004-652/session-20261004.jsonl, verdict fail, read_state measured). RESULT FAIL on 4 of 5 clauses, SOLUSDT 1h 2020-09-25..2026-10-03, static bracket, full cost stack: C1 unseen PRE window (n=226 cand / 243 live) cand +32.54R vs live +45.41R (delta -12.87R); C2 expanding-window walk-forward F3..F6 never selected the candidate, OOS +11.99R vs live +28.07R; C3 plateau 0/9 cells beat live on the 6y pool (median +40.84R vs +57.73R); C4 breakout holds but tradeify_247_1step fails (cand EV/life -$7.55, P(pass) ~0.37 vs live +$148, ~0.56); C5 lot/min-risk holds. The last-730d slice reproduces RQ-651 exactly (+12.33R live / +17.97R cand), so RQ-651's PASS is a selection-window artifact. PROPOSAL PATH CLOSED: live levers 6.0/2.5 stand; #16269 is already CLOSED unmerged (2026-10-04T15:00Z) and stays closed; no Tier-3 proposal. #16260 DISPOSITION: CLOSE-WITH-REASON (manager to close; this lane did not). Its conclusion is superseded by RQ-652 (which re-derives the 730d numbers itself via prop_bracket_confirm.py), its headline label 'PASS' is the refuted result, and merging 8.9k lines with a PASS row into research/results would mislead. Caveat for the manager: RQ-652.yaml lists research/queue/RQ-20261004-651.yaml under related:, which does not exist on main, so that link dangles; harmless, or merge #16260 for the record only after relabelling its row as superseded. Spend $0, no VM run, no config touched.",
+  "updated_at": "2026-10-11T00:33:12Z",
+  "updated_by": "session_01DbQjjtBYi5NGjPdRAPWTxz",
   "_seq": 281
 }
