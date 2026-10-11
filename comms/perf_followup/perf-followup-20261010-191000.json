@@ -1,0 +1,344 @@
+{
+  "run_at": "2026-10-10T22:40:00+00:00",
+  "reviewer": "claude (perf-followup)",
+  "session": "session_01RQd8R7BrCqA2gTeF56ckvz (lane PERF-FOLLOWUP-2026W41, manager session_01Uq7MrjPQDRWqbhCjwuMava)",
+  "review": "comms/reviews/performance-review-20261010-191000.json",
+  "window": [
+    "2026-10-04T10:38:45+00:00",
+    "2026-10-10T19:10:00+00:00"
+  ],
+  "population_note": "Window = the review's. Track 2/4 cuts use a wider bybit_1 bucket-A population (classify_paper_records.py on 6563 journal rows -> 804 bucket A; 371 bybit_1 rows with initial risk recoverable from order_packages.exit_plan_state.risk; entry dates 2026-06-18..2026-10-09; the journal trades.stop_loss and order_packages.sl are TRAILED values, not the initial stop - R computed from them is inflated 2-10x). R = pnl / (exit_plan_state.risk x position_size). Mirror accounts excluded to avoid double count.",
+  "previous_run": null,
+  "previous_run_note": "first run - no prior comms/perf_followup record, no prior units",
+  "step0_adjacent_read": "Read RQ-20261010-008 (e35 monthly re-sweep of trend_donchian_eth_4h, unread, accruing) because it answers the review's eth_4h giveback item; disposition recorded in docs/research/research-disposition-ledger.jsonl as underpowered (accrual_check clear). The other 25 unread units were not in scope and were not read.",
+  "tune": [
+    {
+      "leg": "trend_donchian_eth_4h (bybit_2 real money, open short 6489)",
+      "cause": "exit shape (TP doctrine)",
+      "retest_ref": "RQ-20261006-060 + RQ-20261010-008 corpus rows; gating gap: gate_top=2/axis admitted only unreachable tp6 cells",
+      "ends_in": "RQ-20261010-419b-01"
+    },
+    {
+      "leg": "xrp_pullback_2h, ada_pullback_2h (live pullbacks; paper bleed is short-side)",
+      "cause": "regime",
+      "retest_ref": "#7915 refuted a LONG drag; this is the SHORT side; ada E35/M20 already queued RQ-20260928-016/-019",
+      "ends_in": "RQ-20261010-419b-02"
+    },
+    {
+      "leg": "avax_pullback_2h, sol_pullback_2h, eth_pullback_2h (review's 12.5% / 9.1% win rates)",
+      "cause": "overfit (Stage-0 FAIL, cut)",
+      "retest_ref": "MD-S1-CUT-ON-STAGE0-FAIL / SOAK-GATE1, config/accounts.yaml read this session: on no Bybit roster",
+      "ends_in": "no action, because the legs left every roster on 2026-10-05 and a tune sweep has no consumer; re-entry only through MD-PROMOTE-S0-S1 on a passing Stage-0 record. The tracker that still counts them is PI-20261010-ERFFUW41-0002"
+    },
+    {
+      "leg": "mgc_trend_1h (16 rejected, tp_r 50.0)",
+      "cause": "execution (apparent) -> by design",
+      "retest_ref": "strategies.yaml:1836 execution: shadow; execute.py:440-470",
+      "ends_in": "PI-20261010-ERFFUW41-0001"
+    },
+    {
+      "leg": "trend_donchian_xrp_4h / ada_pullback_2h watchdog closes 6528, 6549",
+      "cause": "execution",
+      "retest_ref": "label fix #17455",
+      "ends_in": "no action, because the mislabel is fixed in #17455 and handled by the manager; not this lane's"
+    },
+    {
+      "leg": "ict_scalp_xrp_15m, trend_donchian_sol, trend_donchian_xrp_4h(-1.39k est.) single-trade windows",
+      "cause": "overfit?",
+      "retest_ref": "n=1-3 per leg in window",
+      "ends_in": "no action, because n<=3 cannot support a claim and ict_scalp_*/trend_donchian_sol are off the Bybit rosters (2026-10-05)"
+    }
+  ],
+  "lessons": [
+    {
+      "id": "L1",
+      "kind": "weakness",
+      "claim": "The paper 2h-pullback bleed is on the SHORT side (17 trades, -5.7R, -$7,140, 17.6% win) while longs are near flat (20 trades, -1.1R, -$1,718).",
+      "evidence": [
+        "trade:6548",
+        "trade:6514",
+        "trade:6135",
+        "trade:5839",
+        "trade:5837",
+        "trade:5694",
+        "trade:5669",
+        "trade:5402",
+        "trade:5358",
+        "trade:5087",
+        "trade:4585",
+        "trade:4571",
+        "trade:4148",
+        "trade:4008",
+        "trade:3441",
+        "trade:3408",
+        "trade:2739"
+      ],
+      "population": "bybit_1 bucket-A, initial-risk R, n=37 pullback trades (all pullback legs incl. cut), 2026-06-18..2026-10-09",
+      "confidence": "suggestive",
+      "ends_in": "RQ-20261010-419b-02"
+    },
+    {
+      "id": "L2",
+      "kind": "weakness",
+      "claim": "The trend family earns its R on the LONG side (44 trades, +17.7R, +$10,906, 38.6% win); shorts lose (17 trades, -12.2R, -$12,198, 11.8% win), spread over six legs with n=2-4 each.",
+      "evidence": [
+        "trade:6527",
+        "trade:6238",
+        "trade:5786",
+        "trade:5785",
+        "trade:5467",
+        "trade:5309",
+        "trade:5249",
+        "trade:5247",
+        "trade:5246",
+        "trade:4697",
+        "trade:4576",
+        "trade:4574",
+        "trade:4334",
+        "trade:4314",
+        "trade:4078",
+        "trade:3933",
+        "trade:2686",
+        "op:prop-manual-b640ea26a705",
+        "op:prop-manual-6fbebc711fa6"
+      ],
+      "population": "bybit_1 bucket-A trend family n=61, same window; per-leg n too small (anecdote), pooled suggestive; xrp_4h is short-only by config",
+      "confidence": "suggestive",
+      "ends_in": "RQ-20261010-419b-03"
+    },
+    {
+      "id": "L3",
+      "kind": "weakness",
+      "claim": "Losses cluster: the 10 worst of 82 trading days carry -92.7R of the -138.1R of negative-day R (67%) and 14 days had >=4 legs losing together; scalp legs on adjacent alts are one bet (avax/sol 5m corr +0.51).",
+      "evidence": [
+        "trade:6443",
+        "trade:6449",
+        "trade:6451",
+        "trade:6433",
+        "trade:6444"
+      ],
+      "population": "bybit_1 bucket-A n=371, 82 trade-days, daily sum of R per leg; correlation on days where both legs traded is n=5-23, reported not relied on",
+      "confidence": "measured",
+      "ends_in": "RQ-20261010-419b-04"
+    },
+    {
+      "id": "L4",
+      "kind": "weakness",
+      "claim": "intent_reduce chunk closes leave pnl NULL and 81 of 114 are never settled, so booked P&L omits the reduced quantity (bybit_1 6532 alone ~-$222 of loss on no row; real-money bybit_2 6533/6539 -$0.21).",
+      "evidence": [
+        "trade:6532",
+        "trade:6533",
+        "trade:6534",
+        "trade:6539",
+        "trade:6540",
+        "trade:6527",
+        "trade:6528"
+      ],
+      "population": "diag journal trades, all 6563 rows, exit_reason=intent_reduce_executed n=114, pnl NULL 81; the +$28.7k aggregate is an upper-bound ESTIMATE (reduce fill vs parent entry), sign and size unverified",
+      "confidence": "measured",
+      "ends_in": "PERF-FU-REDUCE-PNL"
+    },
+    {
+      "id": "L5",
+      "kind": "weakness",
+      "claim": "TP reach falls as the planned TP rises: scalp 1.5R reached 33.7% (n=273), trend median 3.99R reached 24.6% (n=61), pullback median 3.09R reached 13.5% (n=37); the eth_4h reachable finite targets were never OOS-gated.",
+      "evidence": [
+        "trade:6489",
+        "op:pkg-d29c9c617aa14b40",
+        "corpus:RQ-20261010-008",
+        "corpus:RQ-20261006-060"
+      ],
+      "population": "bybit_1 bucket-A tp-exit share by family, planned TP from exit_plan_state.targets[-1].reach_r",
+      "confidence": "measured",
+      "ends_in": "RQ-20261010-419b-01"
+    },
+    {
+      "id": "L6",
+      "kind": "strength",
+      "claim": "Bracket TP fills are honest: median realized/planned R on TP exits is 0.97 (scalp, n=92), 1.00 (trend, n=15), 0.99 (pullback, n=5) - the probe separates a stale-stop artifact (R 7x planned) from the correct basis.",
+      "evidence": [
+        "trade:6168",
+        "op:pkg-cc329680bb3f445e"
+      ],
+      "population": "bybit_1 bucket-A tp-exit rows, initial-risk R",
+      "confidence": "measured",
+      "ends_in": "no action, because it is the verified behaviour of the existing bracket path (no change warranted); it is the control that makes L5 readable"
+    },
+    {
+      "id": "L7",
+      "kind": "weakness",
+      "claim": "The review's pullback verdict points at legs already cut: avax (n=8, -$5,530) and sol (n=11, -$2,612) are 69% of the family's -$10,194 and sit on no roster since 2026-10-05.",
+      "evidence": [
+        "file:docs/research/paper-book-tracker.jsonl@2026-10-10T19:08",
+        "file:config/accounts.yaml:223,409"
+      ],
+      "population": "paper-book tracker per_cell n=179 bybit_1 non-pairs vs current rosters",
+      "confidence": "measured",
+      "ends_in": "PI-20261010-ERFFUW41-0002"
+    },
+    {
+      "id": "L8",
+      "kind": "weakness",
+      "claim": "The review counts execution:shadow packages as 'rejected': mgc_trend_1h's 16 rejected / no cause are shadow-by-design, so the anomaly list hides the difference between not-sent and refused.",
+      "evidence": [
+        "op:pkg-e72a4a9400ba42af",
+        "file:config/strategies.yaml:1836",
+        "file:src/units/accounts/execute.py:440-470"
+      ],
+      "population": "order_packages strategy_name=mgc_trend_1h n=281; since 2026-09-01 n=85, rejected/None 74",
+      "confidence": "measured",
+      "ends_in": "PI-20261010-ERFFUW41-0001"
+    },
+    {
+      "id": "L9",
+      "kind": "weakness",
+      "claim": "Two prop accounts hold the same ETH long from trend_donchian_eth_prop in one hour and the review graded only one of them.",
+      "evidence": [
+        "op:prop-manual-b640ea26a705",
+        "op:prop-manual-6fbebc711fa6"
+      ],
+      "population": "/api/bot/prop/fills limit=12 on 2026-10-10; both status open",
+      "confidence": "measured",
+      "ends_in": "PI-20261010-ERFFUW41-0003"
+    },
+    {
+      "id": "L10",
+      "kind": "weakness",
+      "claim": "Opposing legs on one symbol net through intent_reduce on real money: xrp_pullback_2h long reduced the open trend_donchian_xrp_4h short on 2026-10-09 (bybit_2 4.7 of 61.6 units, bybit_1 41%).",
+      "evidence": [
+        "trade:6532",
+        "trade:6533",
+        "trade:6539",
+        "trade:6527",
+        "trade:6528"
+      ],
+      "population": "two events on 2026-10-09 (02:00Z, 04:41Z), n=2; the pair is the only same-symbol opposing-leg pair on the bybit_2 roster (config/accounts.yaml read)",
+      "confidence": "anecdote",
+      "ends_in": "RQ-20261010-419b-04"
+    },
+    {
+      "id": "L11",
+      "kind": "strength",
+      "claim": "velotrade_1's first market-converted entry filled better than ticket (entry 2509.4 vs 2509.59 ticket, -0.76 bps) with SL/TP landing as ticketed.",
+      "evidence": [
+        "op:prop-manual-6fbebc711fa6"
+      ],
+      "population": "n=1 fill",
+      "confidence": "anecdote",
+      "ends_in": "PI-20261010-ERFFUW41-0003 (re-run when it closes); no action on n=1"
+    }
+  ],
+  "extrapolate": [
+    {
+      "lesson": "L1",
+      "applies_to": [
+        "xrp_pullback_2h",
+        "ada_pullback_2h"
+      ],
+      "new_hypothesis": "side_filter: long on the live 2h pullbacks, if the short drag survives 4-fold walk-forward",
+      "ends_in": "RQ-20261010-419b-02"
+    },
+    {
+      "lesson": "L2",
+      "applies_to": [
+        "trend_donchian_eth_4h",
+        "trend_donchian_xrp_4h(control, short-only)",
+        "trend_donchian_eth_prop",
+        "trend_donchian_sol_prop"
+      ],
+      "new_hypothesis": "long-only prop Donchian (a side_filter on the prop legs, the highest-priority theme)",
+      "ends_in": "RQ-20261010-419b-03"
+    },
+    {
+      "lesson": "L5",
+      "applies_to": [
+        "ada_pullback_2h",
+        "xrp_pullback_2h"
+      ],
+      "new_hypothesis": "calibrate pullback TP to a ~25-35% reach rate",
+      "ends_in": "no action, because already queued: RQ-20260928-016 (E35 ada), RQ-20260928-019 (M20 ada), RQ-20261007-001/-003 (extension/re-estimation) - a new unit would duplicate them"
+    },
+    {
+      "lesson": "L3",
+      "applies_to": [
+        "bybit_2 roster",
+        "prop book"
+      ],
+      "new_hypothesis": "leave-one-leg-out and per-symbol de-concentration",
+      "ends_in": "RQ-20261010-419b-04"
+    },
+    {
+      "lesson": "L4",
+      "applies_to": [
+        "every account with intent_reduce rows (bybit_1, bybit_portfolio, bybit_2)"
+      ],
+      "new_hypothesis": "structural: settle or document reduce-chunk P&L",
+      "ends_in": "PERF-FU-REDUCE-PNL"
+    },
+    {
+      "lesson": "L2/L1/L3",
+      "applies_to": [
+        "three blocked units"
+      ],
+      "new_hypothesis": "structural: one emit-keeping replay instrument unblocks all three",
+      "ends_in": "PERF-FU-LEG-REPLAY"
+    }
+  ],
+  "portfolio": [
+    {
+      "question": "Correlation and overlap between legs",
+      "finding": "bybit_1 scalp pairs avax/sol 5m +0.51, sol 15m/5m +0.47, xrp 5m/avax 5m +0.40 (shared days n=5-23); roster-level correlation for the four live bybit_2 legs is not computable without per-leg daily series",
+      "ends_in": "RQ-20261010-419b-04"
+    },
+    {
+      "question": "Concentration by symbol/side/regime",
+      "finding": "bybit_1 by symbol (R): XRP -20.9 (n=74), SOL +25.7, ADA +8.4, ETH -5.0, AVAX -4.0, BTC -0.9; two of four live real-money legs are XRP and they already conflicted on 2026-10-09; prop: three accounts, one ETH long",
+      "ends_in": "RQ-20261010-419b-04"
+    },
+    {
+      "question": "Allocation and sizing vs contribution (R)",
+      "finding": "bybit_2 real money, bucket-A n=84, -11.5R / -$71.57: eth_4h +8.2R (8), trend_donchian +2.9R (10), xrp_pullback -5.9R (12), ada_pullback -5.6R (10), eth_pullback -4.1R (9, cut), xrp_4h -2.5R (5); dollars are tiny and not comparable with paper",
+      "ends_in": "RQ-20261010-419b-04"
+    },
+    {
+      "question": "Drawdown clustering",
+      "finding": "bybit_1: worst 10 of 82 days = -92.7R of -138.1R negative-day R; 14 days with >=4 legs losing; net +3.4R over the period",
+      "ends_in": "RQ-20261010-419b-04"
+    },
+    {
+      "question": "Removals and additions; real-money allocation benchmark",
+      "finding": "No Tier-3 proposal: leave-one-out cannot be computed on the committed data (instrument gap), and the review's benchmark was null (bybit_2 n=4 priced closes) - missing data is a task, not an operator question",
+      "ends_in": "PERF-FU-LEG-REPLAY"
+    }
+  ],
+  "queue_units": [
+    "RQ-20261010-419b-01 (dispatchable, e35-bracket-sweep.yml)",
+    "RQ-20261010-419b-02 (blocked)",
+    "RQ-20261010-419b-03 (blocked)",
+    "RQ-20261010-419b-04 (blocked)"
+  ],
+  "queue_units_overflow": "none - 4 of the 8 cap used; RESEARCH-NIGHT-1010 units RQ-20261010-353c-01..20 not duplicated",
+  "pipeline_items": [
+    "PI-20261010-ERFFUW41-0001",
+    "PI-20261010-ERFFUW41-0002",
+    "PI-20261010-ERFFUW41-0003"
+  ],
+  "checklist_rows": [
+    "PERF-FOLLOWUP-2026W41",
+    "PERF-FU-REDUCE-PNL",
+    "PERF-FU-LEG-REPLAY"
+  ],
+  "tier3_proposals": 0,
+  "not_verified": [
+    "MFE/giveback per trade (not in the journal; the eth_4h 3.22R peak is the review's estimate)",
+    "the +$28.7k unbooked-reduce aggregate",
+    "per-leg R for legs with n<8",
+    "whether RQ-20261006-060/-061 results beyond the 6 corpus rows exist (no research/results/ dir; they land in docs/research/e35-bracket-corpus.jsonl)"
+  ],
+  "cost_usd": 3.5,
+  "cost_note": "estimated; the session has no spend meter, ceiling $6, no external LLM or GPU spend",
+  "done": {
+    "every_entry_ends": true,
+    "previous_run_closed": true
+  }
+}

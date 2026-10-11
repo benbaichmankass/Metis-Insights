@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "clears_when": "both prop-manual-b640ea26a705 and prop-manual-6fbebc711fa6 are closed and trade_quality_review.py has graded each (placed vs ticketed, exit reason, R)",
+    "kind": "event"
+  },
+  "id": "PI-20261010-ERFFUW41-0003",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-17",
+    "how_to_check": "curl https://ict-bot.duckdns.org/api/bot/prop/fills?limit=12 and read status of both ticket_ids; then python3 scripts/prop/trade_quality_review.py",
+    "what": "prop-manual-b640ea26a705 (tradeify_1) and prop-manual-6fbebc711fa6 (velotrade_1) have both closed"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "lane PERF-FOLLOWUP-2026W41 L9; GET /api/bot/prop/fills?limit=12 on 2026-10-10",
+    "rerun": "python3 scripts/prop/trade_quality_review.py ; curl /api/bot/prop/fills and check status of prop-manual-b640ea26a705 and prop-manual-6fbebc711fa6"
+  },
+  "state": "queued",
+  "what": "prop_trade_quality in the 10-04..10-10 review covers velotrade_1's prop-manual-6fbebc711fa6 only; /api/bot/prop/fills also shows tradeify_1 prop-manual-b640ea26a705 (ETHUSDT long, filled 2506.92 qty 3.84 sl 2493.9 tp 2585.038, reported 2026-10-10T14:53Z, status open) - the same trend_donchian_eth_prop long, one hour earlier, on a second firm. Two open prop longs on one leg is the 'same bet twice' concentration Track 4 asks about, and the second was ungraded. Re-run scripts/prop/trade_quality_review.py once either closes and grade both: placed-vs-ticketed slippage (velotrade: entry 2509.4 vs ticket 2509.59, -0.76 bps per the review), per-firm exit, and the realised R per firm."
+}

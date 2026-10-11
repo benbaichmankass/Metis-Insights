@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-17",
+    "kind": "date"
+  },
+  "id": "PI-20261010-ERFFUW41-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "lane PERF-FOLLOWUP-2026W41 L8 (comms/perf_followup/perf-followup-20261010-191000.json); review comms/reviews/performance-review-20261010-191000.json anomalies[1]",
+    "rerun": "python3 - <<< count order_packages strategy_name=mgc_trend_1h status/close_reason via diag journal?table=order_packages&limit=200&offset=N; confirm config/strategies.yaml mgc_trend_1h execution still shadow"
+  },
+  "state": "queued",
+  "what": "performance-review counts execution:shadow packages as 'rejected': mgc_trend_1h shows n_rejected=16 / n_decisions=16 in the 10-04..10-10 review and was flagged as an anomaly 'rejected with no recorded cause'. By design: config/strategies.yaml:1836 execution: shadow (operator-approved 2026-06-18) and src/units/accounts/execute.py:440-470 journals a non-live rejection row (status rejected, close_reason NULL, reason dry_run_no_order_placed) for every shadow dispatch. 281 mgc_trend_1h packages on 2026-05..10-10, 74 of 85 since 09-01 are rejected/None. Fix is Tier-1 tooling: have the performance-review aggregates (and the skill's anomaly list) split shadow-by-design from refused so n_rejected is not inflated and a real refusal is not hidden among them."
+}
