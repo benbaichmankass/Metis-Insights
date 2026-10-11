@@ -11,8 +11,20 @@
       "window_start": "2026-04-15",
       "window_end": "2026-07-13",
       "source": "bybit_um_export_stitched",
-      "sub_accounts": ["MAIN", "SUB"],
-      "note": "Wallet-truth (Bybit UM Change minus transfers), stitched across two sub-accounts (MAIN -1.52 + SUB -261.01). The account mixed spot+perp and switched sub-accounts on 2026-05-10, producing a conversion cohort that per-fill FIFO / per-row journal attribution can't resolve (perp TRADE gross was +768 vs this wallet-truth -262.52). This account-level figure is authoritative; the journal per-row pnl (~-33) under-records and is left unmodified."
+      "sub_accounts": [
+        "MAIN",
+        "SUB"
+      ],
+      "note": "Wallet-truth (Bybit UM Change minus transfers), stitched across two sub-accounts (MAIN -1.52 + SUB -261.01). The account mixed spot+perp and switched sub-accounts on 2026-05-10, producing a conversion cohort that per-fill FIFO / per-row journal attribution can't resolve (perp TRADE gross was +768 vs this wallet-truth -262.52). This account-level figure is authoritative; the journal per-row pnl (~-33) under-records and is left unmodified.",
+      "declared_gaps": [
+        {
+          "sub_account": "SUB",
+          "amount_usd": -261.01,
+          "frozen_as_of": "2026-07-13",
+          "reason": "No API read path: the live API credentials belong to the MAIN sub-account only (measured 2026-08-31: API reproduces MAIN -1.52 to the cent over the ledger window and returns zero SUB rows). SUB history exists only in the operator's UM CSV export. Anything the account did in SUB after frozen_as_of is unobservable here.",
+          "refresh": "live block (API, MAIN) refreshes hourly via the transaction-log puller; the SUB component stays frozen until an operator export or a sub-account-credential lane exists"
+        }
+      ]
     }
   ],
   "updated_at": "2026-07-13T19:40:00+00:00"

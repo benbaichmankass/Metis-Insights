@@ -1,0 +1,111 @@
+id: RQ-20261010-419b-03
+title: >-
+  Trend-family long/short asymmetry: do trend_donchian legs earn their R on the LONG side only (live bybit_2/prop
+  legs: eth_4h, xrp_4h, eth_prop, sol_prop)? (perf-followup 2026-W41 L2)
+status: blocked
+cadence: once
+theme: new_strategy_prop
+priority: 1
+kind: experiment
+question: >-
+  MEASURED 2026-10-10 on bybit_1 bucket-A (initial-risk R from order_packages.exit_plan_state.risk, 2026-06-18..2026-10-09):
+  trend family LONG n=44 sum +17.7R +$10,906 (win 38.6%) vs SHORT n=17 sum -12.2R -$12,198 (win 11.8%)
+  (shorts ids 6527 6238 5786 5785 5467 5309 5249 5247 5246 4697 4576 4574 4334 4314 4078 3933 2686). The
+  shorts are spread over 6 trend legs with n=2-4 each (confidence = suggestive pooled, anecdote per leg).
+  The prop leg trend_donchian_eth_prop flipped short->long on 2026-10-10 (tickets prop-manual-b640ea26a705
+  tradeify_1, prop-manual-6fbebc711fa6 velotrade_1, both long ETH) so the prop book is about to be long-heavy.
+  Question: per leg (never pooled across legs with different side_filter -- read config first: trend_donchian_xrp_4h
+  is short-only by design), at live params over 1830 d in 4 folds, is the short side net R negative in
+  a strict majority of folds with >= 39 shorts; and across the trend family via the pooled E38 harness?
+why_this_matters: >-
+  Prop first (operator 2026-10-05): trend_donchian_eth_prop/sol_prop are all six prop routings. If the
+  family's edge is one-directional the prop book's risk is a regime bet on direction; and a side_filter
+  is a Tier-3 lever that the mirror tests make a one-PR change.
+power:
+  expected_n: 60
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    expected_n = SHORT trades of the smallest stratum: e35 base trades trend_donchian_eth_4h 189 and trend_donchian_xrp_4h
+    135 over 1830 d (IS+OOS 2026-10-09), shorts roughly half but xrp_4h is short-only so its stratum is
+    ALL trades; eth_4h shorts ~95; set 60 as a conservative floor-clearing value (floor 39 at d=0.45).
+  feasibility:
+    source: none
+    accrual_basis: >-
+      No committed per-direction trade count exists for these legs at live params: the e35 corpus stores
+      IS/OOS base counts per leg, not a long/short split. The
+
+      unit's first output IS that split; below the floor (39 trades per direction, d=0.45) it grades indeterminate,
+      never FAIL.
+decision_rule:
+  id: RULE-RQ-20261010-419b-03-PREREG
+  registered_at: '2026-10-10'
+  registered_before_run: true
+  statistic: >-
+    Per leg (not pooled across differing side_filters): per-fold SHORT and LONG net R net of cost from
+    direction_walkforward on config-exact harness emits; n_short; folds_negative_short; pooled_short_net_r.
+    Family arm: scripts/research/e38_pooled_trend_donchian.py pooled over the same legs.
+  rule: >-
+    CONFIRMED for a leg IF n_short >= 39 AND folds_negative_short >= 3 of 4 AND pooled_short_net_r < 0
+    AND that leg is not short-only by config -> Tier-3 proposal side_filter: long on that leg (and its
+    mirrors in one PR); a leg whose short side is stable positive is a counter-example and ends the family
+    claim. NOT CONFIRMED IF n_short >= 39 AND (folds_negative_short <= 2 of 4 OR pooled_short_net_r >=
+    0) for every leg tested -> honest_negative, the paper short bleed was legs-and-window luck. INDETERMINATE
+    IF n_short < 39 for a leg (that leg only).
+  what_it_does_not_do: Touches no config or prop roster; does not grade xrp_4h's short-only decision (a
+    control); not a demotion.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 40
+  basis: >-
+    Runner, one leg-replay-emit invocation (harness over 1830 d binance_vision candles, stdlib folds).
+    An estimate, not a measurement.
+blocked_on:
+- what: >-
+    No queue-runnable instrument replays a live roster's legs config-exact and keeps per-trade rows: m20_fleet_exit_sweep.py
+
+    keeps only summaries, mi307_offline_mfe.py --run discards `rows`, direction_walkforward.py needs a
+    pre-made
+
+    --emit-trades JSONL, regime_cell_walkforward.py is a debt-roster (Yahoo-feed) workflow and not queue-dispatchable,
+    and
+
+    nbook_portfolio.py needs a --data/--roster the runner does not stage. LEVER NAME: `leg-replay-emit`
+    -- a
+
+    scripts/research/ script (research-script-run.yml-compatible: writes {out_dir}/verdict.json) that,
+    for a named leg list, builds the
+
+    config-exact harness args, runs backtest_trend.py / backtest_pullback.py with --emit-trades over the
+    1830 d binance_vision
+
+    window, keeps the emits under {out_dir}, then (a) runs direction_walkforward per leg and (b) writes
+    per-leg daily-R series for
+
+    portfolio replay.
+  ref: PERF-FU-LEG-REPLAY (docs/claude/work/checklist/)
+  clears_when: >-
+    `python3 scripts/research/leg_replay_emit.py --legs <csv> --out <dir>` writes verdict.json with per-leg,
+    per-direction fold
+
+    results for at least xrp_pullback_2h, ada_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h;
+    then `git mv` this file to
+
+    research/queue/ and set run.workflow to research-script-run.yml with run.command pointing at it and
+    lands.store research/results/.
+run:
+  workflow: null
+  note: Deliberately null until blocked_on clears (instrument PERF-FU-LEG-REPLAY).
+lands:
+  store: research/results/ (once promoted)
+related:
+- comms/perf_followup/perf-followup-20261010-191000.json
+- scripts/research/direction_walkforward.py
+- scripts/research/e38_pooled_trend_donchian.py
+- RQ-20261007-904
+last_dispatched_at: null

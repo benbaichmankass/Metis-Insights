@@ -1,0 +1,18 @@
+{
+  "id": "PERF-FOLLOWUP-2026W41",
+  "title": "Perf-followup on performance-review-20261010-191000 (4 tracks)",
+  "phase": "perf-followup",
+  "state": "in_flight",
+  "owner": "lane PERF-FOLLOWUP-2026W41",
+  "lane": "PERF-FOLLOWUP-2026W41",
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "2026-10-10 run complete, PR #17470 open (ready, landing HELD for manager merge, merge-slot claimed). Counts: 4 queue units (RQ-20261010-419b-01 dispatchable; -02/-03/-04 blocked on PERF-FU-LEG-REPLAY), 3 checklist rows (this + PERF-FU-REDUCE-PNL + PERF-FU-LEG-REPLAY), 3 pipeline items (PI-20261010-ERFFUW41-0001..0003), 0 Tier-3 proposals, 1 disposition line. ceiling_usd 6, spend ~3.5 estimated (no meter). State stays in_flight until the manager merges; then landed_unproven: closes when RQ-20261010-419b-01 lands rows in docs/research/e35-bracket-corpus.jsonl.",
+  "updated_at": "2026-10-10T22:32:10Z",
+  "updated_by": "session_01RQd8R7BrCqA2gTeF56ckvz",
+  "_seq": 386
+}

@@ -1,0 +1,114 @@
+id: RQ-20261010-419b-04
+title: >-
+  Portfolio: on the live Bybit roster (bybit_2: xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h,
+  ada_pullback_2h) and the prop book, which leg's removal or de-concentration would have raised trailing
+  net R / cut co-drawdown? (perf-followup 2026-W41 Track 4)
+status: blocked
+cadence: once
+theme: live_strategy
+priority: 2
+kind: experiment
+question: >-
+  MEASURED 2026-10-10 (bybit_1 paper book, bucket-A with initial risk, n=371, 82 trading days 2026-06-18..2026-10-09):
+  total +3.4R yet the 10 worst days sum -92.7R of -138.1R total negative-day R (67% of losses on 12% of
+  days); 14 of 82 days had >= 4 legs losing together; leg pairs ict_scalp_avax_5m/ict_scalp_sol_5m corr
+  +0.51 and sol_15m/sol_5m +0.47 (same bet twice, mostly cut 2026-10-05); XRP is the worst symbol (-20.9R,
+  -$8,987, n=74) and two of the four live real-money legs are XRP (xrp_pullback_2h, trend_donchian_xrp_4h)
+  which already conflicted on 2026-10-09 (intent_reduce rows 6532-6534, 6539-6540). Prop: three accounts
+  carry the same trend_donchian_eth_prop ETH long opened 2026-10-10 (tradeify_1 prop-manual-b640ea26a705,
+  velotrade_1 prop-manual-6fbebc711fa6). Question: over the config-exact 1830 d replay of the four bybit_2
+  legs, (1) what is the daily-R correlation and co-drawdown matrix, (2) what share of net R and of max
+  drawdown does each leg and each symbol carry in R (not $), and (3) does leave-one-leg-out raise net
+  R / lower max DD OOS?
+why_this_matters: >-
+  Allocation and concentration are the lever the single-leg tune units cannot see. The mirror rule means
+  any roster change is one PR across bybit_2/portfolio; a removal is a Tier-3 proposal, so the unit must
+  say in advance what counts.
+power:
+  expected_n: 60
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    expected_n = replay days with >=1 trade across the four legs: 1830 d x ~0.15 trading-day density from
+    the e35 base counts (eth_4h 189 + xrp_4h 135 + xrp_pb 289 + ada_pb 288 trades) -> several hundred
+    leg-days; 60 is a floor for the smallest comparison (leave-one-out OOS segment). Floor d=0.45 -> 39.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      No committed per-direction trade count exists for these legs at live params: the e35 corpus stores
+      IS/OOS base counts per leg, not a long/short split. The
+
+      unit's first output IS that split; below the floor (39 trades per direction, d=0.45) it grades indeterminate,
+      never FAIL.
+decision_rule:
+  id: RULE-RQ-20261010-419b-04-PREREG
+  registered_at: '2026-10-10'
+  registered_before_run: true
+  statistic: >-
+    Config-exact replay daily-R series per leg -> (a) Pearson corr and co-drawdown overlap matrix, (b)
+    per-leg and per-symbol share of net R and max DD, (c) leave-one-leg-out OOS net R and max DD vs the
+    full roster on the chronologically last 35% of days.
+  rule: >-
+    PROPOSE IF removing leg X raises OOS net R AND lowers OOS max DD, with X's daily-R corr to the rest
+    >= 0.3 or X carrying > 50% of the roster's max DD, and the improvement holds when the split point
+    moves +/- 10 points -> a Tier-3 proposal (pipeline item next_action ask_operator, evidence ids) --
+    mirror-equal across bybit_2/portfolio. REDUCE-CONCENTRATION IF one symbol carries > 50% of net-R variance
+    -> a sizing proposal, not a removal. NO ACTION IF all legs' removals are neutral-or-worse OOS. INDETERMINATE
+    IF OOS days < 39.
+  what_it_does_not_do: >-
+    Touches no roster or sizing; paper-book dollars are not comparable across accounts (R only); correlation
+    under 39 shared days is reported but never used as a trigger.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 40
+  basis: >-
+    Runner, one leg-replay-emit invocation (harness over 1830 d binance_vision candles, stdlib folds).
+    An estimate, not a measurement.
+blocked_on:
+- what: >-
+    No queue-runnable instrument replays a live roster's legs config-exact and keeps per-trade rows: m20_fleet_exit_sweep.py
+
+    keeps only summaries, mi307_offline_mfe.py --run discards `rows`, direction_walkforward.py needs a
+    pre-made
+
+    --emit-trades JSONL, regime_cell_walkforward.py is a debt-roster (Yahoo-feed) workflow and not queue-dispatchable,
+    and
+
+    nbook_portfolio.py needs a --data/--roster the runner does not stage. LEVER NAME: `leg-replay-emit`
+    -- a
+
+    scripts/research/ script (research-script-run.yml-compatible: writes {out_dir}/verdict.json) that,
+    for a named leg list, builds the
+
+    config-exact harness args, runs backtest_trend.py / backtest_pullback.py with --emit-trades over the
+    1830 d binance_vision
+
+    window, keeps the emits under {out_dir}, then (a) runs direction_walkforward per leg and (b) writes
+    per-leg daily-R series for
+
+    portfolio replay.
+  ref: PERF-FU-LEG-REPLAY (docs/claude/work/checklist/)
+  clears_when: >-
+    `python3 scripts/research/leg_replay_emit.py --legs <csv> --out <dir>` writes verdict.json with per-leg,
+    per-direction fold
+
+    results for at least xrp_pullback_2h, ada_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h;
+    then `git mv` this file to
+
+    research/queue/ and set run.workflow to research-script-run.yml with run.command pointing at it and
+    lands.store research/results/.
+run:
+  workflow: null
+  note: Deliberately null until blocked_on clears (instrument PERF-FU-LEG-REPLAY).
+lands:
+  store: research/results/ (once promoted)
+related:
+- comms/perf_followup/perf-followup-20261010-191000.json
+- scripts/research/nbook_portfolio.py
+- SRQ-20260715-REALMONEY-ALLOC-BENCHMARK
+last_dispatched_at: null
