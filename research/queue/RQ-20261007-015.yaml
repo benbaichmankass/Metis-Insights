@@ -1,7 +1,7 @@
 id: RQ-20261007-015
 title: 'Stage-0 pairs: 20y vs 7-10y Treasury ETFs (TLT/IEF 1d) -- relative-value family beyond the M22 sleeve, net of the
   full cost stack'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -87,9 +87,9 @@ grading:
   evidence:
   - research/results/RQ-20261007-015/37990836265.jsonl
   first_fail: 1 row(s), all measured, all fail
-  graded_at: '2026-10-10'
+  graded_at: '2026-10-11'
   grader: scripts/research/queue_grade.py
-  note: 'first FAIL: re-queued for a confirmatory run (last_dispatched_at reset), not killed'
+  note: two consecutive FAIL passes; closed as fail (never on one pass)
   reason: 1 row(s), all measured, all fail
   rows: 1
   verdict: fail
