@@ -1,0 +1,8 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane dispatch instruction (manager session_01Uq7MrjPQDRWqbhCjwuMava): a research-ops PR that carries new queue units is held for the manager to merge. Six new research/queue units (RQ-20261011-fc31-01..06, research-harness-dispatch.yml, no config/order path), one run record under comms/research/ops/, and checklist rows/notes.",
+  "recorded_decision": {"kind": "operator_decision", "ref": "RESEARCH-OPS-20261011-0030"},
+  "why": "Tier-1 data/queue content only: no src/, config/, workflow or deploy change. Held, not self-landed, because it adds queue units a hand-authored PR must not auto-land (E57)."
+}

@@ -11,8 +11,8 @@
   "tier": 1,
   "prs": [],
   "blocked_on": [],
-  "note": "2026-10-09 PIPELINE-ROUTE: created to own PI-20261006-1VPYTX8E-0001, PI-20261007-ZKGGKTAG-0001, PI-20261007-ZKGGKTAG-0002. Each re-verified today by its origin.rerun and still open: backtest_orb.py resolve_cost_policy count 0 / net_total_r count 17 mismatch (cost stack missing); research-harness-dispatch.yml extra_args count 0; roster-walkforward.yaml still routes to research-harness-dispatch.yml with 'net-of-cost OOS R' units in research/queue. All Tier-1 tooling/CI. [2026-10-10 RESEARCH-NIGHT-1010] The extra_args lever ALSO blocks two more units: RQ-20261007-017 landed wiring_only because the xsec_momentum dispatch never passes --gate (its rule needs the harness gate block), and RQ-20261007-033 needs a window/days-and-end input. So the one lever now covers RQ-20261007-017 (regrade after), -033, -241.",
-  "updated_at": "2026-10-10T20:58:42Z",
-  "updated_by": "session_01QwgzukpNwXp9m42kFvBX4p",
+  "note": "[2026-10-11 RESEARCH-OPS-20261011-0030] LEVER (Tier-1 tooling): scripts/ops/fetch_backtest_corpus.py CANDIDATE_PAIRS declares only 1h for ZEC/UNI/SUI/HYPE/FIL/AVAX/AAVE/TRX, so the 1h PASS cells (pullback ZEC/UNI/SUI/AVAX/TRX, squeeze ZEC/UNI/AVAX, trend ZEC/UNI/SUI 353c-01..03) cannot be tested at 2h/4h through research-harness-dispatch.yml. After RESEARCH-OPS authored the last uncovered declared cells (RQ-20261011-fc31-01..06) the queue has no more dispatchable breadth: the next top-up needs this extension (add 2h/4h pairs, check Bybit/Binance-vision availability per symbol). Done when: CANDIDATE_PAIRS has the 2h/4h rows and a dispatch of one new cell lands read_state measured.",
+  "updated_at": "2026-10-11T00:44:45Z",
+  "updated_by": "session_01CKCyTkokuyS8rfgRnoNzoE",
   "_seq": 364
 }
