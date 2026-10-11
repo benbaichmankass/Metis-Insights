@@ -314,6 +314,8 @@ CADENCE_REGISTRY: dict[str, dict] = {
     "account-broker-reconcile.yml": {"receipt": None, "why": "no in-repo trace; Actions API only "
                                      "-- same record-every-run/comment-on-change tracking-issue "
                                      "design as broker-bracket-reconcile.yml below"},
+    "broker-truth-freshness.yml": {"receipt": None, "why": "no in-repo trace; Actions API only "
+                                  "-- tracking-issue design like account-broker-reconcile.yml (LEDGER-REFRESH)"},
     "alpaca-settlement-soak-watch.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
     "mirror-orphan-watch.yml": {"receipt": None, "why": "read-only check; result lives in the Actions run and claude-run-failure-alert"},
     "broker-bracket-reconcile.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
@@ -375,6 +377,7 @@ CADENCE_REGISTRY: dict[str, dict] = {
 REGISTERED_AFTER_BASELINE: frozenset[str] = frozenset({
     "research-loss-detector.yml",   # E57, 2026-09-24
     "account-broker-reconcile.yml",  # RECON, 2026-09-29
+    "broker-truth-freshness.yml",    # LEDGER-REFRESH, 2026-10-10
     "soak-book-grade-weekly.yml",    # SOAK-WATCH, 2026-10-04 (was receipt: None)
 })
 

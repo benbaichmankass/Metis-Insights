@@ -63,7 +63,7 @@ generated:
     leg: qld_trend_long_1d
     symbol: QLD
     timeframe: 1d
-last_dispatched_at: '2026-10-07T06:17:56+00:00'
+last_dispatched_at: '2026-10-07T07:24:01+00:00'
 grading:
   auto: true
   decision_rule_id: RULE-EXIT-REFINEMENT-P2-GATE

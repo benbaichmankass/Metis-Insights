@@ -1,0 +1,18 @@
+{
+  "id": "PERF-FU-LEG-REPLAY",
+  "title": "Build leg-replay-emit: queue-runnable config-exact replay of live legs with per-direction folds + daily-R series (unblocks RQ-20261010-419b-02/03/04)",
+  "phase": "perf-followup",
+  "state": "queued",
+  "owner": "unassigned",
+  "lane": "PERF-FOLLOWUP-2026W41",
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Instrument gap named in research/queue/blocked/RQ-20261010-419b-02..04 blocked_on. Needs scripts/research/leg_replay_emit.py writing {out_dir}/verdict.json (research-script-run.yml contract), running backtest_trend.py/backtest_pullback.py --emit-trades config-exact over 1830 d binance_vision, then direction_walkforward per leg and per-leg daily-R series (portfolio). Reuse m20_fleet_exit_sweep.base_args for config-exact args (same lever as TP-PREDICT-HEAD ml2-live-leg-corpus - build the emit-keeping runner once). DONE WHEN clears_when in the three blocked units is true; then git mv each to research/queue/.",
+  "updated_at": "2026-10-10T22:29:55Z",
+  "updated_by": "session_01RQd8R7BrCqA2gTeF56ckvz",
+  "_seq": 388
+}

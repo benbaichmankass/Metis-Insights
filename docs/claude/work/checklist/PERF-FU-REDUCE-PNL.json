@@ -1,0 +1,18 @@
+{
+  "id": "PERF-FU-REDUCE-PNL",
+  "title": "intent_reduce chunk closes leave pnl NULL: 81 of 114 rows never settled -> booked P&L omits the reduced quantity",
+  "phase": "perf-followup",
+  "state": "queued",
+  "owner": "unassigned",
+  "lane": "PERF-FOLLOWUP-2026W41",
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "MEASURED 2026-10-10 via diag journal?table=trades (6563 rows, all pages): rows with exit_reason=intent_reduce_executed n=114, pnl NULL n=81 (bybit_1 paper 66, bybit_portfolio 8, bybit_2 real_money 7). Design (execute.py:1770-1778, order_monitor.py:7999) defers chunk PnL to the local-PnL sweep / closed-pnl lookup; 33 of 114 were settled so a settler exists but 81 never were. Example: bybit_1 6532 reduced 5117.3 of 12603.6 XRP at 1.3898 vs parent 6527 entry 1.3464; parent 6527 pnl -419.98 is computed on the REMAINING 7486 units only, so about -222 USD of realized loss sits on no row. ESTIMATE (reduce fill vs parent entry x consumed over 147 allocations) = +28.7k USD unbooked across the journal, sign and size NOT verified (pyramided parents have averaged entries) - an upper-bound probe, not a figure. DONE WHEN: (1) established why the sweep skips these rows (read the settler); (2) either a backfill with provenance ESTIMATED lands or the rows are documented as intentionally excluded and the paper-book tracker and performance-review say so.",
+  "updated_at": "2026-10-10T22:29:54Z",
+  "updated_by": "session_01RQd8R7BrCqA2gTeF56ckvz",
+  "_seq": 387
+}
