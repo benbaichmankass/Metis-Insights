@@ -1,0 +1,8 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane dispatch instruction (manager session_01Uq7MrjPQDRWqbhCjwuMava): new hand-written research/queue units hold for a human merge (check_pr_landing R5 unvouchable_paths); the manager merges.",
+  "recorded_decision": {"kind": "operator_decision", "ref": "PERF-FOLLOWUP-2026W41"},
+  "why": "Docs/research only: one dispatchable queue unit + three blocked pre-registered units (RQ-20261010-419b-01..04), the perf-followup run record, one research-disposition ledger line, two checklist rows, three pipeline items. No config/ or src/ change, no order path, no roster, risk or mode change."
+}
