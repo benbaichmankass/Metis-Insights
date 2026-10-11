@@ -1,0 +1,18 @@
+{
+  "id": "DD-SWITCH-TEST-CLOCK",
+  "title": "tests/test_daily_dd_switch.py::test_prop_risk_manager_carries_quiescent_reading is clock-dependent: fails every day 22:30Z-00:30Z (CI red on main and every PR in that window)",
+  "phase": "build",
+  "state": "queued",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "2026-10-10 22:58Z manager: reproduced on origin/main at 22:55Z (assert 'ok' == 'carried_quiescent'). Cause: breakout_2 daily_loss_reset_utc 00:30Z; daily_dd_switch counts a reading within CARRY_DAY_START_WINDOW (2h) before the day boundary as today's, so the test's monkeypatched reading 'now - 1 day' reads OK, not carried, between 22:30Z and 00:30Z. Fix (one line): use timedelta(days=2) in the monkeypatched prop_equity_reading (now-2d is always before boundary-2h). The manager's edit was refused by the auto-mode classifier ('Security Test Removal'); per the operator's rule it was not worked around. Needs the operator to approve the edit, or to run it with auto mode off.",
+  "updated_at": "2026-10-10T22:55:53Z",
+  "updated_by": "session_01Uq7MrjPQDRWqbhCjwuMava",
+  "_seq": 386
+}
