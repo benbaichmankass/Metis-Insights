@@ -1,0 +1,34 @@
+{
+  "run": "RESEARCH-OPS-20261011-0030",
+  "finished_at": "2026-10-11T00:55:00Z",
+  "by": "session_01CKCyTkokuyS8rfgRnoNzoE",
+  "baseline": "no earlier research-ops record; baseline = RESEARCH-NIGHT-1010 row note (runnable 8->28 on main at 22:16Z)",
+  "floor": 25,
+  "throughput": {"runnable_before": 28, "runnable_after_on_main_now": 34, "runnable_after_stamps_of_17475_land": 23, "queued_before": 124, "fired_24h": 29, "fired_7d": 205, "results_landed_24h": 24, "hours_since_last_dispatch_on_main": 8.5, "idle_alarm": false, "as_of": "2026-10-11T00:31Z"},
+  "mechanism": {
+    "dispatch_receipt": "ok (fresh, 1.88h)",
+    "collector": "ok: results of 353c-01..03 produced at 22:40Z but their PRs #17472/#17473/#17474 are red on pytest-run",
+    "stranded_stamp_prs": [17426, 17406, 17338, 17331, 17308, 17304, 17277, 17238, 17231, 17208, 17203, 17152, 17129, 17072, 16927, 16883, 16790],
+    "stamp_status": {"on_main_already": [17338, 17277, 17238, 17208, 17203, 17129], "carried_in_17475_only": [17426, 17406, 17331, 17308, 17304, 17231, 17152, 17072, 16927, 16883, 16790], "not_carried": []},
+    "incident": "#17475 (adopting stamp PR) + result PRs #17472-17474 red on test_daily_dd_switch clock window (row DD-SWITCH-TEST-CLOCK); failed jobs re-run once at 00:40Z; until #17475 lands main shows 8 units never-dispatched and the dry run would re-fire them (811, 006-002, 007-004, 007-005, 007-015, 007-016, 007-226, 010-001)"
+  },
+  "results_read": {"pass": 3, "fail": 0, "indeterminate": 0, "units": [
+    {"unit": "RQ-20261010-353c-01", "verdict": "pass", "n": 664, "net_total_r": 43.6911, "note": "ZEC trend 1h, 1095d; result still in open PR #17473, not on main"},
+    {"unit": "RQ-20261010-353c-02", "verdict": "pass", "n": 712, "net_total_r": 11.6561, "note": "UNI trend 1h; PR #17474"},
+    {"unit": "RQ-20261010-353c-03", "verdict": "pass", "n": 727, "net_total_r": 27.4566, "note": "SUI trend 1h; PR #17472"}],
+    "disposition": "no new unit: prop-fit pricing of the same cells already PASSED (RQ-20261007-201/202/208, ev>0 on 10 of 10 seeds). Mechanical rule only; no config change proposed.",
+    "unread_ledger": "26 unread (17 e35 accruing, 9 m20 2026-10-04) noted on RESEARCH-GRADE-PILE; not hand-recorded"},
+  "unlocked": [],
+  "retired": [],
+  "blocked_audit": {"blocked_dir_units": 36, "queued_not_runnable": {"session_bound_needs_lane": ["RQ-20260928-001", "RQ-20261007-022", "RQ-20261007-023", "RQ-20261007-025", "RQ-20261007-030"], "status_blocked": ["RQ-20260928-008"], "cadence_not_elapsed": 75, "once_already_ran_awaiting_grade": 23}, "result": "every blocked/ unit still has its named lever and owning row (RESEARCH-NIGHT-1010); no lever landed since 21:30Z, so none unlocked or retired"},
+  "levers_filed": [{"lever": "CANDIDATE_PAIRS lacks 2h/4h for ZEC/UNI/SUI/HYPE/FIL/AVAX/AAVE/TRX (no dispatchable breadth left)", "ref": "RESEARCH-TOOLING-GAPS"}],
+  "units_authored": ["RQ-20261011-fc31-01 trend BNB 1h", "RQ-20261011-fc31-02 trend XRP 1h", "RQ-20261011-fc31-03 trend DOGE 2h", "RQ-20261011-fc31-04 trend LINK 2h", "RQ-20261011-fc31-05 trend BNB 4h", "RQ-20261011-fc31-06 pullback BNB 4h"],
+  "followups_filed": [],
+  "not_run": [],
+  "handoff": [
+    "Manager: close the 17 stamp PRs listed above AFTER #17475 merges; #17466 is superseded by #17475.",
+    "Next pass: projected runnable after #17475 lands is 23 (<25); template refill adds 3 at 05:50Z. Further top-up needs the CANDIDATE_PAIRS lever (RESEARCH-TOOLING-GAPS) or 02-04 of the PERF-FOLLOWUP units once PERF-FU-LEG-REPLAY lands.",
+    "Next pass: confirm #17472-#17474 and #17475 landed (re-run pytest after 00:30Z); record 353c-01..03 once their results are on main.",
+    "Topic lane: read the 17 e35 accruing + 9 m20 unread rows (RESEARCH-GRADE-PILE)."
+  ]
+}

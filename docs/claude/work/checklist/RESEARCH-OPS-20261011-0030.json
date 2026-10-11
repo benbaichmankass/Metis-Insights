@@ -1,0 +1,18 @@
+{
+  "id": "RESEARCH-OPS-20261011-0030",
+  "title": "Research-ops pass 2026-10-11 00:30Z (first routine run)",
+  "phase": "research",
+  "state": "in_flight",
+  "owner": "lane RESEARCH-OPS-20261011-0030",
+  "lane": "research-ops",
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-11T00:55Z lane] Pass complete, PR pending. Runnable on main 28 -> 34 (projected 23 once #17475's stamps land; floor 25, templates add 3 at 05:50Z). Units +6 RQ-20261011-fc31-01..06. Results read p3/f0/i0 (353c-01..03, still in open PRs). 17 pre-#17428 stamp PRs classified closable, list in comms/research/ops/20261011T0050Z.json. Closes when: #17475 merged and the throughput check shows the fc31 units dispatched.",
+  "updated_at": "2026-10-11T00:45:07Z",
+  "updated_by": "session_01CKCyTkokuyS8rfgRnoNzoE",
+  "_seq": 386
+}
