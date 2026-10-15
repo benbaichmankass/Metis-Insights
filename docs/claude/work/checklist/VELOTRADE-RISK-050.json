@@ -1,0 +1,21 @@
+{
+  "id": "VELOTRADE-RISK-050",
+  "title": "velotrade_1 risk_pct 0.01 -> 0.005 (operator decision 2026-10-15)",
+  "phase": null,
+  "state": "in_flight",
+  "owner": "build lane (Sonnet)",
+  "lane": "session_015QLtjmuzor4cSnLPNWBycK",
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 3,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-15T05:55Z manager session_01VduHYzdaXe27wTDBLSu8ao] OPERATOR popup 2026-10-15 ~05:53Z, verbatim choice: '0.5% (Recommended)'. Evidence RQ-20261014-f516-05 (4,000 lives x 5 seeds, 355 trades): C050 ev 159-175 USD/life, p_alive ~0.27, breach ~0.72 vs configured 0.01 ev 117-140, p_alive ~0.00. Supersedes operator directive 2026-10-06 (0.01). Lane Sonnet $8, hold PR, manager merges.",
+  "updated_at": "2026-10-15T05:57:01Z",
+  "updated_by": "session_01VduHYzdaXe27wTDBLSu8ao",
+  "roadmap": [
+    "L-PROP"
+  ],
+  "_seq": 504
+}

@@ -1,0 +1,96 @@
+id: RQ-20261015-1bf3-06
+title: 'Stage-0 at the PROP venue cost stack: trend_donchian_sol_prop, config-exact, 1095 d (incumbent, window-matched)'
+status: queued
+cadence: once
+kind: experiment
+theme: new_strategy_prop
+priority: 1
+roadmap:
+- L-PROP
+question: Is there a Stage-0 edge for trend_donchian_sol_prop at its config/strategies.yaml params, over the 1095 d window 2023-10-13 .. 2026-10-11
+  20:00, net of the prop venue's cost stack (fee 8 bps round trip (Breakout commission 0.04%/side, prop_ev_sim A4), slippage 3 bps round trip,
+  swap 5 bps per 24h window (velotrade's 0.0005/day, the larger of the two firms' daily swaps)) rather than the Bybit stack its records carry?
+  This is the INCUMBENT prop leg (live on velotrade_1 + tradeify_1), re-measured over the SAME 1095 d window as the 4h records so the head-to-head
+  is window-matched; its arm-P trades file is the repriceable input for that re-run.
+why_this_matters: 'Manager, 2026-10-15 (lane RESEARCH-GRADE-BACKLOG): the tradeify_1 / velotrade_1 4h-add decision (RQ-20261015-6504-02 strict
+  FAIL at +EV, RQ-20261015-1bf3-02 equal-risk re-run) does not go to the operator until two caveats are closed: (a) neither 4h leg has a Stage-0
+  record at the configured params under the prop venue''s costs, (b) the 4h legs were priced over 1095 d against the incumbent''s 730 d. This
+  unit closes (b) for one incumbent leg.'
+power:
+  expected_n: 400
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: d=0.3 needs ~88 trades at alpha 0.05 / power 0.8; the Stage-0 grade's own floor is 39 (n_floor). The leg's 730 d record (comms/strategy_evidence/runs/2026-10-05-730d)
+    has several hundred 1h trades; 1095 d scales it by ~1.5.
+  feasibility:
+    source: none
+    accrual_basis: Re-measure of committed price history at a different cost stack; nothing accrues.
+decision_rule:
+  id: RULE-RQ-20261015-1bf3-06-STAGE0-PROP-STACK
+  registered_at: '2026-10-15'
+  registered_before_run: true
+  statistic: 'Arm P (trend_donchian_sol_prop as declared in config/strategies.yaml, plus the prop stack flags --fee-bps-roundtrip=8 --slippage-bps-roundtrip=3
+    --funding-bps-per-window=5 --funding-window-hours=24): net_total_r over the window, n trades, and net_r per each of 4 equal calendar folds
+    (exit_lever_ablation.py --grade stage0).'
+  rule: 'PASS IF net_total_r(P) > 0 AND n(P) >= 39 AND at least 3 of 4 calendar folds net > 0 -> the leg has a Stage-0 edge at the prop venue
+    stack: an input to the prop-add decision for the manager (no roster change here). FAIL IF n(P) >= 39 and that does not hold -> the leg has
+    no Stage-0 edge at prop costs; the 4h add (or the incumbent, for an incumbent unit) is reported to the manager as failing Stage 0 at prop
+    costs, never auto-removed. INDETERMINATE IF n(P) < 39.'
+  what_it_does_not_do: 'Changes no roster, params or risk. Is not a prop-fit (EV per life) result: that is prop_ev_grid''s job, re-run window-matched
+    once these land. Does not change the Stage-0 bar; it applies it at a different, declared cost stack.'
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 45
+  basis: one or two harness runs over a ~1100 d public candle fetch (Binance Vision), as RQ-20261014-470a-* ran
+compute: cpu_light
+value:
+  bucket: information
+  usd_at_stake_per_month: 150
+  confidence: 0.4
+  basis: gates the prop-add decision on tradeify_1 / velotrade_1; stand-in figure, no balances stated
+run:
+  workflow: research-script-run.yml
+  timeout_minutes: 90
+  command:
+  - python3
+  - scripts/research/exit_lever_ablation.py
+  - --leg
+  - trend_donchian_sol_prop
+  - --arm
+  - P=--fee-bps-roundtrip=8;--slippage-bps-roundtrip=3;--funding-bps-per-window=5;--funding-window-hours=24
+  - --days
+  - '1110'
+  - --start
+  - '2023-10-13'
+  - --end
+  - 2026-10-11 20:00
+  - --grade
+  - stage0
+  - --baseline
+  - P
+  - --delta-r
+  - '0'
+  - --fold-majority
+  - '3'
+  - --n-floor
+  - '39'
+  - --out
+  - '{out_dir}'
+  inputs:
+    research_unit: RQ-20261015-1bf3-06
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- research/queue/RQ-20261015-6504-01.yaml
+- research/queue/RQ-20261015-6504-02.yaml
+- research/queue/RQ-20261015-1bf3-02.yaml
+- docs/claude/work/checklist/P5-PROP-PROGRAMME.json
+- scripts/research/exit_lever_ablation.py
+last_dispatched_at: null

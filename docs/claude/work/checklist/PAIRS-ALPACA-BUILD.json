@@ -13,16 +13,16 @@
     17747
   ],
   "blocked_on": [],
-  "note": "OPERATOR DECISION 2026-10-12T10:40Z (popup, verbatim choice 'Build, paper soak (Recommended)'): build an isolated Alpaca pairs executor for GLD/GDX ONLY, routed to alpaca_paper (Stage 1 soak); promotion follows the normal ladder (Gate 2 needs realized-cost match). Evidence: RQ-20261007-025 PASS (OOS 2022-01..2026-10 n=69 net +5.25R; 8/10 years positive; 8/9 neighbourhood cells positive; fee 7.5 + slip 5.0 bps/leg). SPY/QQQ 1h sibling FAILED -121.96R -> not in scope. Constraints: mirror pattern of src.units.strategies.pairs_executor (isolated 2-leg path, gate in config/pairs.yaml, single-account by construction E36); no real-money account; TP doctrine applies to legs; no new *_ENABLED flag. Source question row PAIRS-ALPACA-BUILD-QUESTION (on #17722). [manager 17:55Z] #17747 merged 17:44Z after two independent reviews (blocking real-money gap fixed: pairs_account_refusal code guard, runtime-tested vs alpaca_live/alpaca_portfolio/bybit_2). Lane session_01P1PVxy spend ~$11.4+.",
-  "updated_at": "2026-10-12T17:53:46Z",
-  "updated_by": "session_01G16FfyYSmDPQuuW55BuTmK",
+  "note": "OPERATOR DECISION 2026-10-12T10:40Z (popup, verbatim choice 'Build, paper soak (Recommended)'): build an isolated Alpaca pairs executor for GLD/GDX ONLY, routed to alpaca_paper (Stage 1 soak); promotion follows the normal ladder (Gate 2 needs realized-cost match). Evidence: RQ-20261007-025 PASS (OOS 2022-01..2026-10 n=69 net +5.25R; 8/10 years positive; 8/9 neighbourhood cells positive; fee 7.5 + slip 5.0 bps/leg). SPY/QQQ 1h sibling FAILED -121.96R -> not in scope. Constraints: mirror pattern of src.units.strategies.pairs_executor (isolated 2-leg path, gate in config/pairs.yaml, single-account by construction E36); no real-money account; TP doctrine applies to legs; no new *_ENABLED flag. Source question row PAIRS-ALPACA-BUILD-QUESTION (on #17722). [manager 17:55Z] #17747 merged 17:44Z after two independent reviews (blocking real-money gap fixed: pairs_account_refusal code guard, runtime-tested vs alpaca_live/alpaca_portfolio/bybit_2). Lane session_01P1PVxy spend ~$11.4+.  || [2026-10-15 DUE-ROUTE-20261015] RE-DATED to 2026-10-22; READ: MEASURED: zero pairs_* rows on account alpaca_paper in the last 1000 trades journal rows; no GLD/GDX pairs decision observed yet.",
+  "updated_at": "2026-10-15T06:04:56Z",
+  "updated_by": "session_01PH9KCD1r7StznkqPLzd9K1",
   "roadmap": [
     "M22"
   ],
   "observation": {
     "what": "first alpaca_paper GLD/GDX pairs decision tick in market hours after deploy: decision logged with decision_bar_source, no refusal for alpaca_paper, refusal path silent",
     "how_to_check": "diag journalctl ict-trader-live grep pairs + journal order packages for setup pairs on alpaca_paper",
-    "due_by": "2026-10-15"
+    "due_by": "2026-10-22"
   },
   "writeback": {
     "roadmap": "none: owed at close (M22 pairs sleeve gains an Alpaca GLD/GDX Stage-1 leg)",

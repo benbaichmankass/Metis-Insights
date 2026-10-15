@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "DUE-ROUTE-20261015: routes 8 unrouted pipeline items (7 routed to 6 new checklist rows, 1 done with a measured terminal_reason) and disposes 23 UNPROVEN_OVERDUE checklist rows (6 done, 17 re-dated with what was read). Data only: pipeline records, checklist rows, no runtime, config, order path or queue unit touched."
+}

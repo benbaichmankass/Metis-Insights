@@ -1,0 +1,23 @@
+{
+  "based_on": "20261013T180030046091Z-3d242598.json",
+  "due_when": {
+    "due_date": "2026-10-14",
+    "kind": "date"
+  },
+  "id": "PI-20261013-CAZHXZNE-0002",
+  "next_action": "dispatch_lane",
+  "observation": {
+    "due_by": "2026-11-03",
+    "how_to_check": "grep -il 'cot' research/queue/*.yaml",
+    "what": "does any queue unit test COT positioning against forward realized vol"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "lane QUEUE-FILL-1013B session_018hu7aZBjo4GePaCAZhXznE, 2026-10-13",
+    "rerun": "grep -ril cot research/queue/*.yaml | head; wc -l comms/macro/cot_snapshots.jsonl"
+  },
+  "routed_to": "weekly planning 2026-10-14",
+  "state": "killed",
+  "terminal_reason": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r), 2026-10-15: an idea with no instrument, not work: no vol-target mode exists in the macro runner and no pre-registered COT->forward-vol unit was ever written; M29 is dormant and the macro priority is 5th. Re-file as a research/queue unit with its runner mode if the macro sleeve revisits COT.",
+  "what": "Macro idea with data but no instrument: COT positioning EXTREMES as a conditioner of forward REALIZED VOLATILITY / |return| (every COT construction tested so far grades direction only and reads no-signal/negative; comms/macro/cot_snapshots.jsonl holds 10,093 rows). Needs a vol-target mode in a macro runner before a scoping unit is a job; not authored in QUEUE-FILL-1013B because a unit without an instrument is a memo."
+}

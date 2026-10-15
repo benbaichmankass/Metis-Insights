@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Four NEW pre-registered research units (a registration holds under E57): RQ-20261015-1bf3-03/-04 Stage-0 for trend_donchian_eth_4h / sol_4h at the prop venue cost stack (fee 8 bps rt, slippage 3, swap 5 bps per 24h), config-exact, 1095 d, with a positive control that must reproduce the committed 1095 d record; -05/-06 the incumbent trend_donchian_eth_prop / sol_prop over the same 1095 d window at the same stack. Driver: a new `stage0` grade in scripts/research/exit_lever_ablation.py (one arm, the existing Stage-0 bar: net_r > 0, n >= 39, >= 3/4 calendar folds positive; self-tested). Plus PI-20261015-WNBZB5WN-0003 (the data gap, event-due when the five units grade) and a P5-PROP-PROGRAMME note. No config, no roster, no existing decision rule edited.",
+  "why": "Manager ask 2026-10-15: close the prop-add caveats with data before the operator decision (operator rule: get the data, don't popup)."
+}

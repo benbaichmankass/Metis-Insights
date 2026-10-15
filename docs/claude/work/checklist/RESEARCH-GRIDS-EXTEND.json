@@ -1,0 +1,21 @@
+{
+  "id": "RESEARCH-GRIDS-EXTEND",
+  "title": "Research template grids exhausted: extend grids with pre-registered axes or lower runnable floor",
+  "phase": "hygiene",
+  "state": "queued",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-15 DUE-ROUTE-20261015] Routed from PI-20261014-ON01DGFQ-0001. MEASURED 2026-10-15: check_research_queue_throughput runnable=16 (floor 25), fired_24h=81; queue_replenish plan() candidates all 0. Decide extend grids (template edit = landing-machinery hold) vs lower floor.",
+  "updated_at": "2026-10-15T06:14:07Z",
+  "updated_by": "session_01PH9KCD1r7StznkqPLzd9K1",
+  "roadmap": [
+    "L-LADDER"
+  ],
+  "_seq": 507
+}

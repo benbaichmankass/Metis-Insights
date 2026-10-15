@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "Lane ML-FRONTIER-W42, operator decision 2026-10-15 (Approve all): one new pre-registered research unit (RQ-20261015-eda2-01, the 1414-02 re-run), a TTM arm addendum on the blocked unit RQ-20261011-9da8-01, ML plan housekeeping (docs/plans/ml-plan-items.yaml), checklist rows, and a 4-line ml_plan_status.py change (family: none) with a test. Docs, research units and tooling only; no runtime, order-path, config or workflow touched. The workflow edit is a separate hold PR.",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "research/queue units (RQ-20261015-eda2-01 new, RQ-20261011-9da8-01 addendum) are hand-registered content outside the Tier-1 surface; manager reads and lands (E57)."
+}

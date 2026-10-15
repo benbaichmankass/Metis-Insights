@@ -40,7 +40,7 @@ def test_velotrade_1_is_live_with_the_fit_roster():
     assert a["exchange"] == "breakout" and a["type"] == "prop" and a["account_class"] == "prop"
     assert a["backtest_ruleset"] == "prop_rulesets/velotrade_classic_1step.yaml"
     assert a["account_size_usd"] == 5000
-    assert a["risk"]["risk_pct"] == 0.01   # operator 2026-10-06 09:20Z: 1% (RQ-20261006-062)
+    assert a["risk"]["risk_pct"] == 0.005  # operator 2026-10-15: 0.5% (RQ-20261014-f516-05), supersedes the 2026-10-06 1%
     assert a["risk"]["max_dd_pct"] == 0.07 and a["risk"]["daily_loss_pct"] == 0.04
     assert "breach_guards" not in a["risk"]   # enforce (the default), like tradeify_1
 

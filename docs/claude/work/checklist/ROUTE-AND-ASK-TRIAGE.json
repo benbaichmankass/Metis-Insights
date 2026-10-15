@@ -13,13 +13,13 @@
     17511
   ],
   "blocked_on": [],
-  "note": "[2026-10-11 lane session_01BFAVovnP4UK5phrpVWnYsR] Dispositioned 35 pipeline items from WR-20261011-0530Z: 17 unrouted all routed (16 to checklist rows incl. 5 new rows, 1 to research/queue/RQ-20260927-003.yaml, 0 killed; the JD1HZX7C-0002 ask item is among the 16 rows); of the 19 ask items 6 killed, 1 done, 11 re-routed (K85Q64SF-0001..5, YGGMZWK7-0001/-0003, EXITOPS-0003, 7FTEG7QN-0001, YUVCGTMJ-0006, JD1HZX7C-0002), 1 stays ask_operator (HK3BKCKE-0001). Tier-1: pipeline records and checklist rows only; no config edited, no unit added. LANDED_UNPROVEN: closes when the next work report (05:30Z 2026-10-12, GET /api/bot/work/report) reads sections.due.unrouted == 0 for these ids and sections.ask_operator holds only newly filed items plus PI-20260928-HK3BKCKE-0001. [2026-10-13T05:58Z manager, review WR-20261013-0530Z] Condition NOT met: due.unrouted = 13 (was 7 at 18:01Z), routing alarm oldest unrouted 16d (PI-20260927-ZGQPHR3D-0010); ask_operator is empty. Routing the 13 is assigned to the 08:47Z research-ops pass (its brief will name this row). Re-dated to 2026-10-14.",
-  "updated_at": "2026-10-13T05:54:14Z",
-  "updated_by": "session_01BFAVovnP4UK5phrpVWnYsR",
+  "note": "[2026-10-11 lane session_01BFAVovnP4UK5phrpVWnYsR] Dispositioned 35 pipeline items from WR-20261011-0530Z: 17 unrouted all routed (16 to checklist rows incl. 5 new rows, 1 to research/queue/RQ-20260927-003.yaml, 0 killed; the JD1HZX7C-0002 ask item is among the 16 rows); of the 19 ask items 6 killed, 1 done, 11 re-routed (K85Q64SF-0001..5, YGGMZWK7-0001/-0003, EXITOPS-0003, 7FTEG7QN-0001, YUVCGTMJ-0006, JD1HZX7C-0002), 1 stays ask_operator (HK3BKCKE-0001). Tier-1: pipeline records and checklist rows only; no config edited, no unit added. LANDED_UNPROVEN: closes when the next work report (05:30Z 2026-10-12, GET /api/bot/work/report) reads sections.due.unrouted == 0 for these ids and sections.ask_operator holds only newly filed items plus PI-20260928-HK3BKCKE-0001. [2026-10-13T05:58Z manager, review WR-20261013-0530Z] Condition NOT met: due.unrouted = 13 (was 7 at 18:01Z), routing alarm oldest unrouted 16d (PI-20260927-ZGQPHR3D-0010); ask_operator is empty. Routing the 13 is assigned to the 08:47Z research-ops pass (its brief will name this row). Re-dated to 2026-10-14.  || [2026-10-15 DUE-ROUTE-20261015] RE-DATED to 2026-10-16; READ: GET /api/bot/work/report 2026-10-15 06:0xZ: due.unrouted=8, routing_alarm 'oldest unrouted 14d (PI-20261001-E74LANE-0001)'. Effect did not hold; those 8 are routed in this lane's PR (pipeline reads 0 unrouted locally), so it should read 0 once that PR is on main.",
+  "updated_at": "2026-10-15T06:04:57Z",
+  "updated_by": "session_01PH9KCD1r7StznkqPLzd9K1",
   "observation": {
     "what": "the 05:30Z work report reads due.unrouted==0 and no routing alarm",
     "how_to_check": "GET https://ict-bot.duckdns.org/api/bot/work/report -> sections.due.data.unrouted, routing_alarm",
-    "due_by": "2026-10-14"
+    "due_by": "2026-10-16"
   },
   "_seq": 390
 }

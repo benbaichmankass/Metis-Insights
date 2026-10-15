@@ -1,0 +1,21 @@
+{
+  "id": "ML-MES-REGIME-1D-SILENCE",
+  "title": "Owner for the mes-regime-1d-lgbm-v2 shadow silence (walk-through 2026-10-15, item 4)",
+  "phase": "W42",
+  "state": "queued",
+  "owner": "lane (ml-review)",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-15 ML-FRONTIER-W42] The 2026-10-14 brief listed mes-regime-1d-lgbm-v2 as SILENT(UNTRACKED), last seen 2026-10-14T12:47Z, 'a daily head, may be normal cadence'. It is NOT one of the 4 shadow->candidate flips (ML-STAGE-TRACE). The 2026-10-15 ml_plan_status.py --plumbing run does not flag it (only mes-regime-15m-lgbm-v2 is UNTRACKED), so a daily row has probably landed since: UNVERIFIED. DONE WHEN: the shadow-log last_seen for this head is read from /api/bot/ml/status and (a) rows arrive about once per trading day => close with that cadence written in plumbing.tracked, or (b) a gap > 2 trading days => root-cause it. Companion: mes-regime-15m-lgbm-v2 is tracked by ML-STAGE-TRACE (its silence began 2026-10-11T20:46Z, 42 min before the 21:28Z demotion to candidate; consistent, not proven).",
+  "updated_at": "2026-10-15T06:24:34Z",
+  "updated_by": "lane-ML-FRONTIER-W42",
+  "roadmap": [
+    "M25"
+  ],
+  "_seq": 506
+}

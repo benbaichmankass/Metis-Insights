@@ -13,9 +13,9 @@
     18114
   ],
   "blocked_on": [],
-  "note": "[2026-10-14T22:25Z lane] Manager 22:11Z carry-over fixed in #18114: the Positions read takes the CHILD position row (a row with a 'Sum' cell is a GROUP row; its child rows are read, nested or sibling). With no child in the DOM, a group whose count is 1 stands in (row_kind group); a group of >1 positions is unparsed (miss=group), never one row. The 1b.193 fixture's Market 'ETH 5' was corrected to the screenshot's 'ETH 1' (group count, not leverage). The group row's leading chevron glyph is stripped from the symbol.",
-  "updated_at": "2026-10-14T22:13:41Z",
-  "updated_by": "session_017Y39uF5LuaxBMqq5VtJ9FV",
+  "note": "[2026-10-15T05:55Z manager session_01VduHYzdaXe27wTDBLSu8ao] OPERATOR 2026-10-15 ~05:52Z, verbatim: 'you have my okay to change that trade, or the app does'. #18114 merged (381c0cea); APK run 38688996127 sent to operator.",
+  "updated_at": "2026-10-15T05:57:01Z",
+  "updated_by": "session_01VduHYzdaXe27wTDBLSu8ao",
   "roadmap": [
     "L-PROP"
   ],

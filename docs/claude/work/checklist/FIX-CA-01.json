@@ -12,6 +12,13 @@
   "model": "claude-opus-5-5",
   "ceiling_usd": null,
   "title": "FIX-CA-01: CA-A01-001 critical: flat-finalise closes cancel the closing trade's own resting IB protec",
-  "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): CA-A01-001 critical: flat-finalise closes cancel the closing trade's own resting IB protection. #13187 merged (245b45d, Tier-2 data-backed); deploy via git-sync not yet OBSERVED (FIX-CA-01c task 3 reads it). Lane archived.",
+  "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): CA-A01-001 critical: flat-finalise closes cancel the closing trade's own resting IB protection. #13187 merged (245b45d, Tier-2 data-backed); deploy via git-sync not yet OBSERVED (FIX-CA-01c task 3 reads it). Lane archived.  | 2026-10-15 BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r): still landed_unproven; observation named: an IB flat-finalise close keeps the closing trade's own resting protection (or ib_paper is shown to have no such closes and the row is re-scoped) \u2014 read: #13187 deployed (FIX-CA-01c recorded the sha); no IB flat-finalise close exercising it found; ib_live is dry_run.",
+  "observation": {
+    "what": "an IB flat-finalise close keeps the closing trade's own resting protection (or ib_paper is shown to have no such closes and the row is re-scoped)",
+    "how_to_check": "/api/diag/journal?table=trades account ib_paper closes + journalctl ict-trader-live for protection cancels before the closing fill",
+    "due_by": "2026-11-05"
+  },
+  "updated_at": "2026-10-15T06:36:08Z",
+  "updated_by": "session_019p3X1tJAdUdV2dKaw9no8r",
   "_seq": 153
 }

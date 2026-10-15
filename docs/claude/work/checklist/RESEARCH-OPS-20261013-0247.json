@@ -2,7 +2,7 @@
   "id": "RESEARCH-OPS-20261013-0247",
   "title": "Research-ops pass 2026-10-13 02:47Z",
   "phase": "research",
-  "state": "landed_unproven",
+  "state": "done",
   "owner": "manager",
   "lane": "research-ops-lane-20261013-0247",
   "model": null,
@@ -13,16 +13,16 @@
     17810
   ],
   "blocked_on": [],
-  "note": "[lane done] 13 results read p1/f11 + 75b2-19 producer_failed; no units authored; re-arm defect filed as RQ-REARM-PRODUCER-FAILED. Record comms/research/ops/20261013T0300Z.json.",
-  "updated_at": "2026-10-13T02:59:27Z",
-  "updated_by": "research-ops-lane-20261013-0247",
+  "note": "[lane done] 13 results read p1/f11 + 75b2-19 producer_failed; no units authored; re-arm defect filed as RQ-REARM-PRODUCER-FAILED. Record comms/research/ops/20261013T0300Z.json.  || [2026-10-15 DUE-ROUTE-20261015] DONE: dispatch_queue.py shows 903 (ran 2026-10-13T20:15Z) and 75b2-19 (ran 2026-10-14T09:54Z) fired, cadence once.",
+  "updated_at": "2026-10-15T06:04:54Z",
+  "updated_by": "session_01PH9KCD1r7StznkqPLzd9K1",
   "roadmap": [
     "L-LADDER",
     "L-PROP"
   ],
   "writeback": {
-    "roadmap": "none: operations pass",
-    "arch": "none: no component changed"
+    "roadmap": "none: pipeline/ops row, no milestone outcome",
+    "arch": "none: no architecture change"
   },
   "observation": {
     "what": "RQ-REARM-PRODUCER-FAILED lands and 903 / 75b2-19 re-fire",

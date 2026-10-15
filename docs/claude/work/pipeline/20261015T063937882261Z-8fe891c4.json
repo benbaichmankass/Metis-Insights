@@ -1,0 +1,24 @@
+{
+  "based_on": "20261014T145408849601Z-bc143411.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "both files call r_provenance.initial_risk_usd and provenance.pnl_is_trustworthy (grep shows the calls) and HEADLINE-MEASURE-CAPITAL-DAY's definition cites them",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261014-MVBJLVJ3-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01QdFKBCgBQ5T8tfMvBjLVj3",
+    "rerun": "grep -n 'stop_loss\\|pnl_is_trustworthy\\|initial_risk' src/runtime/net_r_label.py scripts/ml/build_exit_head_dataset.py"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, still open on its row: src/runtime/net_r_label.py and scripts/ml/build_exit_head_dataset.py call neither r_provenance.initial_risk_usd nor provenance.pnl_is_trustworthy; net_r_label.py ~L78 divides by trades.stop_loss.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "ML-HYGIENE (label provenance: r_provenance.initial_risk_usd + pnl_is_trustworthy in net_r_label.py and build_exit_head_dataset.py; Tier-1, research/label code)",
+  "state": "routed",
+  "what": "LABEL HYGIENE (found by lane AI-TRADER-PROGRAMME, SIGNALS-CATALOG section 6, 2026-10-14): two ML outcome labels skip provenance. (1) src/runtime/net_r_label.py:net_r_for_trade divides by |entry - trades.stop_loss|, which order_monitor overwrites when a trail moves (r_provenance grades it CONTAMINATED); r_provenance.initial_risk_usd exists but no label builder calls it, and no pnl provenance filter is applied. (2) scripts/ml/build_exit_head_dataset.py's live arm builds final_r from trades.pnl with no pnl_is_trustworthy filter, sets exit_reason=None and falls back to the last candle mark. Both feed or will feed the AI-trader labels (02-AI-TRADER Q0/Q3) and the headline measure. FIX: route both through r_provenance.initial_risk_usd + provenance.pnl_is_trustworthy; report rows dropped by class. Tier-1 (research/label code)."
+}

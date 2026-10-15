@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only: 40 pipeline records dispositioning due items (exit-labelling, soak, CI/automerge, research-queue infra) orphaned on finished checklist rows. No code, config, workflow or order-path change."
+}

@@ -2,7 +2,7 @@
   "id": "RESEARCH-OPS-20261012-2047",
   "title": "Research-ops pass 2026-10-12 20:47Z",
   "phase": "research",
-  "state": "landed_unproven",
+  "state": "done",
   "owner": "manager",
   "lane": "session_016F9Q3yiYHGv5UEHfzMn6Dz",
   "model": "claude-sonnet-5-5",
@@ -13,16 +13,16 @@
     17797
   ],
   "blocked_on": [],
-  "note": "[lane session_016F9Q3yiYHGv5UEHfzMn6Dz] Routine dispatch from manager session_01G16FfyYSmDPQuuW55BuTmK. Sonnet, ceiling 5 USD. Do not touch QUEUE-FILL-W41 (#17795), PHONE-POSITIONS-DIV (#17793), NEWS-HIST-REPLAY (#17757). No news/WEPE retire follow-ups (operator 2026-10-12). Route 7 unrouted pipeline items. [lane done] PR #17797 (hold, manager merges). 13 results read p3/f9 + 903 producer_failed (fixed, re-armed); 6 confirmatory units d8e0-01..06; 8 pipeline items routed (unrouted 0); levers LANDING-TIER2-APPROVALS, NETR-IB-RISK-BASIS, RESULTS-LOGS-NOT-LANDED. landed_unproven: closes when 903 re-fires and lands a measured record. Record comms/research/ops/20261012T2100Z.json.  [2026-10-13 02:55Z, 0247 pass] CORRECTION: the 903 re-arm did not take effect (dry run: not_due, result-based idempotence on the producer_failed row). Observation cannot close until RQ-REARM-PRODUCER-FAILED lands.",
-  "updated_at": "2026-10-13T02:52:14Z",
-  "updated_by": "research-ops-lane-20261013-0247",
+  "note": "[lane session_016F9Q3yiYHGv5UEHfzMn6Dz] Routine dispatch from manager session_01G16FfyYSmDPQuuW55BuTmK. Sonnet, ceiling 5 USD. Do not touch QUEUE-FILL-W41 (#17795), PHONE-POSITIONS-DIV (#17793), NEWS-HIST-REPLAY (#17757). No news/WEPE retire follow-ups (operator 2026-10-12). Route 7 unrouted pipeline items. [lane done] PR #17797 (hold, manager merges). 13 results read p3/f9 + 903 producer_failed (fixed, re-armed); 6 confirmatory units d8e0-01..06; 8 pipeline items routed (unrouted 0); levers LANDING-TIER2-APPROVALS, NETR-IB-RISK-BASIS, RESULTS-LOGS-NOT-LANDED. landed_unproven: closes when 903 re-fires and lands a measured record. Record comms/research/ops/20261012T2100Z.json.  [2026-10-13 02:55Z, 0247 pass] CORRECTION: the 903 re-arm did not take effect (dry run: not_due, result-based idempotence on the producer_failed row). Observation cannot close until RQ-REARM-PRODUCER-FAILED lands.  || [2026-10-15 DUE-ROUTE-20261015] DONE: RQ-20261009-903 re-fired and landed research/results/RQ-20261009-903/38453802467.jsonl with read_state=measured (not producer_failed).",
+  "updated_at": "2026-10-15T06:04:53Z",
+  "updated_by": "session_01PH9KCD1r7StznkqPLzd9K1",
   "roadmap": [
     "L-LADDER",
     "L-PROP"
   ],
   "writeback": {
-    "roadmap": "none: operations pass",
-    "arch": "none: no component changed"
+    "roadmap": "none: pipeline/ops row, no milestone outcome",
+    "arch": "none: no architecture change"
   },
   "observation": {
     "what": "RQ-20261009-903 re-fires after the pm_surprise_eval fix and lands a record with read_state measured (not producer_failed)",

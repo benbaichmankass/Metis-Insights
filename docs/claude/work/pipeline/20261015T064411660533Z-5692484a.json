@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "clears_when": "RQ-20261015-1bf3-02, -03, -04, -05 and -06 are all graded (status done with a grading block) -- then the window-matched prop_ev_grid head-to-head for tradeify_1 and velotrade_1 is registered from the arm-P trades files of -03..-06, and the prop-add decision goes to the operator with clean numbers",
+    "kind": "event"
+  },
+  "id": "PI-20261015-WNBZB5WN-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "Manager ask 2026-10-15 to lane RESEARCH-GRADE-BACKLOG (prop-add caveats); branch lane/prop-4h-stage0",
+    "rerun": "for u in RQ-20261015-1bf3-02 RQ-20261015-1bf3-03 RQ-20261015-1bf3-04 RQ-20261015-1bf3-05 RQ-20261015-1bf3-06; do grep -H '^status:' research/queue/$u.yaml; ls research/results/$u/ 2>/dev/null; done"
+  },
+  "state": "queued",
+  "what": "DATA GAP blocking the prop-add decision (4h ETH+SOL Donchian pair onto tradeify_1 / velotrade_1): (a) neither 4h leg has a Stage-0 record at its configured params under the PROP venue's cost stack (only Bybit-stack 1095 d records exist); (b) RQ-20261015-6504-01/-02 priced the 4h legs over 1095 d against the incumbent's 730 d; (c) 6504-01 compared arms at different risk (re-run RQ-20261015-1bf3-02 at 0.005 on both). Units: RQ-20261015-1bf3-03 (eth_4h) and -04 (sol_4h) Stage-0 at the prop stack with a positive control against the 1095 d record; -05 (eth_prop) and -06 (sol_prop) re-measure the incumbent over the same 1095 d window at the prop stack. NEXT when all graded: register the window-matched prop_ev_grid head-to-head from their arm-P trades files (paths known only after the runs land), then put the decision to the operator."
+}

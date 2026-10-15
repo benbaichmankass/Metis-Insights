@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-3 risk sizing on a real-money prop account. Operator decision 2026-10-15 ~05:55Z via manager popup, verbatim: \"0.5% (Recommended)\"; manager merges.",
+  "why": "config/accounts.yaml velotrade_1.risk.risk_pct 0.01 -> 0.005 (supersedes operator 2026-10-06 09:20Z 1%); evidence RQ-20261014-f516-05"
+}

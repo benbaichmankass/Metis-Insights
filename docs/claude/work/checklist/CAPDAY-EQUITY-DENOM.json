@@ -1,0 +1,21 @@
+{
+  "id": "CAPDAY-EQUITY-DENOM",
+  "title": "capital_days denominator treats bars as 24/day: equity 1h legs mis-scaled (slv_trend_1h 1.0567/day)",
+  "phase": "hygiene",
+  "state": "queued",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-15 DUE-ROUTE-20261015] Routed from PI-20261014-WF8DYMGP-0001. MEASURED: scripts/capital_efficiency.py days_from_bars = bars*bar_minutes/1440; slv_trend_1h record (comms/strategy_evidence/runs/2026-09-24-e55) capital_days=50.29 while summed calendar hold from __trades.jsonl = 253.5 d (n=68, net R +53.14), so rate is ~5x inflated vs calendar (~0.21). Fix: session-aware or calendar capital-days for non-24h venues, rebuild equity records, re-rank census.",
+  "updated_at": "2026-10-15T06:14:07Z",
+  "updated_by": "session_01PH9KCD1r7StznkqPLzd9K1",
+  "roadmap": [
+    "L-LADDER"
+  ],
+  "_seq": 509
+}

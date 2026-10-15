@@ -19,6 +19,7 @@ producer_failed/not_attempted, ``n`` an integer only when measured).
 copied from research/queue/RQ-20261010-419b-0{2,3,4}.yaml; editing a threshold here without the unit is a
 different experiment):
   short-drag   RQ-20261010-419b-02  pass = CONFIRMED / MIXED, fail = NOT CONFIRMED, indeterminate = n_short < 39
+  long-drag    PI-20261011-HOPS1447-0001 unit  short-drag with sides swapped; side-constrained legs are controls
   trend-asym   RQ-20261010-419b-03  per leg, short-only / long-only legs are controls and never graded
   portfolio    RQ-20261010-419b-04  PROPOSE / REDUCE-CONCENTRATION = pass, NO ACTION = no_action_warranted
   none         (default) replay + folds only; verdict is ``indeterminate`` with the raw results in measurement.
@@ -197,6 +198,48 @@ def grade_short_drag(per_leg: Dict[str, Dict[str, Any]], pooled: Dict[str, Any])
     return {"outcome": outcome, "verdict": verdict, "confirmed_legs": conf, "pooled_confirmed": pool_conf}
 
 
+# ── rule: long-drag (perf-followup 2026-W42, PI-20261011-HOPS1447-0001) ────
+def _long_confirmed(f: Dict[str, Any]) -> bool:
+    return (f["n_long"] >= MIN_PER_DIRECTION and f["folds_negative_long"] >= 3
+            and f["pooled_long_net_r"] < 0)
+
+
+def _long_not_confirmed(f: Dict[str, Any]) -> bool:
+    return f["n_long"] >= MIN_PER_DIRECTION and (f["folds_negative_long"] <= 2
+                                                 or f["pooled_long_net_r"] >= 0)
+
+
+def grade_long_drag(per_leg: Dict[str, Dict[str, Any]], pooled: Dict[str, Any],
+                    constraints: Optional[Dict[str, Optional[str]]] = None) -> Dict[str, Any]:
+    """The short-drag rule with the sides swapped. A leg whose config already forbids one side is a
+    control (it emits no longs, or no shorts) and is never graded; the pool is graded only when no
+    control is in it, because a control's trades would dilute the pooled long statistic."""
+    constraints = constraints or {}
+    controls = {lg: f"control: config side constraint {constraints[lg]!r} -- never graded"
+                for lg in per_leg if constraints.get(lg)}
+    legs = [lg for lg in per_leg if lg not in controls]
+    if not legs:
+        return {"outcome": "INDETERMINATE", "verdict": "indeterminate", "confirmed_legs": [],
+                "pooled_confirmed": False, "controls": controls}
+    conf = [lg for lg in legs if _long_confirmed(per_leg[lg])]
+    pool_ok = not controls
+    pool_conf = pool_ok and _long_confirmed(pooled) and all(per_leg[lg]["pooled_long_net_r"] <= 0 for lg in legs)
+    if len(conf) == len(legs) or pool_conf:
+        outcome = "CONFIRMED"
+    elif conf:
+        outcome = "MIXED"
+    elif all(_long_not_confirmed(per_leg[lg]) for lg in legs) and (not pool_ok or _long_not_confirmed(pooled)):
+        outcome = "NOT_CONFIRMED"
+    elif any(per_leg[lg]["n_long"] < MIN_PER_DIRECTION for lg in legs) or (pool_ok and pooled["n_long"] < MIN_PER_DIRECTION):
+        outcome = "INDETERMINATE"
+    else:
+        outcome = "MIXED"
+    verdict = {"CONFIRMED": "pass", "MIXED": "pass" if conf else "fail",
+               "NOT_CONFIRMED": "fail", "INDETERMINATE": "indeterminate"}[outcome]
+    return {"outcome": outcome, "verdict": verdict, "confirmed_legs": conf, "pooled_confirmed": pool_conf,
+            "controls": controls}
+
+
 # ── rule: RQ-20261010-419b-03 ───────────────────────────────────────────────
 def grade_trend_asym(per_leg: Dict[str, Dict[str, Any]], constraints: Dict[str, Optional[str]]) -> Dict[str, Any]:
     graded, controls = {}, {}
@@ -370,6 +413,8 @@ def assemble(legs: List[str], emits: Dict[str, str], strategies: Dict[str, Any],
                     population=f"{window}: no leg produced a trade", note=note)
     if rule == "short-drag":
         g = grade_short_drag(per_leg, pooled)
+    elif rule == "long-drag":
+        g = grade_long_drag(per_leg, pooled, meas["side_constraints"])
     elif rule == "trend-asym":
         g = grade_trend_asym(per_leg, meas["side_constraints"])
     elif rule == "portfolio":
@@ -392,7 +437,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--days", type=int, default=1830)
     ap.add_argument("--end", default=None, help="window end YYYY-MM-DD (default: yesterday UTC)")
-    ap.add_argument("--rule", choices=("none", "short-drag", "trend-asym", "portfolio"), default="none")
+    ap.add_argument("--rule", choices=("none", "short-drag", "long-drag", "trend-asym", "portfolio"), default="none")
     ap.add_argument("--data-dir", default=None, help="candle dir (default: <out>/data)")
     ap.add_argument("--from-emits", default=None, help="SMOKE/TEST: dir of <leg>.jsonl emits; skips fetch+harness")
     a = ap.parse_args(argv)

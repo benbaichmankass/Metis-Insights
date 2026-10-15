@@ -1,0 +1,24 @@
+{
+  "based_on": "20261011T123149556757Z-344c56fb.json",
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "no open automation/research-result-* PR older than 24h and research/results/ has each of RQ-20261007-004, RQ-20261005-814 on main",
+    "kind": "observation"
+  },
+  "id": "PI-20261011-8RO2ZJGU-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-13T18:00Z",
+    "how_to_check": "gh pr list --head 'automation/research-result-*' --state open; git ls-tree origin/main research/results/RQ-20261007-004",
+    "what": "stranded result PRs 17085/17170/17503/17526 merged or closed with rows on main"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "RQ-ID-ALLOCATOR/STAMP-RACE lane session_015Xpeh92c7dYBo78ro2Zjgu",
+    "rerun": "gh pr list --state open --search 'head:automation/research-result-' ; python3 scripts/ops/sweep_stale_automation_prs.py"
+  },
+  "routed_to": "manager session_01Uq7MrjPQDRWqbhCjwuMava",
+  "state": "done",
+  "terminal_reason": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r), 2026-10-15: LIVE read 2026-10-15 06:31Z (GitHub open-PR list, 35 open): 0 open automation/research-result-* PRs (#17085/#17170/#17503/#17526 no longer open), and research/results/RQ-20261007-004 and RQ-20261005-814 both exist on main.",
+  "what": "RQ-INFRA residual stranded/duplicate research result PRs: #17085 (RQ-20261007-004, 15 commits, base c72d49eb, head had 0 statuses), #17170 (RQ-20261005-814, mergeable_state clean, 4/4 checks green on eef9a75c at 05:54Z 10-11, but OPEN 3 days) and #17503 #17526 still open with results NOT on main; duplicates #17536/#17537/#17539 (#17536 itself merged 09:24Z, i.e. not a no-op). Lane session_015X could not arm/merge them (merge-slot guard + auto-mode classifier denied the claim touch). Root cause of the 10-11 cancels is already on main (job timeout 45->110, verified); root cause of #17170 being green+clean+unmerged is NOT established (auto-merge arming state unreadable via MCP). Manager: arm auto-merge on each stranded PR under its own slot claim, close duplicates after confirming rows on main, then read why #17170 never merged. Dispatcher re-fire while a result row is unmerged (cadence=once reads main only) still open."
+}

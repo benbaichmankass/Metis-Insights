@@ -11,13 +11,13 @@
   "tier": 1,
   "prs": [],
   "blocked_on": [],
-  "note": "Lane of manager session_01Uq7MrjPQDRWqbhCjwuMava. Ceiling $15. Deliverables: review record, ml-plan run record, stage-decision Tier-3 hold PR.  [done] Review record comms/reviews/ml-review-20261011-140000.json, plan record comms/ml-plan/20261011T2100Z.json. Stage PR #17580 (hold). Unit RQ-20261011-6e85-01 in hold PR. INCOMPLETE: trainer-vm-diag #17581 queued 30+ min, stage-guard/gate-check/parity unmeasured. Closes when: #17581 (or a fresh pull) output is read and the stage-guard section appended to the review record.",
-  "updated_at": "2026-10-11T18:09:55Z",
-  "updated_by": "session_01TJm8DkoUfBts46QxZqzm7j",
+  "note": "Lane of manager session_01Uq7MrjPQDRWqbhCjwuMava. Ceiling $15. Deliverables: review record, ml-plan run record, stage-decision Tier-3 hold PR.  [done] Review record comms/reviews/ml-review-20261011-140000.json, plan record comms/ml-plan/20261011T2100Z.json. Stage PR #17580 (hold). Unit RQ-20261011-6e85-01 in hold PR. INCOMPLETE: trainer-vm-diag #17581 queued 30+ min, stage-guard/gate-check/parity unmeasured. Closes when: #17581 (or a fresh pull) output is read and the stage-guard section appended to the review record.  || [2026-10-15 DUE-ROUTE-20261015] RE-DATED to 2026-10-22; READ: comms/reviews/ml-review-20261011-140000.json exists but its soak_audit says parity NOT RE-MEASURED: trainer-vm-diag #17581 stayed queued 30+ min. The pull was never read; needs a fresh trainer-vm-diag-request.",
+  "updated_at": "2026-10-15T06:04:55Z",
+  "updated_by": "session_01PH9KCD1r7StznkqPLzd9K1",
   "observation": {
     "what": "The trainer-vm-diag pull for the 2026-10-11 ml-review (stage-guard, gate-check x3, parity, stale/never names) is read and appended to comms/reviews/ml-review-20261011-140000.json",
     "how_to_check": "issue #17581 comments (or a fresh trainer-vm-diag-request issue); then jq .soak_audit,.promotion_recommendations on the review file",
-    "due_by": "2026-10-14"
+    "due_by": "2026-10-22"
   },
   "roadmap": "M25",
   "writeback": {

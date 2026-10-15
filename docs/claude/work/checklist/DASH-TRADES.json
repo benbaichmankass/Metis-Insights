@@ -10,7 +10,14 @@
   "tier": 1,
   "prs": [],
   "blocked_on": [],
-  "note": "2026-09-28 ~12:15Z: ict-trader-dashboard PR #220 merged dc79a39, live bundle verified by probe. Needs operator eyes for render.",
+  "note": "2026-09-28 ~12:15Z: ict-trader-dashboard PR #220 merged dc79a39, live bundle verified by probe. Needs operator eyes for render.  | 2026-10-15 BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r): still landed_unproven; observation named: Trades page loads (no 422 on limit) with Load more/Refresh, Overview shows last closed trades \u2014 read: SPA PR #220 merged (dc79a39) in the dashboard repo; render unconfirmed.",
   "id": "DASH-TRADES",
+  "observation": {
+    "what": "Trades page loads (no 422 on limit) with Load more/Refresh, Overview shows last closed trades",
+    "how_to_check": "GET /api/bot/trades?limit=500 returns 200 + operator view",
+    "due_by": "2026-10-22"
+  },
+  "updated_at": "2026-10-15T06:36:09Z",
+  "updated_by": "session_019p3X1tJAdUdV2dKaw9no8r",
   "_seq": 174
 }

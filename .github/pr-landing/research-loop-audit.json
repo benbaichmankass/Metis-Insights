@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 docs and register only: one new evidence doc (docs/research/research-loop-audit-2026-10-15.md), its DOCUMENT-INDEX row, and a new checklist row via scripts/ops/checklist.py. No config/, src/, workflow, schedule, queue unit or live-path change."
+}

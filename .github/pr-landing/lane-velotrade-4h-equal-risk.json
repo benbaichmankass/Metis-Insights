@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "One NEW pre-registered research unit (a registration holds under E57). RQ-20261015-1bf3-02 re-runs RQ-20261015-6504-01's velotrade_1 head-to-head with BOTH arms at the operator-approved risk_pct 0.005 (VELOTRADE-RISK-050), under the same cushion_vs_flat bar. 6504-01 compared A@0.01 with C4H050@0.005, so its PASS conflated adding the 4h pair with halving risk. The unit discloses, before registration, that a cross-run read of byte-identical arms already exists. No config, no decision-rule edit of an existing unit.",
+  "why": "Manager question 2026-10-15 on finding (3) of RESEARCH-GRADE-BACKLOG."
+}

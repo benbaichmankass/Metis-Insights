@@ -1,0 +1,89 @@
+id: RQ-20261015-1bf3-02
+title: 'Programme 05 Q5 head-to-head (velotrade_1) at the APPROVED risk 0.005 on BOTH arms: current ETH+SOL 1h book vs the same book PLUS the 4h Donchian pair (re-run of RQ-20261015-6504-01)'
+status: queued
+cadence: once
+kind: experiment
+theme: new_strategy_prop
+priority: 1
+roadmap:
+- L-PROP
+question: On the same 5 seeds, does adding trend_donchian_eth_4h + trend_donchian_sol_4h to velotrade_1's current 2-leg book beat the current book on ev_net_usd_per_life with >= its
+  survival (p_alive_at_horizon) on all 5 seeds, under the venue stack, switch armed?
+why_this_matters: 'RE-RUN AT THE ACCOUNT''S RISK (manager, 2026-10-15): RQ-20261015-6504-01 priced its incumbent A at risk_pct 0.01 and its winning arm C4H050 at 0.005, so the PASS conflated adding the 4h pair with halving risk. The operator approved velotrade_1 risk_pct 0.01 -> 0.005 (checklist VELOTRADE-RISK-050), so the comparison that describes the account is A@0.005 vs C4H@0.005, under the SAME bar. DISCLOSED BEFORE REGISTRATION: both arms already exist byte-identically in landed runs with identical --common and seeds (A@0.005 = RQ-20261014-f516-05 arm C050; C4H@0.005 = RQ-20261015-6504-01 arm C4H050), and a cross-run read of them shows C4H ev higher on all 5 seeds but p_alive lower on seeds 1 and 5; this unit makes that one run under one rule rather than a cross-run read. RQ-20261014-f516-10 admitted the 4h pair to the velotrade_1 candidate pool (ev > 0 on all seeds at every arm); its rule names this head-to-head as the next rung. Same
+  shape as f516-08 (incumbent A vs additive challengers). CAVEAT stated up front: the 4h rows are a 1095 d window, the incumbent legs are the 730 d records, so the pair is priced over
+  a longer history than the incumbent; n and window are reported, not equalised.'
+power:
+  expected_n: 116
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: '4h pair: 116 committed 1095 d trades each (RQ-20261014-f516-10 record). Below the 88 floor the grid grades UNDERPOWERED, never FAIL.'
+  feasibility:
+    source: none
+    accrual_basis: Re-pricing of committed 730 d trade evidence under the firm's rules; nothing accrues.
+decision_rule:
+  id: RULE-RQ_20261015_1bf3_02
+  registered_at: '2026-10-15'
+  registered_before_run: true
+  statistic: Per seed and arm, path-mode ev_net_usd_per_life and p_alive_at_horizon over the velotrade_1 book (prop_ev_grid, venue stack from the ruleset, switch armed at 0.8). A = the
+    incumbent ETH+SOL 1h book at risk 0.005 (the approved velotrade_1 risk); C4H050 = A plus the 4h ETH+SOL Donchian legs at the same risk 0.005.
+  rule: 'prop_ev_grid --grade cushion_vs_flat, mechanically: PASS IF C4H050 beats A (risk 0.005) on ev AND has >= A''s p_alive_at_horizon on ALL 5 seeds -> a Tier-3 roster proposal
+    written as a note on the owning checklist row for the manager (never a config edit, never a promotion claim; the 4h legs must also pass their own Stage-0 record at configured params
+    per the ladder). FAIL IF A (risk 0.005) is undominated on any seed -> incumbent stands, the 4h pair stays pool-only. NULL otherwise -> incumbent stands, arm table attached to 05-PROP.md.'
+  min_n: '88'
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 60
+  basis: same prop_ev_grid book shape as RQ-20261014-f516-09/-10 with 2 arms x 5 seeds at 4,000 lives, --jobs 4
+compute: cpu_long
+value:
+  bucket: information
+  usd_at_stake_per_month: 120
+  confidence: 0.3
+  basis: 'stand-in: pool-admission follow-up; information until a Tier-3 roster proposal. No balances stated.'
+run:
+  workflow: research-script-run.yml
+  timeout_minutes: 120
+  command:
+  - python3
+  - scripts/research/prop_ev_grid.py
+  - --leg
+  - trend_donchian_eth_prop=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl
+  - --arm
+  - A=--sizing balance --risk-pct 0.005 --dd-switch-frac 0.8
+  - --arm
+  - C4H050=--sizing balance --risk-pct 0.005 --dd-switch-frac 0.8 --trades trend_donchian_eth_4h=comms/strategy_evidence/runs/2026-10-12-1095d/trend_donchian_eth_4h__trades.jsonl --lev-cap
+    trend_donchian_eth_4h=5 --trades trend_donchian_sol_4h=comms/strategy_evidence/runs/2026-10-12-1095d/trend_donchian_sol_4h__trades.jsonl --lev-cap trend_donchian_sol_4h=5
+  - --common
+  - --trades trend_donchian_sol_prop=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop__trades.jsonl --ruleset config/prop_rulesets/velotrade_classic_1step.yaml --costs
+    breakout --commission-bps-rt 6 --slippage-bps-rt 3 --swap-daily 0.0005 --swap-model dxtrade --no-hedge --funded-start fresh --lev-cap trend_donchian_eth_prop=5 --lev-cap trend_donchian_sol_prop=5
+  - --seeds
+  - 1,2,3,4,5
+  - --grade
+  - cushion_vs_flat
+  - --out
+  - '{out_dir}'
+  - --jobs
+  - '4'
+  - --note
+  - 'RQ-20261015-1bf3-02: velotrade_1 head-to-head at risk 0.005 (re-run of 6504-01)'
+  inputs:
+    research_unit: RQ-20261015-1bf3-02
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- docs/research/programmes/05-PROP.md
+- research/queue/RQ-20261015-6504-01.yaml
+- research/queue/RQ-20261014-f516-05.yaml
+- research/queue/RQ-20261014-f516-10.yaml
+- research/queue/RQ-20261014-f516-01.yaml
+- docs/claude/work/checklist/PROP-BOOK-SEARCH-1095D.json
+what_it_does_not_do: 'Changes no roster or config. Pool admission is not promotion: trend_donchian_sol_4h is execution: shadow and neither 4h leg is on a prop account. Window mismatch
+  (1095 d vs 730 d) is reported, not corrected. Does not check symbol lot sizes or same-symbol netting across the 1h and 4h ETH legs beyond what --no-hedge models.'
+last_dispatched_at: null

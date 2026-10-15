@@ -1,0 +1,20 @@
+{
+  "based_on": "20261012T060645858739Z-7ca1d9a2.json",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "velotrade_1 account_status reports a non-null unrealized while a position is open (or the gate derives it), and no velotrade_1 ticket is skipped for unrealized_unreported over a week with a position open; or killed with a measured reason",
+    "due_date": "2026-10-15",
+    "kind": "date",
+    "last_checked": "2026-10-12"
+  },
+  "id": "PI-20261012-EEP21012-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "UNPROVEN-SWEEP-2 2026-10-12 (row VELOTRADE-API-EXEC)",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/fills?account_id=velotrade_1' | python3 -c \"import json,sys;[print(x['ticket_id'][-6:],x['status'],(x.get('reason') or '')[:120]) for x in json.load(sys.stdin)['fills'][:10]]\"; curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=velotrade_1' | python3 -c \"import json,sys;s=json.load(sys.stdin)['status'];print(s['unrealized'],s['realized_today'])\""
+  },
+  "routed_to": "checklist row PROP-GATE-UNREALIZED-DAYPNL (DUE-ROUTE-20261015)",
+  "state": "routed",
+  "what": "velotrade_1 skipped a live SOL signal pair on 2026-10-11 (tickets cb656fd5ad42 16:02Z and f7dec8a5bbb4 15:49Z) with reason 'open risk: unrealized_unreported (could not look); risk gate: cushion_unknown (the account-status snapshot is unreadable)'. /api/bot/prop/status?account_id=velotrade_1 reads unrealized=null, realized_today=null, day_pnl_state=unreported on a fresh (0.02 h old) executor snapshot, so the gate treats a fresh snapshot as unreadable whenever the REST executor does not report unrealized PnL. Every velotrade_1 entry while a position is open (or unrealized is null) is refused this way. Question to answer: does the DXtrade/REST adapter have an unrealized field it is not mapping, or should the gate compute unrealized from the open fill + last price? MEASURED from /api/bot/prop/fills and /prop/status 2026-10-12; the refusal is per-trade, not a halt."
+}

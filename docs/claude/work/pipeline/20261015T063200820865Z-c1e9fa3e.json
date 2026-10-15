@@ -1,0 +1,29 @@
+{
+  "based_on": "20261011T071206137848Z-b86d4a4d.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "an executor journal row with unconfirmed_resolved exists after 2026-10-11",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261011-CJWUMAVA-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-29",
+    "how_to_check": "scripts/ops/diag_fetch.sh '/api/bot/prop/status?account_id=velotrade_1' and the executor events for unconfirmed_resolved",
+    "what": "an unconfirmed submit on a DXtrade prop account resolves via 'unconfirmed_resolved' in the executor journal (the #17463 resolver firing live)"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "checklist VELO-UNCONFIRMED-1008 closed 2026-10-11 by manager session_01Uq7MrjPQDRWqbhCjwuMava",
+    "rerun": "scripts/ops/diag_fetch.sh '/api/bot/prop/status?account_id=velotrade_1' and look for unconfirmed_resolved in the executor events"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "LIVE read 2026-10-15 diag journalctl ict-prop-executor@tradeify_1 and @velotrade_1 (last 2000 lines each, ~10-14 19:00Z..10-15 06:28Z): 0 'unconfirmed_resolved' lines and no ticket processed in the window; the event has not occurred yet.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "checklist row ROUTE-PROP-TRACKING | [BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r) 2026-10-15 re-route]",
+  "state": "routed",
+  "what": "VELO-UNCONFIRMED-1008 residual: the unconfirmed-submit resolver (#17463) is merged but unobserved. Close when an unconfirmed submit on any DXtrade prop account is seen resolving via 'unconfirmed_resolved' in the executor journal."
+}

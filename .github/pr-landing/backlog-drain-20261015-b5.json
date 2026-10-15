@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register records for 55 due pipeline items (15 PROTECTION-HARDENING money-path items re-verified live, 40 items on queued rows re-dated with what was read or closed) plus one docstring correction (check_backlog_refs.py scope note). No runtime, config or order-path change."
+}

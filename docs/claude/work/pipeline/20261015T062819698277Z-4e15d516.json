@@ -1,0 +1,28 @@
+{
+  "based_on": "20261012T060401416051Z-43b3e590.json",
+  "due_when": {
+    "clears_when": "soak_report applies regime gating (or DEAD verdicts carry a regime_off flag) and eth_pullback_prop_2h silence is root-caused with a diag pull",
+    "due_date": "2026-10-29",
+    "kind": "date"
+  },
+  "id": "PI-20261005-OAKGATE1-0003",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-29",
+    "how_to_check": "python3 scripts/ops/soak_report.py --print-state | grep -E 'fvg_range_15m|eth_pullback_prop_2h'",
+    "what": "soak_report applies regime gating (or DEAD verdicts carry a regime_off flag) and eth_pullback_prop_2h silence is root-caused with a diag pull"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-GATE1 2026-10-05 (lane of manager session_01MM8o5js6TcDFeNAPBY4Ntv)",
+    "rerun": "python3 scripts/ops/soak_report.py --print-state | grep -E 'fvg_range_15m|eth_pullback_prop_2h'"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Read 2026-10-15: scripts/ops/soak_report.py has no regime_policy handling, so a regime-off leg can still grade DEAD (part a open, Tier-1). Part (b) is moot: neither fvg_range_15m nor eth_pullback_prop_2h is on any roster. UNPROVEN-SWEEP-2 is done; re-routed.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "checklist row ROUTE-LEG-EVIDENCE | [BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r) 2026-10-15 re-route]",
+  "state": "routed",
+  "what": "Soak DEAD diagnosis. fvg_range_15m: silence is BY DESIGN (config/regime_policy.yaml long/short off in trending+chop) so soak_report's backtest-expected rate (~3.3 in 69d) ignores the regime router -- fix soak_report expected-rate to apply the router, else every regime-off leg grades DEAD. eth_pullback_prop_2h: 0 packages in 43d vs ~8.2 expected, NO regime cell (regime_coverage_exemptions only); cause NOT established -- check candles/signal path via diag (it is now removed from bybit_1, so only mirrors/prop accounts matter)."
+}

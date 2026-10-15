@@ -2,7 +2,7 @@
   "id": "RQ-REARM-PRODUCER-FAILED",
   "title": "Re-arm path for producer_failed once-units: a landed producer_failed row trips result-based idempotence, nulling the stamp does not re-fire",
   "phase": "research",
-  "state": "landed_unproven",
+  "state": "done",
   "owner": "manager",
   "lane": null,
   "model": null,
@@ -11,15 +11,15 @@
   "tier": 1,
   "prs": [],
   "blocked_on": [],
-  "note": "FIX (this PR): dispatch_queue._is_due re-arms a once-unit whose landed rows are ALL read_state producer_failed/no_data once its stamp is cleared, max 2 retries counted from rows (3rd failed row -> not due + ::warning:: retry cap reached); any real verdict keeps the unit done; stamp_lost no longer re-stamps a re-armable unit. Tests in tests/test_research_queue_idempotence.py. Stamps of RQ-20261009-903 and RQ-20261012-75b2-19 nulled; dry run shows both would_dispatch. CLOSES WHEN: one of them lands a read_state=measured row (next dispatch cycle after merge).",
-  "updated_at": "2026-10-13T08:07:49Z",
-  "updated_by": "lane-RQ-REARM-PRODUCER-FAILED",
+  "note": "FIX (this PR): dispatch_queue._is_due re-arms a once-unit whose landed rows are ALL read_state producer_failed/no_data once its stamp is cleared, max 2 retries counted from rows (3rd failed row -> not due + ::warning:: retry cap reached); any real verdict keeps the unit done; stamp_lost no longer re-stamps a re-armable unit. Tests in tests/test_research_queue_idempotence.py. Stamps of RQ-20261009-903 and RQ-20261012-75b2-19 nulled; dry run shows both would_dispatch. CLOSES WHEN: one of them lands a read_state=measured row (next dispatch cycle after merge).  || [2026-10-15 DUE-ROUTE-20261015] DONE: research/results/RQ-20261009-903 and RQ-20261012-75b2-19 both hold jsonl rows with read_state=measured (903 verdict fail, 75b2-19 indeterminate - a measured fail/indeterminate is a result; the producer no longer fails).",
+  "updated_at": "2026-10-15T06:04:54Z",
+  "updated_by": "session_01PH9KCD1r7StznkqPLzd9K1",
   "roadmap": [
     "L-LADDER"
   ],
   "writeback": {
-    "roadmap": "none: tooling",
-    "arch": "none"
+    "roadmap": "none: pipeline/ops row, no milestone outcome",
+    "arch": "none: no architecture change"
   },
   "observation": {
     "what": "RQ-20261009-903 or RQ-20261012-75b2-19 lands a research/results row with read_state=measured after the re-arm",

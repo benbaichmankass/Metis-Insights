@@ -2,7 +2,7 @@
   "id": "RESEARCH-OPS-20261013-2047",
   "title": "Research-ops pass 2026-10-13 20:47Z",
   "phase": "research",
-  "state": "landed_unproven",
+  "state": "done",
   "owner": "manager",
   "lane": "research-ops-lane-20261013-2047",
   "model": null,
@@ -11,16 +11,16 @@
   "tier": 1,
   "prs": [],
   "blocked_on": [],
-  "note": "[lane done] 6 results read p3/f3; RQ-20261007-020 retired non-informative (arm W ran without stale exit after #17002); RQ-20261007-021 is a trail_decay unit, unaffected, left done; RQ-20261007-002 still registers the stripped eth stale lever (flagged). Floor met (34). Record comms/research/ops/20261013T2100Z.json. Hold PR needs manager merge.",
-  "updated_at": "2026-10-13T20:50:18Z",
-  "updated_by": "research-ops-lane-20261013-2047",
+  "note": "[lane done] 6 results read p3/f3; RQ-20261007-020 retired non-informative (arm W ran without stale exit after #17002); RQ-20261007-021 is a trail_decay unit, unaffected, left done; RQ-20261007-002 still registers the stripped eth stale lever (flagged). Floor met (34). Record comms/research/ops/20261013T2100Z.json. Hold PR needs manager merge.  || [2026-10-15 DUE-ROUTE-20261015] DONE: research/queue/RQ-20261007-020.yaml reads status: retired on main.",
+  "updated_at": "2026-10-15T06:04:54Z",
+  "updated_by": "session_01PH9KCD1r7StznkqPLzd9K1",
   "roadmap": [
     "L-LADDER",
     "L-PROP"
   ],
   "writeback": {
-    "roadmap": "none: operations pass",
-    "arch": "none: no component changed"
+    "roadmap": "none: pipeline/ops row, no milestone outcome",
+    "arch": "none: no architecture change"
   },
   "observation": {
     "what": "manager merges the hold PR; RQ-20261007-020 reads status retired on main",

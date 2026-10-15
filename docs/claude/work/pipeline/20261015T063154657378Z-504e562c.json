@@ -1,0 +1,29 @@
+{
+  "based_on": "20261007T182928934329Z-e4d2c0f0.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "first breakout_2 live placement observed with TP and SL listed from a second client",
+    "kind": "event",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261005-YUVCGTMJ-0005",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-29",
+    "how_to_check": "GET /api/bot/prop/tickets?account_id=breakout_2 -> first ticket with status placed/filled and meta.phone.live true; operator confirms TP+SL visible in Breakout's app (recorded on row PHONE-EXEC-1B)",
+    "what": "on the first LIVE breakout_2 fill placed by the phone, the TP and SL legs are listed server-side in Breakout's own app/web from a second device"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "lane PHONE-EXEC-1B session_01Ce3EyP4Z9A4P4MyUvcgtmJ; branch claude/phone-exec-1b",
+    "rerun": "GET /api/bot/prop/tickets?account_id=breakout_2 ; ask the operator to open Breakout's own app on the first live order"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Read 2026-10-15: PHONE-EXEC-1B is landed_unproven; the second-client check that the venue lists SL and TP legs needs the first live breakout_2 ticket, and none is recorded on disk.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "checklist row PHONE-EXEC-1B | [BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r) 2026-10-15 re-route]",
+  "state": "routed",
+  "what": "PHONE: SL/TP-at-venue survival (design 5.4) is still unmeasured on the new terminal: whether a bracket placed by the phone keeps working when the app/phone is gone. Measure on the FIRST live fill: after the read-back confirms the order, check the order/position in Breakout's own mobile app or web from another device and confirm the TP and SL legs are listed server-side."
+}

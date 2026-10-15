@@ -14,6 +14,13 @@
     14232
   ],
   "blocked_on": [],
-  "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RECON lane archived; reuse src/web/api/_clean_trades.exclude_reduce_leg_predicate, never a second predicate; other NULL-pnl rows stay could_not_look. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. #14183 on main as 08a52c74 (account_broker_reconcile excludes intent_reduce legs; reads realizedPnl before the NULL-pnl refusal). The related #14232 is 647d2d19. The re-run of the bybit_2 journal-vs-broker comparison is NOT recorded as observed. PI-20260929-PXGMJYTX-0001 (queued, due 2026-10-02) says that comparison sets two different windows against each other (last-20 closes vs days=90), so any agree/divergent result is not a finding until the windows match. Closes on a post-deploy account-broker-reconcile bybit_2 run with reduce legs excluded AND matched windows.",
+  "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RECON lane archived; reuse src/web/api/_clean_trades.exclude_reduce_leg_predicate, never a second predicate; other NULL-pnl rows stay could_not_look. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. #14183 on main as 08a52c74 (account_broker_reconcile excludes intent_reduce legs; reads realizedPnl before the NULL-pnl refusal). The related #14232 is 647d2d19. The re-run of the bybit_2 journal-vs-broker comparison is NOT recorded as observed. PI-20260929-PXGMJYTX-0001 (queued, due 2026-10-02) says that comparison sets two different windows against each other (last-20 closes vs days=90), so any agree/divergent result is not a finding until the windows match. Closes on a post-deploy account-broker-reconcile bybit_2 run with reduce legs excluded AND matched windows.  | 2026-10-15 BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r): still landed_unproven; observation named: a post-fix account-broker-reconcile run on bybit_2 with reduce legs excluded AND matched windows reports agree/divergent \u2014 read: reduce-leg exclusion in scripts/ops/account_broker_reconcile.py; windows still unmatched (PI-20260929-PXGMJYTX-0001, now on ORDER-AUDIT-3).",
+  "observation": {
+    "what": "a post-fix account-broker-reconcile run on bybit_2 with reduce legs excluded AND matched windows reports agree/divergent",
+    "how_to_check": "account-broker-reconcile workflow output for bybit_2",
+    "due_by": "2026-10-29"
+  },
+  "updated_at": "2026-10-15T06:36:10Z",
+  "updated_by": "session_019p3X1tJAdUdV2dKaw9no8r",
   "_seq": 202
 }

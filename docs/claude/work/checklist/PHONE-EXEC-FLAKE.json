@@ -1,0 +1,21 @@
+{
+  "id": "PHONE-EXEC-FLAKE",
+  "title": "Root-cause the tests/test_phone_executor.py CI flake (pair failed once 2026-10-07/08)",
+  "phase": "hygiene",
+  "state": "queued",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-15 DUE-ROUTE-20261015] Routed from PI-20261008-QAW8FBY5-0001. Needs CI logs of the failed pytest run to name the pair; this lane had no pytest locally. Fix or dispose; never skip/quarantine.",
+  "updated_at": "2026-10-15T06:14:06Z",
+  "updated_by": "session_01PH9KCD1r7StznkqPLzd9K1",
+  "roadmap": [
+    "L-OPS"
+  ],
+  "_seq": 505
+}

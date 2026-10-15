@@ -1,0 +1,25 @@
+{
+  "id": "PERF-FOLLOWUP-2026W42",
+  "title": "Perf-followup on the 2026-10-15 walk-through perf brief (4 tracks)",
+  "phase": "research",
+  "state": "in_flight",
+  "owner": "lane session_01NaMb9yBEwJUTF5thYKVCJE",
+  "lane": "PERF-FOLLOWUP-2026W42",
+  "model": "opus",
+  "ceiling_usd": 20,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    18175,
+    18176
+  ],
+  "blocked_on": [],
+  "note": "Dispatched by Manager Session 2026-10-14 (session_01VduHYzdaXe27wTDBLSu8ao); operator approved at the 2026-10-15 walk-through ('Run it (Recommended)'). Ceiling $20 (Opus). Record: comms/perf_followup/perf-followup-20261015-walkthrough.json. Step 0: W41's 4 units all ran_and_read (research-ops 2026-10-11T15:00Z). New: 1 queue unit RQ-20261015-72ad-01 (long-drag on held-out pullback_2h legs, dispatchable) + leg_replay_emit --rule long-drag. Closes when RQ-20261015-72ad-01 lands a measured record under research/results/ and its outcome is applied (PASS -> Tier-3 side_filter proposal to the manager; FAIL -> PI-20261011-HOPS1447-0001 killed). PRs: #18175 (record + registers, Tier-1 self-land) and #18176 (long-drag rule + RQ-20261015-72ad-01, HELD for a human merge, E57). Not merged at report time.",
+  "updated_at": "2026-10-15T06:30:39Z",
+  "updated_by": "session_01NaMb9yBEwJUTF5thYKVCJE",
+  "roadmap": [
+    "M21",
+    "L-LADDER"
+  ],
+  "_seq": 506
+}

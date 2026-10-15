@@ -1,0 +1,24 @@
+{
+  "based_on": "20261005T040132990787Z-8e44af5c.json",
+  "due_when": {
+    "check_every_days": 7,
+    "due_date": "2026-10-22",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ECILBBVH-0009",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-12",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-A02.findings.jsonl#AUD-20260927-CA-A02-pairs-half-open-not-in-concurrency-gate",
+    "rerun": "sed -n '/def _held_leg_symbols/,/return held/p' src/units/strategies/pairs_executor.py | grep -n '_pair_is_open'  # present => still open"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Read 2026-10-15: pairs_executor.py _held_leg_symbols/_count_correlated_open (~L480-505) still gate on _pair_is_open, which returns True only for open/unreadable, not half_open, so a half-open pair's naked leg is not counted as held. Tier-2 fix + test.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "checklist row ORDER-AUDIT-3 | [BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r) 2026-10-15 re-route]",
+  "state": "routed",
+  "what": "[AUD-20260927-CA-A02-pairs-half-open-not-in-concurrency-gate] The disjoint-legs concurrency gate and correlation haircut use _pair_is_open, which is False for a half_open pair, so a sibling pair can open a new position on the symbol of a stranded naked leg. Proposed fix: Use _pair_leg_state(...) in ('open','half_open') in the two concurrency helpers. (Tier 2; audit lanes do not enact fixes.)"
+}

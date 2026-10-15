@@ -1,0 +1,24 @@
+{
+  "based_on": "20261012T060358449172Z-110d9ed6.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "the backfill-intent-reduce-pnl system-action has been applied on the live VM and both readers include settled reduce legs",
+    "kind": "event",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261011-YJAYF7GD-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "PERF-FU-REDUCE-PNL lane session_012h5mfFx5doTB4cYjaYF7gd",
+    "rerun": "grep -n 'exclude_reduce_leg_predicate\\|_is_reduce_row' src/web/api/routers/attribution.py scripts/ops/account_broker_reconcile.py"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, still open on its row: backfill-intent-reduce-pnl action exists (system-actions.yml ~L155) but attribution.py ~L125 and account_broker_reconcile.py ~L375-463 still exclude reduce legs; the Tier-2 apply is not evidenced.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "REDUCE-READERS-INCLUDE",
+  "state": "routed",
+  "what": "Reduce-leg P&L is now booked on the reduce audit row (PERF-FU-REDUCE-PNL) but two readers still drop reduce legs wholesale: src/web/api/routers/attribution.py (exclude_reduce_leg_predicate -> per-strategy P&L omits it) and scripts/ops/account_broker_reconcile.py (_is_reduce_row -> the bybit_2 journal-vs-wallet comparison omits it). Once the backfill is applied, include rows with notes.reduce_settlement='settled' in both (attribute to the PARENT's strategy via notes.reduce_settlement_parents), keep excluding unsettled/superseded ones."
+}

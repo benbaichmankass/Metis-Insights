@@ -71,6 +71,12 @@ flags, never defaults chosen here:
     unreachable-arm config must equal the no-decay arm, or the premise that the
     lever is dead is wrong and nothing below it may be read.
 
+  * ``stage0`` -- ONE arm (the baseline) graded on its own: the Stage-0 bar at
+    whatever cost stack that arm carries (e.g. a prop venue's, via raw
+    ``--fee-bps-roundtrip`` / ``--slippage-bps-roundtrip`` / ``--funding-*``
+    flags). pass iff net_r > 0 AND n >= n_floor AND >= fold_majority folds net
+    > 0; fail otherwise at n >= n_floor; indeterminate when n < n_floor or a
+    ``--control`` arm does not reproduce its committed record.
 Honesty notes. ``maxDD`` and ``net_total_r`` are read from the harness's own
 ``--json`` summary, never re-derived. ``delta_r`` is a MATERIALITY bar in R
 over the whole window (the unit says why that value), not a significance test;
@@ -95,7 +101,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(REPO / "scripts" / "research"), str(REPO / "scripts"), str(REPO)]
 
 VERDICTS = ("pass", "fail", "indeterminate")
-GRADES = ("parity", "sweep")
+GRADES = ("parity", "sweep", "stage0")
 N_FOLDS = 4
 
 
@@ -339,6 +345,33 @@ def grade_sweep(arms: dict[str, dict[str, Any]], *, baseline: str, candidates: l
                    "earns its place -- strip them (Tier-3, not done here)"}
 
 
+def grade_stage0(arms: dict[str, dict[str, Any]], *, baseline: str, fold_majority: int, n_floor: int,
+                 control: dict[str, Any] | None) -> dict[str, Any]:
+    """Stage-0 for ONE arm (the baseline): is there an edge net of the cost stack THIS arm carries?
+
+    PASS iff net_r > 0 AND n >= n_floor AND >= fold_majority of the N_FOLDS calendar folds net > 0.
+    FAIL iff n >= n_floor and that does not hold. INDETERMINATE when n < n_floor or the control arm
+    (another declared arm, e.g. the record's own cost stack) does not reproduce the committed record.
+    Added 2026-10-15 (lane RESEARCH-GRADE-BACKLOG, manager ask): the prop add decision needed the 4h
+    legs' Stage-0 at the PROP venue's cost stack, and no dispatchable driver graded a single
+    config-exact arm at a non-default stack."""
+    b = arms[baseline]
+    pos = sum(1 for f in b["folds"] if f["net_r"] > 0)
+    m = {"baseline": baseline, "net_r": b["net_r"], "n": b["n"], "max_drawdown_r": b["max_drawdown_r"],
+         "folds_positive": pos, "n_folds": N_FOLDS, "fold_majority": fold_majority, "n_floor": n_floor,
+         "control": control}
+    if control is not None and not control["ok"]:
+        return {"verdict": "indeterminate", "label": "control_failed", **m,
+                "why": "the control arm does not reproduce the committed record: the corpus differs, so nothing is read"}
+    if b["n"] < n_floor:
+        return {"verdict": "indeterminate", "label": "underpowered", **m, "why": f"n={b['n']} < n_floor {n_floor}"}
+    if b["net_r"] > 0.0 and pos >= fold_majority:
+        return {"verdict": "pass", "label": "stage0_edge", **m,
+                "why": f"net_r={b['net_r']} > 0 with {pos}/{N_FOLDS} positive folds at this arm's cost stack"}
+    return {"verdict": "fail", "label": "stage0_no_edge", **m,
+            "why": f"net_r={b['net_r']} with {pos}/{N_FOLDS} positive folds (needs > 0 and >= {fold_majority})"}
+
+
 def verdict_record(grade: dict[str, Any], *, leg: str, arms: dict[str, dict[str, Any]], population: str,
                    n: int, extra: dict[str, Any]) -> dict[str, Any]:
     return {"verdict": grade["verdict"], "read_state": "measured", "population": population, "n": n,
@@ -437,6 +470,9 @@ def main(argv: list[str] | None = None) -> int:
     if a.grade == "parity":
         g = grade_parity(arms, baseline=a.baseline, candidate=a.candidate, delta_r=a.delta_r,
                          fold_majority=a.fold_majority, n_floor=a.n_floor, control=control)
+    elif a.grade == "stage0":
+        g = grade_stage0(arms, baseline=a.baseline, fold_majority=a.fold_majority, n_floor=a.n_floor,
+                         control=control)
     else:
         cands = [lab for lab in labels if lab != a.baseline and (not same_as or lab not in same_as)]
         g = grade_sweep(arms, baseline=a.baseline, candidates=cands, delta_r=a.delta_r,
@@ -469,6 +505,19 @@ def _self_test() -> int:
         nonlocal ok
         ok &= bool(cond)
         print(f"  self-test {'ok  ' if cond else 'FAIL'}: {label}")
+
+    # stage0 (one arm, its own cost stack)
+    g0 = grade_stage0({"P": _arm(60, 5.0, 3.0, [1, 2, -1, 3])}, baseline="P", fold_majority=3, n_floor=39, control=None)
+    check("stage0: net>0, 3/4 folds -> pass", g0["verdict"] == "pass" and g0["label"] == "stage0_edge")
+    g0 = grade_stage0({"P": _arm(60, 5.0, 3.0, [1, -2, -1, 7])}, baseline="P", fold_majority=3, n_floor=39, control=None)
+    check("stage0: net>0, 2/4 folds -> fail", g0["verdict"] == "fail")
+    g0 = grade_stage0({"P": _arm(60, -0.5, 3.0, [1, 1, 1, -3.5])}, baseline="P", fold_majority=3, n_floor=39, control=None)
+    check("stage0: net<=0 -> fail", g0["verdict"] == "fail" and g0["label"] == "stage0_no_edge")
+    g0 = grade_stage0({"P": _arm(20, 5.0, 3.0, [1, 2, 1, 1])}, baseline="P", fold_majority=3, n_floor=39, control=None)
+    check("stage0: n < floor -> indeterminate", g0["verdict"] == "indeterminate")
+    g0 = grade_stage0({"P": _arm(60, 5.0, 3.0, [1, 2, 1, 1])}, baseline="P", fold_majority=3, n_floor=39,
+                      control={"ok": False})
+    check("stage0: failed control -> indeterminate", g0["verdict"] == "indeterminate" and g0["label"] == "control_failed")
 
     lab, sets, unsets, extra = parse_arm("X=-stale_exit_bars;-stale_exit_below_r;--timeout-bars=100000;tp_r=3.0")
     check("arm spec parses sets/unsets/extra", lab == "X" and unsets == ["stale_exit_bars", "stale_exit_below_r"]

@@ -285,6 +285,8 @@ def diversity(plan: dict, mf: dict, registry_stages: dict | None = None) -> tupl
         if it.get("state") != "open" or not it.get("family"):
             continue
         fam = it["family"]
+        if fam == "none":   # process / infrastructure item: not about any model family (explicit, so it is not "untagged")
+            continue
         if fam not in fams:
             findings.append(f"UNKNOWN-FAMILY: item {it['id']} names '{fam}' (not in FAMILIES)")
             continue

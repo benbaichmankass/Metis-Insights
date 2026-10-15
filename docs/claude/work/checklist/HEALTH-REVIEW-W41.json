@@ -13,13 +13,13 @@
     17297
   ],
   "blocked_on": [],
-  "note": "[2026-10-09 lane] started; ceiling $12 [2026-10-09T20:10Z lane] Review JSON comms/reviews/health/2026-10-09-health-review.json. Items: 1 IB resolved; 2 relay native-arm path fixed in PR (hold); 3 flake: no pytest-run failure on main since #17230; 4 RQ-COLLECTOR: collector fixed, landing wait 50->80 stopgap in PR; 5 NO-HALT ancestors YES + prop executors halted null; 6 DD-switch not_observed root-caused (observe only on evaluate), Tier-3 fix proposed PI-20261009-VQIPJE2H-0001. Sweep gate NOT met: 72 of 76 due pipeline items not walked (all routed). Closes when the PR merges. [2026-10-12 UNPROVEN-SWEEP-2 pass 2 session_01Khx64L6tHdG52Srbh2NVdT] RE-DATED to 2026-10-14. FAILED IN PART. #17297 merged 2026-10-09T20:37Z. Land jobs under 80 min succeed (e.g. 38205538633) but runs 38161538083 (PR #17618) and 38182207173 (PR #17652, still OPEN and dirty) hit the 80-minute wait ('stale-branch refresh: failed_conflict'), and 38171810585 died on 'local changes would be overwritten' - filed PI-20261012-EEP21012-0001. The 'STALE RUN' notice clause was not read (claude-pr-automerge logs).",
-  "updated_at": "2026-10-12T06:07:29Z",
-  "updated_by": "session_01Khx64L6tHdG52Srbh2NVdT",
+  "note": "[2026-10-09 lane] started; ceiling $12 [2026-10-09T20:10Z lane] Review JSON comms/reviews/health/2026-10-09-health-review.json. Items: 1 IB resolved; 2 relay native-arm path fixed in PR (hold); 3 flake: no pytest-run failure on main since #17230; 4 RQ-COLLECTOR: collector fixed, landing wait 50->80 stopgap in PR; 5 NO-HALT ancestors YES + prop executors halted null; 6 DD-switch not_observed root-caused (observe only on evaluate), Tier-3 fix proposed PI-20261009-VQIPJE2H-0001. Sweep gate NOT met: 72 of 76 due pipeline items not walked (all routed). Closes when the PR merges. [2026-10-12 UNPROVEN-SWEEP-2 pass 2 session_01Khx64L6tHdG52Srbh2NVdT] RE-DATED to 2026-10-14. FAILED IN PART. #17297 merged 2026-10-09T20:37Z. Land jobs under 80 min succeed (e.g. 38205538633) but runs 38161538083 (PR #17618) and 38182207173 (PR #17652, still OPEN and dirty) hit the 80-minute wait ('stale-branch refresh: failed_conflict'), and 38171810585 died on 'local changes would be overwritten' - filed PI-20261012-EEP21012-0001. The 'STALE RUN' notice clause was not read (claude-pr-automerge logs).  || [2026-10-15 DUE-ROUTE-20261015] RE-DATED to 2026-10-22; READ: not read this pass: needs Actions run conclusions for research-queue-dispatch.yml; results ARE landing (83 in 24h per check_research_queue_throughput) which is consistent but not the named observation.",
+  "updated_at": "2026-10-15T06:04:55Z",
+  "updated_by": "session_01PH9KCD1r7StznkqPLzd9K1",
   "observation": {
     "what": "PR #17297 merged; then a research-queue-dispatch cycle reads conclusion=success with the land job's commit-to-main wait under 80 min, and no relay run arms auto-merge on a PR whose head moved",
     "how_to_check": "Actions: research-queue-dispatch.yml runs on main after the merge (conclusion); claude-pr-automerge logs for 'STALE RUN' notices",
-    "due_by": "2026-10-14"
+    "due_by": "2026-10-22"
   },
   "_seq": 371
 }

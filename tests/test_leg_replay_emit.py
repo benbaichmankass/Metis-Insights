@@ -156,3 +156,25 @@ def test_failed_leg_is_producer_failed_never_a_partial_grade(tmp_path):
 def test_unknown_leg_is_producer_failed(tmp_path):
     lre.main(["--legs", "nope_leg", "--out", str(tmp_path)])
     assert json.loads((tmp_path / "verdict.json").read_text())["read_state"] == "producer_failed"
+
+
+def test_long_drag_mirrors_short_drag(tmp_path):
+    # drag_rows with the sides' returns swapped: longs lose, shorts win
+    rows = [(d, side, r) for d, side, r in drag_rows(short_r=0.4, long_r=-0.5)]
+    a = fold_view(tmp_path, rows)
+    assert a["n_long"] == 40 and a["folds_negative_long"] == 4 and a["pooled_long_net_r"] < 0
+    g = lre.grade_long_drag({"a": a}, a)
+    assert g["outcome"] == "CONFIRMED" and g["verdict"] == "pass" and g["confirmed_legs"] == ["a"]
+    good = lre.leg_folds([write_emit(tmp_path / "g.jsonl", "g", drag_rows())], "g")
+    assert lre.grade_long_drag({"g": good}, good)["outcome"] == "NOT_CONFIRMED"
+    thin = lre.leg_folds([write_emit(tmp_path / "t.jsonl", "t", drag_rows(n=20, long_r=-0.5))], "t")
+    assert lre.grade_long_drag({"t": thin}, thin)["outcome"] == "INDETERMINATE"
+
+
+def test_long_drag_never_grades_side_constrained_leg(tmp_path):
+    a = fold_view(tmp_path, [(d, s, r) for d, s, r in drag_rows(short_r=0.4, long_r=-0.5)])
+    g = lre.grade_long_drag({"a": a, "sol": a}, a, {"a": None, "sol": "short"})
+    assert "sol" in g["controls"] and g["confirmed_legs"] == ["a"]
+    assert g["pooled_confirmed"] is False        # pool holds a control -> never graded
+    only = lre.grade_long_drag({"sol": a}, a, {"sol": "short"})
+    assert only["verdict"] == "indeterminate"

@@ -16,6 +16,13 @@
     14169
   ],
   "blocked_on": [],
-  "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): sonnet. Manager reconciles checklist rows; lane does not edit the checklist. || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14158 FIX-SA-09 reviewed (claim verified in work.py /brief), merge on green; #14162 FIX-SA-10 (could_not_look in CI), #14168 JC-SA-06 (section 0 302KB->16KB; alarm fires today: 153 unrouted, oldest 20d), #14169 self-land. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. All 4 PRs are on main: #14158 c602f7a6, #14162 3032618e, #14168 7b6969f6, #14169 e50ba9c9. PI-20260929-WJUTENGU-0003 (filed ~14:13Z, after #14168) says the unrouted alarm 'now fires', but it does not say where that was read. Closes when GET /api/bot/work/brief on the VM shows section 0 capped at 25 items with the unrouted alarm, and check_stale_in_flight goes red (not COULD NOT LOOK) on an archived-lane in_flight row. Leftovers are filed as PI-20260929-WJUTENGU-0001..0005.",
+  "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): sonnet. Manager reconciles checklist rows; lane does not edit the checklist. || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14158 FIX-SA-09 reviewed (claim verified in work.py /brief), merge on green; #14162 FIX-SA-10 (could_not_look in CI), #14168 JC-SA-06 (section 0 302KB->16KB; alarm fires today: 153 unrouted, oldest 20d), #14169 self-land. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. All 4 PRs are on main: #14158 c602f7a6, #14162 3032618e, #14168 7b6969f6, #14169 e50ba9c9. PI-20260929-WJUTENGU-0003 (filed ~14:13Z, after #14168) says the unrouted alarm 'now fires', but it does not say where that was read. Closes when GET /api/bot/work/brief on the VM shows section 0 capped at 25 items with the unrouted alarm, and check_stale_in_flight goes red (not COULD NOT LOOK) on an archived-lane in_flight row. Leftovers are filed as PI-20260929-WJUTENGU-0001..0005.  | 2026-10-15 BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r): still landed_unproven; observation named: GET /api/bot/work/brief shows section 0 capped at 25 with the unrouted alarm \u2014 read: check_stale_in_flight.py + test on main; live brief section-0 cap never read.",
+  "observation": {
+    "what": "GET /api/bot/work/brief shows section 0 capped at 25 with the unrouted alarm",
+    "how_to_check": "GET /api/bot/work/brief",
+    "due_by": "2026-10-22"
+  },
+  "updated_at": "2026-10-15T06:36:11Z",
+  "updated_by": "session_019p3X1tJAdUdV2dKaw9no8r",
   "_seq": 207
 }

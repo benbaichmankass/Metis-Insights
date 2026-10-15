@@ -1,0 +1,115 @@
+id: RQ-20261015-72ad-01
+title: >-
+  Pullback LONG side, held-out legs: is the 2h pullback's LONG side a durable drag on the bidirectional pullback_2h
+  legs the exploratory read did NOT select from (eth_pullback_2h, avax_pullback_2h), net of the full cost stack?
+  (perf-followup 2026-W42, PI-20261011-HOPS1447-0001)
+status: queued
+cadence: once
+theme: live_strategy
+priority: 1
+kind: experiment
+roadmap:
+- M21
+- L-LADDER
+question: >-
+  RQ-20261010-419b-02 (short-drag, NOT_CONFIRMED, research/results/RQ-20261010-419b-02/38116959391.jsonl) also
+  measured the opposite side at config-exact live params over 1830 d: LONG net R negative in 3 of 4 folds for
+  BOTH real-money legs, ada_pullback_2h (pooled -18.74R, n_long 119) and xrp_pullback_2h (pooled -25.15R,
+  n_long 142), while SHORT was positive (+11.39R / +9.88R). That read is exploratory: the side was chosen after
+  seeing the numbers, on the very legs it would act on. Independent prior: sol_pullback_2h was re-promoted
+  SHORT-ONLY on 2026-07-30 because its 2-year walk-forward put the whole loss on the long side (long -12.39R /
+  short +6.96R, config/strategies.yaml sol_pullback_2h side_filter comment). Question, asked before the run: on
+  the two bidirectional pullback_2h legs that were NOT part of the exploratory read (eth_pullback_2h,
+  avax_pullback_2h), at config-exact params, over 1830 d split into 4 contiguous folds, is LONG net R negative in
+  >= 3 of 4 folds AND pooled negative, per leg and pooled, with >= 39 long trades per leg?
+why_this_matters: >-
+  G1 net P&L per capital-day on REAL MONEY: ada_pullback_2h and xrp_pullback_2h sit on bybit_2 + bybit_portfolio
+  (+ bybit_1). If the long side of the 2h pullback is a family-level drag, dropping it removes negative-R trades
+  and frees capital-days on both legs; if it is leg/window selection, the claim closes and nobody edits a
+  real-money roster on an exploratory read. Held-out legs are the honest test available now: a disjoint-window
+  run needs the window input research-harness-dispatch.yml does not have (RQ-20261007-033 lever,
+  PI-20261004-APBY4NTV-0001).
+power:
+  expected_n: 115
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    expected_n = LONG trades of the smaller held-out leg over 1830 d, by analogy with the same replay on the
+    sibling legs (419b-02: n_long 119 ada, 142 xrp over 1830 d) and the d6e7-01 census (eth_pullback_2h n=116,
+    avax_pullback_2h n=57 over its shorter window). Floor d=0.45 -> 39 per direction ((1.96+0.8416)^2/0.45^2),
+    the same floor 419b-02 registered. The fold test is a sign-majority count, not a power claim.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      No committed per-direction count exists for eth_pullback_2h / avax_pullback_2h at config-exact params;
+      the unit's first output IS that split. Below 39 long trades on either leg it grades INDETERMINATE, never
+      FAIL.
+decision_rule:
+  id: RULE-RQ-20261015-72ad-01-PREREG
+  registered_at: '2026-10-15'
+  registered_before_run: true
+  statistic: >-
+    Per held-out leg and pooled: per-fold LONG net R (harness net_r, net of the resolve_cost_policy cost stack
+    the harness charges) from direction_walkforward on leg_replay_emit emits at config-exact params; n_long;
+    folds_negative_long; pooled_long_net_r. Graded by scripts/research/leg_replay_emit.py --rule long-drag
+    (grade_long_drag, the short-drag rule with sides swapped; a side-constrained leg is a control, never graded).
+  rule: >-
+    CONFIRMED (the long drag generalizes) IF n_long >= 39 AND folds_negative_long >= 3 of 4 AND
+    pooled_long_net_r < 0 for BOTH held-out legs, or for the pool with neither leg's pooled_long_net_r positive
+    -> a Tier-3 proposal to the manager: side_filter: short on ada_pullback_2h and xrp_pullback_2h across
+    bybit_1, bybit_2 and bybit_portfolio in one PR (mirror equality), evidence = this record + the 419b-02
+    record; the manager classifies it through mandate_resolver (data-backed decide-ship-notify, or NEEDS_DATA
+    for the disjoint-window confirmation). MIXED (exactly one held-out leg confirms on its own) -> no proposal
+    for ada/xrp; the held-out leg is off every roster, so no action, and the claim stays open for the
+    disjoint-window run. NOT CONFIRMED (honest_negative: the ada/xrp long read is leg/window selection, close
+    PI-20261011-HOPS1447-0001 killed with this record) IF n_long >= 39 on both legs AND, on each leg,
+    folds_negative_long <= 2 of 4 OR pooled_long_net_r >= 0. INDETERMINATE IF either leg has n_long < 39, or
+    the replay is producer_failed / no_data (re-dispatch once; then file the failure).
+  what_it_does_not_do: >-
+    Touches no config and applies nothing: a PASS is a Tier-3 proposal, never an applied side_filter. It is not
+    a fresh-window confirmation (same 1830-d window as 419b-02) and not a demotion of any leg. It says nothing
+    about the short side (419b-02 closed that claim) or about bracket geometry (BRACKETS-AS-PREDICTIONS).
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 40
+  basis: >-
+    Runner, one leg-replay-emit invocation (harness over 1830 d binance_vision candles, stdlib folds), the same
+    shape as RQ-20261010-419b-02 which landed in one dispatcher run. An estimate, not a measurement.
+run:
+  workflow: research-script-run.yml
+  command:
+  - python3
+  - scripts/research/leg_replay_emit.py
+  - --legs
+  - eth_pullback_2h,avax_pullback_2h
+  - --days
+  - '1830'
+  - --rule
+  - long-drag
+  - --out
+  - '{out_dir}'
+  timeout_minutes: 120
+  inputs:
+    research_unit: RQ-20261015-72ad-01
+  note: >-
+    --rule long-drag added to scripts/research/leg_replay_emit.py in the same PR as this unit (tests in
+    tests/test_leg_replay_emit.py). Both legs are bidirectional in config/strategies.yaml (no side_filter);
+    sol_pullback_2h is excluded because side_filter: short makes it emit no longs.
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+  note: research/results/RQ-20261015-72ad-01/<run_id>.jsonl (E5 contract); emits, daily_r and replay.json under comms/research/RQ-20261015-72ad-01/<run_id>/.
+grading:
+  auto: true
+related:
+- comms/perf_followup/perf-followup-20261015-walkthrough.json
+- PI-20261011-HOPS1447-0001
+- RQ-20261010-419b-02
+- RQ-20261007-033
+- scripts/research/leg_replay_emit.py

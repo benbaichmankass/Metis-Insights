@@ -1,0 +1,1 @@
+PERF-FOLLOWUP-2026W42 record + registers (Tier-1 self-land)

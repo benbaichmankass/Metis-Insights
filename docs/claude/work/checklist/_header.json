@@ -22,18 +22,15 @@
   "updated_at": "2026-10-07T18:50:00Z",
   "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
   "last_review": {
-    "report_id": "WR-20261014-1246Z",
-    "reviewed_at": "2026-10-14T18:15:00Z",
-    "by": "session_01VduHYzdaXe27wTDBLSu8ao",
+    "report_id": "WR-20261015-0552Z",
+    "reviewed_at": "2026-10-15T06:00:00Z",
+    "by": "manager session_01VduHYzdaXe27wTDBLSu8ao",
     "counts": {
-      "dispatched": 8,
-      "closed": 0,
-      "decided": 1,
-      "carried": 11,
-      "due": 229,
-      "unrouted": 2,
-      "ask_operator": 1,
-      "blocker_watch": 12
+      "due": 254,
+      "unrouted": 8,
+      "unproven_overdue": 23,
+      "needs_lane": 6,
+      "operator_decisions_taken": 6
     }
   },
   "cycle": "CY-20260921-OPERATING-RESET",

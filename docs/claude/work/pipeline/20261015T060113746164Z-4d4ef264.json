@@ -1,0 +1,19 @@
+{
+  "based_on": "20261012T112745338406Z-f19055cb.json",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "/api/bot/prop/status?account_id=breakout_2 rule_distance.day_pnl_state == \"measured\" (or an explicitly labelled estimate) with a non-null daily-loss distance.",
+    "kind": "observation",
+    "last_checked": "2026-10-12"
+  },
+  "id": "PI-20261012-GNRBKIGG-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "PROP-TRACKING lane, operator 2026-10-12 'we need to be able to track the prop trades'",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_2' | jq '.rule_distance.day_pnl_state, .status.realized_today, .status.day_start_balance' -- holds while day_pnl_state is not \"measured\"."
+  },
+  "routed_to": "checklist row PROP-GATE-UNREALIZED-DAYPNL (DUE-ROUTE-20261015)",
+  "state": "routed",
+  "what": "breakout_2 day P&L stays day_pnl_state 'realized_unreported' even after PROP-TRACKING: the phone posts no realized_today and no day_start_balance (MEASURED 2026-10-12 11:03Z, prop_account_status id 12834: both null), so the daily-loss distance is null on a real-money prop account. Build: read the terminal's daily/realized P&L label if Breakout shows one (accountPanel), else derive realized_today server-side from the day's priced journal closes, labelled ESTIMATED."
+}

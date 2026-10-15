@@ -2,7 +2,7 @@
   "id": "LIVE-PARITY",
   "title": "Standing mechanical LIVE-vs-REPLAY parity check for every real-money leg: durable per-bar decision record, daily replay of the live code over the same bars, diff + alert, with positive controls",
   "phase": "floor",
-  "state": "landed_unproven",
+  "state": "done",
   "owner": "build lane",
   "lane": "session_014bomc3Y6kgwMFSqqGojcCp",
   "model": "claude-opus-5-5",
@@ -15,6 +15,8 @@
     15882
   ],
   "blocked_on": [],
-  "note": "[2026-10-03T12:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] MERGED #15820, #15845 and #15882 (d61f13af, calibration + alerts on). DEPLOYED: it is a GitHub workflow, not a VM change; scheduled daily 06:35Z. NOT OBSERVED: comms/live_parity/latest.json on main still reads status 'not_yet_run' (seeded by #15820). Closing observation: the 2026-10-04 06:35Z scheduled run commits latest.json with 3 of 3 controls passing and a leg/bar/divergence count. || [2026-10-03T06:12Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR (chat 2026-10-03 ~06:10Z): wants mechanical verification that silence is really no signals, not a bug that looks like silence. Builds on LIVE-SILENCE replay.py. Done = a daily workflow plus a committed artifact plus one line on the brief (legs, bars, divergences; 'could not check' never reads as 0); planted-defect self-test FAILS; known pre-09-28 live fires reported MATCHED; an end-to-end liveness assertion (signal -> package -> order on some account in N days); one real 7-day run reported. Any writer change is a HELD Tier-2 PR.",
+  "note": "[2026-10-03T12:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] MERGED #15820, #15845 and #15882 (d61f13af, calibration + alerts on). DEPLOYED: it is a GitHub workflow, not a VM change; scheduled daily 06:35Z. NOT OBSERVED: comms/live_parity/latest.json on main still reads status 'not_yet_run' (seeded by #15820). Closing observation: the 2026-10-04 06:35Z scheduled run commits latest.json with 3 of 3 controls passing and a leg/bar/divergence count. || [2026-10-03T06:12Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR (chat 2026-10-03 ~06:10Z): wants mechanical verification that silence is really no signals, not a bug that looks like silence. Builds on LIVE-SILENCE replay.py. Done = a daily workflow plus a committed artifact plus one line on the brief (legs, bars, divergences; 'could not check' never reads as 0); planted-defect self-test FAILS; known pre-09-28 live fires reported MATCHED; an end-to-end liveness assertion (signal -> package -> order on some account in N days); one real 7-day run reported. Any writer change is a HELD Tier-2 PR.  | 2026-10-15 BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r): DONE \u2014 effect evidenced on main: comms/live_parity/latest.json generatedAt 2026-10-14T07:35Z: status ok, 7/7 real-money legs, 0 divergences, planted_defect 3/3 flagged; daily files 2026-10-04..10-14.",
+  "updated_at": "2026-10-15T06:36:11Z",
+  "updated_by": "session_019p3X1tJAdUdV2dKaw9no8r",
   "_seq": 270
 }

@@ -1,0 +1,33 @@
+{
+  "id": "ML-FRONTIER-W42",
+  "title": "Weekly walk-through 2026-10-15 decisions (Approve all): TTM arms, 9da8 blockers, 1414-02 re-run, plan housekeeping, TABPFN_TOKEN wiring (hold)",
+  "phase": "W42",
+  "state": "landed_unproven",
+  "owner": "lane ML-FRONTIER-W42 (session_01BKtZjvyGVu4J6FkXmant1s)",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    18171,
+    18172
+  ],
+  "blocked_on": [],
+  "note": "[2026-10-15] (1) arXiv 2607.05291 body READ: supports testing TTM (daily RV, 50 equities/FX/futures, no crypto, no 15m; edge mostly scale at h=1,5); TTM and TTM+HAR-RV arms added to 9da8-01 under the operator's kill rule. (2) 9da8-01..04 each still blocked, exactly: 01 = FRONTIER-LEVER-TSFM (no build_forecasts backend, no side-streams; TTM also needs granite-tsfm in the trainer venv, Tier-2); 02 = no ml_bakeoff block, no meta-label dataset path, and >=300 labelled setups unproven (RQ-20261011-17f4-02 not found in queue/results); 03 = FRONTIER-LEVER-CONFORMAL + ML-HEAD-AGREEMENT-JOIN + sequenced behind eda2-01; 04 = ML-LEG-CORPUS + EXIT-PATH-EMIT-OFFLINE. TabPFN arm pending TABPFN_TOKEN (ML-TABPFN-LICENCE). (3) RQ-20261015-eda2-01 queued (same bar as 1414-02, all rows, holdout 2026-04-01). (4) plan housekeeping in ml-plan-items.yaml. DONE WHEN: eda2-01 graded by research-ops, and the hold PR for TABPFN_TOKEN is landed by the manager.",
+  "updated_at": "2026-10-15T06:38:25Z",
+  "updated_by": "lane-ML-FRONTIER-W42",
+  "roadmap": [
+    "M25"
+  ],
+  "writeback": {
+    "roadmap": "none: M25 is owned by the ML-ROADMAP-LOOP lane",
+    "arch": "none: no architecture section changes"
+  },
+  "observation": {
+    "what": "RQ-20261015-eda2-01 graded (pass/fail/indeterminate with a non-empty 2026-04-01 holdout) and #18172 landed with the first token-bearing TabPFN run showing *** and no raw key in its artifact",
+    "how_to_check": "research/results/RQ-20261015-eda2-01/*.jsonl verdict + research-script-run-trainer artifact grep",
+    "due_by": "2026-10-22"
+  },
+  "_seq": 507
+}

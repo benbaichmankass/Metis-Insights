@@ -1,0 +1,29 @@
+{
+  "based_on": "20261013T145418018337Z-ee74d7db.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "the trainer's BTC/SOL 15m v002 shard last ts is within 2 days of now, or the cause is named",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261013-HOPS1447-0002",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-29",
+    "how_to_check": "trainer-vm-diag: tail the last row of datasets-out/market_features/BTCUSDT/15m/v002/data.jsonl",
+    "what": "the trainer's BTC/SOL 15m v002 shard last ts is within 2 days of now, or the cause is named"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "RESEARCH-OPS-20261013-1447 research-ops lane",
+    "rerun": "grep -H -o 'holdout\":{[^}]*n_test_rows\": [0-9]*' comms/research/RQ-20261012-75b2-2[2-6]/*/measurement.json  # or read windows.holdout.n_test_rows"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, still open on its row: comms/research/RQ-20261012-75b2-22/-24/-25 measurement.json holdout n_test_rows=0 (cv 36000/12000); -23 (8923) and -26 (2971) non-empty.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "RESEARCH-TOOLING-GAPS",
+  "state": "routed",
+  "what": "BTC and SOL 15m v002 market_features shards give an EMPTY holdout window: RQ-20261012-75b2-22 and -24 (holdout_after 2026-07-12) report holdout n_test_rows=0 in measurement.json, so the registered holdout clause was unreadable and both read INDETERMINATE; ETH read 8923 rows. Likely the BTC/SOL shards end before 2026-07-12 (UNVERIFIED: the shard end date is trainer-resident and was not read). 75b2-25 (holdout 0) may be affected too. Check shard freshness on the trainer; RQ-20261013-a793-01/-02 move holdout_after to 2026-04-01 as a stopgap."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Checklist update for lane DATA-STORE-PARQUET-GC (PR #18169 + dry-run delete list sent to the manager) and the new follow-up row DATA-STORE-JSONL-RETIRE. Register only; no code, config or order-path change."
+}

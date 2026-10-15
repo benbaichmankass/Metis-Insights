@@ -12,6 +12,13 @@
   "model": "claude-opus-5-5",
   "ceiling_usd": 40,
   "title": "FIX-CA-OPS: FIX-CA-11",
-  "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-11..14, 18, 19 (ops/alerting/security). Tier 2. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): merged dda726d after review (1610 pass; 63/100 new tests fail on main); running at f089c40. Lane archived.",
+  "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-11..14, 18, 19 (ops/alerting/security). Tier 2. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): merged dda726d after review (1610 pass; 63/100 new tests fail on main); running at f089c40. Lane archived.  | 2026-10-15 BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r): still landed_unproven; observation named: one send-prop-test-ping dispatch writes no journal row and suppresses no real alert \u2014 read: deploy-verification audit: FIX-CA-11 deployed, test_ping 0 hits.",
+  "observation": {
+    "what": "one send-prop-test-ping dispatch writes no journal row and suppresses no real alert",
+    "how_to_check": "system-actions send-prop-test-ping, then /api/diag/journal?table=trades",
+    "due_by": "2026-10-29"
+  },
+  "updated_at": "2026-10-15T06:36:09Z",
+  "updated_by": "session_019p3X1tJAdUdV2dKaw9no8r",
   "_seq": 159
 }

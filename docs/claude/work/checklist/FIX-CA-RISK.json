@@ -12,6 +12,13 @@
   "model": "claude-opus-5-5",
   "ceiling_usd": 35,
   "title": "FIX-CA-RISK: FIX-CA-09 daily-loss cap attributed by open date (Tier 3, data-backed: ship, verify, notif",
-  "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-09 daily-loss cap attributed by open date (Tier 3, data-backed: ship, verify, notify operator). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Tier-3 data-backed: daily-loss cap now attributes PnL by close date. Merged a334a23; running at f089c40 (#13263); operator notified in chat 16:50Z with the revert. Not yet observed changing a cap decision. Lane archived.",
+  "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-09 daily-loss cap attributed by open date (Tier 3, data-backed: ship, verify, notify operator). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Tier-3 data-backed: daily-loss cap now attributes PnL by close date. Merged a334a23; running at f089c40 (#13263); operator notified in chat 16:50Z with the revert. Not yet observed changing a cap decision. Lane archived.  | 2026-10-15 BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r): still landed_unproven; observation named: a daily-loss cap decision on an account-day with a prior-day-opened position closing today attributes P&L by open date (or a DAILY_LOSS_CAP refusal appears) \u2014 read: deploy-verification audit: FIX-CA-09 live, DAILY_LOSS_CAP 0 hits.",
+  "observation": {
+    "what": "a daily-loss cap decision on an account-day with a prior-day-opened position closing today attributes P&L by open date (or a DAILY_LOSS_CAP refusal appears)",
+    "how_to_check": "/api/diag/journalctl?unit=ict-trader-live.service grep DAILY_LOSS_CAP",
+    "due_by": "2026-11-05"
+  },
+  "updated_at": "2026-10-15T06:36:09Z",
+  "updated_by": "session_019p3X1tJAdUdV2dKaw9no8r",
   "_seq": 158
 }

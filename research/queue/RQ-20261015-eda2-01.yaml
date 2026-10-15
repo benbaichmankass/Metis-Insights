@@ -1,0 +1,158 @@
+id: RQ-20261015-eda2-01
+title: 'AI trader / probability quality, RE-RUN with all rows and a holdout that exists: do the 15m regime learners beat the class prior on LOG-LOSS?
+  (pre-registered follow-up of RQ-20261013-1414-02; runs BEFORE any conformal work on 9da8-03)'
+status: queued
+cadence: once
+theme: ml_health
+priority: 2
+kind: experiment
+question: Same question and SAME registered bar as RQ-20261013-1414-02, on ALL rows of the 15m v002 BTC/ETH/SOL shards (tail_rows 60000 -> 0)
+  and a holdout cut moved from 2026-07-12 to 2026-04-01. Does LightGBM or a numpy logit beat the class-prior probability on LOG-LOSS by >= 0.005
+  nats on the purged-CV mean on all three symbols AND by >= 0 on the holdout on all three?
+why_this_matters: '1414-02 (run 38474112471, n=108,000 OOS CV rows) was INDETERMINATE for ONE reason only: the holdout window was empty for BTC
+  and SOL (n_test_rows 0) and single-fold for ETH, so the registered holdout clause could not hold. Its CV clause DID hold on all three symbols:
+  lgbm-vs-prior mean +0.0285 BTC (CI 0.0044..0.0526), +0.0477 ETH, +0.1346 SOL, and logit +0.0189 / +0.0320 / +0.1056, all 5 folds sign-consistent.
+  The cause of the empty holdout is UNVERIFIED from this sandbox (trainer shards unreachable): the last 60,000 rows of a v002 shard appear to
+  end before 2026-07-12; this re-run reads every row and cuts the holdout earlier. Operator decision 2026-10-15 (''Approve all''): re-run with
+  more rows, as a pre-registered follow-up, before any conformal work (RQ-20261011-9da8-03). THE BAR IS NOT MOVED: only the rows read and the
+  holdout date change. If the holdout is STILL empty for any symbol, that is a ROUTE FAULT (read the shard''s last ts, fix holdout_after, re-queue),
+  never a verdict.'
+power:
+  expected_n: 8640
+  min_detectable_effect: 0.05
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: Unit = bar. CV test rows were 36,000 per symbol in 1414-02; all-rows raises the pool (~175k BTC rows per the 9da8-01 note, ETH/SOL sizes
+    not re-measured). Holdout needs >= 20 test rows per symbol (engine floor). Bars are autocorrelated so effective n is far lower; the rule is
+    on the purged-CV fold mean (min_folds 3).
+  feasibility:
+    source: none
+    accrual_basis: 'Nightly-rebuilt shard: history for the window used is fixed, nothing needs to accrue for the rows this unit reads.'
+decision_rule:
+  id: RULE-RQ20261015-EDA2-01-REGIME-LOGLOSS-VS-PRIOR-RERUN
+  registered_at: '2026-10-15'
+  registered_before_run: true
+  statistic: Paired per-fold difference in multiclass log-loss (prior minus learner, signed so positive = learner better) on identical purged
+    folds (5, embargo 96) and on the holdout, per symbol; mean over folds. ml_bakeoff.py evaluate_rule applies ml_bakeoff.rule.
+  rule: 'PASS IF a candidate (lgbm or logit) beats the class prior by >= +0.005 nats on the CV mean on ALL THREE symbols AND by >= 0 on the holdout
+    on all three: the head carries probabilistic information, and the conformal lever is worth building. FAIL IF no candidate beats the prior
+    by >= 0 on the CV mean on ANY symbol (macro-F1 skill is a threshold artifact; the conformal lever is not worth building on these heads at
+    this feature set). INDETERMINATE otherwise, or if folds < 3 or an arm is unavailable. headline_checks reports lgbm minus logit on log-loss.'
+  min_n: 3 usable CV folds per symbol; holdout >= 20 rows.
+  what_it_does_not_do: Does not build, calibrate or serve anything, promotes nothing, touches no config. A log-loss PASS says the probabilities
+    carry information over the prior on the regime LABEL; it is not edge and not a P&L figure. The bar is IDENTICAL to RQ-20261013-1414-02's;
+    this unit may not be read as a second chance at a different bar. A PASS releases the conformal lever's priority (FRONTIER-LEVER-CONFORMAL);
+    it does not unblock 9da8-03 by itself (that also needs the realised-label joiner, ML-HEAD-AGREEMENT-JOIN).
+compute: needs_vm_data
+value:
+  bucket: ai_trader
+  usd_at_stake_per_month: 150
+  confidence: 0.35
+  basis: 'stand-in: decides whether the conformal-abstention lever (FRONTIER-LEVER-CONFORMAL) is worth building on the advisory heads; not a measured
+    P&L'
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 4.0
+  est_minutes: 40
+  basis: 1414-02 measured 82 s on 60k rows x 3 groups; all rows is ~3x the data. Estimate; the first run replaces it.
+ml_bakeoff:
+  task: classification
+  metric: logloss
+  higher_is_better: false
+  dataset:
+    kind: jsonl
+    groups:
+      BTCUSDT:
+        path: datasets-out/market_features/BTCUSDT/15m/v002/data.jsonl
+      ETHUSDT:
+        path: datasets-out/market_features/ETHUSDT/15m/v002/data.jsonl
+      SOLUSDT:
+        path: datasets-out/market_features/SOLUSDT/15m/v002/data.jsonl
+    ts_col: ts
+    target: regime_label
+    features:
+    - rolling_log_return_vol
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
+    tail_rows: 0
+    holdout_after: '2026-04-01'
+  cv:
+    folds: 5
+    embargo_rows: 96
+    min_train_frac: 0.4
+  baseline: prior
+  controls: []
+  candidates:
+  - lgbm
+  - logit
+  learners:
+    prior:
+      kind: prior
+    lgbm:
+      kind: lightgbm
+      params:
+        n_estimators: 200
+        learning_rate: 0.05
+        num_leaves: 31
+        min_child_samples: 50
+    logit:
+      kind: numpy_logit
+  rule:
+    min_folds: 3
+    pass_if:
+    - group: &id001
+      - BTCUSDT
+      - ETHUSDT
+      - SOLUSDT
+      vs: baseline
+      window: cv
+      op: '>='
+      value: 0.005
+    - group: *id001
+      vs: baseline
+      window: holdout
+      op: '>='
+      value: 0.0
+    fail_if_no_candidate_reaches:
+    - group: any
+      vs: baseline
+      window: cv
+      op: '>='
+      value: 0.0
+    headline_checks:
+    - name: lgbm_minus_logit_logloss
+      learner: lgbm
+      vs: logit
+      group: any
+      window: cv
+      op: '>='
+      value: 0.0
+run:
+  command:
+  - python3
+  - scripts/research/ml_bakeoff.py
+  - --unit
+  - '{unit}'
+  - --out
+  - '{out_dir}'
+  timeout_minutes: 300
+  inputs:
+    research_unit: RQ-20261015-eda2-01
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+roadmap:
+- M25
+related:
+- RQ-20261013-1414-02
+- FRONTIER-LEVER-CONFORMAL
+- RQ-20261011-9da8-03
+- ML-F8
+- scripts/research/ml_bakeoff.py

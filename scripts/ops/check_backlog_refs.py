@@ -16,6 +16,12 @@ which resolved to nothing.
 Resolved rows are **kept** in the backlogs (295 of them), not archived — so a dangling
 reference genuinely means *never filed*, never *filed and pruned*.
 
+SCOPE: PI- PIPELINE IDS ARE NOT COVERED (stated 2026-10-15, PI-20260922-E45-...)
+---------------------------------------------------------------------------
+`REF` matches the archived backlog id shapes only; a `PI-...` id never matches, so this
+guard cannot see a dangling pipeline reference. Pipeline ids are owned by
+`scripts/ops/pipeline.py` (pipeline-guard `--check`), which is where that check belongs.
+
 DIFF-SCOPED, DELIBERATELY
 -------------------------
 A repo-wide sweep finds ~109 pre-existing dangling refs (21% of all cited ids). Failing on

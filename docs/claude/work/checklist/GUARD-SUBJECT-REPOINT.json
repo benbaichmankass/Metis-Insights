@@ -1,0 +1,21 @@
+{
+  "id": "GUARD-SUBJECT-REPOINT",
+  "title": "Re-point 4 guards + .gitattributes + /work/checklist freshness.path off the deleted MANAGER-CHECKLIST.json",
+  "phase": "hygiene",
+  "state": "queued",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-15 DUE-ROUTE-20261015] Routed from PI-20261008-BFOAI4ZM-0001. Build: check_register_ids/check_scope_overlap (dead) re-point or retire with stated reason; check_claim_basis/check_manager_scope declared subject; .gitattributes jsonregister line; work.py freshness.path (src/web, Tier-2 - check SPA reader first). Done when check_guard_liveness no longer lists the deleted file as a subject.",
+  "updated_at": "2026-10-15T06:14:06Z",
+  "updated_by": "session_01PH9KCD1r7StznkqPLzd9K1",
+  "roadmap": [
+    "L-OPS"
+  ],
+  "_seq": 504
+}

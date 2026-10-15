@@ -1,0 +1,22 @@
+{
+  "based_on": "20261014T001639572282Z-57adec60.json",
+  "due_when": {
+    "due_date": "2026-10-15",
+    "kind": "date"
+  },
+  "id": "PI-20261014-ON01DGFQ-0001",
+  "next_action": "dispatch_lane",
+  "observation": {
+    "due_by": "2026-10-15",
+    "how_to_check": "python3 -c \"import scripts.research.queue_replenish as q;print(q.plan(q._REPO,day='2030-01-01',target=99)['candidates'])\"; python3 scripts/ci/check_research_queue_throughput.py --json",
+    "what": "candidates per family and runnable count"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "lane RESEARCH-PIPE-UNSTICK session_01DgFqpxgeEDe9nKf1aRiomG, 2026-10-14, PR #17950",
+    "rerun": "python3 -c \"import scripts.research.queue_replenish as q;print(q.plan(q._REPO,day='2030-01-01',target=99)['candidates'])\""
+  },
+  "routed_to": "checklist row RESEARCH-GRIDS-EXTEND (DUE-ROUTE-20261015)",
+  "state": "routed",
+  "what": "Research template grids are EXHAUSTED: queue_replenish plan() offers 1 candidate (e35-bracket xrp_pullback_2h), 0 for m20-exit-lever, macro-valuation, prop-fit-breakout, roster-walkforward. Runnable is 14 vs floor 25 on main (2026-10-14) and templates can no longer close the gap; it needs authored units (research-ops step E) and/or new grid axes (template edit = landing-machinery hold). Decide: extend the grids with pre-registered axes, or lower the floor given fired_24h=55."
+}

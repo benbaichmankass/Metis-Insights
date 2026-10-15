@@ -11,9 +11,9 @@
   "tier": 1,
   "prs": [],
   "blocked_on": [],
-  "note": "Owns: trend_donchian_eth_4h decision_bar evidence, TP-doctrine reach-rate dimension (floor is an operator number), weekly geometry census, alpaca_live journal rows 5875/6097 provenance, pullback_2h long-drag unit, vol_trail shadow parity read. Tier-3 changes are proposals only. Routed 2026-10-14 from the routing alarm.",
-  "updated_at": "2026-10-14T05:59:49Z",
-  "updated_by": "session_01PMigu2M3NSj1XcoXibU6FD",
+  "note": "Owns: trend_donchian_eth_4h decision_bar evidence, TP-doctrine reach-rate dimension (floor is an operator number), weekly geometry census, alpaca_live journal rows 5875/6097 provenance, pullback_2h long-drag unit, vol_trail shadow parity read. Tier-3 changes are proposals only. Routed 2026-10-14 from the routing alarm. [2026-10-15 PERF-FOLLOWUP-2026W42] The pullback_2h long-drag item PI-20261011-HOPS1447-0001 is now built and queued: scripts/research/leg_replay_emit.py --rule long-drag + pre-registered RQ-20261015-72ad-01 (held-out legs eth_pullback_2h, avax_pullback_2h; sol_pullback_2h is a control via side_filter: short). This row no longer needs to author it.",
+  "updated_at": "2026-10-15T06:27:46Z",
+  "updated_by": "session_01NaMb9yBEwJUTF5thYKVCJE",
   "roadmap": [
     "M20"
   ],

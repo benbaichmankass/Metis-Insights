@@ -87,10 +87,11 @@ def check(queue_dir: Path = _REPO / "research" / "queue", workflow: Path = WORKF
             problems.append(f"R1 {unit}: {e}")
 
     # R2/R3 — each workflow's own surface. The trainer twin holds VM_SSH_KEY (reaching the trainer IS the
-    # point) and nothing else; the runner holds nothing beyond GITHUB_TOKEN.
+    # point) and TABPFN_TOKEN (ML-TABPFN-LICENCE: the Prior Labs weights key, sent over ssh stdin only) and nothing
+    # else; the runner holds nothing beyond GITHUB_TOKEN.
     problems += _check_workflow(workflow, {"GITHUB_TOKEN"})
     if trainer_workflow is not None:
-        problems += _check_workflow(trainer_workflow, {"GITHUB_TOKEN", "VM_SSH_KEY"})
+        problems += _check_workflow(trainer_workflow, {"GITHUB_TOKEN", "VM_SSH_KEY", "TABPFN_TOKEN"})
     # RESEARCH-ROUTER: the Kaggle GPU twin holds KAGGLE_API_TOKEN (the kernel itself receives no secret).
     if kaggle_workflow is not None:
         problems += _check_workflow(kaggle_workflow, {"GITHUB_TOKEN", "KAGGLE_API_TOKEN"})
@@ -131,6 +132,29 @@ def _check_workflow(workflow: Path, allowed_secrets) -> List[str]:
         if name not in allowed_secrets:
             problems.append(f"R3 {workflow.name}: the `run` job references secrets.{name} — "
                             f"this workflow may hold only {sorted(allowed_secrets)}")
+    # R4 (ML-TABPFN-LICENCE): a workflow that handles TABPFN_TOKEN must (a) hand it ONLY to the key-placement and
+    # redaction steps -- never to the step that runs the unit, whose script is arbitrary allowlisted code -- and
+    # (b) redact it from the outputs BEFORE the manifest/derive step and the artifact upload (job-log masking does
+    # not cover artifacts, and this repo is public).
+    if "TABPFN_TOKEN" in run_text:
+        names = [str(st.get("name", "")) for st in steps]
+        for st in steps:
+            if "TABPFN_TOKEN" in yaml.safe_dump(st):
+                n = str(st.get("name", ""))
+                if not (n.startswith("Place the TabPFN key") or n.startswith("Redact TABPFN_TOKEN")):
+                    problems.append(f"R4 {workflow.name}: step {n!r} references TABPFN_TOKEN -- only the key-placement "
+                                    "and redaction steps may; the unit's own step must never hold the key")
+        red = [i for i, n in enumerate(names) if n.startswith("Redact TABPFN_TOKEN")]
+        after = [i for i, st in enumerate(steps)
+                 if str(st.get("name", "")).startswith("Ensure the run manifest")
+                 or str(st.get("uses", "")).startswith("actions/upload-artifact")]
+        if not red:
+            problems.append(f"R4 {workflow.name}: TABPFN_TOKEN is referenced but there is no 'Redact TABPFN_TOKEN' step")
+        elif not after or red[0] > min(after):
+            problems.append(f"R4 {workflow.name}: the 'Redact TABPFN_TOKEN' step must run before the manifest/derive "
+                            "step and the artifact upload")
+        elif str(steps[red[0]].get("if", "")).replace(" ", "") != "always()":
+            problems.append(f"R4 {workflow.name}: the 'Redact TABPFN_TOKEN' step must be `if: always()`")
     return problems
 
 
@@ -195,7 +219,7 @@ def _self_test() -> int:
         assert any("persist-credentials" in p for p in probs), probs
         assert any("secrets.BRANCH_PROTECTION_TOKEN" in p for p in probs), probs
 
-        # ML-RQ-RUNNER: the trainer twin is held to the same surface, and may hold ONLY VM_SSH_KEY extra.
+        # ML-RQ-RUNNER: the trainer twin is held to the same surface, and may hold ONLY VM_SSH_KEY and TABPFN_TOKEN extra.
         twf = yaml.safe_load(TRAINER_WORKFLOW.read_text())
         twf.get("on", twf.get(True))["workflow_dispatch"]["inputs"]["command"] = {"description": "x"}
         tbad = repo / "twf-input.yml"
@@ -205,6 +229,25 @@ def _self_test() -> int:
         twf["jobs"]["run"]["steps"][0]["env"] = {"X": "${{ secrets.BRANCH_PROTECTION_TOKEN }}"}
         tbad.write_text(yaml.safe_dump(twf))
         assert any("BRANCH_PROTECTION_TOKEN" in p for p in check(qdir, WORKFLOW, repo, tbad))
+
+        # R4: the redaction step is mandatory wherever TABPFN_TOKEN is referenced, and the unit's step may not hold it.
+        twf = yaml.safe_load(TRAINER_WORKFLOW.read_text())
+        tsteps = twf["jobs"]["run"]["steps"]
+        twf["jobs"]["run"]["steps"] = [x for x in tsteps if not str(x.get("name", "")).startswith("Redact TABPFN_TOKEN")]
+        tbad.write_text(yaml.safe_dump(twf))
+        assert any(p.startswith("R4") and "no 'Redact" in p for p in check(qdir, WORKFLOW, repo, tbad))
+        twf = yaml.safe_load(TRAINER_WORKFLOW.read_text())
+        for x in twf["jobs"]["run"]["steps"]:
+            if str(x.get("name", "")).startswith("Run the unit"):
+                x.setdefault("env", {})["TABPFN_TOKEN"] = "${{ secrets.TABPFN_TOKEN }}"
+        tbad.write_text(yaml.safe_dump(twf))
+        assert any(p.startswith("R4") and "unit's own step" in p for p in check(qdir, WORKFLOW, repo, tbad))
+        twf = yaml.safe_load(TRAINER_WORKFLOW.read_text())
+        st2 = twf["jobs"]["run"]["steps"]
+        i = [k for k, x in enumerate(st2) if str(x.get("name", "")).startswith("Redact TABPFN_TOKEN")][0]
+        st2.append(st2.pop(i))   # redaction moved AFTER the upload
+        tbad.write_text(yaml.safe_dump(twf))
+        assert any(p.startswith("R4") and "must run before" in p for p in check(qdir, WORKFLOW, repo, tbad))
 
         # An unreadable workflow is reported, not skipped.
         bad.write_text(": : :\n[")

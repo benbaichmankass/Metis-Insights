@@ -1,0 +1,29 @@
+{
+  "based_on": "20261011T121825727776Z-bb92ab84.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "the prop-ticket-reissue system action (#17156) re-issues one suppressed ticket end to end",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261011-CJWUMAVA-0004",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-29",
+    "how_to_check": "system-action prop-ticket-reissue run + /api/bot/prop/tickets shows the re-issued ticket placed",
+    "what": "the prop-ticket-reissue system action (#17156) re-issues one suppressed ticket end to end"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "checklist PROP-REISSUE closed 2026-10-11 by manager session_01Uq7MrjPQDRWqbhCjwuMava",
+    "rerun": "system-action prop-ticket-reissue run + /api/bot/prop/tickets shows the re-issued ticket placed"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Read 2026-10-15: PROP-REISSUE (#17156) is done in code; no re-issued ticket in the last 2000 executor lines of tradeify_1/velotrade_1 and no recorded prop-ticket-reissue run; first end-to-end use not yet observed.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "checklist row ROUTE-PROP-TRACKING | [BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r) 2026-10-15 re-route]",
+  "state": "routed",
+  "what": "PROP-REISSUE residual: merged, not yet observed live — the prop-ticket-reissue system action (#17156) re-issues one suppressed ticket end to end."
+}

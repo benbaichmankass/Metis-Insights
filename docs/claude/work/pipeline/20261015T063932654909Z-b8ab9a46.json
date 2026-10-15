@@ -1,0 +1,24 @@
+{
+  "based_on": "20261012T060359191111Z-d7b9bf7a.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Caddy writes an access log AND 24 h of it has been grouped by caller and diffed against design 2b, with every unlisted /api/bot/* caller either added to the inventory or shown to be a browser (Origin = the SPA).",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261011-CFUJ7YFR-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "UI-UPGRADE-1-AUTH lane session_011uiQyRqUbP23WPcfuj7Yfr; design docs/plans/ui-upgrade-1-auth-and-keys-design.md section 2b",
+    "rerun": "grep -n 'log' deploy/caddy/Caddyfile  # no `log` directive == still no access log; then read the Caddy access log file via the diag log relay and group by User-Agent + remote_ip + path"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, still open on its row: grep log deploy/caddy/Caddyfile finds no log directive; no Caddy access log exists (Tier-2 deploy change).",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "UI-UPGRADE-1-AUTH-HARDEN",
+  "state": "routed",
+  "what": "UI-UPGRADE-1-AUTH: confirm the non-browser /api/bot/* consumer inventory (design 2b, 33 groups / 42+ files, STATIC grep only) against 24 h of real traffic BEFORE SITE_AUTH_ENFORCE is flipped. MEASURED 2026-10-11 from deploy/caddy/Caddyfile: Caddy has NO access-log directive, so there is currently no Caddy access log to read (the design's '24 h of the Caddy access log' was an assumption); uvicorn's access lines go to the journal, whose retention another row of this repo measures at ~30 minutes. So step one is a Tier-2 Caddyfile change (add a `log` block writing JSON to a file, request line + status + remote_ip + User-Agent only, never the Authorization header) deployed via vm-caddy-deploy, THEN 24 h of traffic, THEN group the requests by (User-Agent, remote_ip, path) and diff against the inventory: any caller not in the inventory is a missed consumer."
+}

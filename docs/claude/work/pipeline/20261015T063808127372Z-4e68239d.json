@@ -1,0 +1,26 @@
+{
+  "based_on": "20261005T040143784073Z-0de70d4b.json",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Either orphaned is split into a state that implies flat-at-broker vs. position-unknown (and the gate treats position-unknown as holding), OR a reconciliation over the journal shows orphaned is only ever written after the broker position was confirmed flat, with that confirmation recorded on the row.",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20260930-MEK2XMWT-0003",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-14",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane GATE-SCOPE (session_01C4qod5gogYDwASmek2XMWT), manager review of #14590 (session_01HYq6XtfesZ57VyaQrK6CL1), 2026-09-30",
+    "rerun": "grep -n '_TERMINAL_TRADE_STATUSES\\|_TERMINAL_LEG_STATUSES' -A8 src/runtime/order_monitor.py src/runtime/strategy_monocle.py ; scripts/ops/diag_fetch.sh 'journal?table=trades&status=orphaned&limit=100' ; scripts/ops/diag_fetch.sh 'exchange_positions'"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Read 2026-10-15: order_monitor.py _TERMINAL_TRADE_STATUSES (~L6210) and strategy_monocle._TERMINAL_LEG_STATUSES still treat 'orphaned' as terminal with no flat/unknown split; the live orphaned-row read failed (diag 400 on that filter). Measure first, then split the state.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "checklist row ORDER-AUDIT-3 | [BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r) 2026-10-15 re-route]",
+  "state": "routed",
+  "what": "[order-path] 'orphaned' is treated as a TERMINAL trade status (order_monitor._TERMINAL_TRADE_STATUSES, mirrored by strategy_monocle._TERMINAL_LEG_STATUSES in #14590) although an orphaned leg may still hold a position at the broker. Consequences: (1) the open-package gate stops counting that account as holding the leg, so a new package can be dispatched onto an account that still carries the old position (stacking); (2) _sweep_stuck_linked_packages can close the package while the broker position is alive. Not measured yet: how many 'orphaned' trades had a live broker position at the time they were marked.",
+  "why_it_matters": "The anti-stacking gate's correctness depends on 'terminal' meaning 'no position at the venue'; orphaned breaks that assumption silently."
+}

@@ -1,0 +1,29 @@
+{
+  "based_on": "20261011T121824741827Z-b87eedab.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a 'superseded by' skip followed by the newer ticket placed on a live executor account (#17176)",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261011-CJWUMAVA-0003",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-29",
+    "how_to_check": "GET /api/bot/prop/tickets?account_id=<acct> and executor events for 'superseded'",
+    "what": "a 'superseded by' skip followed by the newer ticket placed on a live executor account (#17176)"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "checklist PROP-SUPERSEDE closed 2026-10-11 by manager session_01Uq7MrjPQDRWqbhCjwuMava",
+    "rerun": "GET /api/bot/prop/tickets?account_id=<acct> and executor events for 'superseded'"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "LIVE read 2026-10-15: 0 'superseded by' lines in the last 2000 executor lines of tradeify_1/velotrade_1 (no ticket processed in the window); PROP-SUPERSEDE (#17176) is done in code, live first use not yet seen.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "checklist row ROUTE-PROP-TRACKING | [BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r) 2026-10-15 re-route]",
+  "state": "routed",
+  "what": "PROP-SUPERSEDE residual: merged, not yet observed live — a 'superseded by' skip followed by the newer ticket placed on a live executor account (#17176)."
+}

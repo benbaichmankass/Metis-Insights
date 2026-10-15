@@ -1,0 +1,24 @@
+{
+  "based_on": "20261011T121856112820Z-eef88c6b.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "_PB_LEVER_FLAG maps all three trail_decay keys AND the three baselined records read fidelity: faithful AND FIDELITY_BASELINE is empty",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261011-YS3USYJQ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "RQ-20261011-6707-01 / GUARD-FIDELITY lane session_0138CvwpMuWStDp1Ys3usyJQ 2026-10-11",
+    "rerun": "python3 -c \"import sys;sys.path.insert(0,'scripts/research');import regime_debt_matrix as r;print([k for k in ('trail_decay_arm_r','trail_decay_stall_bars','trail_decay_tight_mult') if k not in r._PB_LEVER_FLAG])\""
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, still open on its row: ran the rerun: trail_decay_arm_r/_stall_bars/_tight_mult all missing from regime_debt_matrix._PB_LEVER_FLAG (~L218-224) though backtest_pullback.py accepts the flags; needs the map + 3 record rebuilds.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "EVIDENCE-HARNESS-GAPS (manager session_01Uq7MrjPQDRWqbhCjwuMava, 2026-10-11): harness fidelity root cause",
+  "state": "routed",
+  "what": "ROOT CAUSE of every pullback-family `fidelity: approximate` record: scripts/research/regime_debt_matrix.py::_PB_LEVER_FLAG does not map trail_decay_arm_r / trail_decay_stall_bars / trail_decay_tight_mult, though scripts/backtest_pullback.py accepts --trail-decay-* (and m20_fleet_exit_sweep passes them). Fix: add the three keys to _PB_LEVER_FLAG (update tests/test_regime_debt_matrix_tp_r_fidelity.py's docstring example), regenerate the evidence records for ief/slv/iaum_pullback_1d via scripts/ops/build_strategy_evidence.py, and DELETE their FIDELITY_BASELINE entries in scripts/ci/check_roster_promotion_evidence.py (test_c5_baseline_is_exactly_the_approximate_risk_bearing_slots forces the pairing). Also re-grades gld/mhg/eth/avax/tlt pullback records. NOTE ief: faithful arm n=8 vs record n=3 (tighter trail frees the slot, more entries)."
+}

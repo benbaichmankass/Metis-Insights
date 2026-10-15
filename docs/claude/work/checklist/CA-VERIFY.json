@@ -2,7 +2,7 @@
   "id": "CA-VERIFY",
   "title": "Prove FIX-CA-01..32 are DEPLOYED and observed, not just merged",
   "phase": "W6",
-  "state": "landed_unproven",
+  "state": "done",
   "owner": "lane",
   "lane": "session_01SMXiWeEbsUBHYSHBZF2eV6",
   "model": "claude-sonnet-5",
@@ -13,6 +13,8 @@
     14052
   ],
   "blocked_on": [],
-  "note": "2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): FIRST ROW for this lane -- it was dispatched by session_01KAQRJxRbRwpYTkPgBjNVyQ (tag manager:session_01KAQRJxRbRwpYTkPgBjNVyQ) with no checklist row. Ceiling was not recorded on the register (UNKNOWN; asked of the previous manager). Handoff trigger fired, returned the lane's own cse_ id.  || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane reports DONE: all FIX-CA-01..32 (+01b/01c) merged AND deployed (live VM b9d518516 = main at capture; trainer 84d6867); 8 observed at runtime, the rest name their observing event. Record: docs/audits/code-audit-2026-09-27-deploy-verification.md in #14052 (Tier 1 self-land). Archive the lane when #14052 merges. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): ceiling set $15 (running $7.19 at 09:56Z). || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14052 merged (64496b1) by manager; relay never attached (non-claude branch).",
+  "note": "2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): FIRST ROW for this lane -- it was dispatched by session_01KAQRJxRbRwpYTkPgBjNVyQ (tag manager:session_01KAQRJxRbRwpYTkPgBjNVyQ) with no checklist row. Ceiling was not recorded on the register (UNKNOWN; asked of the previous manager). Handoff trigger fired, returned the lane's own cse_ id.  || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane reports DONE: all FIX-CA-01..32 (+01b/01c) merged AND deployed (live VM b9d518516 = main at capture; trainer 84d6867); 8 observed at runtime, the rest name their observing event. Record: docs/audits/code-audit-2026-09-27-deploy-verification.md in #14052 (Tier 1 self-land). Archive the lane when #14052 merges. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): ceiling set $15 (running $7.19 at 09:56Z). || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14052 merged (64496b1) by manager; relay never attached (non-claude branch).  | 2026-10-15 BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r): DONE \u2014 effect evidenced on main: docs/audits/code-audit-2026-09-27-deploy-verification.md (#14052) records merge SHA, deployed state and observation status per FIX-CA; unobserved effects are carried on the individual FIX-CA rows.",
+  "updated_at": "2026-10-15T06:36:10Z",
+  "updated_by": "session_019p3X1tJAdUdV2dKaw9no8r",
   "_seq": 194
 }

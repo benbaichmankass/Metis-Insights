@@ -2151,7 +2151,11 @@ accounts:
       max_dd_pct: 0.07                 # 7% STATIC = $350, floor $4,650 for the life of the account.
       daily_loss_pct: 0.04             # 4% below max(balance, equity) at 00:30 UTC (ruleset limits).
       daily_usd: 200                   # absolute fallback (= 4% of $5k).
-      risk_pct: 0.01                   # 1.0% = $50/ticket. OPERATOR 2026-10-06 09:20Z (verbatim): "ok, let's move the velotrade
+      risk_pct: 0.005                  # 0.5% = $25/ticket. OPERATOR 2026-10-15 ~05:55Z (verbatim popup choice): "0.5% (Recommended)" --
+                                       # supersedes the 2026-10-06 1% directive below. Evidence RQ-20261014-f516-05 (4,000 lives x 5 seeds,
+                                       # 355 trades): C050 ev $159-175/life p_alive ~0.27; C075 ev $166-182 p_alive ~0.02; 0.01 ev $117-140
+                                       # p_alive ~0.00. Revert: 0.01. (ruleset sizing.flat.max_risk_usd 50 left as is: a cap, non-binding at $25.)
+                                       # PRIOR (superseded): 1.0% = $50/ticket. OPERATOR 2026-10-06 09:20Z (verbatim): "ok, let's move the velotrade
                                        # risk to 1% - let's also check the impact of doing the same for tradeify and breakout".
                                        # Evidence RQ-20261006-062 (rule RULE-RQ1006-VELOTRADE-FIT, registered before the run):
                                        # ETH+SOL at 1.0% GO_LIVE on 5/5 seeds -- P(daily-loss breach)/life 0.015, median 62d

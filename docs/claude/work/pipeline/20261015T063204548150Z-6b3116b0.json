@@ -1,0 +1,19 @@
+{
+  "based_on": "20261012T060400705551Z-4ec93fc1.json",
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "research/results/RQ-20261011-0ac8-01/ holds a record with read_state=measured and produced_by.workflow research-script-run-trainer, AND comms/research/ops/*.json (newest) lists the unit in results_read.",
+    "kind": "event"
+  },
+  "id": "PI-20261011-HZAZ9SU7-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Lane ML-RQ-RUNNER (session_01QRNxMhicEy4xbthzaZ9su7), PR #17611, 2026-10-11",
+    "rerun": "ls research/results/RQ-20261011-0ac8-01/ 2>&1; grep -h '\"read_state\"\\|\"workflow\"' research/results/RQ-20261011-0ac8-01/*.jsonl 2>/dev/null | head -5; grep -l RQ-20261011-0ac8-01 comms/research/ops/*.json 2>/dev/null | tail -1"
+  },
+  "routed_to": "research/queue/RQ-20261011-0ac8-01.yaml",
+  "state": "done",
+  "terminal_reason": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r), 2026-10-15: research/results/RQ-20261011-0ac8-01/38169810099.jsonl is read_state measured, verdict pass, via research-script-run-trainer, and comms/research/ops/20261012T0330Z.json lists it under results_read. (The unit YAML's status: queued is stale - left for research-ops.)",
+  "what": "ML-RQ-RUNNER proof: the trainer-side research route (research-script-run-trainer.yml + scripts/research/ml_bakeoff.py) is MERGED-ONLY until smoke unit RQ-20261011-0ac8-01 has been dispatched by the queue to the trainer and landed as read_state=measured verdict=pass, and a research-ops run record lists it in results_read. If it lands producer_failed/no_data (read comms/research/RQ-20261011-0ac8-01/<run_id>/run-manifest.json + trainer-session.log), that is an incident of the ML flow: fix the route, re-queue the unit (last_dispatched_at: null); do not edit its rule. On PASS, close checklist row ML-RQ-RUNNER and move RQ-20261011-9da8-01/-03 forward as their levers (FRONTIER-LEVER-TSFM / -CONFORMAL) close."
+}

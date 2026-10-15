@@ -1,0 +1,21 @@
+{
+  "id": "E74-SOL-SHORT-PREREG",
+  "title": "Pre-register research unit for sol_pullback_2h trending/calm SHORT cell (stable_drag) with Rule-2 decision rule",
+  "phase": "hygiene",
+  "state": "queued",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-15 DUE-ROUTE-20261015] Routed from PI-20261001-E74LANE-0001. Author a research/queue unit (research-ops step E) with the rule registered before the run; CLEARS -> Tier-3 OFF-cell packet to operator, DOES_NOT_CLEAR -> close. No existing unit grades the short direction (RQ-20260929-061 graded long only).",
+  "updated_at": "2026-10-15T06:14:07Z",
+  "updated_by": "session_01PH9KCD1r7StznkqPLzd9K1",
+  "roadmap": [
+    "L-REGIME"
+  ],
+  "_seq": 508
+}

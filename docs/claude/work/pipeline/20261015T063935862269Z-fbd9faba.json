@@ -1,0 +1,24 @@
+{
+  "based_on": "20261012T205436794947Z-16a21f74.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "net_r_for_trade on trades 2578 and 2832 returns |net_R| < 20 (checked by running it on the journal rows), or the rows are shown to be excluded wherever net R is aggregated.",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261012-CMUZ8SWC-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01Vjq6BnY8ERksyfCmuz8sWC lane NEWS-VETO-EVAL, PR #17740",
+    "rerun": "scripts/ops/diag_fetch.sh 'journal?table=trades&limit=1000' | python3 -c \"import json,sys;from src.runtime.net_r_label import net_r_for_trade as f;print([ (t['id'],f(t)['net_R']) for t in json.load(sys.stdin) if t['strategy_name']=='mhg_pullback_1d' and t['status']=='closed' and f(t)])\""
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, still open on its row: src/runtime/net_r_label.py _contract_value (~L62-68) still falls back to 1.0 when contract_value_usd is absent; no IB futures multiplier map.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "NETR-IB-RISK-BASIS",
+  "state": "routed",
+  "what": "Net-R risk basis is wrong for IB futures rows whose notes lack contract_value_usd: net_r_label.risk_usd_for_trade falls back to multiplier 1.0, so mhg_pullback_1d trades 2578/2832 (entry 6.396, sl 6.045, qty 3, pnl -2646/-2530) read as ~-2,500R. 19 of 653 taken trades in the news-veto join had |net R|>20. Any net-R aggregate over futures legs (performance review, evidence builders) is silently distorted; rank statistics survive, means do not. Fix: resolve the multiplier from config/instruments at read time when the row lacks it, or backfill contract_value_usd."
+}

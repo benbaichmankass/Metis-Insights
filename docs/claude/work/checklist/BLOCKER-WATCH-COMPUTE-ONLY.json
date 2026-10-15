@@ -1,0 +1,21 @@
+{
+  "id": "BLOCKER-WATCH-COMPUTE-ONLY",
+  "title": "blocker_watch flags compute-only research units NEEDS_LANE although the dispatcher can fire them",
+  "phase": "hygiene",
+  "state": "queued",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-15 DUE-ROUTE-20261015] blocker_watch.scan() reads run.workflow literally; dispatch_queue.py falls back to compute_router.plan(entry,cfg).workflow for units with a run.command and no workflow. MEASURED 2026-10-15 via dispatch_queue.py dry run: RQ-20261014-d6e7-02, d6e7-04 and 77dc-02 read would_dispatch (runner), d6e7-03/05 read not_due on requires_result (d6e7-02/04 pass) -- all five were flagged NOT_RUNNING/NEEDS_LANE. d6e7-01 itself fired 2026-10-15T01:04Z with the same shape. Fix: have blocker_watch reuse the dispatcher's workflow resolution (and treat requires_result as a declared gate, not a blocker). Not fixed in this lane: tooling change, own row.",
+  "updated_at": "2026-10-15T06:14:06Z",
+  "updated_by": "session_01PH9KCD1r7StznkqPLzd9K1",
+  "roadmap": [
+    "L-OPS"
+  ],
+  "_seq": 510
+}

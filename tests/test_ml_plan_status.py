@@ -57,3 +57,16 @@ def test_every_committed_trainer_maps_to_a_family():
 def test_committed_plan_family_tags_are_known():
     findings, _ = m.diversity(m.load_plan(), m.manifest_families())
     assert not [f for f in findings if f.startswith("UNKNOWN-FAMILY")], findings
+
+
+def test_family_none_marks_a_process_item_without_counting_or_flagging_it():
+    plan = {
+        "diversity": {"max_family_share": 0.6, "max_fail_streak": 3},
+        "items": [
+            {"id": "a", "state": "open", "family": "gbdt"},
+            {"id": "b", "state": "open", "family": "none"},
+        ],
+    }
+    findings, table = m.diversity(plan, {})
+    assert not [f for f in findings if f.startswith(("UNKNOWN-FAMILY", "NOTE"))], findings
+    assert sum(f["open_units"] for f in table.values()) == 1  # `none` is not counted toward any family

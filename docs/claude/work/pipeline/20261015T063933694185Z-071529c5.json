@@ -1,0 +1,24 @@
+{
+  "based_on": "20261012T060359955804Z-ff415e3f.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Every 'needs the service bearer' group in design 2b sends the bearer (the rerun grep lists none of them), proven by one authenticated GET per group against a SITE_AUTH_ENFORCE=1 instance or the live host after the flip.",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261011-CFUJ7YFR-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "UI-UPGRADE-1-AUTH lane session_011uiQyRqUbP23WPcfuj7Yfr; design 2b table",
+    "rerun": "grep -rLE 'Authorization|Bearer|DASHBOARD_API_TOKEN' $(grep -rIlE 'ict-bot\\.duckdns\\.org|127\\.0\\.0\\.1:8001|BOT_API_(URL|BASE)' --include=*.py --include=*.sh --include=*.yml scripts .github src | grep -v tests)  # files that call the API with no credential reference"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, still open on its row: DASHBOARD_API_TOKEN absent from scripts/ops/diag_fetch.sh, vm-diag-snapshot.yml and scripts/ops/probe_lib.py; SITE_AUTH_ENFORCE defaults off (src/web/api/auth.py ~L235).",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "UI-UPGRADE-1-AUTH-HARDEN",
+  "state": "routed",
+  "what": "UI-UPGRADE-1-AUTH: retrofit the DASHBOARD_API_TOKEN service bearer into the 26 anonymous non-browser /api/bot/* consumer groups listed in design 2b BEFORE SITE_AUTH_ENFORCE is flipped, highest blast radius first: vm-diag-snapshot.yml + scripts/ops/diag_fetch.sh (every session read of /api/bot/* goes through them), scripts/ops/probe_lib.py (covers the probe family), then the public-URL workflows (account-broker-reconcile, broker-bracket-reconcile, broker-truth-freshness, gld-compat-matrix, r4-demotion-gate, sunset-pass) and the scripts. require_site_session (in the UI-UPGRADE-1-AUTH API PR) already accepts the bearer for GET/HEAD only."
+}

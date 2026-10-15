@@ -84,6 +84,25 @@ jobs:
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/trainer_key
           chmod 600 ~/.ssh/trainer_key
+      - name: Place the TabPFN key on the trainer (optional; a 0600 file, never a unit's environment)
+        # ML-TABPFN-LICENCE. The Prior Labs key is needed once, for the TabPFN weights download; tabpfn reads
+        # TABPFN_TOKEN, else ~/.cache/tabpfn/auth_token (browser_auth.get_cached_token, tabpfn 9.1.0). The file route
+        # means ordinary units never see the key in os.environ. It travels on ssh STDIN (never argv or the remote
+        # command string). No secret -> no-op. A failure here only leaves the tabpfn arm erroring, as today.
+        id: tabpfn_key
+        continue-on-error: true
+        env:
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+          TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
+          TABPFN_TOKEN: ${{ secrets.TABPFN_TOKEN }}
+        run: |
+          set -uo pipefail
+          if [ -z "${TABPFN_TOKEN:-}" ]; then echo "TABPFN_TOKEN not set: skipping"; exit 0; fi
+          printf '%s' "${TABPFN_TOKEN}" | ssh -i ~/.ssh/trainer_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 "${TRAINER_USER}@${TRAINER_IP}" \
+              'umask 077; mkdir -p "$HOME/.cache/tabpfn" && cat > "$HOME/.cache/tabpfn/auth_token"' 2>&1 \
+            | sed -E 's/[0-9]{1,3}(\.[0-9]{1,3}){3}/<ip>/g'
+          echo "key placed (exit ${PIPESTATUS[1]})"
       - name: Run the unit's command(s) ON THE TRAINER
         id: run
         continue-on-error: true
@@ -152,6 +171,51 @@ jobs:
           ssh -i ~/.ssh/trainer_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
               "${TRAINER_USER}@${TRAINER_IP}" \
               "rm -rf '/home/ubuntu/ict-trading-bot/comms/research/${UNIT}/${GITHUB_RUN_ID}'" || true
+      - name: Redact TABPFN_TOKEN from every output before anything is uploaded or committed
+        # Job-log secret masking does NOT cover artifacts or the committed result, and a unit's script is arbitrary
+        # allowlisted code on the trainer (it could print os.environ, or a library could echo a request header).
+        # Fixed-string replace of the key (raw, JSON-escaped, URL-quoted) with *** in the runner log capture and in
+        # EVERY file copied back. The key is read from the environment, never argv. Fails CLOSED: if redaction
+        # errors, the copied-back outputs are deleted and the step fails. Guard: check_research_script_run.py R4.
+        if: always()
+        env:
+          UNIT: ${{ inputs.research_unit }}
+          TABPFN_TOKEN: ${{ secrets.TABPFN_TOKEN }}
+        run: |
+          set -uo pipefail
+          python3 - <<'PY'
+          import json, os, shutil, sys, urllib.parse
+          tok = os.environ.get("TABPFN_TOKEN", "")
+          unit = os.environ["UNIT"]
+          root = os.path.join("comms", "research", unit)
+          if not tok.strip():
+              print("no TABPFN_TOKEN: nothing to redact"); sys.exit(0)
+          variants = {tok, tok.strip(), json.dumps(tok)[1:-1], urllib.parse.quote(tok, safe=""), urllib.parse.quote_plus(tok)}
+          variants = sorted((v.encode() for v in variants if v), key=len, reverse=True)
+          def scrub(path):
+              with open(path, "rb") as fh:
+                  data = fh.read()
+              new = data
+              for v in variants:
+                  new = new.replace(v, b"***")
+              if new != data:
+                  with open(path, "wb") as fh:
+                      fh.write(new)
+                  return 1
+              return 0
+          hits = 0
+          try:
+              paths = ["/tmp/out.txt"] if os.path.exists("/tmp/out.txt") else []
+              for d, _, files in os.walk(root):
+                  paths += [os.path.join(d, f) for f in files]
+              for p in paths:
+                  hits += scrub(p)
+          except Exception as exc:  # fail closed: publish nothing rather than risk the key
+              shutil.rmtree(root, ignore_errors=True)
+              open("/tmp/out.txt", "w").write("(outputs removed: TABPFN_TOKEN redaction failed)\n")
+              print(f"::error::redaction failed ({type(exc).__name__}); outputs removed"); sys.exit(1)
+          print(f"redaction done: {len(paths)} file(s) scanned, {hits} changed")
+          PY
       - name: Remove the SSH key
         if: always()
         run: rm -f ~/.ssh/trainer_key

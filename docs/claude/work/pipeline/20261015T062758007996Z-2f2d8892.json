@@ -1,0 +1,26 @@
+{
+  "based_on": "20261014T055624675314Z-aed4cb3a.json",
+  "due_when": {
+    "clears_when": "research/results/RQ-20261015-72ad-01/ carries a measured record; apply its rule: CONFIRMED -> Tier-3 side_filter proposal to the manager, NOT_CONFIRMED -> this item killed with the record as terminal_reason, INDETERMINATE -> re-dispatch once",
+    "kind": "event"
+  },
+  "filed": "2026-10-11",
+  "id": "PI-20261011-HOPS1447-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-22",
+    "how_to_check": "ls research/results/RQ-20261015-72ad-01/ && python3 -c \"import json,glob;r=json.loads(open(sorted(glob.glob('research/results/RQ-20261015-72ad-01/*.jsonl'))[-1]).readline());print(r['read_state'],r['verdict'],r['measurement']['grade']['outcome'])\"",
+    "what": "RQ-20261015-72ad-01 lands a measured record (read_state=measured) under research/results/ and its pre-registered long-drag outcome is applied"
+  },
+  "origin": {
+    "by": "research-ops-1447",
+    "kind": "session",
+    "ref": "RESEARCH-OPS-20261011-1447 reading RQ-20261010-419b-02",
+    "rerun": "python3 -c \"import json;r=json.loads(open('research/results/RQ-20261010-419b-02/38116959391.jsonl').readline());print({k:(v['pooled_long_net_r'],v['folds_negative_long'],v['n_long']) for k,v in r['measurement']['per_leg'].items()})\"  # expect ada (-18.7R,3,119) xrp (-25.2R,3,142)"
+  },
+  "routed_to": "RQ-20261015-72ad-01 (lane PERF-FOLLOWUP-2026W42, 2026-10-15): scripts/research/leg_replay_emit.py --rule long-drag built (tests/test_leg_replay_emit.py) and ONE pre-registered unit queued on the held-out bidirectional legs eth_pullback_2h + avax_pullback_2h (sol_pullback_2h excluded: side_filter short). Step (1) and step (2a) of 'what' are done; step (2b), the disjoint window, still waits on RQ-20261007-033.",
+  "severity": "medium",
+  "state": "routed",
+  "tier": 1,
+  "what": "RQ-20261010-419b-02 (short-drag, NOT_CONFIRMED) also MEASURED the opposite side at config-exact live params over 1830 d: LONG net R is negative in 3 of 4 folds for BOTH ada_pullback_2h (pooled -18.74R, n_long 119) and xrp_pullback_2h (pooled -25.15R, n_long 142) while SHORT is positive (+11.39R / +9.88R, n 155 each). The unit's what_it_does_not_do says the long side is 'already refuted as a drag by #7915' - this read disagrees at the current window. Exploratory only (not pre-registered; cannot be a promotion basis). Needed: (1) add a `long-drag` rule to scripts/research/leg_replay_emit.py mirroring short-drag; (2) author ONE pre-registered unit that tests it on legs the exploratory read did not select from (the other pullback_2h legs on bybit_2: check config/accounts.yaml) and on a disjoint window once research-harness-dispatch.yml accepts one (RQ-20261007-033 lever, PI-20261004-APBY4NTV-0001). A confirmed stable long drag would be a Tier-3 side_filter proposal for the manager, never a config edit here."
+}

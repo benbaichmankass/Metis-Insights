@@ -1,0 +1,24 @@
+{
+  "based_on": "20261015T063220030149Z-1e30bef8.json",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "every open non-automation PR older than 5 days is merged, closed with a stated reason, or named on a checklist row as deliberately held",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261015-KAW9NO8R-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r) open-PR list 2026-10-15",
+    "rerun": "GitHub MCP list_pull_requests state=open; count PRs with created_at older than 5 days and head not automation/*"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Triaged 2026-10-15 ~06:55Z, all 16 PRs: CLOSED 3 as superseded with a comment (#13119 newer pipeline records, #16302 MANAGER-CHECKLIST.json gone, #17206 RQ-903 moved and ran). LISTED to manager, not closed: #14053 (config/, duplicate of #17193). STILL_WANTED 10: #11933/#11976/#12158 (M20 ict_scalp, operator keep-or-kill), #12213 (automerge opener_kind half b), #14692 (prop login msg, HELD T2), #16233 (exit-head replay window, CI timeout), #17051 (PIT capture), #17182 (retire RQ-009/010), #17193 (HELD T3), #17194 (exit evidence folds). UNCLEAR 2: #12070, #12564.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "checklist row ROUTE-CI-LANDING-FIXES (landing hygiene)",
+  "state": "routed",
+  "what": "16 non-automation PRs have been open more than 5 days with no disposition (oldest #11933 from 2026-09-12; also #11976 #12070 #12158 #12213 #12564 #13119 #14053 #14692 #16233 #16302 #17051 #17182 #17193 #17194 #17206). stale-automation-sweep covers only automation/* heads, so nothing sweeps lane/claude branches; each is either mergeable work that never landed or dead and should be closed with a reason. Read 2026-10-15 06:31Z by BACKLOG-DRAIN-20261015 via the GitHub open-PR list (35 open)."
+}

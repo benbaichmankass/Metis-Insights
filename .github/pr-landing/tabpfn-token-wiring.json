@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Operator decision 2026-10-15 (Approve all, item 2): wire TABPFN_TOKEN into research-script-run-trainer.yml as a hold PR. The edit changes what the trainer-ssh job sends to the trainer (a secret over ssh stdin) and widens the research-script-run guard's secret allowlist, so the manager lands it, not the lane.",
+  "why": "research-script-run-trainer.yml passes the optional TABPFN_TOKEN secret to the trainer over ssh stdin (never argv or a log); the guard allowlist gains TABPFN_TOKEN for that workflow only. No-op until the operator stores the secret (row ML-TABPFN-LICENCE)."
+}

@@ -1,0 +1,21 @@
+{
+  "id": "PROP-GATE-UNREALIZED-DAYPNL",
+  "title": "Prop status: velotrade_1 unrealized_unreported gate + breakout_2 day_pnl realized_unreported",
+  "phase": "hygiene",
+  "state": "queued",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-15 DUE-ROUTE-20261015] Routed from PI-20261012-EEP21012-0002 and PI-20261012-GNRBKIGG-0002. MEASURED 2026-10-15 05:58Z via /api/bot/prop/status: velotrade_1 unrealized=null, day_pnl_state=unreported; breakout_2 day_pnl_state=realized_unreported, realized_today/day_start_balance null (daily-loss distance null on a real-money account). Build: map or derive unrealized for the DXtrade adapter; derive breakout_2 realized_today from priced journal closes labelled ESTIMATED. Runtime change = Tier-2.",
+  "updated_at": "2026-10-15T06:14:07Z",
+  "updated_by": "session_01PH9KCD1r7StznkqPLzd9K1",
+  "roadmap": [
+    "L-PROP"
+  ],
+  "_seq": 506
+}

@@ -11,9 +11,9 @@
   "tier": 1,
   "prs": [],
   "blocked_on": [],
-  "note": "Unblocks RQ-20261011-9da8-03. Done when: scripts/research/conformal_abstain_eval.py (split-conformal + plain-threshold baseline, rolling-window coverage) writes verdict.json and a synthetic-exchangeable test shows nominal coverage. Parent: FRONTIER-RESEARCH.  [2026-10-11 ML-RQ-RUNNER, priority HIGH rank 3] Still needs its own scorer (conformal evaluates a score stream, not a learner list): scripts/research/conformal_abstain_eval.py, run through the same script_run path (research-script-run.yml, no trainer data needed if the shadow-log mirror is in the repo checkout) so it lands as the same E5 record.",
-  "updated_at": "2026-10-11T15:57:15Z",
-  "updated_by": "session_01QRNxMhicEy4xbthzaZ9su7",
+  "note": "Unblocks RQ-20261011-9da8-03. Done when: scripts/research/conformal_abstain_eval.py (split-conformal + plain-threshold baseline, rolling-window coverage) writes verdict.json and a synthetic-exchangeable test shows nominal coverage. Parent: FRONTIER-RESEARCH.  [2026-10-11 ML-RQ-RUNNER, priority HIGH rank 3] Still needs its own scorer (conformal evaluates a score stream, not a learner list): scripts/research/conformal_abstain_eval.py, run through the same script_run path (research-script-run.yml, no trainer data needed if the shadow-log mirror is in the repo checkout) so it lands as the same E5 record. [2026-10-15 ML-FRONTIER-W42] SEQUENCED behind RQ-20261015-eda2-01 (the 1414-02 re-run, operator 'Approve all' item 3): no conformal script work until that unit is graded. 1414-02 was indeterminate only because its holdout was empty; its CV log-loss deltas vs the prior were positive on all three symbols. 9da8-03 has a SECOND blocker independent of this lever: the realised-label joiner ML-HEAD-AGREEMENT-JOIN (queued). Both must clear.",
+  "updated_at": "2026-10-15T06:24:34Z",
+  "updated_by": "lane-ML-FRONTIER-W42",
   "priority": "high",
   "priority_rank": 3,
   "_seq": 408

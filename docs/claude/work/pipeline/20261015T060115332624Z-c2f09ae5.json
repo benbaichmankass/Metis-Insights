@@ -1,0 +1,18 @@
+{
+  "based_on": "20261014T184242733306Z-9efa30eb.json",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "slv_trend_1h's net_r_per_capital_day is explained (capital_days vs bar_minutes/mean_bars_held checked against its __trades.jsonl) or the record is rebuilt and the value falls in line with the other legs",
+    "kind": "observation"
+  },
+  "id": "PI-20261014-WF8DYMGP-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_011NgbCF6CGFggZ2wf8DYmGP",
+    "rerun": "python3 scripts/research/stage0_capital_day_census.py --n-floor 39 --fold-share 0.75 --out /tmp/c && grep -A3 slv_trend_1h /tmp/c/verdict.json"
+  },
+  "routed_to": "checklist row CAPDAY-EQUITY-DENOM (DUE-ROUTE-20261015)",
+  "state": "routed",
+  "what": "CAPITAL-DAY OUTLIER (lane P3-STRATEGY-PROGRAMME, 2026-10-14): the Stage-0 census reads slv_trend_1h (alpaca_paper/options paper) at net_r_per_capital_day 1.0567 (n=68, +53.1 R, 4/4 folds, 365 d), ~6x any other routed leg. Either a real edge or a capital_days denominator bug (1h bars on an equity session calendar). Check capital_days against the record's __trades.jsonl hold times before anyone quotes or ranks on it. Tier-1."
+}

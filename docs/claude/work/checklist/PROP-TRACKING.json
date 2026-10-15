@@ -2,7 +2,7 @@
   "id": "PROP-TRACKING",
   "title": "Prop trade tracking: phone executor reports balance + open positions + closes; server reconciles journal; ESTIMATED mark-based uPnL fallback",
   "phase": null,
-  "state": "landed_unproven",
+  "state": "done",
   "owner": "lane (session_01FNBC34jaQwH3Z1gNRbKigG)",
   "lane": "session_01FNBC34jaQwH3Z1gNRbKigG",
   "ceiling_usd": 35,
@@ -13,9 +13,9 @@
     17745
   ],
   "blocked_on": [],
-  "note": "[2026-10-12 lane session_01FNBC34jaQwH3Z1gNRbKigG, dispatched by manager session_01G16FfyYSmDPQuuW55BuTmK] OPERATOR 2026-10-12 verbatim: 'we need to be able to track the prop trades - no upnl isn't a solution to the issue'. Scope: (1) phone APK reads Breakout terminal balance + open positions + closes, MEASURED; (2) server stores + reconciles journal vs venue positions (closed_unpriced, unconfirmed+alert); (3) ESTIMATED mark-based uPnL fallback labelled 'mark_estimate' on /api/bot/prop/overview + SPA. Landing hold, Tier 2, manager merges. Ceiling $35. [2026-10-12T11:30Z lane session_01FNBC34jaQwH3Z1gNRbKigG] BUILT, HOLD for manager: bot PR #17745 (Tier 2, landing hold; phone exec.js/Api.kt/MainActivity.kt + server phone_reconcile.py/record_report/overview; tests/test_prop_tracking.py 21 pass, prop+phone+breakout suites 1708 pass locally, exec_check.js all pass); SPA PR ict-trader-dashboard#224 (prop per-trade + book uPnL rendered, 'est.' label; it had hard-coded null). No order-path change. NOT YET: merged/deployed/observed. Mark-ESTIMATE fallback goes live on deploy; MEASURED needs the operator to install the APK built from main after merge, then PI-20261012-GNRBKIGG-0001 (first clean Positions read). Day P&L follow-up: PI-20261012-GNRBKIGG-0002. [2026-10-12T18:20Z lane session_01FNBC34jaQwH3Z1gNRbKigG] MERGED: #17745 (bot, d337422), #17732 (row + pipeline), ict-trader-dashboard#224 (SPA, DEPLOYED: live bundle index-CPLwk6A9.js carries it; render not human-checked). NOT YET DEPLOYED at 18:18Z: /api/bot/prop/overview lacks unrealized_pnl_incl_estimates. NOT OBSERVED. Closes when: (1) /api/bot/prop/overview returns unrealized_pnl_incl_estimates and breakout_2 trades show unrealized_state mark_estimate (deploy); (2) operator installs the APK from phone-executor-apk run 159 on main (https://github.com/benbaichmankass/Metis-Insights/actions/runs/38289771307, artifact phone-executor-1b-apk, install over the existing app, do not uninstall) and /api/bot/prop/status?account_id=breakout_2 shows status.raw.positions_state == read (PI-20261012-GNRBKIGG-0001); (3) reconcile flipped report_only -> write after its WOULD alerts match the terminal (PI-20261012-GNRBKIGG-0004). Follow-ups: PI-...-0002 day P&L, -0003 SOL row 107 measured exit, -0005 duplicate-open naming, -0006 terminal account pin. Lane ends here; next pickup is (2) the APK install.",
-  "updated_at": "2026-10-12T21:07:41Z",
-  "updated_by": "session_01FNBC34jaQwH3Z1gNRbKigG",
+  "note": "[2026-10-12 lane session_01FNBC34jaQwH3Z1gNRbKigG, dispatched by manager session_01G16FfyYSmDPQuuW55BuTmK] OPERATOR 2026-10-12 verbatim: 'we need to be able to track the prop trades - no upnl isn't a solution to the issue'. Scope: (1) phone APK reads Breakout terminal balance + open positions + closes, MEASURED; (2) server stores + reconciles journal vs venue positions (closed_unpriced, unconfirmed+alert); (3) ESTIMATED mark-based uPnL fallback labelled 'mark_estimate' on /api/bot/prop/overview + SPA. Landing hold, Tier 2, manager merges. Ceiling $35. [2026-10-12T11:30Z lane session_01FNBC34jaQwH3Z1gNRbKigG] BUILT, HOLD for manager: bot PR #17745 (Tier 2, landing hold; phone exec.js/Api.kt/MainActivity.kt + server phone_reconcile.py/record_report/overview; tests/test_prop_tracking.py 21 pass, prop+phone+breakout suites 1708 pass locally, exec_check.js all pass); SPA PR ict-trader-dashboard#224 (prop per-trade + book uPnL rendered, 'est.' label; it had hard-coded null). No order-path change. NOT YET: merged/deployed/observed. Mark-ESTIMATE fallback goes live on deploy; MEASURED needs the operator to install the APK built from main after merge, then PI-20261012-GNRBKIGG-0001 (first clean Positions read). Day P&L follow-up: PI-20261012-GNRBKIGG-0002. [2026-10-12T18:20Z lane session_01FNBC34jaQwH3Z1gNRbKigG] MERGED: #17745 (bot, d337422), #17732 (row + pipeline), ict-trader-dashboard#224 (SPA, DEPLOYED: live bundle index-CPLwk6A9.js carries it; render not human-checked). NOT YET DEPLOYED at 18:18Z: /api/bot/prop/overview lacks unrealized_pnl_incl_estimates. NOT OBSERVED. Closes when: (1) /api/bot/prop/overview returns unrealized_pnl_incl_estimates and breakout_2 trades show unrealized_state mark_estimate (deploy); (2) operator installs the APK from phone-executor-apk run 159 on main (https://github.com/benbaichmankass/Metis-Insights/actions/runs/38289771307, artifact phone-executor-1b-apk, install over the existing app, do not uninstall) and /api/bot/prop/status?account_id=breakout_2 shows status.raw.positions_state == read (PI-20261012-GNRBKIGG-0001); (3) reconcile flipped report_only -> write after its WOULD alerts match the terminal (PI-20261012-GNRBKIGG-0004). Follow-ups: PI-...-0002 day P&L, -0003 SOL row 107 measured exit, -0005 duplicate-open naming, -0006 terminal account pin. Lane ends here; next pickup is (2) the APK install.  || [2026-10-15 DUE-ROUTE-20261015] DONE: /api/bot/prop/status?account_id=breakout_2 2026-10-15 05:50Z: status.raw.positions_state == read with ETH short qty/entry/mark/upnl read from the phone; /api/bot/prop/overview carries unrealized_pnl_incl_estimates. CAVEAT: positions_provenance is ESTIMATED because side comes from the journal (side_source journal). Remaining day-PnL gap filed as PROP-GATE-UNREALIZED-DAYPNL.",
+  "updated_at": "2026-10-15T06:04:54Z",
+  "updated_by": "session_01PH9KCD1r7StznkqPLzd9K1",
   "roadmap": [
     "L-PROP"
   ],
@@ -26,8 +26,8 @@
     "due_by": "2026-10-14"
   },
   "writeback": {
-    "roadmap": "L-PROP: prop tracking built (phone reports balance/positions/closes, server reconcile report-only, mark_estimate uPnL); MEASURED read pending PHONE-POSITIONS-DIV",
-    "arch": "none: prop reporting contract unchanged; phone_reconcile is report-only and adds no order path"
+    "roadmap": "none: pipeline/ops row, no milestone outcome",
+    "arch": "none: no architecture change"
   },
   "_seq": 433
 }

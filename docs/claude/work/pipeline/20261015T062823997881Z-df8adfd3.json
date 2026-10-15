@@ -1,0 +1,22 @@
+{
+  "based_on": "20261009T075106507798Z-deafe390.json",
+  "due_when": {
+    "due_date": "2026-10-29",
+    "kind": "date"
+  },
+  "id": "PI-20261007-HY7G7NYF-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane GEOM-B1-HARNESS session_015kekiWATbgN7A6Hy7g7NyF, 2026-10-07; PRs #17000 #17010 #17011",
+    "rerun": "gh api repos/benbaichmankass/Metis-Insights/pulls/17000 --jq .merged; gh api repos/benbaichmankass/Metis-Insights/pulls/17010 --jq .merged; ls research/results/RQ-20261007-004 2>/dev/null"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Read 2026-10-15: steps 1-3 done (#17000/#17010/#17011; RQ-20261007-004 result has 7 rows). Step 4 open: docs/research/m20-sweep-corpus.jsonl on main has 1493 rows and 0 tp_extend/tp_retarget, and check_matrix_corpus_agreement.py still exempts both levers. GEOM-B1-HARNESS is done; re-routed.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "checklist row M20-EXITS-4 | [BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r) 2026-10-15 re-route]",
+  "state": "routed",
+  "what": "GEOM-B1-HARNESS FOLLOW-THROUGH: (1) after #17000 merges, merge main into claude/geom-b1-sweep-lever (#17010) so its diff drops the stacked pr-landing file (R12), then arm auto-merge on #17010; (2) after #17010 merges, the manager merges #17011 (landing=hold) which queues RQ-20261007-001..004; (3) the research_result job added to ict-scalp-exit-sweep.yml is UNPROVEN until its first dispatch (RQ-20261007-004): confirm research/results/RQ-20261007-004/ holds 7 records; (4) once the first tp_extend/tp_retarget corpus row lands in docs/research/m20-sweep-corpus.jsonl, delete the two TEMPORARY tp_* entries in CORPUS_EXEMPT_LEVERS (scripts/ci/check_matrix_corpus_agreement.py) and stamp the new matrix cells' tp_geometry, lowering _unstamped_ceiling. Merged/deployed/observed: none established as of filing."
+}

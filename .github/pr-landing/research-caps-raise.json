@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Checklist-row-only change (docs/claude/work/checklist/RESEARCH-CAPS-RAISE.json): records the measured 24h CI p90 (17 > 10) and that research caps were therefore left unchanged. Tier-1 docs/register surface; no workflow, cap, config or runtime file is edited."
+}

@@ -13,9 +13,9 @@
     17954
   ],
   "blocked_on": [],
-  "note": "Runnable 14 vs floor 25; template grids exhausted. Authoring 13 pre-registered exit_lever_ablation units RQ-20261014-f0e2-01..13 (cpu_light, github_runner). Hold PR needs manager merge.  [lane done] PR #17954 (draft, hold): 13 units f0e2-01..13, dry-run runnable 14->27; record comms/research/ops/20261014T0040Z.json. Not yet observed on main.",
-  "updated_at": "2026-10-14T00:22:14Z",
-  "updated_by": "research-ops-lane-20261014-0020",
+  "note": "Runnable 14 vs floor 25; template grids exhausted. Authoring 13 pre-registered exit_lever_ablation units RQ-20261014-f0e2-01..13 (cpu_light, github_runner). Hold PR needs manager merge.  [lane done] PR #17954 (draft, hold): 13 units f0e2-01..13, dry-run runnable 14->27; record comms/research/ops/20261014T0040Z.json. Not yet observed on main.  || [2026-10-15 DUE-ROUTE-20261015] RE-DATED to 2026-10-22; READ: 13 f0e2 result dirs exist (dispatch half met) but runnable=16 < 25 floor (check_research_queue_throughput 2026-10-15). Effect did not happen: template grids exhausted, filed as row RESEARCH-GRIDS-EXTEND.",
+  "updated_at": "2026-10-15T06:04:56Z",
+  "updated_by": "session_01PH9KCD1r7StznkqPLzd9K1",
   "roadmap": [
     "L-REGIME",
     "L-LADDER"
@@ -27,7 +27,7 @@
   "observation": {
     "what": "13 f0e2 units dispatch and land results; runnable >= 25 on the next throughput read",
     "how_to_check": "python3 scripts/ci/check_research_queue_throughput.py --json",
-    "due_by": "2026-10-15"
+    "due_by": "2026-10-22"
   },
   "_seq": 468
 }

@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "every open non-automation PR older than 5 days is merged, closed with a stated reason, or named on a checklist row as deliberately held",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261015-KAW9NO8R-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r) open-PR list 2026-10-15",
+    "rerun": "GitHub MCP list_pull_requests state=open; count PRs with created_at older than 5 days and head not automation/*"
+  },
+  "routed_to": "checklist row ROUTE-CI-LANDING-FIXES (landing hygiene)",
+  "state": "routed",
+  "what": "16 non-automation PRs have been open more than 5 days with no disposition (oldest #11933 from 2026-09-12; also #11976 #12070 #12158 #12213 #12564 #13119 #14053 #14692 #16233 #16302 #17051 #17182 #17193 #17194 #17206). stale-automation-sweep covers only automation/* heads, so nothing sweeps lane/claude branches; each is either mergeable work that never landed or dead and should be closed with a reason. Read 2026-10-15 06:31Z by BACKLOG-DRAIN-20261015 via the GitHub open-PR list (35 open)."
+}

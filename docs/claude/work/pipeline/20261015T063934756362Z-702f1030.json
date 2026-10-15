@@ -1,0 +1,24 @@
+{
+  "based_on": "20261012T205435509456Z-4f3d12ce.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A Tier-2 lane dispatched with 'landing self' can land without a manual hold: either docs/claude/work/approvals/ exists on main with a record per authorized lane, or the dispatch prompt no longer promises self-landing for Tier-2.",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261012-42HAX6NV-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01JQGnLVnR3UiY1w42hAX6nv, lane FRONTIER-LEVER-TRAINER-DEPS, PR #17682 guards run 38210778886 and local check_pr_landing.py",
+    "rerun": "python3 scripts/ci/check_pr_landing.py --base origin/main on any Tier-2 landing:self declaration; and ls docs/claude/work/approvals"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, still open on its row: docs/claude/work/approvals/ does not exist and check_pr_landing.py (~L571/L1139) still requires approved_by for Tier-2 landing:self.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "LANDING-TIER2-APPROVALS",
+  "state": "routed",
+  "what": "Manager lane dispatches say 'landing self under this authorization' for Tier-2 work, but pr-landing-guard R15(a) refuses Tier-2 landing:self unless .github/pr-landing/<slug>.json names an approved_by record ALREADY ON main (docs/claude/work/approvals/<slug>.json) -- and that directory does not exist on main. Measured on FRONTIER-LEVER-TRAINER-DEPS (PR #17682): guard failed, the lane had to switch to landing:hold and wait ~2h for a manager merge. Fix: the manager commits an approvals record to main at dispatch time for each Tier-2 lane it authorizes (or the dispatch template stops promising self-landing for Tier-2)."
+}
