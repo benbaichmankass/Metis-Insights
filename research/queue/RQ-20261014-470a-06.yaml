@@ -107,7 +107,7 @@ related:
 - P3-STRATEGY-PROGRAMME
 - docs/research/programmes/03-STRATEGY-IMPROVEMENT.md
 - scripts/research/exit_lever_ablation.py
-last_dispatched_at: null
+last_dispatched_at: '2026-10-15T08:17:30+00:00'
 grading:
   auto: true
   confirmatory_run: 1

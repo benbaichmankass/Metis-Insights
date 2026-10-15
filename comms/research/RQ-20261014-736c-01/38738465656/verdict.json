@@ -1,0 +1,56 @@
+{
+  "verdict": "pass",
+  "read_state": "measured",
+  "population": "6 registered live legs, 1830 d window, uncapped config-exact harness runs; usable rows per stratum {'S1_bybit2_donchian_4h': 211, 'S2_bybit2_pullback_2h': 437, 'S3_prop_donchian_1h': 1183}; strata below the 252-row eval floor (graded INDETERMINATE by RQ-20261009-900): ['S1_bybit2_donchian_4h']",
+  "n": 1831,
+  "note": "corpus buildable and gradable",
+  "measurement": {
+    "per_leg": [
+      {
+        "leg": "trend_donchian_eth_4h",
+        "state": "ok",
+        "rows": 152,
+        "usable": 152
+      },
+      {
+        "leg": "trend_donchian_xrp_4h",
+        "state": "ok",
+        "rows": 59,
+        "usable": 59
+      },
+      {
+        "leg": "xrp_pullback_2h",
+        "state": "ok",
+        "rows": 220,
+        "usable": 220
+      },
+      {
+        "leg": "ada_pullback_2h",
+        "state": "ok",
+        "rows": 217,
+        "usable": 217
+      },
+      {
+        "leg": "trend_donchian_eth_prop",
+        "state": "ok",
+        "rows": 869,
+        "usable": 869
+      },
+      {
+        "leg": "trend_donchian_sol_prop",
+        "state": "ok",
+        "rows": 314,
+        "usable": 314
+      }
+    ],
+    "usable_by_stratum": {
+      "S1_bybit2_donchian_4h": 211,
+      "S2_bybit2_pullback_2h": 437,
+      "S3_prop_donchian_1h": 1183
+    },
+    "min_usable_rows_per_stratum": 252,
+    "strata_below_eval_floor": {
+      "S1_bybit2_donchian_4h": 211
+    }
+  }
+}

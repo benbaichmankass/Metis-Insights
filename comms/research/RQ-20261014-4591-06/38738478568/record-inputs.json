@@ -1,0 +1,17 @@
+{
+  "artifact_locator": "comms/research/RQ-20261014-4591-06/38738478568/ (run-manifest.json + verdict.json + logs/)",
+  "artifact_store": "comms/research/RQ-20261014-4591-06/38738478568",
+  "decision_rule_id": "RULE-RQ20261014-4591-06-REGIME-LOGLOSS-RECENT-1H",
+  "decision_rule_registered_at": "2026-10-14",
+  "measurement_file": "comms/research/RQ-20261014-4591-06/38738478568/measurement.json",
+  "min_rows": "1",
+  "n": "14400",
+  "note": "candidate(s) ['lgbm', 'logit'] meet every pass_if clause",
+  "population": "2 group(s) ['BTCUSDT_1h', 'ETHUSDT_1h']; baseline prior; candidates ['lgbm', 'logit']; metric logloss; n = baseline OOS test rows summed over groups; cv folds per group >= 5",
+  "power_state": "accruing",
+  "read_state": "measured",
+  "records_file": "",
+  "research_unit": "RQ-20261014-4591-06",
+  "tool": "python3 scripts/research/ml_bakeoff.py",
+  "verdict": "pass"
+}

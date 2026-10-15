@@ -1,0 +1,17 @@
+{
+  "artifact_locator": "comms/research/RQ-20261007-009/38730572421/ (run-manifest.json + verdict.json + logs/)",
+  "artifact_store": "comms/research/RQ-20261007-009/38730572421",
+  "decision_rule_id": "RULE-RQ1007-009-PAIRS-PROP-FIT",
+  "decision_rule_registered_at": "2026-10-07",
+  "measurement_file": "comms/research/RQ-20261007-009/38730572421/measurement.json",
+  "min_rows": "4",
+  "n": "1137",
+  "note": "pairs_sol_eth: PASS: ev > 0 and P(net>0) >= 0.0 on all 15 seeds; pairs_bnb_btc: PASS: ev > 0 and P(net>0) >= 0.0 on all 15 seeds; pairs_sol_btc: PASS: ev > 0 and P(net>0) >= 0.0 on all 15 seeds; pairs_eth_btc: PASS: ev > 0 and P(net>0) >= 0.0 on all 15 seeds",
+  "population": "4 leg(s) [pairs_sol_eth, pairs_bnb_btc, pairs_sol_btc, pairs_eth_btc], 1137 committed trades in total; grade=pass_all_seeds, overall=all",
+  "power_state": "accruing",
+  "read_state": "measured",
+  "records_file": "comms/research/RQ-20261007-009/38730572421/records.jsonl",
+  "research_unit": "RQ-20261007-009",
+  "tool": "python3 scripts/research/prop_ev_grid.py",
+  "verdict": "pass"
+}

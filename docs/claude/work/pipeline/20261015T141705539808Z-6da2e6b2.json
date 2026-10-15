@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "prop-manual-f6552263ed1d reads status closed in /api/bot/prop/tickets?account_id=breakout_2 with exit ~2371.70 and a close reason that says the operator closed it",
+    "kind": "observation"
+  },
+  "id": "PI-20261015-JWMGXOTH-0004",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "session_0184UHpxPYGr9v7rjWmGXoTh",
+    "rerun": "curl /api/bot/prop/tickets?account_id=breakout_2 (ticket prop-manual-f6552263ed1d status/close_reason/phone_trail); grep '^    reconcile:' config/prop_platforms.yaml under breakout_2; src/prop/phone_reconcile.py::_close_reason"
+  },
+  "state": "queued",
+  "what": "BREAKOUT_2 MANUAL CLOSE WILL NOT RECONCILE (found by lane BREAKOUT-SL-AMEND-CLICK). The operator closed the ETH short by hand ~14:14Z 2026-10-15 (venue: 'Closed all ETH/USD positions', Long 0.54 @ 2371.70). MEASURED 14:16Z: ticket prop-manual-f6552263ed1d still status 'filled', close_reason null. Two causes, both in the code on main: (1) config/prop_platforms.yaml breakout_2 reconcile: report_only (flip is PI-20261012-GNRBKIGG-0004, still queued) -- a clean empty Positions read only ALERTS 'would close', it writes nothing, so the row stays open indefinitely and the phone trail keeps planning amends against a flat position (they fail as no_position/refused -- no click, no order -- then one red flag after MAX_NO_POSITION); (2) phone_reconcile._close_reason has no manual category: a hand market-close maps to 'venue_close' (or 'closed_unpriced'), never 'manual'. Options for the operator: (a) record the close now through the manual journal path (exit 2371.70, qty 0.54, reason manual) -- Tier-2 DB write; (b) flip reconcile to write per GNRBKIGG-0004 once a clean read is seen; and add a manual/operator_close reason (Closed-orders type text 'Market' with no SL/TP match) in phone_reconcile._close_reason."
+}

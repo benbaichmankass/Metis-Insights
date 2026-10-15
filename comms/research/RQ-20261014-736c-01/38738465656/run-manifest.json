@@ -1,0 +1,26 @@
+{
+  "unit": "RQ-20261014-736c-01",
+  "run_id": "38738465656",
+  "commit_sha": "050c583fdf98abd8038ed288ad3120414eb21c24",
+  "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/38738465656",
+  "timeout_minutes": 90,
+  "commands": [
+    {
+      "index": 0,
+      "argv": [
+        "python3",
+        "scripts/research/ml2_live_leg_corpus.py",
+        "--data-dir",
+        "data/rq-20261014-736c-01",
+        "--fetch",
+        "1830",
+        "--out",
+        "comms/research/RQ-20261014-736c-01/38738465656"
+      ],
+      "log": "comms/research/RQ-20261014-736c-01/38738465656/logs/cmd-0.log",
+      "exit_code": 0,
+      "seconds": 112.2
+    }
+  ],
+  "all_ok": true
+}

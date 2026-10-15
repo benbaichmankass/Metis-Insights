@@ -140,7 +140,7 @@ related:
   - 'RQ-20261006-060 (the entry-side question for trend_donchian_eth_4h: a finite tp_r vs the sentinel)'
   - 'scripts/research/be_floor_sweep.py (the fold/gate machinery reused verbatim)'
   - '.claude/skills/exit-refinement/SKILL.md (harness lever -> E0 -> live parity; tests/test_tp_revision_donchian_rule.py pins harness/live parity)'
-last_dispatched_at: null
+last_dispatched_at: '2026-10-15T14:01:33+00:00'
 grading:
   attested: RULE-RQ1007-080-MEASURED-MOVE-TP-REVISION
   auto: true

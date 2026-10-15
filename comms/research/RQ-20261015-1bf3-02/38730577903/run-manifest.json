@@ -1,0 +1,38 @@
+{
+  "unit": "RQ-20261015-1bf3-02",
+  "run_id": "38730577903",
+  "commit_sha": "d0983a97c3805c981fed4eb806eb43b717fc260d",
+  "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/38730577903",
+  "timeout_minutes": 120,
+  "commands": [
+    {
+      "index": 0,
+      "argv": [
+        "python3",
+        "scripts/research/prop_ev_grid.py",
+        "--leg",
+        "trend_donchian_eth_prop=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl",
+        "--arm",
+        "A=--sizing balance --risk-pct 0.005 --dd-switch-frac 0.8",
+        "--arm",
+        "C4H050=--sizing balance --risk-pct 0.005 --dd-switch-frac 0.8 --trades trend_donchian_eth_4h=comms/strategy_evidence/runs/2026-10-12-1095d/trend_donchian_eth_4h__trades.jsonl --lev-cap trend_donchian_eth_4h=5 --trades trend_donchian_sol_4h=comms/strategy_evidence/runs/2026-10-12-1095d/trend_donchian_sol_4h__trades.jsonl --lev-cap trend_donchian_sol_4h=5",
+        "--common",
+        "--trades trend_donchian_sol_prop=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop__trades.jsonl --ruleset config/prop_rulesets/velotrade_classic_1step.yaml --costs breakout --commission-bps-rt 6 --slippage-bps-rt 3 --swap-daily 0.0005 --swap-model dxtrade --no-hedge --funded-start fresh --lev-cap trend_donchian_eth_prop=5 --lev-cap trend_donchian_sol_prop=5",
+        "--seeds",
+        "1,2,3,4,5",
+        "--grade",
+        "cushion_vs_flat",
+        "--out",
+        "comms/research/RQ-20261015-1bf3-02/38730577903",
+        "--jobs",
+        "4",
+        "--note",
+        "RQ-20261015-1bf3-02: velotrade_1 head-to-head at risk 0.005 (re-run of 6504-01)"
+      ],
+      "log": "comms/research/RQ-20261015-1bf3-02/38730577903/logs/cmd-0.log",
+      "exit_code": 0,
+      "seconds": 3659.6
+    }
+  ],
+  "all_ok": true
+}

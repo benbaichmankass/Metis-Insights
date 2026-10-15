@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "a tradeify_1 trail_amend reads back confirmed (no 'panel does not name ETHUSD'), i.e. prop_trail_last_step_tradeify_1 state != refused and fail_streak resets to 0",
+    "kind": "observation"
+  },
+  "id": "PI-20261015-JWMGXOTH-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_0184UHpxPYGr9v7rjWmGXoTh",
+    "rerun": "vm-diag relay: /api/diag/log_file?name=prop_trail_last_step_tradeify_1 and prop_trail_state_tradeify_1 (fail_streak, red_flagged, next_try_at); journalctl ict-prop-executor%40tradeify_1.service for trail_step_failed lines (relay issues #18358/#18361)"
+  },
+  "state": "queued",
+  "what": "TRADEIFY_1 MODIFY PATH BROKEN ~10h (money at risk; found by lane BREAKOUT-SL-AMEND-CLICK while observing #18344). MEASURED 2026-10-15 via the vm-diag relay: every tradeify_1 trail amend since ~03:43Z ends 'not confirmed on re-read (position panel refused: panel does not name ETHUSD; Discard pressed)'; fail_streak 11, red_flagged true, next_try ~15:03Z. The open ETH short prop-manual-0db543a8a0f1 (entry 2437.27) keeps its ORIGINAL stop 2485.365 while price is ~2346 and the trail (now action=exit since #18344, 14:03Z) wants the stop near price+buffer: ~139 pts of unprotected give-back on a live prop account (executor env_mode live). velotrade_1's identical position IS being tightened (2477.67 -> 2447.92 -> 2427.78), so the cause is tradeify_1's dxtrade browser position-panel lookup (the panel title/symbol match for ETHUSD), not the trail. Also: the 'trail CROSSED ... the stop moves to X' alert fires before the amend lands and reads as done when the step then fails -- reword to 'will step toward X'. Next: dispatch a lane on src/prop/platform/dxtrade.py modify_bracket's panel match for tradeify_1 (MEASURE the panel's label first); meanwhile the operator may move the stop by hand."
+}

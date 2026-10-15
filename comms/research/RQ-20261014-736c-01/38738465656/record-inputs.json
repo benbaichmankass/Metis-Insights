@@ -1,0 +1,17 @@
+{
+  "artifact_locator": "comms/research/RQ-20261014-736c-01/38738465656/ (run-manifest.json + verdict.json + logs/)",
+  "artifact_store": "comms/research/RQ-20261014-736c-01/38738465656",
+  "decision_rule_id": "RULE-RQ20261014-736C-01-LEG-CORPUS-BUILD",
+  "decision_rule_registered_at": "2026-10-14",
+  "measurement_file": "comms/research/RQ-20261014-736c-01/38738465656/measurement.json",
+  "min_rows": "1",
+  "n": "1831",
+  "note": "corpus buildable and gradable",
+  "population": "6 registered live legs, 1830 d window, uncapped config-exact harness runs; usable rows per stratum {'S1_bybit2_donchian_4h': 211, 'S2_bybit2_pullback_2h': 437, 'S3_prop_donchian_1h': 1183}; strata below the 252-row eval floor (graded INDETERMINATE by RQ-20261009-900): ['S1_bybit2_donchian_4h']",
+  "power_state": "not_applicable",
+  "read_state": "measured",
+  "records_file": "",
+  "research_unit": "RQ-20261014-736c-01",
+  "tool": "python3 scripts/research/ml2_live_leg_corpus.py",
+  "verdict": "pass"
+}

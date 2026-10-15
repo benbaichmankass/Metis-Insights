@@ -396,6 +396,9 @@ milestones:
     where: >-
       Reset of 2026-09-21 done; pipeline pull connected; daily review twice a day; weekly pace tracked (PACE-W40). This roadmap loop is the newest part
       (ROADMAP-LOOP). Open: cost meter (A1), brief length discipline (E14), register-only PR cost (E49), 17 unrouted pipeline items triaged 2026-10-11. CI capacity 2026-10-15: PR pytest-run runs import-graph-affected tests, with a 30-min full-suite backstop on main (GH-CAPACITY-PR-CI-FANOUT, #18240; est. ~300 runner-min/day net).
+      Research loop 2026-10-15 (RESEARCH-LOOP-AUDIT-AND-DRIVER, done): hand-written once-units grade mechanically when every row attests the unit's own
+      rule (first observed in grade run 38742167761); programme question nodes are a queue_replenish source with a ranked authoring queue; queue health
+      uses a computed floor and names idle backends.
     next: Run the weekly roadmap pass; keep landed_unproven rows moving to done or killed.
     owner: manager
     reviewed: 2026-10-11

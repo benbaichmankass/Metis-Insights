@@ -104,4 +104,4 @@ ml_bakeoff:
     - {group: ALL, vs: baseline, window: cv, op: '>=', value: 0.0}
 roadmap: [M25]
 related: [ML-RQ-RUNNER, scripts/research/ml_bakeoff.py, ml/configs/btc-regime-15m-lgbm-fc-pcv-v2.yaml, .claude/skills/ml-review/SKILL.md]
-last_dispatched_at: null
+last_dispatched_at: '2026-10-15T14:01:33+00:00'
