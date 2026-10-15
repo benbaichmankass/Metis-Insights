@@ -382,6 +382,12 @@ def grade_unit(root: Path, unit_id: str, text: str, graded_at: str) -> Optional[
         attested = rule_attested(root, unit_id, unit)
         if not attested:
             return None
+    elif not isinstance(unit.get("generated"), dict) and (unit.get("grading") or {}).get("attested"):
+        # An attested pass writes `grading: {auto: true, attested: ...}`, so the NEXT pass arrives
+        # here as `auto`. Re-check the rows rather than drop the stamp: without this, pass 2 erased
+        # `attested` and a later FAIL fell back to the template's confirmatory re-run (seen on
+        # run 38742167761: RQ-20260927-003 / RQ-20261007-009 lost the stamp).
+        attested = rule_attested(root, unit_id, unit)
     prior = unit.get("grading") if isinstance(unit.get("grading"), dict) else {}
     confirmatory = int(prior.get("confirmatory_run") or 0) >= 1
     # A recurring unit reads only its latest cadence window. A confirmatory
@@ -601,7 +607,13 @@ def _self_test() -> int:
         assert "awaiting: more_data" in grade_unit(r, "RQ-20300101-002", hand, "2030-01-02")
         (d / "1.jsonl").write_text(json.dumps({"verdict": "not_applicable", "read_state": "producer_failed",
                                                 "decision_rule": {"id": "RULE-H"}}) + "\n")
-        assert "needs_review: true" in grade_unit(r, "RQ-20300101-002", hand, "2030-01-02")
+        tn = grade_unit(r, "RQ-20300101-002", hand, "2030-01-02")
+        assert "needs_review: true" in tn and "attested: RULE-H" in tn, tn
+        # pass 2 of that unit (now `grading: {auto: true, attested}`) keeps the stamp, and a FAIL still closes it
+        (d / "1.jsonl").write_text(json.dumps({"verdict": "not_applicable", "read_state": "producer_failed",
+                                                "decision_rule": {"id": "RULE-H"}}) + "\n" + own("fail") + "\n")
+        t2 = grade_unit(r, "RQ-20300101-002", tn, "2030-01-03")
+        assert t2 and "attested: RULE-H" in t2 and "status: done" in t2 and "verdict: fail" in t2, t2
         # an ML training run (or declared seeds / confirm_fail) re-runs its first FAIL once instead of closing
         (d / "1.jsonl").write_text(own("fail") + "\n")
         tml = grade_unit(r, "RQ-20300101-002", hand + "ml_bakeoff:\n  family: f\n", "2030-01-02")

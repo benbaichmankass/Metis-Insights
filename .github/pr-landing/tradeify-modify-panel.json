@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "TRADEIFY-MODIFY-PANEL (PI-20261015-JWMGXOTH-0003; lane of manager session_01VduHYzdaXe27wTDBLSu8ao). Order-path: the DXtrade Position Details identity check also accepts the venue's slashed spelling of the symbol (ETH/USD for ETHUSD) as a whole token; any other symbol (SOL/USD, ETH/USDT, BTC/ETH/USD) is still refused. Plus alert wording 'stop moves to X' -> 'stop will step toward X'. No loosening, no new control, no mode/roster change. Revert = revert this PR.",
+  "why": "MEASURED 2026-10-15 #18358 run 38748442282 14:03:42Z: tradeify_1 panel text 'Position Details ETH/USD Ethereum vs United States dollar ... Side Sell ... 1.03 Fill Price 2,437.270' refused 'panel does not name ETHUSD'; fail_streak 11 since 03:43Z, resting SL 2485.365 on a short with price ~2346."
+}

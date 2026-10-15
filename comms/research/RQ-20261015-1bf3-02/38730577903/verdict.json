@@ -1,0 +1,154 @@
+{
+  "verdict": "fail",
+  "read_state": "measured",
+  "population": "1 leg(s) [trend_donchian_eth_prop], 355 committed trades in total; grade=cushion_vs_flat, overall=all",
+  "n": 355,
+  "measurement": {
+    "leg_verdicts": {
+      "trend_donchian_eth_prop": "fail"
+    },
+    "grade": "cushion_vs_flat",
+    "overall": "all",
+    "cells": 10
+  },
+  "note": "trend_donchian_eth_prop: FLAT_HOLDS: A or B undominated by C4H050 on seed(s) [1, 5] | RQ-20261015-1bf3-02: velotrade_1 head-to-head at risk 0.005 (re-run of 6504-01)",
+  "records": [
+    {
+      "verdict": "fail",
+      "read_state": "measured",
+      "population": "trend_donchian_eth_prop: 355 committed trades from comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl (pinned by --leg); prop_ev_sim path-mode over 2 arm(s) x 5 seed(s), --trades trend_donchian_sol_prop=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop__trades.jsonl --ruleset config/prop_rulesets/velotrade_classic_1step.yaml --costs breakout --commission-bps-rt 6 --slippage-bps-rt 3 --swap-daily 0.0005 --swap-model dxtrade --no-hedge --funded-start fresh --lev-cap trend_donchian_eth_prop=5 --lev-cap trend_donchian_sol_prop=5",
+      "n": 355,
+      "measurement": {
+        "leg": "trend_donchian_eth_prop",
+        "trades_file": "comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": 170.97,
+              "ev_se": 5.27,
+              "p_net_positive": 0.4607,
+              "p_alive_at_horizon": 0.2717,
+              "p_pass_by_days": {
+                "30": 0.0,
+                "90": 0.0628,
+                "180": 0.2407
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 161.77,
+              "ev_se": 5.03,
+              "p_net_positive": 0.4587,
+              "p_alive_at_horizon": 0.2692,
+              "p_pass_by_days": {
+                "30": 0.0,
+                "90": 0.0643,
+                "180": 0.2362
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 172.94,
+              "ev_se": 5.22,
+              "p_net_positive": 0.4652,
+              "p_alive_at_horizon": 0.271,
+              "p_pass_by_days": {
+                "30": 0.0,
+                "90": 0.0678,
+                "180": 0.249
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 159.36,
+              "ev_se": 5.08,
+              "p_net_positive": 0.444,
+              "p_alive_at_horizon": 0.2655,
+              "p_pass_by_days": {
+                "30": 0.0,
+                "90": 0.0625,
+                "180": 0.231
+              },
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 174.79,
+              "ev_se": 5.26,
+              "p_net_positive": 0.467,
+              "p_alive_at_horizon": 0.2787,
+              "p_pass_by_days": {
+                "30": 0.0,
+                "90": 0.0592,
+                "180": 0.2382
+              },
+              "rule_v2_verdict": "indeterminate"
+            }
+          },
+          "C4H050": {
+            "1": {
+              "ev": 662.24,
+              "ev_se": 11.62,
+              "p_net_positive": 0.698,
+              "p_alive_at_horizon": 0.256,
+              "p_pass_by_days": {
+                "30": 0.0205,
+                "90": 0.2637,
+                "180": 0.5627
+              },
+              "rule_v2_verdict": "pass"
+            },
+            "2": {
+              "ev": 676.41,
+              "ev_se": 11.65,
+              "p_net_positive": 0.7073,
+              "p_alive_at_horizon": 0.2717,
+              "p_pass_by_days": {
+                "30": 0.018,
+                "90": 0.26,
+                "180": 0.56
+              },
+              "rule_v2_verdict": "pass"
+            },
+            "3": {
+              "ev": 680.58,
+              "ev_se": 11.65,
+              "p_net_positive": 0.7065,
+              "p_alive_at_horizon": 0.2747,
+              "p_pass_by_days": {
+                "30": 0.0168,
+                "90": 0.2555,
+                "180": 0.555
+              },
+              "rule_v2_verdict": "pass"
+            },
+            "4": {
+              "ev": 675.79,
+              "ev_se": 11.49,
+              "p_net_positive": 0.7087,
+              "p_alive_at_horizon": 0.2657,
+              "p_pass_by_days": {
+                "30": 0.0147,
+                "90": 0.2625,
+                "180": 0.568
+              },
+              "rule_v2_verdict": "pass"
+            },
+            "5": {
+              "ev": 660.15,
+              "ev_se": 11.38,
+              "p_net_positive": 0.7185,
+              "p_alive_at_horizon": 0.2605,
+              "p_pass_by_days": {
+                "30": 0.0165,
+                "90": 0.267,
+                "180": 0.565
+              },
+              "rule_v2_verdict": "pass"
+            }
+          }
+        }
+      },
+      "note": "FLAT_HOLDS: A or B undominated by C4H050 on seed(s) [1, 5] | RQ-20261015-1bf3-02: velotrade_1 head-to-head at risk 0.005 (re-run of 6504-01)"
+    }
+  ]
+}

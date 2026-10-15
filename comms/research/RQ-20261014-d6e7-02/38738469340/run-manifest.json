@@ -1,0 +1,38 @@
+{
+  "unit": "RQ-20261014-d6e7-02",
+  "run_id": "38738469340",
+  "commit_sha": "050c583fdf98abd8038ed288ad3120414eb21c24",
+  "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/38738469340",
+  "timeout_minutes": 240,
+  "commands": [
+    {
+      "index": 0,
+      "argv": [
+        "python3",
+        "scripts/research/first_passage.py",
+        "--mode",
+        "baseline",
+        "--features",
+        "simple",
+        "--ref",
+        "dist",
+        "--policy-tp-r",
+        "2.0",
+        "--min-gain-nats",
+        "0.002",
+        "--min-folds",
+        "3",
+        "--min-n",
+        "300",
+        "--cache-dir",
+        "comms/research/RQ-20261014-d6e7-02/38738469340/candles",
+        "--out",
+        "comms/research/RQ-20261014-d6e7-02/38738469340"
+      ],
+      "log": "comms/research/RQ-20261014-d6e7-02/38738469340/logs/cmd-0.log",
+      "exit_code": 0,
+      "seconds": 338.3
+    }
+  ],
+  "all_ok": true
+}

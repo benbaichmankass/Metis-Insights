@@ -1,0 +1,235 @@
+{
+  "engine": "scripts/research/ml_bakeoff.py",
+  "metric": "macro_f1",
+  "higher_is_better": true,
+  "delta_sign": "positive = learner better than reference",
+  "baseline": "lgbm",
+  "controls": [
+    "prior"
+  ],
+  "candidates": [
+    "hgb"
+  ],
+  "arm_status": {
+    "prior": "ok",
+    "lgbm": "ok",
+    "hgb": "ok"
+  },
+  "groups": {
+    "ALL": {
+      "n_rows": 60000,
+      "classes": [
+        "range",
+        "volatile"
+      ],
+      "arms": {
+        "prior": {
+          "status": "ok",
+          "features": [
+            "rolling_log_return_vol",
+            "log_return",
+            "log_return_lag_1",
+            "log_return_lag_2",
+            "hour_of_day",
+            "dayofweek"
+          ],
+          "windows": {
+            "cv": {
+              "fold_metric": [
+                0.469065703119239,
+                0.47058823529411764,
+                0.4886000426166631,
+                0.48490485047932463,
+                0.49285060223990984
+              ],
+              "n_test_rows": 36000
+            },
+            "holdout": {
+              "fold_metric": [
+                0.4929914339748582
+              ],
+              "n_test_rows": 9115
+            }
+          }
+        },
+        "lgbm": {
+          "status": "ok",
+          "features": [
+            "rolling_log_return_vol",
+            "log_return",
+            "log_return_lag_1",
+            "log_return_lag_2",
+            "hour_of_day",
+            "dayofweek"
+          ],
+          "windows": {
+            "cv": {
+              "fold_metric": [
+                0.533823653873932,
+                0.5799995287576412,
+                0.526777751627587,
+                0.5439719454368914,
+                0.5139762511122703
+              ],
+              "n_test_rows": 36000
+            },
+            "holdout": {
+              "fold_metric": [
+                0.5139633903700757
+              ],
+              "n_test_rows": 9115
+            }
+          }
+        },
+        "hgb": {
+          "status": "ok",
+          "features": [
+            "rolling_log_return_vol",
+            "log_return",
+            "log_return_lag_1",
+            "log_return_lag_2",
+            "hour_of_day",
+            "dayofweek"
+          ],
+          "windows": {
+            "cv": {
+              "fold_metric": [
+                0.5366271460466548,
+                0.5747336531424012,
+                0.524353569401508,
+                0.5311098902750387,
+                0.5196211869931717
+              ],
+              "n_test_rows": 36000
+            },
+            "holdout": {
+              "fold_metric": [
+                0.5172406935930904
+              ],
+              "n_test_rows": 9115
+            }
+          }
+        }
+      }
+    }
+  },
+  "deltas": {
+    "ALL": {
+      "cv": {
+        "prior": {
+          "lgbm": {
+            "n_folds": 5,
+            "mean": -0.058507939411813537,
+            "ci95": [
+              -0.09987537253646281,
+              -0.017140506287164257
+            ],
+            "sign_consistent": true
+          },
+          "prior": {
+            "n_folds": 5,
+            "mean": 0.0,
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "sign_consistent": false
+          }
+        },
+        "hgb": {
+          "lgbm": {
+            "n_folds": 5,
+            "mean": -0.002420736989909478,
+            "ci95": [
+              -0.011404509492265277,
+              0.006563035512446321
+            ],
+            "sign_consistent": false
+          },
+          "prior": {
+            "n_folds": 5,
+            "mean": 0.056087202421904056,
+            "ci95": [
+              0.017763168430661017,
+              0.0944112364131471
+            ],
+            "sign_consistent": true
+          }
+        }
+      },
+      "holdout": {
+        "prior": {
+          "lgbm": {
+            "n_folds": 1,
+            "mean": -0.020971956395217484,
+            "ci95": null,
+            "note": "single fold: no interval"
+          },
+          "prior": {
+            "n_folds": 1,
+            "mean": 0.0,
+            "ci95": null,
+            "note": "single fold: no interval"
+          }
+        },
+        "hgb": {
+          "lgbm": {
+            "n_folds": 1,
+            "mean": 0.0032773032230147825,
+            "ci95": null,
+            "note": "single fold: no interval"
+          },
+          "prior": {
+            "n_folds": 1,
+            "mean": 0.024249259618232266,
+            "ci95": null,
+            "note": "single fold: no interval"
+          }
+        }
+      }
+    }
+  },
+  "rule_evaluation": {
+    "verdict": "fail",
+    "why": "no candidate reaches the registered floor on any clause",
+    "candidates": {
+      "hgb": {
+        "evaluated": true,
+        "passes_all": false,
+        "clauses": [
+          {
+            "holds": false,
+            "what": "['ALL'] >= 0.01 vs lgbm/cv"
+          },
+          {
+            "holds": true,
+            "what": "['ALL'] >= 0.0 vs lgbm/holdout"
+          }
+        ]
+      }
+    }
+  },
+  "headline_checks": [],
+  "licences": {
+    "prior": {
+      "kind": "prior",
+      "licence": "n/a",
+      "research_only": false,
+      "weights": ""
+    },
+    "lgbm": {
+      "kind": "lightgbm",
+      "licence": "MIT",
+      "research_only": false,
+      "weights": ""
+    },
+    "hgb": {
+      "kind": "sklearn_hgb",
+      "licence": "BSD-3-Clause",
+      "research_only": false,
+      "weights": ""
+    }
+  },
+  "n_folds_cv_min_over_groups": 5,
+  "seconds": 12.8
+}

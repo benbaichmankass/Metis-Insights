@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Edits scripts/research/queue_grade.py (an E58 producer), so the manager merges. Fix: an attested hand-written unit keeps `grading.attested` on later grader passes. Pass 1 writes `grading: {auto: true, attested}`, so pass 2 took the plain `auto` branch, dropped the stamp, and a later FAIL fell back to the template's confirmatory re-run instead of closing. Observed in grade run 38742167761 (PR #18343): RQ-20260927-003 and RQ-20261007-009 lost `attested`. Self-test covers pass 2 (keeps stamp, FAIL closes) and fails without the fix. Data repair in the same PR (manager, 13:44Z): #18343 merged with the stamp dropped, so `grading.attested` is restored on RQ-20260927-003 and RQ-20261007-009 (both still attest; a re-grade with this fix is a no-op on each).",
+  "why": "Tier-1 research tooling. No config/, src/, workflow, schedule or live path."
+}

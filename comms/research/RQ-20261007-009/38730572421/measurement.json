@@ -1,0 +1,11 @@
+{
+  "leg_verdicts": {
+    "pairs_sol_eth": "pass",
+    "pairs_bnb_btc": "pass",
+    "pairs_sol_btc": "pass",
+    "pairs_eth_btc": "pass"
+  },
+  "grade": "pass_all_seeds",
+  "overall": "all",
+  "cells": 60
+}

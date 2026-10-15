@@ -169,6 +169,7 @@ related:
 - 'config/prop_platforms.yaml -- the per-venue lot tables clause (L) reads'
 last_dispatched_at: '2026-10-15T11:53:16+00:00'
 grading:
+  attested: RULE-RQ1007-009-PAIRS-PROP-FIT
   auto: true
   decision_rule_id: RULE-RQ1007-009-PAIRS-PROP-FIT
   evidence:

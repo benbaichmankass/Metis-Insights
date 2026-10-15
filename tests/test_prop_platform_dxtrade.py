@@ -2277,6 +2277,33 @@ _GOOD_PANEL = {"ok": True, "panels": 1, "text": "Position Details ETHUSD ETH Pro
                "submit": 1, "submit_name": "Modify Position", "submit_in_box": True, "submit_enabled": True, "discard": 1}
 
 
+#: MEASURED tradeify_1 Position Details panel read (#18358, vm-diag run
+#: 38748442282, 2026-10-15T14:03:42Z; the venue's own masking kept).
+_TRADEIFY_PANEL_TEXT = ("Position Details ETH/USD Ethereum vs United States dollar Position ID ##### "
+                        "Opening Time 10/14/26, 15:17 Modified 10/14/26, 15:17 Side Sell Lots x 1 ETH 1.03 "
+                        "Fill Price 2,437.270 Current Price (Ask) 2346.080 Open P&L +93.84 USD Used Margin "
+                        "483.31 USD Protection Stop Loss: Price Pips -48,095.0 Projec")
+
+
+def test_position_panel_names_the_slashed_venue_symbol_measured_on_tradeify():
+    """TRADEIFY-MODIFY-PANEL: tradeify's panel spells ETHUSD as "ETH/USD";
+    every armed modify was refused "panel does not name ETHUSD" from 03:43Z
+    on 2026-10-15. The identity check still refuses any other symbol."""
+    from src.prop.platform.dxtrade import panel_names_symbol, position_panel_mismatch
+    panel = {**_GOOD_PANEL, "text": _TRADEIFY_PANEL_TEXT,
+             "fields": {"stop_loss": {"label": "Stop Loss:", "value": "2485.365", "mode": "Price", "readonly": False},
+                        "take_profit": {"label": "Take Profit:", "value": "2195.98", "mode": "Price", "readonly": False}}}
+    assert position_panel_mismatch(panel, "ETHUSD", ("stop_loss",)) == []
+    for other in ("SOLUSD", "BTCUSD", "ETHUSDT", "ETHEUR"):
+        assert position_panel_mismatch(panel, other, ("stop_loss",)) == [f"panel does not name {other}"], other
+    assert panel_names_symbol("Position Details ETHUSD ETH", "ETHUSD")
+    assert panel_names_symbol("Position Details eth/usd", "ETHUSD")
+    for text in ("Position Details SOL/USD", "Position Details ETH/USDT", "Position Details BTC/ETH/USD",
+                 "Position Details ETH/USD/X", "Position Details ETH//USD", "Position Details ETH-USD", ""):
+        assert not panel_names_symbol(text, "ETHUSD"), text
+    assert not panel_names_symbol("Position Details ETH/USD", "")
+
+
 def test_position_panel_mismatch_passes_only_the_positions_own_panel():
     from src.prop.platform.dxtrade import position_panel_mismatch
     assert position_panel_mismatch(_GOOD_PANEL, "ETHUSD", require_submit_enabled=True) == []

@@ -1,0 +1,8 @@
+{
+  "leg_verdicts": {
+    "trend_donchian_eth_prop": "fail"
+  },
+  "grade": "cushion_vs_flat",
+  "overall": "all",
+  "cells": 10
+}

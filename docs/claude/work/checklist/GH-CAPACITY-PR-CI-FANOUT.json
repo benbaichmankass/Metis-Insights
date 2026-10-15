@@ -2,7 +2,7 @@
   "id": "GH-CAPACITY-PR-CI-FANOUT",
   "title": "PR pytest-run holds 12 of 20 runner slots for ~40 min each",
   "phase": null,
-  "state": "landed_unproven",
+  "state": "done",
   "owner": "manager",
   "lane": "session_018g6RBL3Tu3zfJxN6rcMVtJ",
   "model": null,
@@ -13,8 +13,8 @@
     18240
   ],
   "blocked_on": [],
-  "note": "13:05Z: the pytest-run schedule created 0 runs in its first 5 slots (10:43-12:43Z) while other crons fired. Manager 13:06Z: build a schedule-keeper dispatch. PR gh-capacity-backstop-keeper adds pytest-run to schedule_keeper TARGETS (starved_min 30, stale_hours 2, self_dedupes) and gives pytest-run a workflow_dispatch input backstop (default true, used on main only) plus one serialised, non-cancelling concurrency group for backstop ticks. Interim: a full-suite pytest-run was dispatched on main at 13:05Z.",
-  "updated_at": "2026-10-15T13:10:29Z",
+  "note": "DONE 2026-10-15T14:20Z. The backstop is OBSERVED on main via schedule-keeper (#18336, merged 13:35Z). Run 38744044689 (keeper dispatch 13:35:48Z, HEAD bedd993b): decision run=true, full 'Run tests' step 13:37-14:04Z, success. Correct: 36b43396..bedd993b contains code (#18336). Run 38748791725 (keeper dispatch 14:08:48Z, HEAD 604466aa): decision run=true, full step started 14:10:47Z. Correct: bedd993b..604466aa contains 9f401d81, a Tier-3 prop-trail code change, so the backstop graded it post-merge. Interim full run 38739766678 on 36b43396 passed at 13:30Z. Affected mode was observed earlier (PR #18275). NOT YET OBSERVED: the run=false (covered) skip path, and a red pytest-run paging through claude-run-failure-alert. Neither has occurred yet. The pytest-run cron arm still has 0 runs; the keeper is what carries the backstop.",
+  "updated_at": "2026-10-15T14:21:22Z",
   "updated_by": "session_018g6RBL3Tu3zfJxN6rcMVtJ",
   "roadmap": [
     "L-OPS"

@@ -470,8 +470,9 @@ def run_trail_step(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mo
                 return
             if not tst.get("exit_alerted"):
                 res.alerts.append(f"{tid}: {venue} trail CROSSED (replay {plan.replay_sl} through the price): the "
-                                  f"harness has exited, so the stop moves to {tgt} (price {px0} + buffer, bounded "
-                                  "rollout steps). Tighten-only; no close control")
+                                  f"harness has exited, so the stop will step toward {tgt} (price {px0} "
+                                  f"{'-' if p.side == 'long' else '+'} buffer, bounded rollout steps). "
+                                  "Tighten-only; no close control")
                 tst["exit_alerted"] = True
             plan.sl, plan.action = tgt, "tighten"
         if plan.action != "tighten":
