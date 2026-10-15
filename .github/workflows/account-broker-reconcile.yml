@@ -78,7 +78,7 @@ jobs:
             exit 1
           fi
           if ! curl -sS --fail --max-time 60 \
-                 "${BOT_API_BASE}/api/bot/trades/closed?account_id=bybit_2&limit=25" > /tmp/j_closed.json; then
+                 "${BOT_API_BASE}/api/bot/trades/closed?account_id=bybit_2&limit=200" > /tmp/j_closed.json; then
             echo "::error::could not read /api/bot/trades/closed for bybit_2 — nothing was graded."
             exit 1
           fi
@@ -104,7 +104,28 @@ jobs:
             > /tmp/alpaca.json || echo '{"accounts":[]}' > /tmp/alpaca.json
           bash scripts/ops/diag_fetch.sh 'bybit_open_orders?account_id=bybit_2' \
             > /tmp/bybit.json || echo '{"accounts":[]}' > /tmp/bybit.json
-          bash scripts/ops/diag_fetch.sh 'bybit_wallet_truth?account_id=bybit_2&days=90' \
+          # The wallet-truth window is DERIVED from the journal page, never a
+          # fixed days=N (ORDER-AUDIT-3, PI-20260929-PXGMJYTX-0001): whole days
+          # back to the OLDEST close the page holds, rounded DOWN, so the
+          # window starts at or after that close and the page provably covers
+          # it. A fixed 90 days against a 25-row page compared two different
+          # populations. The detector re-checks coverage and reports
+          # could_not_look when it does not hold.
+          WT_DAYS=$(python3 - <<'PY'
+          import json, time
+          from datetime import datetime
+          try:
+              rows = json.load(open("/tmp/j_closed.json"))
+              rows = rows if isinstance(rows, list) else (rows.get("trades") or rows.get("rows") or [])
+              ts = [datetime.fromisoformat(str(r.get("closedAt") or r.get("closed_at")).replace("Z", "+00:00")).timestamp()
+                    for r in rows if (r.get("closedAt") or r.get("closed_at"))]
+              print(max(1, int((time.time() - min(ts)) // 86400)) if ts else 90)
+          except Exception:
+              print(90)
+          PY
+          )
+          echo "wallet-truth window: ${WT_DAYS} day(s) (derived from the journal page)"
+          bash scripts/ops/diag_fetch.sh "bybit_wallet_truth?account_id=bybit_2&days=${WT_DAYS}" \
             > /tmp/bybit_wt.json || echo '{"accounts":[]}' > /tmp/bybit_wt.json
           # Raw trades rows (setup_type/notes) — /trades/closed carries
           # neither, so this is how a NULL-pnl intent_reduce leg (pnl

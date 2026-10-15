@@ -31,9 +31,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
+from ..datasets.parquet_sidecar import dataset_present, load_dataset_rows
 from ..experiments.runner import (
     _aggregate_fold_metrics,
-    _load_jsonl,
     _resolve_callable,
 )
 from ..experiments.splitters import iter_folds
@@ -258,15 +258,15 @@ def compute_oos_edge(
     except (TypeError, ValueError):
         return None
 
-    data_path = manifest.dataset.path_under(Path(datasets_root)) / "data.jsonl"
-    if not data_path.is_file():
+    dataset_dir = manifest.dataset.path_under(Path(datasets_root))
+    if not dataset_present(dataset_dir):
         return None
     try:
         # Project to only the columns the trainer + evaluator read — the
         # rest is dead RAM (MB-20260719 single-head OOM). _load_jsonl is
         # fail-open when the keep-set misses; a wrongly-dropped column then
         # degrades this head to insufficient_data, never a wrong edge.
-        rows = _load_jsonl(data_path, keep=_referenced_columns(manifest))
+        rows = load_dataset_rows(dataset_dir, keep=_referenced_columns(manifest))
     except (OSError, ValueError):
         return None
     if len(rows) < n_folds + 1:

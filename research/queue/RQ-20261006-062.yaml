@@ -1,7 +1,7 @@
 id: RQ-20261006-062
 title: 'VELOTRADE-FIT: which roster and risk_pct can pass Velotrade CLASSIC 1-Step $5k (velotrade_1), with the 5-qualifying-day
   rule measured (lane VELOTRADE-FIT)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -102,3 +102,14 @@ related:
 - config/prop_rulesets/velotrade_classic_1step.yaml
 - docs/research/prop-firm-deepdive-2026-10-04.md
 last_dispatched_at: '2026-10-06T09:14:25+00:00'
+grading:
+  attested: RULE-RQ1006-VELOTRADE-FIT
+  auto: true
+  decision_rule_id: RULE-RQ1006-VELOTRADE-FIT
+  evidence:
+  - research/results/RQ-20261006-062/velotrade-fit-062.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  reason: 1 row(s), all measured, all pass
+  rows: 1
+  verdict: pass

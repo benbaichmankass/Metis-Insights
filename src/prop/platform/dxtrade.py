@@ -4891,6 +4891,8 @@ def verify_form_selection(form: Mapping[str, Any], side: str, order_type: str) -
 #: "Buy <qty> SOLUSD at <price>" -- the TERMINAL's own statement of what it is
 #: about to send.
 _SUBMIT_LABEL = re.compile(r"\b(buy|sell)\s+([0-9]+(?:[.,][0-9]+)?)\s+([A-Za-z0-9._/-]+)", re.IGNORECASE)
+#: The "at <price>" tail of the same label ("... at 2,683.584").
+_SUBMIT_LABEL_PRICE = re.compile(r"^\s*at\s+([0-9][0-9,]*(?:\.[0-9]+)?)", re.IGNORECASE)
 
 
 def submit_label_mismatch(text: str, spec: "BracketSpec") -> str:
@@ -4936,6 +4938,26 @@ def submit_label_mismatch(text: str, spec: "BracketSpec") -> str:
     want = {"long": "buy", "short": "sell"}.get(str(getattr(spec, "side", "") or "").lower())
     if want is not None and m.group(1).lower() != want:
         return f"its text {text!r} states side {m.group(1)!r}, not the meant {want}"
+    # The PRICE the label states must be the typed LIMIT price, within one
+    # declared price_step (OA-07(a), PI-20261004-GCFA5DOR-0004): tradeify's
+    # price field reverts to a market-derived price unless it sees typing, and
+    # a label moved from "at 120.91" to "at 120.94" after the click. Checked
+    # only for a LIMIT spec whose venue increment is declared (the same
+    # one-step tolerance the form read-back uses, price_tolerances); a spec
+    # with no price_step keeps the previous behaviour (no price compare),
+    # because the label shows display precision and an exact compare would
+    # refuse a correctly typed price. A refusal is this ticket's refusal only.
+    step = getattr(spec, "price_step", None)
+    lim = getattr(spec, "limit_price", None)
+    if (str(getattr(spec, "order_type", "") or "").lower() == "limit" and lim is not None
+            and step and float(step) > 0):
+        pm = _SUBMIT_LABEL_PRICE.search((text or "")[m.end():])
+        shown = parse_number(pm.group(1)) if pm else None
+        if shown is None:
+            return f"its text {text!r} states no readable 'at <price>' for a LIMIT at {_fmt_num(lim)}"
+        if abs(shown - float(lim)) > float(step) + 1e-9:
+            return (f"its text {text!r} states price {_fmt_num(shown)}, not the typed limit "
+                    f"{_fmt_num(lim)} (more than one tick of {_fmt_num(step)} away)")
     return ""
 
 

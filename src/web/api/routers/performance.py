@@ -116,6 +116,7 @@ from src.runtime.provenance import (
     _ABSENT_RAW as _ABSENT_LABEL_SOURCE,
     ESTIMATED,
     EXIT_LABEL_REFUSED_UNMEASURED,
+    EXIT_LABEL_VERDICT_VENUE_FLAT,
     FABRICATED,
     MEASURED,
     UNVERIFIED,
@@ -727,7 +728,11 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         # the exact error this block exists to expose — reading a number off a
         # population it does not describe.
         _label_src = str(classify_row(r, "exit_reason_source")[1] or "")
-        if not _label_src or _label_src == _ABSENT_LABEL_SOURCE:
+        # `strategy_verdict_venue_flat` says the bucket key is NOT evidence:
+        # the venue was already flat when the verdict's close was sent
+        # (ORDER-AUDIT-3). Counting it `attested` would invert its meaning.
+        if (not _label_src or _label_src == _ABSENT_LABEL_SOURCE
+                or _label_src == EXIT_LABEL_VERDICT_VENUE_FLAT):
             ebucket["label_unattested"] += 1
         elif _label_src == EXIT_LABEL_REFUSED_UNMEASURED:
             ebucket["label_refused"] += 1

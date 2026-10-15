@@ -2,7 +2,7 @@ id: RQ-20261012-904
 title: >-
   WEPE gate G3 on HISTORY: a question-contract + resolution ledger over past CPI / core CPI / FOMC releases, scored
   Brier and log-loss against the base rate AND the Kalshi market at matched as-of times (instrument validity, research only)
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: macro
@@ -96,3 +96,14 @@ related:
 - scripts/research/wepe_g3_ledger.py
 - docs/claude/work/designs/world-event-prediction-engine-v0.1.md
 last_dispatched_at: '2026-10-12T17:54:15+00:00'
+grading:
+  attested: RULE-RQ1012-904-WEPE-G3-LEDGER
+  auto: true
+  decision_rule_id: RULE-RQ1012-904-WEPE-G3-LEDGER
+  evidence:
+  - research/results/RQ-20261012-904/38287331253.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  reason: 1 row(s), all measured, all pass
+  rows: 1
+  verdict: pass

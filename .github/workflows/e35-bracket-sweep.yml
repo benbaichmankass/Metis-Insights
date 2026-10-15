@@ -44,9 +44,9 @@ on:
         required: false
         default: "false"
       max_parallel:
-        description: "Concurrent legs. Keep modest to stay a good citizen."
+        description: "Concurrent legs. Default 3 (GH-CAPACITY-INFRA-FIRST, 2026-10-15): the repo has 20 runner slots shared with system-actions/deploys, and research_compute.yaml caps github_runner at 3."
         required: false
-        default: "6"
+        default: "3"
 
       research_unit:
         description: >-
@@ -139,7 +139,7 @@ jobs:
       # is that a lost leg costs a leg. fail-fast would give back exactly the
       # property this workflow exists to buy.
       fail-fast: false
-      max-parallel: ${{ fromJSON(inputs.max_parallel || '6') }}
+      max-parallel: ${{ fromJSON(inputs.max_parallel || '3') }}
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4

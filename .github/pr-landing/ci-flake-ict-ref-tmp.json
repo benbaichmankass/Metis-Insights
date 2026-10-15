@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Test-only: the premarket reference harness module is written under tmp_path instead of the real scripts/ dir, removing a copytree race under xdist. No runtime, config or order-path change."
+}

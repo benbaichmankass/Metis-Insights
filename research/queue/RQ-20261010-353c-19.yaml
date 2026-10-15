@@ -1,7 +1,7 @@
 id: RQ-20261010-353c-19
 title: 'Stage-0 breadth for the prop book: pullback harness on SOLUSDT 1h (RESEARCH-NIGHT-1010, PI-20261006-APBY4NTV-0001
   batch 3)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 3
@@ -66,3 +66,14 @@ related:
 - RQ-20261007-224
 - scripts/ops/fetch_backtest_corpus.py
 last_dispatched_at: '2026-10-12T09:03:35+00:00'
+grading:
+  attested: RULE-RQ-20261010-353c-19-PULLBACK-SOLUSDT-1h-STAGE0
+  auto: true
+  decision_rule_id: RULE-RQ-20261010-353c-19-PULLBACK-SOLUSDT-1h-STAGE0
+  evidence:
+  - research/results/RQ-20261010-353c-19/38227467451.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  reason: 1 row(s), all measured, all pass
+  rows: 1
+  verdict: pass

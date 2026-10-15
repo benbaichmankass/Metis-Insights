@@ -1,0 +1,24 @@
+{
+  "based_on": "20261012T205436137228Z-b8613269.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "scripts/ops diag log_aggregate?name=news_decisions&count_true=veto shows >=25 veto rows (then count DISTINCT signals), or the operator retires the news layer / NEWS_VETO_ENABLED, which kills this row.",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261012-CMUZ8SWC-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01Vjq6BnY8ERksyfCmuz8sWC lane NEWS-VETO-EVAL",
+    "rerun": "scripts/ops/diag_fetch.sh 'log_aggregate?name=news_decisions&fields=decision&count_true=veto' | python3 -c \"import json,sys;d=json.load(sys.stdin);print(sum(x['true_counts'].get('veto',0) for x in d['days'].values()))\""
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, waiting on an event: LIVE log_aggregate news_decisions count_true=veto = 20 rows, below the 25 floor.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "NEWS-VETO-EVAL",
+  "state": "routed",
+  "what": "NEWS-VETO-EVAL Arm B (the veto) is UNDERPOWERED: 13 veto log rows over 124 days, floor 25 distinct vetoed signals reachable no earlier than ~2027-02-04 (rows, an upper bound). Re-run scripts/research/news_veto_eval.py then and build the harness counterfactual replay for vetoed signals (log lacks entry/sl/tp) if the operator keeps the news layer after the Arm A FAIL (RQ-20261009-902, RULE-RQ1009-902-NEWS-VETO-NET-R)."
+}

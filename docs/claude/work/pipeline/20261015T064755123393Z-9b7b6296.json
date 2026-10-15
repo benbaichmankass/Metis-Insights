@@ -1,0 +1,24 @@
+{
+  "based_on": "20261012T205434524203Z-c61cb13e.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The next live breakout_2 submit produces a phone placed report (or an explained mismatch with the Open orders/Positions row text) in the journal within 60 s.",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261012-RXNHREPJ-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BREAKOUT-UNRECORDED lane session_01Y64bAh35jy1RpBRXnHrEpJ",
+    "rerun": "bash scripts/ops/diag_fetch.sh 'journalctl?unit=ict-web-api.service&lines=400&since=<claim>&until=<claim+5m>'  # POST /phone/report present after /phone/go?"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, still open: MainActivity.kt ~L1229-1230 still only appends 'unconfirmed' and sends a 'mismatch' event when the post-submit re-read fails 3x (no durable report); server partly mitigates by journaling a redeemed go-token as placed. Tier-2.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "BREAKOUT-UNRECORDED",
+  "state": "routed",
+  "what": "PHONE-CONFIRM-REPORT: the app's post-submit confirm (MainActivity.kt ~1080-1105) posts a durable report only when its re-read matches a row. When it does not (3 reads), it sends only a `mismatch` event. Find out why the ETH/SOL re-reads missed (event kinds from 2026-10-11 15:51Z have rotated out of the 40-entry events file; capture the rows/text of the next live submit) and make the unconfirmed path post a report too. Server side already journals an unconfirmed live submit as `placed` after 180 s (PR #17693)."
+}

@@ -8,6 +8,7 @@ a first FAIL re-queues rather than kills).
 """
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -279,3 +280,21 @@ def test_router_class_units_count_as_dispatchable_not_prose_notes():
     assert not dispatchable({**base, "compute": "cpu_light", "run": {"workflow": "none -- session-local"}})  # author said: no runner
     assert not dispatchable({**base})                                                   # neither workflow nor class
     assert not dispatchable({"status": "done", "compute": "cpu_light"})
+
+
+def test_grader_closes_a_hand_written_unit_only_when_its_rows_attest_its_own_rule(tmp_path):
+    """RESEARCH-GRADE-BACKLOG (2026-10-15): 130 hand-written units sat queued with
+    results whose every row named the unit's own rule id; nobody closed them."""
+    uid = "RQ-20310101-002"
+    (tmp_path / "research/queue").mkdir(parents=True)
+    d = tmp_path / "research/results" / uid
+    d.mkdir(parents=True)
+    text = (f"id: {uid}\nstatus: queued\ncadence: once\ndecision_rule:\n  id: RULE-H\nlands:\n  min_rows: 1\n"
+            "last_dispatched_at: '2031-01-01T00:00:00+00:00'\n")
+    row = lambda v, rid: json.dumps({"verdict": v, "read_state": "measured", "decision_rule": {"id": rid}})  # noqa: E731
+    (d / "1.jsonl").write_text(row("pass", "RULE-E7-HARNESS-DISPATCHABLE") + "\n")
+    assert queue_grade.grade_unit(tmp_path, uid, text, "2031-01-02") is None
+    (d / "1.jsonl").write_text(row("fail", "RULE-H") + "\n")
+    new = queue_grade.grade_unit(tmp_path, uid, text, "2031-01-02")
+    assert new and "status: done" in new and "verdict: fail" in new and "attested: RULE-H" in new
+    assert "last_dispatched_at: null" not in new

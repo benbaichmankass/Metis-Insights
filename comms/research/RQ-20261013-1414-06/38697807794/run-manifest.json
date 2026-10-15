@@ -1,0 +1,24 @@
+{
+  "unit": "RQ-20261013-1414-06",
+  "run_id": "38697807794",
+  "commit_sha": null,
+  "run_url": null,
+  "timeout_minutes": 300,
+  "commands": [
+    {
+      "index": 0,
+      "argv": [
+        "python3",
+        "scripts/research/ml_bakeoff.py",
+        "--unit",
+        "RQ-20261013-1414-06",
+        "--out",
+        "comms/research/RQ-20261013-1414-06/38697807794"
+      ],
+      "log": "comms/research/RQ-20261013-1414-06/38697807794/logs/cmd-0.log",
+      "exit_code": 0,
+      "seconds": 2189.0
+    }
+  ],
+  "all_ok": true
+}

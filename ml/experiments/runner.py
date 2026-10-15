@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
+from ..datasets.parquet_sidecar import dataset_present, load_dataset_rows
 from ..manifest import TrainingManifest
 from ..registry.model_registry import ModelRegistry, RegistryEntry
 from .splitters import MULTI_FOLD_STRATEGIES, iter_folds
@@ -318,12 +319,14 @@ def run_experiment(
     if declared_build_params:
         _verify_declared_build_params(declared_build_params, dataset_dir)
     data_path = dataset_dir / "data.jsonl"
-    if not data_path.is_file():
+    if not dataset_present(dataset_dir):
         # Missing dataset file = "data not ready / orphan manifest", handled
         # as a clean skip (exit 78), not a cycle-failing error. See
         # DatasetMissingError + run_training_cycle.sh exit-78 handling.
         raise DatasetMissingError(data_path)
-    rows = _load_jsonl(data_path, keep=dataset_projection_columns(manifest))
+    # Fresh data.parquet sidecar when one exists (DATA-STORE-PARQUET-GC),
+    # else data.jsonl — same rows, same projection rule either way.
+    rows = load_dataset_rows(dataset_dir, keep=dataset_projection_columns(manifest))
     if not rows:
         raise EmptyDatasetError(data_path)
 

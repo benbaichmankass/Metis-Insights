@@ -98,4 +98,14 @@ def test_cancelled_with_unreadable_duration_is_not_rerun():
 def test_workflow_file_is_wired_safely():
     wf = (REPO / ".github/workflows/pytest-rerun.yml").read_text()
     assert "workflow_run" in wf and "ref: main" in wf and "actions: write" in wf
-    assert "github.event.workflow_run.head_branch" not in wf     # no untrusted name in the shell
+    # No untrusted name in the shell: a branch name is attacker-chosen. It IS allowed as the
+    # concurrency-group key (GH-CAPACITY-INFRA-FIRST, 2026-10-15) -- that is an expression GitHub
+    # evaluates, never shell text -- so the check is on every step's `run:` and `env:`, not the file.
+    import yaml
+    doc = yaml.safe_load(wf)
+    for job in doc["jobs"].values():
+        for step in job.get("steps", []):
+            assert "head_branch" not in str(step.get("run", "")), step.get("name")
+            assert "head_branch" not in str(step.get("env", {})), step.get("name")
+    assert "github.event.workflow_run.head_branch" in str(doc["concurrency"]["group"])
+    assert doc["concurrency"]["cancel-in-progress"] is True

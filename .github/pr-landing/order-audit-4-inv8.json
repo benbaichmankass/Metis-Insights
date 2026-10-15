@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager (lane ORDER-AUDIT-4, item 20). scripts/check_db_integrity.py is outside the pr-landing guard's Tier-1 surface. The change is read-only (mode=ro): it adds INV-8 (closed/orphaned package with an OPEN leg) to the hourly ict-db-integrity reporter. It alerts on a recent instance and reports the legacy 2 in total. No runtime, order-path or DB write.",
+  "why": "PI-20260930-3QNHBGND-0003: no paged invariant for 'closed package with an open leg'."
+}

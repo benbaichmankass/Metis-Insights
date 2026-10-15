@@ -1,0 +1,24 @@
+{
+  "based_on": "20261012T205433957880Z-d540f844.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A breakout_2 position closed by its SL/TP appears as a closed prop_fill with no operator report.",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261012-RXNHREPJ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BREAKOUT-UNRECORDED lane session_01Y64bAh35jy1RpBRXnHrEpJ",
+    "rerun": "curl -s https://ict-bot.duckdns.org/api/bot/prop/fills?account_id=breakout_2  # open fills with no closed counterpart after the venue is flat"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, waiting on an event: phone_reconcile.reconcile + fill_unpriced_closes exist (phone_executor.py ~L433-438) and breakout_2 has 3 closed fills, but none tied to an SL/TP exit with no operator report yet.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "BREAKOUT-UNRECORDED",
+  "state": "routed",
+  "what": "PHONE-CLOSE-WRITEBACK: closed-on-exit for phone-placed trades. Nothing in the phone path writes a `closed` fill when a bracket hits (the app has no close report; the server has no venue feed). Needs PHONE-APP-POSITIONS first: once the status post carries positions_read + the list, reconcile open/placed breakout_2 fills against it and write an unpriced `closed` (VELO-CLOSE-RECON then prices it). Until then a phone-placed trade stays open in the journal until the operator reports the close (MD-PROP-JOURNAL-FROM-OPERATOR)."
+}

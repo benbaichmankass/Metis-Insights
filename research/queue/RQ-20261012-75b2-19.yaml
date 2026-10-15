@@ -2,7 +2,7 @@ id: RQ-20261012-75b2-19
 title: >-
   Learner-family check: BTCUSDT 15m regime_label, sklearn HistGradientBoosting vs the incumbent LightGBM on identical
   purged folds
-status: queued
+status: done
 cadence: once
 theme: ml_health
 priority: 2
@@ -105,3 +105,19 @@ ml_bakeoff:
 roadmap: [M25]
 related: [ML-RQ-RUNNER, scripts/research/ml_bakeoff.py, ml/configs/btc-regime-15m-lgbm-fc-pcv-v2.yaml, .claude/skills/ml-review/SKILL.md]
 last_dispatched_at: '2026-10-14T09:54:42+00:00'
+grading:
+  attested: RULE-RQ1012-75B2-19-ML-FAMILY-BTC
+  auto: true
+  awaiting: more_data
+  decision_rule_id: RULE-RQ1012-75B2-19-ML-FAMILY-BTC
+  evidence:
+  - research/results/RQ-20261012-75b2-19/38329024424.jsonl
+  - research/results/RQ-20261012-75b2-19/38545854844.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'indeterminate is the pre-registered under-powered/null outcome: complete, but NOT a pass and
+    NOT a kill'
+  reason: 1 row(s), all measured, all indeterminate (1 earlier producer_failed / re-graded wiring_only
+    row(s) superseded)
+  rows: 1
+  verdict: indeterminate

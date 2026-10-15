@@ -1,0 +1,25 @@
+{
+  "based_on": "20261014T055620601102Z-9de7336f.json",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "the land job's stale-branch refresh no longer fails on a dirty research/queue tree: 10 consecutive research-queue-dispatch cycles with no `failed_conflict` / 'would be overwritten' in the land log, or the finding is killed with a measured reason",
+    "due_date": "2026-10-29",
+    "kind": "date",
+    "last_checked": "2026-10-12"
+  },
+  "id": "PI-20261012-EEP21012-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "UNPROVEN-SWEEP-2 2026-10-12 (rows RQ-INFRA, HEALTH-REVIEW-W41)",
+    "rerun": "gh api 'repos/benbaichmankass/Metis-Insights/actions/workflows/research-queue-dispatch.yml/runs?per_page=15' --jq '.workflow_runs[]|[.id,.created_at[:16],.conclusion]|@tsv'; for each failure: gh api repos/benbaichmankass/Metis-Insights/actions/jobs/<land job id>/logs | grep -E 'failed_conflict|would be overwritten'"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, still open on its row: STAMP-RACE-2 fix c6ca2fb2 (#17688) is in commit-to-main/action.yml; of the last 15 dispatch runs the failures were a dispatch-job failure (38674306939) and a receipt-step land failure (38596805368) without 'would be overwritten'; success streak 3 of the 10 needed.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "ROUTE-CI-LANDING-FIXES | [ROUTING-ALARM-20261014] routed from daily review WR-20261014-0530Z; the row owns this item and carries the rerun command",
+  "state": "routed",
+  "what": "research-queue-dispatch `land` job fails ~25% of cycles (3 of the last 12 runs on main, 2026-10-11 16:54Z..2026-10-12 05:53Z: 38161538083, 38171810585, 38182207173). Two modes, both in .github/actions/commit-to-main/action.yml stale-branch refresh: (a) the refresh `git merge FETCH_HEAD` aborts with 'Your local changes to the following files would be overwritten by merge: research/queue/RQ-*.yaml' (dirty working tree left by the dispatch/collect step) -> REFRESH_STATE=failed_conflict -> the stamp PR (#17652 still OPEN and 'dirty'; #17618 had to be merged late) never merges and the job dies at the 80-minute wait; (b) run 38171810585 died at the receipt step on 'local changes would be overwritten by checkout' with the same three queue files. MEASURED by reading the land-job logs; 9 of the 12 runs succeeded, so #17174/#16948/#17297 work when the tree is clean. Fix is in the shared composite action (stash or commit the stamp files before the refresh merge), so it is not a one-line lane change."
+}

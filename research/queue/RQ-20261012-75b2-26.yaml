@@ -2,7 +2,7 @@ id: RQ-20261012-75b2-26
 title: >-
   Training-window sensitivity: ETHUSDT 15m regime_label with only the last 20000 rows (~208 days), LightGBM vs prior,
   purged CV vs last-30d holdout
-status: queued
+status: done
 cadence: once
 theme: ml_health
 priority: 3
@@ -100,3 +100,16 @@ ml_bakeoff:
 roadmap: [M25]
 related: [ML-RQ-RUNNER, scripts/research/ml_bakeoff.py, ml/configs/btc-regime-15m-lgbm-fc-pcv-v2.yaml, .claude/skills/ml-review/SKILL.md]
 last_dispatched_at: '2026-10-13T12:51:59+00:00'
+grading:
+  attested: RULE-RQ1012-75B2-26-ML-SHORT-ETH
+  auto: true
+  decision_rule_id: RULE-RQ1012-75B2-26-ML-SHORT-ETH
+  evidence:
+  - research/results/RQ-20261012-75b2-26/38393299234.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'hand-written unit, every row graded under its own registered rule: FAIL closes it (no template
+    confirmatory re-run)'
+  reason: 1 row(s), all measured, all fail
+  rows: 1
+  verdict: fail

@@ -79,15 +79,44 @@ def test_there_are_callers_to_check():
     )
 
 
+#: DEFERRED VERIFICATION -- the ONLY exemption from in-run `verify-merged` (GH-CAPACITY-INFRA-FIRST,
+#: operator 2026-10-15: infra gets first preference on the 20-slot GitHub runner pool). The arrival is still
+#: verified, one cycle LATER, by a grader that reads the landed file from main and pages when it is absent or
+#: stale; the exempt step must land exactly that file and the SAME workflow must run that grader. MEASURED
+#: before: the research-queue-dispatch receipt wait held an idle runner ~7 min per hourly run.
+#: Anything else the step lands rides the SAME PR, so it lands or strands with the graded file and the
+#: grader's alarm covers it too; it must still be listed here explicitly.
+#:   workflow -> (the graded file, the grader script the workflow must run, every path the step may land)
+DEFERRED_VERIFY = {
+    "research-queue-dispatch.yml": ("docs/claude/work/research-queue-dispatch-receipt.json",
+                                    "scripts/ci/check_research_queue_dispatch_liveness.py",
+                                    {"docs/claude/work/research-queue-dispatch-receipt.json",
+                                     "comms/research/utilization"}),
+}
+
+
+def _deferred_ok(wf: str, step: dict) -> bool:
+    entry = DEFERRED_VERIFY.get(wf)
+    if not entry:
+        return False
+    landed, grader, allowed = entry
+    paths = str((step.get("with") or {}).get("paths", "")).split()
+    text = open(os.path.join(".github/workflows", wf)).read()
+    return (landed in paths and set(paths) <= allowed
+            and f"python3 {grader}" in text and os.path.exists(grader))
+
+
 def test_every_caller_verifies_its_rows_merged():
     """`verify-merged` absent means the step exits 0 when the PR OPENS, so a
-    push that never merges reads as a success and the rows are unreadable."""
+    push that never merges reads as a success and the rows are unreadable.
+    The one exemption is DEFERRED_VERIFY: arrival graded next cycle from main."""
     missing = []
     for wf, job_name, job in _caller_jobs():
         for s in job["steps"]:
             if s.get("uses") != USES:
                 continue
-            if str((s.get("with") or {}).get("verify-merged", "")).lower() != "true":
+            if str((s.get("with") or {}).get("verify-merged", "")).lower() != "true" \
+                    and not _deferred_ok(wf, s):
                 missing.append(f"{wf}:{job_name}")
     assert not missing, (
         "these callers land rows and never confirm they arrived: "
@@ -644,3 +673,19 @@ def test_the_action_recomputes_a_generated_conflict_rather_than_aborting():
         "the generated-conflict recompute must take MAIN's side (`--theirs`) for "
         "the conflicted paths before re-deriving over them"
     )
+
+
+def test_deferred_verify_exemption_is_narrow():
+    """The exemption must not cover a step that lands anything besides the graded file, and must
+    stop applying if the grader is removed from the workflow (planted negatives)."""
+    wf = "research-queue-dispatch.yml"
+    landed, _grader, _allowed = DEFERRED_VERIFY[wf]
+    assert _deferred_ok(wf, {"with": {"paths": landed}})
+    assert not _deferred_ok(wf, {"with": {"paths": "docs/claude/work/other.json"}})
+    assert not _deferred_ok(wf, {"with": {"paths": landed + " docs/claude/work/smuggled.json"}})
+    assert not _deferred_ok("some-other.yml", {"with": {"paths": landed}})
+    # the real receipt step is the one using it
+    doc = yaml.safe_load(open(os.path.join(".github/workflows", wf)))
+    hits = [s for j in doc["jobs"].values() for s in (j.get("steps") or [])
+            if s.get("uses") == USES and str((s.get("with") or {}).get("verify-merged")).lower() == "false"]
+    assert len(hits) == 1 and _deferred_ok(wf, hits[0])

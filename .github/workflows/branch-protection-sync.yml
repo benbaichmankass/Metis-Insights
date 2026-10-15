@@ -32,6 +32,14 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# GH-CAPACITY-INFRA-FIRST (2026-10-15): one constant group, NOT cancel-in-progress. The job is an
+# idempotent PUT of the spec at the newest main, so a run already applying finishes (no half-applied
+# protection), and GitHub keeps one pending run, replacing older pending ones: N merges in a burst
+# cost at most 2 runs instead of N (measured 5 queued at 08:21Z).
+concurrency:
+  group: branch-protection-sync
+  cancel-in-progress: false
+
 permissions:
   contents: read
 

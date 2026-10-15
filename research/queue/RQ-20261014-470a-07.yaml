@@ -1,7 +1,7 @@
 id: RQ-20261014-470a-07
 title: 'Volatility regime (hot tail), real money, re-asked at power: does trend_donchian_xrp_4h with vol-skip-above (0.8, 0.9, 0.95) beat the
   declared leg on the 1460-day window, net of the full cost stack?'
-status: queued
+status: done
 cadence: once
 theme: regime
 priority: 2
@@ -117,7 +117,7 @@ grading:
   first_fail: 1 row(s), all measured, all fail
   graded_at: '2026-10-15'
   grader: scripts/research/queue_grade.py
-  note: 'first FAIL: re-queued for a confirmatory run (last_dispatched_at reset), not killed'
+  note: two consecutive FAIL passes; closed as fail (never on one pass)
   reason: 1 row(s), all measured, all fail
   rows: 1
   verdict: fail

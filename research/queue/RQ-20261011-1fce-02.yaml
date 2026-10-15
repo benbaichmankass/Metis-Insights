@@ -1,6 +1,6 @@
 id: RQ-20261011-1fce-02
 title: 'Stage-0 confirmatory re-run: trend harness on BNBUSDT 2h (RESEARCH-OPS-20261011-1447, confirms RQ-20261011-6897-01)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 3
@@ -65,3 +65,16 @@ related:
 - RQ-20261011-6897-01
 - scripts/ops/fetch_backtest_corpus.py
 last_dispatched_at: '2026-10-12T10:09:14+00:00'
+grading:
+  attested: RULE-RQ-20261011-1fce-02-TREND-BNBUSDT-2h-STAGE0
+  auto: true
+  decision_rule_id: RULE-RQ-20261011-1fce-02-TREND-BNBUSDT-2h-STAGE0
+  evidence:
+  - research/results/RQ-20261011-1fce-02/38234543581.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'hand-written unit, every row graded under its own registered rule: FAIL closes it (no template
+    confirmatory re-run)'
+  reason: 1 row(s), all measured, all fail
+  rows: 1
+  verdict: fail

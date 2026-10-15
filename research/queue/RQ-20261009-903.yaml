@@ -3,7 +3,7 @@ title: >-
   PM-SURPRISE-EVAL (WEPE gate G2): do macro-release surprises measured against prediction-market implied
   probabilities rank-predict post-release returns better than consensus surprises at the same releases and
   horizons? -- UNBLOCKED 2026-10-12: graded on the Kalshi backfill (PM-SURPRISE-JOIN), not on collector accrual
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: macro
@@ -111,3 +111,17 @@ related:
 - docs/claude/work/checklist/PM-SURPRISE-EVAL.json
 - docs/claude/work/checklist/WEPE-BUILDOUT.json
 last_dispatched_at: '2026-10-13T20:15:25+00:00'
+grading:
+  attested: RULE-RQ1009-903-PM-SURPRISE-VS-CONSENSUS
+  auto: true
+  decision_rule_id: RULE-RQ1009-903-PM-SURPRISE-VS-CONSENSUS
+  evidence:
+  - research/results/RQ-20261009-903/38258786887.jsonl
+  - research/results/RQ-20261009-903/38453802467.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'hand-written unit, every row graded under its own registered rule: FAIL closes it (no template
+    confirmatory re-run)'
+  reason: 1 row(s), all measured, all fail (1 earlier producer_failed / re-graded wiring_only row(s) superseded)
+  rows: 1
+  verdict: fail

@@ -1,6 +1,6 @@
 id: RQ-20261014-4591-03
 title: 'AI trader / nonlinearity: on the 1h regime label, does LightGBM beat the plain logit on LOG-LOSS (is there nonlinear information worth a tree head)?'
-status: queued
+status: done
 cadence: once
 theme: ml_health
 priority: 2
@@ -123,3 +123,14 @@ related:
 - scripts/research/ml_bakeoff.py
 - RQ-20261014-65cc-09
 last_dispatched_at: '2026-10-14T09:54:42+00:00'
+grading:
+  attested: RULE-RQ20261014-4591-03-LGBM-VS-LOGIT-LOGLOSS-1H
+  auto: true
+  decision_rule_id: RULE-RQ20261014-4591-03-LGBM-VS-LOGIT-LOGLOSS-1H
+  evidence:
+  - research/results/RQ-20261014-4591-03/38545863494.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  reason: 1 row(s), all measured, all pass
+  rows: 1
+  verdict: pass

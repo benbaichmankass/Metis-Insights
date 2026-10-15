@@ -1,0 +1,24 @@
+{
+  "based_on": "20261005T040132814138Z-54c03061.json",
+  "due_when": {
+    "check_every_days": 7,
+    "due_date": "2026-10-22",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ECILBBVH-0008",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-12",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-A02.findings.jsonl#AUD-20260927-CA-A02-settlement-soak-would-reduce-reads-zero-when-applied",
+    "rerun": "grep -n 'applied=bool(_bind)' src/core/coordinator.py  # present => still open"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-verified STILL PRESENT on main 9072f2a1 (2026-10-15): coordinator.py ~L1996 replaces available_usd with the settled basis before record_observation, and applied=bool(_bind); fix: pass the pre-replacement venue figure + real applied flag",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "checklist row ORDER-AUDIT-3 (Tier-2; ORDER-AUDIT-2 is done and did not fix this) | [BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r) 2026-10-15 re-route]",
+  "state": "routed",
+  "what": "[AUD-20260927-CA-A02-settlement-soak-would-reduce-reads-zero-when-applied] cash_settlement.record_observation computes would_have_reduced_usd from available_usd AFTER the settled basis replaced it, so the figure reads 0 on exactly the rows where the gate reduced size, and `applied` is stamped True whenever the account is allowlisted even when the basis did not bind. Proposed fix: Capture venue available before replacement; pass both to record_observation; set applied = replaced. (Tier 1; audit lanes do not enact fixes.)"
+}

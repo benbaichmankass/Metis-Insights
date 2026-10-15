@@ -2,7 +2,7 @@ id: RQ-20261012-75b2-04
 title: >-
   Regime impact scoping (TREND axis) on 2h pullback family [pb2h], selection arm min_cell_n=20 loss_se=1: does a
   realistic-accuracy classifier have headroom in this sub-population?
-status: queued
+status: done
 cadence: once
 theme: regime
 priority: 2
@@ -88,3 +88,16 @@ roadmap: [L-REGIME]
 references: [RQ-20260930-701 (pooled trend-axis null), 'RQ-20260930-703 (selection-sensitivity, full population)',
   .claude/skills/regime-selectivity/SKILL.md]
 last_dispatched_at: '2026-10-12T22:03:04+00:00'
+grading:
+  attested: RULE-RQ1012-75B2-04-REGIME-HEADROOM-PB2H
+  auto: true
+  decision_rule_id: RULE-RQ1012-75B2-04-REGIME-HEADROOM-PB2H
+  evidence:
+  - research/results/RQ-20261012-75b2-04/38314410633.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'hand-written unit, every row graded under its own registered rule: FAIL closes it (no template
+    confirmatory re-run)'
+  reason: 1 row(s), all measured, all fail
+  rows: 1
+  verdict: fail

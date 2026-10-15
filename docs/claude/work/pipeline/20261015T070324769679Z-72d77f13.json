@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the operator acts at the venue on the GLD OCO 2e843e04/891ddff0 (or asks for the reconcile), and alpaca_open_orders shows the GLD position flat",
+    "kind": "event",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261015-PD85QJEZ-0001",
+  "next_action": "ask_operator",
+  "observation": {
+    "due_by": "2026-10-22",
+    "how_to_check": "bash scripts/ops/diag_fetch.sh 'alpaca_open_orders?account_id=alpaca_paper'",
+    "what": "GLD position flat at the venue after operator action"
+  },
+  "origin": {
+    "kind": "operator",
+    "ref": "ORDER-AUDIT-3 P0, PR #18202; manager relay of operator answer 2026-10-15T06:57Z",
+    "rerun": "bash scripts/ops/diag_fetch.sh 'alpaca_open_orders?account_id=alpaca_paper'  # GLD position qty 39 + orders 2e843e04/891ddff0 still present = still deferred"
+  },
+  "routed_to": "ORDER-AUDIT-3",
+  "severity": "medium",
+  "state": "routed",
+  "tier": 2,
+  "what": "Deferred one-off reconcile of the alpaca_paper GLD wedge pkg-6a8e3fb325464be3 / trade 5209 (39 sh long, entry 419.51). The venue holds OCO 2e843e04 (TP 461.27, new) / 891ddff0 (stop 416.09, held) since 2026-08-27; Alpaca accepts a cancel and nothing moves (cancel_accepted_ineffective), so no app path can flatten it. Operator 2026-10-15 (~06:57Z popup, relayed by the manager), verbatim: \"Leave it for now\" -- no venue action, no DB reconcile. When the operator acts at the venue (cancel/paper reset) and the venue position is FLAT: close trade 5209 + the package with the venue's fill (Tier-2 DB writeback, its own hold PR). Never close the row while the venue still holds the 39 shares."
+}

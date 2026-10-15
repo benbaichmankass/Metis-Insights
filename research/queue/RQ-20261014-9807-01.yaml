@@ -89,10 +89,11 @@ grading:
   auto: true
   decision_rule_id: RULE-RQ20261014-9807-01-GIVEBACK-CENSUS
   evidence:
-  - research/results/RQ-20261014-9807-01/38540458035.jsonl
-  graded_at: '2026-10-14'
+  - research/results/RQ-20261014-9807-01/38674510250.jsonl
+  graded_at: '2026-10-15'
   grader: scripts/research/queue_grade.py
-  needs_review: true
-  reason: 'read_state not unanimously measured: [''producer_failed'']'
+  latest: true
+  needs_review: false
+  reason: 1 row(s), all measured, all pass
   rows: 1
-  verdict: null
+  verdict: pass

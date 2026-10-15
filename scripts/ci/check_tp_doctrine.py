@@ -27,6 +27,25 @@ TWO DIMENSIONS, NEVER COLLAPSED
                               level that RESTS is the venue cap (`entry x
                               1.099`) wearing a target's label ........... FAIL
                `no_target` -- no target key and no class default ......... FAIL
+               `unreachable` -- TP-REACH-FLOOR (operator-approved 2026-10-14,
+                              checklist row TP-REACH-FLOOR): a FINITE
+                              declared target that the leg's own offline
+                              harness trades reach less than REACH_FLOOR
+                              (10%) of the time -- the sentinel under another
+                              name (`trend_donchian_eth_prop`'s 6 R is reached
+                              by ~1% of 1,004 uncapped trades) ........... FAIL
+               The reach grade reads the per-leg UNCAPPED reach curve
+               P(mfe_r >= K) in REACH_EVIDENCE (mi307's committed record). A
+               declared target with no evidence row is `unmeasured` and is
+               counted beside the verdict, never graded compliant-by-reach and
+               never silently dropped; see `reach_state`. It reads the NAIVE
+               `reach_rate` = P(mfe_r >= K), not `effective_reach_rate` =
+               P(mfe_r >= min(K, cap_r)): the floor grades the DECLARED
+               prediction; a target that rests at the venue cap instead is
+               clause 1's own non-compliance, not something the cap may rescue.
+               Limit: the evidence is dated (its `generated_at` is in the JSON
+               output); a leg retuned since then is graded on its older curve
+               until mi307 (or the BRACKETS-AS-PREDICTIONS derivation) re-measures it.
                A `tp_intent: {mode: none}` declaration is reported, and it
                does NOT exempt: the doctrine says a trail-is-the-exit leg
                still predicts where momentum runs out.
@@ -150,6 +169,21 @@ CLASS_RANK = {"real_money": 0, "prop": 1, "mirror": 2, "paper": 3}
 
 REFERENCE_ATR_OVER_ENTRY = 0.02   # the census's reference; a REFERENCE, not a measurement
 
+ENTRY_UNREACHABLE = "unreachable"
+
+#: TP-REACH-FLOOR (operator-approved 2026-10-14). A declared target touched by
+#: fewer than this share of the leg's offline harness trades is not a prediction.
+REACH_FLOOR = 0.10
+#: Below this many uncapped harness trades a leg's reach curve is reported but not
+#: graded -- mi307's own MIN_N_FOR_PROPOSAL (a BORROWED floor, stated there).
+REACH_MIN_N = 30
+REACH_OK = "reachable"
+REACH_BELOW = "below_floor"
+REACH_UNMEASURED = "unmeasured"       # no evidence row for this leg -- NOT "reachable"
+REACH_THIN = "insufficient_n"
+REACH_UNRESOLVED = "unresolved"       # target between grid points whose rates straddle the floor
+REACH_NA = "not_applicable"           # sentinel / no target: entry already fails
+
 
 @dataclass
 class Paths:
@@ -165,6 +199,8 @@ class Paths:
     prop_platforms: Path = REPO / "config" / "prop_platforms.yaml"
     platform_dir: Path = REPO / "src" / "prop" / "platform"
     phone_executor: Path = REPO / "src" / "prop" / "phone_executor.py"
+    #: the per-leg UNCAPPED reach curves (scripts/research/mi307_offline_mfe.py --run).
+    reach_evidence: Path = REPO / "docs" / "research" / "mi307-offline-mfe-2026-09-18.json"
     repo: Path = REPO
 
 
@@ -189,18 +225,23 @@ BASELINE_2026_10_06: dict[str, frozenset[str]] = {
     "bybit_2/xrp_pullback_2h": R,
     # ── prop ────────────────────────────────────────────────────────────────
     # breakout_1 legs removed 2026-10-07 (account retired, roster cleared).
-    "breakout_2/trend_donchian_eth_prop": R,
-    "breakout_2/trend_donchian_sol_prop": R,
-    "tradeify_1/trend_donchian_eth_prop": R,
-    "tradeify_1/trend_donchian_sol_prop": R,
+    # R -> ER on 2026-10-15 (TP-REACH-FLOOR, operator-approved 2026-10-14): the
+    # GUARD got stricter, the roster did not change. Their declared 6 R target is
+    # reached by 0.9% (eth, n=1004) / 1.9% (sol, n=370) of uncapped harness trades
+    # in REACH_EVIDENCE -- re-run the guard for the live figures. The debt was
+    # always there; this line now names it.
+    "breakout_2/trend_donchian_eth_prop": ER,
+    "breakout_2/trend_donchian_sol_prop": ER,
+    "tradeify_1/trend_donchian_eth_prop": ER,
+    "tradeify_1/trend_donchian_sol_prop": ER,
     # velotrade_1 was rostered by #16705 (VELOTRADE-GOLIVE, Tier-3 HELD) on
     # 2026-10-06, hours before this guard existed, so its two routings are
     # day-one debt of the same class as tradeify_1's -- not a roster change
     # made against the doctrine. This guard named them itself on its first CI
     # run against main at 233c9c28 (PR #16739), which is the positive control
     # for the NEW-routing branch.
-    "velotrade_1/trend_donchian_eth_prop": R,
-    "velotrade_1/trend_donchian_sol_prop": R,
+    "velotrade_1/trend_donchian_eth_prop": ER,   # R -> ER 2026-10-15, TP-REACH-FLOOR (above)
+    "velotrade_1/trend_donchian_sol_prop": ER,
     # ── mirror (paper_role: portfolio) ──────────────────────────────────────
     "alpaca_portfolio/ief_pullback_1d": ER,
     "alpaca_portfolio/slv_pullback_1d": ER,
@@ -458,6 +499,64 @@ def read_venue_caps(clients: Path) -> dict[str, frozenset[str]]:
     return caps
 
 
+def read_reach_evidence(path: Path) -> dict[str, dict[str, Any]]:
+    """leg -> {n, reach: {K: P(mfe_r >= K)}, generated_at} from the UNCAPPED `state: ok` rows.
+
+    The uncapped book is the target-setting basis (mi307's own doc): the capped
+    one truncates `mfe_r` at each trade's cap and cannot say what lies above it.
+    A missing / unparseable file, or one with ZERO usable rows, is CouldNotLook --
+    an empty evidence map would grade every declared target `unmeasured` and read
+    as "nothing below the floor", which is the collapsed-state bug.
+    """
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise CouldNotLook(f"{path}: reach evidence unreadable ({exc})") from exc
+    gen = str(raw.get("generated_at") or "")
+    out: dict[str, dict[str, Any]] = {}
+    for row in raw.get("results") or []:
+        if not isinstance(row, dict) or row.get("capped") or row.get("state") != "ok":
+            continue
+        try:
+            curve = {float(k): float(v) for k, v in (row.get("reach_rate") or {}).items()}
+            n = int(row.get("n_mfe") or row.get("n_rows") or 0)
+        except (TypeError, ValueError):
+            continue
+        if curve and row.get("leg"):
+            out[str(row["leg"])] = {"n": n, "reach": curve, "generated_at": gen}
+    if not out:
+        raise CouldNotLook(f"{path}: the reach probe found ZERO uncapped `ok` rows")
+    return out
+
+
+def grade_reach(target: float, ev: dict[str, Any] | None) -> tuple[str, float | None]:
+    """(reach_state, reach_rate) for a FINITE declared target against one leg's curve.
+
+    Exact on a grid point. Between grid points the curve is monotone, so the rate
+    at the grid point BELOW the target is an upper bound and the one ABOVE a lower
+    bound: graded only when both bounds sit on the same side of the floor, else
+    `unresolved` (reported, not failed). The rate reported off-grid is the upper
+    bound -- the most favourable reading the evidence allows.
+    """
+    if ev is None:
+        return REACH_UNMEASURED, None
+    if ev["n"] < REACH_MIN_N:
+        return REACH_THIN, None
+    curve: dict[float, float] = ev["reach"]
+    for k, v in curve.items():
+        if abs(k - target) < 1e-9:
+            return (REACH_OK if v >= REACH_FLOOR else REACH_BELOW), v
+    below = [k for k in curve if k < target]
+    above = [k for k in curve if k > target]
+    upper = curve[max(below)] if below else 1.0
+    lower = curve[min(above)] if above else 0.0
+    if upper < REACH_FLOOR:
+        return REACH_BELOW, upper
+    if lower >= REACH_FLOOR:
+        return REACH_OK, upper
+    return REACH_UNRESOLVED, upper
+
+
 # ---------------------------------------------------------------------------
 # the scan
 # ---------------------------------------------------------------------------
@@ -479,6 +578,9 @@ class Routing:
     cap_r_ref: float | None
     producer_state: str
     path_state: str
+    reach_state: str = REACH_NA
+    reach_rate: float | None = None
+    reach_n: int | None = None
     fails: frozenset[str] = field(default_factory=frozenset)
 
     @property
@@ -514,6 +616,7 @@ def scan(paths: Paths | None = None) -> list[Routing]:
     prop_plat = read_prop_platforms(paths.prop_platforms)
     phone_state = phone_consumes_tp(paths.phone_executor)
     rules = read_registered_rules(paths.tp_revision, *sorted(paths.units_dir.glob("*.py")))
+    reach_ev = read_reach_evidence(paths.reach_evidence)
 
     def prop_path(account: str) -> str:
         plat = prop_plat.get(account)
@@ -561,6 +664,13 @@ def scan(paths: Paths | None = None) -> list[Routing]:
                 entry = ENTRY_SENTINEL
             else:
                 entry = ENTRY_DECLARED
+            reach_state, reach_rate, reach_n = REACH_NA, None, None
+            if entry == ENTRY_DECLARED:
+                ev = reach_ev.get(leg)
+                reach_state, reach_rate = grade_reach(float(eff), ev)
+                reach_n = ev["n"] if ev else None
+                if reach_state == REACH_BELOW:
+                    entry = ENTRY_UNREACHABLE
             sm = cfg.get("atr_stop_mult")
             try:
                 sm_f = float(sm) if sm is not None else None
@@ -593,7 +703,8 @@ def scan(paths: Paths | None = None) -> list[Routing]:
                 entry_state=entry, target_r=eff, target_source=src_key,
                 target_origin=origin, tp_intent_mode=resolve_intent(cfg)["mode"],
                 cap_r_ref=cap_r_for(sm_f, REFERENCE_ATR_OVER_ENTRY),
-                producer_state=producer, path_state=path, fails=frozenset(fails)))
+                producer_state=producer, path_state=path, reach_state=reach_state,
+                reach_rate=reach_rate, reach_n=reach_n, fails=frozenset(fails)))
     out.sort(key=lambda r: (CLASS_RANK.get(r.account_class, 9), r.account, r.leg))
     return out
 
@@ -645,7 +756,13 @@ def ratchet(routings: list[Routing], baseline: dict[str, frozenset[str]],
         c["entry_fail"] += DIM_ENTRY in r.fails
         c["revision_fail"] += DIM_REVISION in r.fails
         c["compliant"] += not r.fails
+    reach_census: dict[str, int] = {}
+    for r in routings:
+        if r.reach_state != REACH_NA:
+            reach_census[r.reach_state] = reach_census.get(r.reach_state, 0) + 1
     summary = {
+        "reach_floor": REACH_FLOOR,
+        "reach_census_over_declared_targets": reach_census,
         "routings": len(routings),
         "distinct_legs": len({r.leg for r in routings}),
         "compliant": sum(1 for r in routings if not r.fails),
@@ -658,13 +775,15 @@ def ratchet(routings: list[Routing], baseline: dict[str, frozenset[str]],
 
 def render_table(routings: list[Routing]) -> str:
     hdr = (f"{'class':<10} {'account':<21} {'leg':<26} {'mode':<8} {'exec':<7} "
-           f"{'entry_tp':<10} {'tp_r':>6} {'intent':<11} {'producer':<20} {'path':<11} verdict")
+           f"{'entry_tp':<11} {'tp_r':>6} {'reach':>6} {'intent':<11} {'producer':<20} {'path':<11} verdict")
     lines = [hdr, "-" * len(hdr)]
     for r in routings:
         tp = "-" if r.target_r is None else f"{r.target_r:g}"
         verdict = "PASS" if not r.fails else "FAIL:" + "+".join(sorted(r.fails))
+        rch = (f"{r.reach_rate:.3f}" if r.reach_rate is not None
+               else "-" if r.reach_state == REACH_NA else r.reach_state[:6])
         lines.append(f"{r.account_class:<10} {r.account:<21} {r.leg:<26} {r.mode:<8} "
-                     f"{r.execution:<7} {r.entry_state:<10} {tp:>6} {r.tp_intent_mode:<11} "
+                     f"{r.execution:<7} {r.entry_state:<11} {tp:>6} {rch:>6} {r.tp_intent_mode:<11} "
                      f"{r.producer_state:<20} {r.path_state:<11} {verdict}")
     return "\n".join(lines)
 
@@ -745,6 +864,7 @@ def _plant(tmp: Path, accounts: str, strategies: str) -> Paths:
     for name, body in _FAKE_ADAPTERS.items():
         (tmp / "platform" / name).write_text(body)
     (tmp / "phone_executor.py").write_text("def tick():\n    pass\n")
+    _write_evidence(tmp / "reach.json", {"good_leg": {"3.0": 0.25, "4.0": 0.15}})
     return Paths(accounts=tmp / "config" / "accounts.yaml",
                  strategies=tmp / "config" / "strategies.yaml",
                  units_dir=tmp / "units", builders=tmp / "builders.py",
@@ -753,7 +873,19 @@ def _plant(tmp: Path, accounts: str, strategies: str) -> Paths:
                  order_monitor=tmp / "order_monitor.py", tp_revision=tmp / "tp_revision.py",
                  prop_platforms=tmp / "config" / "prop_platforms.yaml",
                  platform_dir=tmp / "platform", phone_executor=tmp / "phone_executor.py",
-                 repo=tmp)
+                 reach_evidence=tmp / "reach.json", repo=tmp)
+
+
+def _write_evidence(path: Path, legs: dict[str, dict[str, float]], *, n: int = 200,
+                    extra_rows: list[dict[str, Any]] | None = None) -> None:
+    rows: list[dict[str, Any]] = []
+    for leg, curve in legs.items():
+        rows.append({"leg": leg, "capped": False, "state": "ok", "n_mfe": n, "reach_rate": curve})
+        # a CAPPED row with a contradicting curve: must never be read (target-setting basis is uncapped)
+        rows.append({"leg": leg, "capped": True, "state": "ok", "n_mfe": n,
+                     "reach_rate": {k: 0.0 for k in curve}})
+    path.write_text(json.dumps({"generated_at": "2026-10-15T00:00:00+00:00",
+                                "results": rows + list(extra_rows or [])}))
 
 
 _ACCOUNTS = """
@@ -813,6 +945,18 @@ def _self_test() -> int:
             rows["undecl/unknown_rule_leg"].producer_state == PRODUCER_UNKNOWN_RULE)
         fx = rows["fx/mover_leg"]
         chk("venue without modify cap -> path absent", fx.path_state == PATH_ABSENT)
+        # TP-REACH-FLOOR controls
+        chk("reach POSITIVE control: 3 R reached by 25% passes, uncapped row read",
+            g.reach_state == REACH_OK and g.reach_rate == 0.25 and g.entry_state == ENTRY_DECLARED)
+        chk("declared target with no evidence row -> unmeasured, not failed, not reachable",
+            fx.reach_state == REACH_UNMEASURED and DIM_ENTRY not in fx.fails)
+        chk("sentinel is not reach-graded", b.reach_state == REACH_NA)
+        ev = {"n": 200, "reach": {2.0: 0.30, 4.0: 0.05, 6.0: 0.01}}
+        chk("grade_reach: below floor on a grid point", grade_reach(6.0, ev) == (REACH_BELOW, 0.01))
+        chk("grade_reach: exactly the floor passes", grade_reach(2.0, {**ev, "reach": {2.0: 0.10}})[0] == REACH_OK)
+        chk("grade_reach: off-grid, both bounds below -> below", grade_reach(5.0, ev)[0] == REACH_BELOW)
+        chk("grade_reach: off-grid straddling the floor -> unresolved", grade_reach(3.0, ev)[0] == REACH_UNRESOLVED)
+        chk("grade_reach: thin curve -> insufficient_n", grade_reach(2.0, {**ev, "n": 12})[0] == REACH_THIN)
         # ratchet controls
         f, s = ratchet(list(rows.values()), {})
         chk("NEW non-compliance fires with an empty baseline",
@@ -854,6 +998,28 @@ def _self_test() -> int:
         chk("order_monitor not forwarding tp -> exchange path absent",
             rows4["real/good_leg"].path_state == PATH_ABSENT and DIM_REVISION in rows4["real/good_leg"].fails)
         (tmp / "order_monitor.py").write_text(_FAKE_ORDER_MONITOR)
+        # reach NEGATIVE control: the same 3 R target reached by 5% -> entry fails as unreachable
+        _write_evidence(tmp / "reach.json", {"good_leg": {"3.0": 0.05}})
+        rows5 = {r.key: r for r in scan(p)}
+        g5 = rows5["real/good_leg"]
+        chk("reach NEGATIVE control: 3 R reached by 5% -> unreachable, entry_tp FAILS",
+            g5.entry_state == ENTRY_UNREACHABLE and DIM_ENTRY in g5.fails and g5.reach_state == REACH_BELOW)
+        f, _ = ratchet(list(rows5.values()), {})
+        chk("reach failure is a NEW non-compliance for an unbaselined routing",
+            any("real/good_leg" in x and "NEW" in x for x in f))
+        (tmp / "reach.json").write_text("{not json")
+        try:
+            scan(p)
+            chk("unreadable reach evidence -> CouldNotLook", False)
+        except CouldNotLook:
+            chk("unreadable reach evidence -> CouldNotLook", True)
+        _write_evidence(tmp / "reach.json", {}, extra_rows=[{"leg": "x", "capped": False, "state": "no_data"}])
+        try:
+            scan(p)
+            chk("zero usable reach rows -> CouldNotLook", False)
+        except CouldNotLook:
+            chk("zero usable reach rows -> CouldNotLook", True)
+        _write_evidence(tmp / "reach.json", {"good_leg": {"3.0": 0.25, "4.0": 0.15}})
         # could-not-look controls
         (tmp / "builders.py").write_text("nothing here\n")
         try:
@@ -891,6 +1057,10 @@ def _self_test() -> int:
             all(r.unit is not None for r in live))
         chk("live repo: the probe finds at least one sentinel (positive control)",
             any(r.entry_state == ENTRY_SENTINEL for r in live))
+        chk("live repo: the reach probe finds a declared target BELOW the floor (positive control)",
+            any(r.reach_state == REACH_BELOW for r in live))
+        chk("live repo: the reach probe finds a declared target ABOVE the floor (positive control)",
+            any(r.reach_state == REACH_OK for r in live))
         f, _ = ratchet(live, BASELINE_2026_10_06)
         for x in f:
             print("  live:", x)
@@ -938,6 +1108,10 @@ def main(argv: list[str] | None = None) -> int:
             c = bc[cls]
             print(f"  {cls:<10} routings={c['routings']:>2}  entry_tp FAIL={c['entry_fail']:>2}  "
                   f"tp_revision FAIL={c['revision_fail']:>2}  compliant={c['compliant']:>2}")
+        rc = summary["reach_census_over_declared_targets"]
+        print(f"TP-REACH-FLOOR ({REACH_FLOOR:.0%}) over {sum(rc.values())} declared-target routings: "
+              + ", ".join(f"{k}={v}" for k, v in sorted(rc.items()))
+              + "  (unmeasured = no uncapped evidence row for the leg; never counted reachable)")
         print(f"baselined debt: {summary['baselined_debt_routings']} routing(s) "
               f"({summary['baseline_entries']} baseline lines; the list may only shrink)")
         for x in findings:

@@ -2,18 +2,20 @@
   "id": "KAGGLE-TRAIN-RUNNER-FIRST",
   "title": "Training off-VM: GitHub-runner first, Kaggle GPU second; design (T1) then the artefact return path (T2) behind a parity gate",
   "phase": null,
-  "state": "queued",
+  "state": "in_flight",
   "owner": "manager",
-  "lane": null,
-  "model": null,
-  "ceiling_usd": null,
+  "lane": "session_01YH1am2LXDBtyPPp3PFA1gk",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 20,
   "spend_usd": null,
   "tier": 1,
-  "prs": [],
+  "prs": [
+    18199
+  ],
   "blocked_on": [],
-  "note": "[2026-10-14 weekly planning] OPERATOR-APPROVED 2026-10-14. Two phases: (1) Tier-1 DESIGN doc under docs/plans/ -- which manifests can train on a GitHub runner (CPU, 6 h/job) vs a Kaggle GPU kernel (COMPUTE-KAGGLE-GPU passed 2026-10-13: 2x T4, 30 h/wk), how market-only shards reach them (ML-DATA-OFF-TRAINER classification: OURS families never leave the trainer), and a PARITY GATE: an off-VM artefact is admitted only if it matches a trainer-VM run of the same manifest within a declared tolerance on the same eval split. (2) Tier-2 RETURN PATH: the artefact lands in the trainer registry as 'candidate' through the existing promote ladder; needs one operator OK before the first registry write. Runner first because it is free and already authenticated; Kaggle GPU for the manifests the runner cannot fit.",
-  "updated_at": "2026-10-14T07:37:20Z",
-  "updated_by": "session_01DfFYRUG7orGpkE5pVnA8e4",
+  "note": "[2026-10-14 weekly planning] OPERATOR-APPROVED 2026-10-14. Two phases: (1) Tier-1 DESIGN doc under docs/plans/ -- which manifests can train on a GitHub runner (CPU, 6 h/job) vs a Kaggle GPU kernel (COMPUTE-KAGGLE-GPU passed 2026-10-13: 2x T4, 30 h/wk), how market-only shards reach them (ML-DATA-OFF-TRAINER classification: OURS families never leave the trainer), and a PARITY GATE: an off-VM artefact is admitted only if it matches a trainer-VM run of the same manifest within a declared tolerance on the same eval split. (2) Tier-2 RETURN PATH: the artefact lands in the trainer registry as 'candidate' through the existing promote ladder; needs one operator OK before the first registry write. Runner first because it is free and already authenticated; Kaggle GPU for the manifests the runner cannot fit. [2026-10-15 lane session_01YH1am2LXDBtyPPp3PFA1gk] Dispatched by manager session_01VduHYzdaXe27wTDBLSu8ao after operator chose 'Train on free runner (Rec.)'. T1 DESIGN = docs/plans/KAGGLE-TRAINING-PIPELINE-DESIGN-2026-10-13.md \u00a7 10 (backend per manifest MEASURED over 73 active manifests: 18 off-VM now on published shards, 45 market-but-not-exported, 10 OURS trainer-only, 0 GPU; parity tolerance 0.01 abs per score metric, counts exact, >=0.99 eval-prediction agreement, identical input sha256). BUILT: scripts/research/train_parity.py + tests; queue units RQ-20261015-8b93-01 (trainer reference, needs_vm_data) -> RQ-20261015-8b93-02 (kaggle_cpu off-VM, requires_result 01 pass) on eth-regime-1h-lgbm-v1, cutoff 2026-10-01. Runner-first deviation: a GitHub runner cannot download the private dataset (ML-DATA-RUNNER-FETCH 404), so the free off-VM CPU with the data is the Kaggle CPU kernel. NOT yet observed: neither unit has run. Registry write NOT requested until 02 lands PASS.",
+  "updated_at": "2026-10-15T06:52:42Z",
+  "updated_by": "session_01YH1am2LXDBtyPPp3PFA1gk",
   "roadmap": [
     "M25"
   ],

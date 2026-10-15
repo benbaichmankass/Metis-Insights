@@ -112,3 +112,13 @@ related:
 - .claude/skills/exit-refinement/SKILL.md (P2 gate, Path B bar, "P&L without prediction")
 - src/runtime/target_expectation.py (evaluate_extension, the decision half the harness imports)
 last_dispatched_at: '2026-10-14T09:10:30+00:00'
+grading:
+  decision_rule_id: RULE-RQ20261014-9807-03-TP-REVISION-CONFIRMATION
+  graded_at: '2026-10-15'
+  graded_by: session_01AHy9CTrdF2hMBAWNBzB5wN (lane RESEARCH-GRADE-BACKLOG)
+  needs_review: true
+  read_state: measured
+  reason: 'NOT GRADABLE as registered: rows carry the generic m20 gate; tp_cal_cell vs tp_cal_base and
+    wf wins absent and the run corpus rows are not on main; the one resolvable leg (trend_donchian_xrp_4h)
+    has base OOS 24 < 39. Instrument gap filed on checklist RESEARCH-GRADE-PILE (generic-gate rows).'
+  verdict: null

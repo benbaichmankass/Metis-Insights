@@ -63,6 +63,16 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # POST-MERGE BACKSTOP (GH-CAPACITY-PR-CI-FANOUT, 2026-10-15). PRs run only the import-graph-
+  # affected tests, so the full suite on main is what catches a break a PR's selection missed --
+  # and push runs do not carry it reliably: an auto-merged (GITHUB_TOKEN) merge commit starts no
+  # run, and the next push run's `before...sha` range starts AT that commit, so its code is outside
+  # the range. Every 30 min this tick asks scripts/ci/pytest_run_backstop.py whether main's HEAD
+  # code is already graded by a completed full run; if not, it runs the full suite (no-op otherwise).
+  # Bound: a post-merge break is detected within ~30 min + the suite's run time + runner queueing.
+  # Off the hour on purpose (most crons sit on :00). Pinned by tests/test_pytest_run_backstop.py.
+  schedule:
+    - cron: '13,43 * * * *'
   # Manually dispatchable so a FEATURE BRANCH can always run the suite.
   # Without this, `push` is main-only and `pull_request` is the sole event that
   # can run these tests on a branch — so the one confirmed dropped
@@ -95,10 +105,13 @@ concurrency:
 # GitHub keeps at most ONE pending run in the group (a newer push replaces the
 # pending one), bounding cost at one running + one pending instead of one per merge.
   group: pytest-run-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name != 'push' }}
+  # The backstop (schedule) never cancels either: its group is constant (one ref, main), so a
+  # cancelling tick would kill the full run it exists to finish.
+  cancel-in-progress: ${{ github.event_name != 'push' && github.event_name != 'schedule' }}
 
 permissions:
   contents: read
+  actions: read  # the schedule backstop reads this workflow's own run history
 
 jobs:
   pytest-run:
@@ -124,8 +137,29 @@ jobs:
 
       - name: Determine relevant changed files
         id: changed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
           set -e
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            # Post-merge backstop: full suite on main's HEAD unless its code is already graded.
+            DECISION=$(python3 scripts/ci/pytest_run_backstop.py --head "${{ github.sha }}")
+            echo "$DECISION"
+            if echo "$DECISION" | grep -qx 'run=true'; then
+              echo "relevant=true" >> "$GITHUB_OUTPUT"
+              echo "mode=full" >> "$GITHUB_OUTPUT"
+              echo "$DECISION" | grep '^reason=' >> "$GITHUB_OUTPUT"
+            else
+              echo "relevant=false" >> "$GITHUB_OUTPUT"
+              echo "mode=none" >> "$GITHUB_OUTPUT"
+              {
+                echo "### pytest-run backstop: HEAD already graded"
+                echo "$DECISION" | sed -n 's/^reason=//p'
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+            exit 0
+          fi
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             git fetch origin "${{ github.base_ref || 'main' }}" --quiet
             RANGE="origin/${{ github.base_ref || 'main' }}...HEAD"
@@ -304,7 +338,16 @@ jobs:
             # tests/test_pytest_run_scope.py); a path not named there runs the full
             # suite, so the failure direction is "more tests", never "fewer".
             # The `guards` job is untouched and still runs everything it ran before.
-            printf '%s\n' "$FILES" | python3 scripts/ci/pytest_run_scope.py | tee -a "$GITHUB_OUTPUT"
+            # AFFECTED MODE (GH-CAPACITY-PR-CI-FANOUT, operator 2026-10-15: "Yes, affected tests
+            # on PRs"). On pull_request ONLY, a code diff runs the test files the import graph says
+            # can observe it (importers, path readers, fixture users, tree scanners), falling back
+            # to the full suite on conftest / requirements / .github / scripts/ci / guard scripts /
+            # config-named or high-fan-in modules / anything undecidable. Push to main keeps the
+            # full suite (per-sha, never cancelled) and pages via claude-run-failure-alert if red.
+            # Pinned by tests/test_pytest_run_affected.py.
+            printf '%s\n' "$FILES" \
+              | python3 scripts/ci/pytest_run_scope.py --event "${{ github.event_name }}" --tests-out /tmp/affected-tests.txt \
+              | tee -a "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"
             echo "mode=none" >> "$GITHUB_OUTPUT"
@@ -355,8 +398,18 @@ jobs:
             --ignore=tests/test_main_loop.py \
             --junitxml=pytest-report.xml
 
+      - name: Run tests (pull_request code diff - import-graph affected test files)
+        if: steps.changed.outputs.relevant == 'true' && steps.changed.outputs.mode == 'affected'
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "selected $(wc -l < /tmp/affected-tests.txt) test files"
+          pytest -q -n auto --dist loadfile $(cat /tmp/affected-tests.txt) \
+            --ignore=tests/test_main_loop.py \
+            --junitxml=pytest-report.xml
+
       - name: Run tests
-        if: steps.changed.outputs.relevant == 'true' && steps.changed.outputs.mode != 'data'
+        if: steps.changed.outputs.relevant == 'true' && steps.changed.outputs.mode != 'data' && steps.changed.outputs.mode != 'affected'
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |

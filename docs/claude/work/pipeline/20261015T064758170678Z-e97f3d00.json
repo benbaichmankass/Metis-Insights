@@ -1,0 +1,29 @@
+{
+  "based_on": "20261012T205437440943Z-c1db592b.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": ">=5 RQ-20261012-5bd1-* units have a read_state: measured record under research/results/",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261012-TRY1KAIX-0001",
+  "next_action": "dispatch_lane",
+  "observation": {
+    "due_by": "2026-10-29",
+    "how_to_check": "ls research/results/ | grep RQ-20261012-5bd1",
+    "what": ">=5 NEWS-ALPHA units measured"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "lane NEWS-ALPHA-PROGRAM session_01SPre8cB96Nn4sUTry1KAiX, 2026-10-12",
+    "rerun": "ls research/results/ | grep -c RQ-20261012-5bd1; wc -l research/news_alpha/TEST-LEDGER.jsonl"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, waiting on an event: 14 RQ-20261012-5bd1 units in research/queue(+blocked), 0 measured records under research/results, TEST-LEDGER.jsonl 1 line — below the 5 needed.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "NEWS-ALPHA-PROGRAM",
+  "state": "routed",
+  "what": "NEWS-ALPHA-PROGRAM first readout: when >=5 of RQ-20261012-5bd1-01..14 have measured records, apply each unit's registered rule, re-run family BH (q=0.10, budget 600) over every landed cell, list closed vs open configurations, run the ledgered holdout confirmations for survivors (cap 20, Holm), and write back to M28 + NEWS-ALPHA-PROGRAM. Program index docs/research/news-alpha-program-2026-10-12.md."
+}

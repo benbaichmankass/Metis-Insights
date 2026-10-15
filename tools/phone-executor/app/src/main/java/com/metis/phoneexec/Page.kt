@@ -3,7 +3,10 @@ package com.metis.phoneexec
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.PixelFormat
+import android.os.SystemClock
 import android.provider.Settings
+import android.view.InputDevice
+import android.view.MotionEvent
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -31,6 +34,23 @@ class Page(val web: WebView, private val execSrc: String) {
     /** null on anything unreadable, a timeout included (the kiosk's jsObj semantics; js() still counts the timeout) */
     suspend fun obj(code: String): JSONObject? = try { JSONObject(js("JSON.stringify($code)")) } catch (e: Exception) { null }
     fun load(url: String) = web.loadUrl(url)
+    /** A REAL touch (BREAKOUT-NATIVE-TAP): ACTION_DOWN, ~70 ms, ACTION_UP dispatched to the WebView at CSS point
+     *  ([x], [y]) of a [vw]-wide viewport. Chromium receives it as a trusted touch, unlike any event exec.js can build.
+     *  The CSS-to-view scale is MEASURED as view width / window.innerWidth (no density assumption). The caller has
+     *  already had exec.js check the point (sheetTarget: the cell itself, nothing denied). "touched k=<scale>" or why not. */
+    suspend fun tap(x: Double, y: Double, vw: Double): String {
+        if (vw <= 0.0 || web.width <= 0) return "no_size"
+        val k = web.width / vw
+        val px = (x * k).toFloat(); val py = (y * k).toFloat()
+        if (px < 0f || py < 0f || px >= web.width || py >= web.height) return "off_view"
+        val t0 = SystemClock.uptimeMillis()
+        val down = MotionEvent.obtain(t0, t0, MotionEvent.ACTION_DOWN, px, py, 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
+        val okDown = web.dispatchTouchEvent(down); down.recycle()
+        delay(70)
+        val up = MotionEvent.obtain(t0, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, px, py, 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
+        val okUp = web.dispatchTouchEvent(up); up.recycle()
+        return "touched k=${"%.2f".format(k)}${if (okDown && okUp) "" else " unhandled"}"
+    }
     /** After a navigation: poll (every 2 s, up to [maxMs]) until the document is complete and __ex.state() reads. */
     suspend fun settle(maxMs: Long): JSONObject? {
         val end = System.currentTimeMillis() + maxMs
@@ -56,7 +76,8 @@ class Page(val web: WebView, private val execSrc: String) {
  * already granted for the boot restart) and detached again when the job ends, so the overlay never lingers over what
  * the operator is doing. Without the overlay permission it falls back to a detached view laid out at screen size
  * (engine "detached"); if that does not answer the app falls back to bringing the Activity forward.
- * It never runs a ticket: orders stay on the foreground path.
+ * Since PHONE-FGS-EXEC (2026-10-15) it also runs tickets: MainActivity.bgTicket() points every ticket page call at
+ * this page while one runs, with the kiosk's gates unchanged; bring-to-front is the fallback (BgTicket).
  */
 object BgWeb {
     private var page: Page? = null

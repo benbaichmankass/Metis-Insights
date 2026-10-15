@@ -287,6 +287,16 @@ def try_autoheal_restart(unit: str) -> Dict[str, Any]:
     systemctl missing) is still ``ran=True`` so the caller can render
     a useful Telegram message.
     """
+    if unit.startswith("ict-trader-live"):
+        # TELEGRAM-RESTART-MSG: the trader's boot ping names this as the cause
+        # (src/runtime/restart_cause.py consumes it). Best-effort.
+        try:
+            marker = Path(__file__).resolve().parents[1] / "runtime_logs" / "trader_restart_intent.json"
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text(json.dumps({"cause": "watchdog_autoheal", "at": int(time.time())}),
+                              encoding="utf-8")
+        except OSError:
+            pass
     try:
         proc = subprocess.run(
             ["sudo", "-n", "systemctl", "restart", unit],

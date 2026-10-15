@@ -2,7 +2,7 @@ id: RQ-20261010-419b-03
 title: >-
   Trend-family long/short asymmetry: do trend_donchian legs earn their R on the LONG side only (live bybit_2/prop
   legs: eth_4h, xrp_4h, eth_prop, sol_prop)? (perf-followup 2026-W41 L2)
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 1
@@ -97,3 +97,16 @@ related:
 - scripts/research/e38_pooled_trend_donchian.py
 - RQ-20261007-904
 last_dispatched_at: '2026-10-11T06:05:57+00:00'
+grading:
+  attested: RULE-RQ-20261010-419b-03-PREREG
+  auto: true
+  decision_rule_id: RULE-RQ-20261010-419b-03-PREREG
+  evidence:
+  - research/results/RQ-20261010-419b-03/38116961762.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'hand-written unit, every row graded under its own registered rule: FAIL closes it (no template
+    confirmatory re-run)'
+  reason: 1 row(s), all measured, all fail
+  rows: 1
+  verdict: fail

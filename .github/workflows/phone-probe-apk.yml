@@ -14,6 +14,12 @@ on:
       - '.github/workflows/phone-probe-apk.yml'
   workflow_dispatch:
 
+# GH-CAPACITY-INFRA-FIRST (2026-10-15): a debug-APK build for a superseded commit on the same ref is
+# worthless; cancel it so it stops holding one of the repo's 20 runner slots.
+concurrency:
+  group: phone-probe-apk-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-22",
+    "kind": "date"
+  },
+  "id": "PI-20261015-N6RCMVTJ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "GH-CAPACITY-PR-CI-FANOUT / PR #18240; manager ask 2026-10-15T09:53Z",
+    "rerun": "grep -n 'schedule' .github/workflows/guards.yml  # no schedule arm (and no last-graded-sha base in run_guards) = still open"
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 1,
+  "what": "Diff-scoped guards have no bounded post-merge run on main. Auto-merged (GITHUB_TOKEN) merge commits start no guards push run. The next push run's before...sha range begins AT the token-merged commit, so that commit's diff is never graded by the diff-scoped guards. main-tree-watch (hourly) grades only the diff-INDEPENDENT rules, by design (run_guards --base main on main diffs against itself). pytest-run got a 30-min backstop in #18240 (scripts/ci/pytest_run_backstop.py: run on HEAD unless a completed full run on an ancestor is followed only by suite-neutral commits). The same shape for guards needs a 'last graded sha' input to run_guards (--base <last fully-graded sha>), which is a design change to run_guards, so it is not folded into #18240."
+}

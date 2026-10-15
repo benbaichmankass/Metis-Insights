@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI only (manager session_01VduHYzdaXe27wTDBLSu8ao asked for it as a Tier-1 self-land, 2026-10-15 08:58Z). phone-executor-apk.yml is split into `check` (debug compile, JVM unit tests, page-side check; per-ref concurrency group) and `apk` (signed release + upload; main / workflow_dispatch only, shared signing group). Fixes PI-20261015-QC5PFG9A-0001: one shared group kept one pending job, so branch merges of main cancelled each other's APK jobs (runs 215-223; #18217 cancelled 3 times). No runtime, order-path, VM or app code touched; docs catalog + design-doc install step updated."
+}

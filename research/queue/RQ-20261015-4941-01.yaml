@@ -1,0 +1,106 @@
+id: RQ-20261015-4941-01
+title: 'CONFIRM RQ-20261014-470a-05 on a fresh window: does ada_pullback_2h pullback_frac=0.618 still beat the declared setting on the 730 days
+  BEFORE the window it was chosen on, net of the full cost stack, with no re-selection?'
+status: queued
+cadence: once
+theme: live_strategy
+priority: 1
+kind: experiment
+question: 'RQ-20261014-470a-05 PASSED (F0618: dR +11.76 R, dDD -5.81 R, 3/4 folds, n(B)=111, 2024-10-05..2026-10-04) but F0618 was the best of
+  THREE pre-registered arms on ONE leg on ONE window, so its dR carries selection inflation. This unit re-asks the single chosen arm against the
+  declared setting on the disjoint, immediately preceding window (2022-10-05 .. 2024-10-04), which the selection never saw. Two arms only (B,
+  F0618): there is nothing to select among, so the verdict is F0618''s alone. The RQ-20261014-470a-05 window is NOT pooled with this one.'
+why_this_matters: 'The RQ-20261014-470a-05 rule registered this rung (S0-C) before its run: a best-of-3 single-window PASS is a LEAD, and no Tier-3
+  proposal is written until a fresh-window unit reads CONFIRMED. ada_pullback_2h is a real-money leg, so a selection-artifact promoted to a config
+  change is the error the ladder exists to refuse.'
+power:
+  expected_n: 110
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: d=0.45 at alpha 0.05 / power 0.8 needs 39 trades (the repo standing E35 floor). expected_n=110 is an ESTIMATE from the 470a-05 window
+    n(B)=111 over the same 730-day length, not a measurement of this window. Below 39 baseline trades the unit grades indeterminate (underpowered),
+    never FAIL. The R bar is a MATERIALITY bar over the whole window, not a significance test; the 3-of-4 fold majority refuses a one-period artifact.
+  feasibility:
+    source: none
+    accrual_basis: Re-measurement on freshly fetched keyless Binance Vision candles over a pinned window; the harness replays history, nothing
+      accrues.
+decision_rule:
+  id: RULE-RQ20261015494101
+  registered_at: '2026-10-15'
+  registered_before_run: true
+  statistic: 'Per arm, from the harness''s own --json summary (argv built by regime_debt_matrix.build_harness_cmd plus the arm''s tokens; full
+    cost stack: fee + resolved slippage + funding via execution_costs.resolve_cost_policy, never a zero default): total_trades, net_total_r, max_drawdown_r,
+    plus net_r per fold over FOUR equal calendar spans (same boundaries every arm). Arms: B = leg as declared; F0618 = pullback_frac=0.618. No
+    other arm. dR = net_r(F0618) - net_r(B); dDD = maxDD(F0618) - maxDD(B); fold_wins = folds in which F0618 out-earns B. Also reported per arm,
+    not graded: net_r_per_capital_day.'
+  rule: 'indeterminate IF n(B) < 39 (underpowered: no verdict; never FAIL on thin n); no committed record exists on this window, so no positive
+    control is passed and the B arm is itself the baseline. F0618 PASSES iff dR >= 1.0 R AND dDD <= 0 AND fold_wins >= 3 of 4. PASS reads CONFIRMED:
+    the RQ-20261014-470a-05 lead survives out of sample; the owning checklist row (P3-STRATEGY-PROGRAMME) gets a Tier-3 PROPOSAL note for the
+    manager (evidence = both records), never a config edit. FAIL reads NOT CONFIRMED: the RQ-20261014-470a-05 PASS is recorded as a selection/period
+    artifact, the declared value stays, and the axis is honest_negative for ada_pullback_2h on the earlier window. indeterminate (n(B) < 39):
+    file one follow-up on the manager''s note, nothing else changed. The 1.0 R bar, the drawdown clause, the 3-of-4 fold majority and the 39 floor
+    are the RQ-20261014-470a-05 bars, unchanged after any result.'
+  what_it_does_not_do: 'Does not re-select: one candidate arm, fixed before any run. Does not pool the in-sample window. Does not edit config
+    or any roster; a CONFIRMED is a proposal input via the manager, never a promotion case on its own. Does not test any other axis or leg.'
+compute: cpu_light
+value:
+  usd_at_stake_per_month: 80
+  confidence: 0.3
+  bucket: own_losses
+  basis: 'stand-in: a real-money 2h pullback leg plus its mirror; estimate, not a measurement.'
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 20
+  basis: One keyless Binance Vision fetch of ~1495 days and 2 harness passes over it; GitHub-hosted runner, no trainer data.
+run:
+  command:
+  - python3
+  - scripts/research/exit_lever_ablation.py
+  - --leg
+  - ada_pullback_2h
+  - --arm
+  - B=
+  - --arm
+  - F0618=pullback_frac=0.618
+  - --days
+  - '1495'
+  - --start
+  - '2022-10-05'
+  - --end
+  - 2024-10-04 23:59
+  - --grade
+  - sweep
+  - --baseline
+  - B
+  - --delta-r
+  - '1.0'
+  - --fold-majority
+  - '3'
+  - --n-floor
+  - '39'
+  - --out
+  - '{out_dir}'
+  timeout_minutes: 60
+  inputs:
+    research_unit: RQ-20261015-4941-01
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+  note: research/results/RQ-20261015-4941-01/<run_id>.jsonl via the batch collector; per-arm summaries and verdict.json under comms/research/RQ-20261015-4941-01/<run_id>/.
+roadmap:
+- M21
+- L-LADDER
+related:
+- RQ-20261014-470a-05
+- P3-STRATEGY-PROGRAMME
+- docs/research/programmes/03-STRATEGY-IMPROVEMENT.md
+- scripts/research/exit_lever_ablation.py
+grading:
+  auto: true
+  decision_rule_id: RULE-RQ20261015494101

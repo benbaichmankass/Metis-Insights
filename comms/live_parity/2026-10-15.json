@@ -1,0 +1,4621 @@
+{
+ "schemaVersion": 1,
+ "generatedAt": "2026-10-15T08:01:43+00:00",
+ "window": {
+  "since": "2026-10-08T07:30:00+00:00",
+  "until": "2026-10-15T07:30:00+00:00"
+ },
+ "bundle": {
+  "fetched_at": "2026-10-15T07:57:56+00:00",
+  "requests": 81,
+  "order_packages_complete": true,
+  "trades_complete": true
+ },
+ "status": "ok",
+ "totals": {
+  "real_money_legs": 7,
+  "real_money_legs_checked": 7,
+  "real_money_legs_could_not_check": [],
+  "legs_checked": 16,
+  "bars_checked": 296,
+  "real_money_bars_checked": 260,
+  "evals_checked": 20385,
+  "divergences_real_money": 0,
+  "divergences_all": 0
+ },
+ "controls": {
+  "planted_defect": {
+   "state": "pass",
+   "plants": [
+    {
+     "plant": "replay_signal_live_none",
+     "leg": "ada_pullback_2h",
+     "window": "2026-10-09T08:30:00+00:00",
+     "flagged": true
+    },
+    {
+     "plant": "lost_bar",
+     "leg": "ada_pullback_2h",
+     "bar": "2026-10-08T08:00:00+00:00",
+     "flagged": true
+    },
+    {
+     "plant": "live_signal_replay_none",
+     "leg": "ada_pullback_2h",
+     "flagged": true,
+     "window": "2026-10-08T08:00:00+00:00"
+    }
+   ]
+  },
+  "historical_positive": {
+   "state": "pass",
+   "packages_checked": 11,
+   "packages_matched": 11,
+   "packages": [
+    {
+     "leg": "xrp_pullback_2h",
+     "package": "pkg-63b56da53bfe4d64",
+     "created_at": "2026-10-09T06:02:27.803608+00:00",
+     "bar": "2026-10-09T06:00:00+00:00",
+     "status": "matched_signal",
+     "matched": true
+    },
+    {
+     "leg": "xrp_pullback_2h",
+     "package": "pkg-249a260aaf094ea5",
+     "created_at": "2026-10-09T04:41:24.896136+00:00",
+     "bar": "2026-10-09T04:00:00+00:00",
+     "status": "matched_signal",
+     "matched": true
+    },
+    {
+     "leg": "trend_donchian_eth_4h",
+     "package": "pkg-9717b4e639944dfb",
+     "created_at": "2026-10-15T02:28:29.065731+00:00",
+     "bar": "2026-10-15T00:00:00+00:00",
+     "status": "matched_signal",
+     "matched": true
+    },
+    {
+     "leg": "tlt_pullback_1d",
+     "package": "pkg-908bc6e0c0f946eb",
+     "created_at": "2026-10-14T13:31:57.125257+00:00",
+     "bar": "2026-10-14T04:00:00+00:00",
+     "status": "matched_signal",
+     "matched": true
+    },
+    {
+     "leg": "trend_donchian_eth_4h",
+     "package": "pkg-6808b9ae4e4a4a27",
+     "created_at": "2026-10-12T23:06:33.493718+00:00",
+     "bar": "2026-10-12T20:00:00+00:00",
+     "status": "matched_signal",
+     "matched": true
+    },
+    {
+     "leg": "ada_pullback_2h",
+     "package": "pkg-b579b3ec33e34571",
+     "created_at": "2026-10-11T00:03:24.004719+00:00",
+     "bar": "2026-10-11T00:00:00+00:00",
+     "status": "matched_signal",
+     "matched": true
+    },
+    {
+     "leg": "tlt_pullback_1d",
+     "package": "pkg-bec2df7ab1c143d1",
+     "created_at": "2026-10-12T13:31:51.983981+00:00",
+     "bar": "2026-10-12T04:00:00+00:00",
+     "status": "matched_signal",
+     "matched": true
+    },
+    {
+     "leg": "ada_pullback_2h",
+     "package": "pkg-ea4c4862fbd04d3b",
+     "created_at": "2026-10-09T08:04:20.678824+00:00",
+     "bar": "2026-10-09T08:00:00+00:00",
+     "status": "matched_signal",
+     "matched": true
+    },
+    {
+     "leg": "tlt_pullback_1d",
+     "package": "pkg-c65c66dccd364fee",
+     "created_at": "2026-10-09T13:33:54.059565+00:00",
+     "bar": "2026-10-09T04:00:00+00:00",
+     "status": "matched_signal",
+     "matched": true
+    },
+    {
+     "leg": "trend_donchian_xrp_4h",
+     "package": "pkg-084ce54398fd4570",
+     "created_at": "2026-10-08T16:00:42.879964+00:00",
+     "bar": "2026-10-08T12:00:00+00:00",
+     "status": "matched_signal",
+     "matched": true
+    },
+    {
+     "leg": "xrp_pullback_2h",
+     "package": "pkg-800b6535825b48b2",
+     "created_at": "2026-10-09T02:00:38.144841+00:00",
+     "bar": "2026-10-09T02:00:00+00:00",
+     "status": "matched_signal",
+     "matched": true
+    }
+   ],
+   "anchors": [
+    {
+     "leg": "trend_donchian_eth_4h",
+     "t": "2026-09-28T03:30:00+00:00",
+     "side": "short",
+     "note": "forming-bar entry, order package 09-28T03:35Z",
+     "state": "could_not_check",
+     "reason": "outside this run's checked bars (window / 15m reach)"
+    },
+    {
+     "leg": "ada_pullback_2h",
+     "t": "2026-09-26T06:00:00+00:00",
+     "side": "long",
+     "note": "09-26 entry (replay SIG 06:00 bar)",
+     "state": "could_not_check",
+     "reason": "outside this run's checked bars (window / 15m reach)"
+    }
+   ]
+  },
+  "liveness": {
+   "state": "pass",
+   "chains_in_window": 70,
+   "latest": [
+    {
+     "strategy": "pairs_bnb_btc_b",
+     "created_at": "2026-10-15T05:02:01.266626+00:00",
+     "package": "pkg-cee7532f01c34d57",
+     "accounts": [
+      "bybit_1"
+     ]
+    },
+    {
+     "strategy": "pairs_bnb_btc_a",
+     "created_at": "2026-10-15T05:02:00.376365+00:00",
+     "package": "pkg-0ec534e8bd3b46c8",
+     "accounts": [
+      "bybit_1"
+     ]
+    },
+    {
+     "strategy": "pairs_sol_eth_b",
+     "created_at": "2026-10-15T03:06:06.370920+00:00",
+     "package": "pkg-396d201157984cda",
+     "accounts": [
+      "bybit_1"
+     ]
+    }
+   ],
+   "accounts_seen": [
+    "bybit_1",
+    "bybit_2",
+    "bybit_portfolio",
+    "ib_paper"
+   ]
+  }
+ },
+ "legs": [
+  {
+   "leg": "ada_pullback_2h",
+   "symbol": "ADAUSDT",
+   "timeframe": "2h",
+   "unit": "htf_pullback_trend_2h",
+   "decision_bar": "forming",
+   "execution": "live",
+   "accounts": [
+    "bybit_2",
+    "bybit_portfolio",
+    "bybit_1"
+   ],
+   "real_money": true,
+   "features": {
+    "side_filter": true,
+    "decision_frame": false,
+    "us_session_gate": false,
+    "long_only": false
+   },
+   "state": "checked",
+   "reason": null,
+   "bars_checked": 83,
+   "evals_checked": 4235,
+   "divergences": 0,
+   "by_class": {
+    "previous_bar_signal": 0,
+    "missed_signal": 0,
+    "live_only_signal": 0,
+    "side_mismatch": 0,
+    "candle_mismatch": 0,
+    "lost_bar": 0,
+    "unevaluated_signal": 0,
+    "dropped_no_package": 0,
+    "dropped_no_order": 0
+   },
+   "bars": [
+    {
+     "bar": "2026-10-08T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-08T10:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-08T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-08T14:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 48,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-08T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-08T18:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-08T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-08T22:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T02:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T06:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T08:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 49,
+     "signal_evals": 39,
+     "downstream": {
+      "class": null,
+      "packages": [
+       "pkg-ea4c4862fbd04d3b"
+      ],
+      "gates": [],
+      "orders_by_account": {
+       "bybit_portfolio": [
+        {
+         "id": 6550,
+         "status": "closed"
+        }
+       ],
+       "bybit_2": [
+        {
+         "id": 6549,
+         "status": "closed"
+        }
+       ],
+       "bybit_1": [
+        {
+         "id": 6548,
+         "status": "closed"
+        }
+       ]
+      }
+     }
+    },
+    {
+     "bar": "2026-10-09T10:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 51,
+     "signal_evals": 21,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-ea4c4862fbd04d3b"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-09T12:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 51,
+     "signal_evals": 44,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-ea4c4862fbd04d3b"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-09T14:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 49,
+     "signal_evals": 12,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-ea4c4862fbd04d3b"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-09T16:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 49,
+     "signal_evals": 6,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-ea4c4862fbd04d3b"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-09T18:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 48,
+     "signal_evals": 32,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-ea4c4862fbd04d3b"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-09T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T22:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 49,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 49,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T02:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T06:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T10:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T14:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T18:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T22:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T00:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 50,
+     "signal_evals": 8,
+     "downstream": {
+      "class": null,
+      "packages": [
+       "pkg-b579b3ec33e34571"
+      ],
+      "gates": [
+       "open_package_blocked"
+      ],
+      "orders_by_account": {
+       "bybit_portfolio": [
+        {
+         "id": 6566,
+         "status": "closed"
+        }
+       ],
+       "bybit_2": [
+        {
+         "id": 6565,
+         "status": "closed"
+        }
+       ],
+       "bybit_1": [
+        {
+         "id": 6564,
+         "status": "closed"
+        }
+       ]
+      }
+     }
+    },
+    {
+     "bar": "2026-10-11T02:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 49,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T06:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T10:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 49,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T14:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T18:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T22:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 49,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T02:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T06:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T10:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T14:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 53,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T18:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T22:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T02:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T06:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 54,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 53,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T10:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 53,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 53,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T14:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 53,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T18:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 53,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T22:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 54,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T02:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 53,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T06:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 53,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T10:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 53,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T14:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T18:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 55,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T22:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 55,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-15T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 54,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-15T02:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-15T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    }
+   ],
+   "bars_not_comparable": 0,
+   "divergence_detail": [],
+   "replay_calls": 9832,
+   "mode_notes": {},
+   "frames_without_current_bar": {
+    "n": 0,
+    "examples": []
+   },
+   "stale_frames": {
+    "n": 0,
+    "p50_s": null,
+    "p90_s": null,
+    "max_s": null
+   },
+   "adx_gap_max": 0.0,
+   "live_evals_in_window": 4286,
+   "matched_signal_bars": [
+    "2026-10-09T08:00:00+00:00",
+    "2026-10-09T10:00:00+00:00",
+    "2026-10-09T12:00:00+00:00",
+    "2026-10-09T14:00:00+00:00",
+    "2026-10-09T16:00:00+00:00",
+    "2026-10-09T18:00:00+00:00",
+    "2026-10-11T00:00:00+00:00"
+   ],
+   "replay_signal_windows": [
+    "2026-10-09T08:30:00+00:00|short",
+    "2026-10-09T09:15:00+00:00|short",
+    "2026-10-09T09:30:00+00:00|short",
+    "2026-10-09T09:45:00+00:00|short",
+    "2026-10-09T12:30:00+00:00|short",
+    "2026-10-09T12:45:00+00:00|short",
+    "2026-10-09T13:00:00+00:00|short",
+    "2026-10-09T13:15:00+00:00|short",
+    "2026-10-09T13:30:00+00:00|short",
+    "2026-10-09T13:45:00+00:00|short",
+    "2026-10-09T18:45:00+00:00|short",
+    "2026-10-09T19:00:00+00:00|short",
+    "2026-10-09T19:15:00+00:00|short"
+   ],
+   "replay_none_windows": [
+    "2026-10-08T07:45:00+00:00",
+    "2026-10-08T08:00:00+00:00",
+    "2026-10-08T08:15:00+00:00",
+    "2026-10-08T08:30:00+00:00",
+    "2026-10-08T08:45:00+00:00",
+    "2026-10-08T09:00:00+00:00",
+    "2026-10-08T09:15:00+00:00",
+    "2026-10-08T09:30:00+00:00",
+    "2026-10-08T09:45:00+00:00",
+    "2026-10-08T10:00:00+00:00",
+    "2026-10-08T10:15:00+00:00",
+    "2026-10-08T10:45:00+00:00",
+    "2026-10-08T11:00:00+00:00",
+    "2026-10-08T11:15:00+00:00",
+    "2026-10-08T11:30:00+00:00",
+    "2026-10-08T11:45:00+00:00",
+    "2026-10-08T12:00:00+00:00",
+    "2026-10-08T12:15:00+00:00",
+    "2026-10-08T12:30:00+00:00",
+    "2026-10-08T12:45:00+00:00",
+    "2026-10-08T13:00:00+00:00",
+    "2026-10-08T13:15:00+00:00",
+    "2026-10-08T13:30:00+00:00",
+    "2026-10-08T13:45:00+00:00",
+    "2026-10-08T14:00:00+00:00",
+    "2026-10-08T14:15:00+00:00",
+    "2026-10-08T14:30:00+00:00",
+    "2026-10-08T14:45:00+00:00",
+    "2026-10-08T15:00:00+00:00",
+    "2026-10-08T15:15:00+00:00",
+    "2026-10-08T15:30:00+00:00",
+    "2026-10-08T15:45:00+00:00",
+    "2026-10-08T16:00:00+00:00",
+    "2026-10-08T16:15:00+00:00",
+    "2026-10-08T16:30:00+00:00",
+    "2026-10-08T16:45:00+00:00",
+    "2026-10-08T17:00:00+00:00",
+    "2026-10-08T17:15:00+00:00",
+    "2026-10-08T17:30:00+00:00",
+    "2026-10-08T17:45:00+00:00",
+    "2026-10-08T18:00:00+00:00",
+    "2026-10-08T18:15:00+00:00",
+    "2026-10-08T18:30:00+00:00",
+    "2026-10-08T18:45:00+00:00",
+    "2026-10-08T19:00:00+00:00",
+    "2026-10-08T19:15:00+00:00",
+    "2026-10-08T19:30:00+00:00",
+    "2026-10-08T19:45:00+00:00",
+    "2026-10-08T20:00:00+00:00",
+    "2026-10-08T20:15:00+00:00"
+   ]
+  },
+  {
+   "leg": "iaum_pullback_1d",
+   "symbol": "IAUM",
+   "timeframe": "1d",
+   "unit": "htf_pullback_trend_2h",
+   "decision_bar": "forming",
+   "execution": "live",
+   "accounts": [
+    "alpaca_live",
+    "alpaca_paper"
+   ],
+   "real_money": true,
+   "features": {
+    "side_filter": false,
+    "decision_frame": false,
+    "us_session_gate": true,
+    "long_only": false
+   },
+   "state": "checked",
+   "reason": null,
+   "bars_checked": 4,
+   "evals_checked": 612,
+   "divergences": 0,
+   "by_class": {
+    "previous_bar_signal": 0,
+    "missed_signal": 0,
+    "live_only_signal": 0,
+    "side_mismatch": 0,
+    "candle_mismatch": 0,
+    "lost_bar": 0,
+    "unevaluated_signal": 0,
+    "dropped_no_package": 0,
+    "dropped_no_order": 0
+   },
+   "bars": [
+    {
+     "bar": "2026-10-09T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 158,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 164,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 163,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 166,
+     "signal_evals": 0
+    }
+   ],
+   "bars_not_comparable": 39,
+   "divergence_detail": [],
+   "replay_calls": 944,
+   "mode_notes": {},
+   "frames_without_current_bar": {
+    "n": 0,
+    "examples": []
+   },
+   "stale_frames": {
+    "n": 77,
+    "p50_s": 563.0,
+    "p90_s": 1335.4,
+    "max_s": 1935.3025109767914
+   },
+   "adx_gap_max": 0.0,
+   "live_evals_in_window": 807,
+   "matched_signal_bars": [],
+   "replay_signal_windows": [],
+   "replay_none_windows": [
+    "2026-10-09T13:30:00+00:00",
+    "2026-10-09T13:45:00+00:00",
+    "2026-10-09T14:00:00+00:00",
+    "2026-10-09T14:15:00+00:00",
+    "2026-10-09T14:30:00+00:00",
+    "2026-10-09T14:45:00+00:00",
+    "2026-10-09T15:00:00+00:00",
+    "2026-10-09T15:15:00+00:00",
+    "2026-10-09T15:30:00+00:00",
+    "2026-10-09T15:45:00+00:00",
+    "2026-10-09T16:00:00+00:00",
+    "2026-10-09T16:15:00+00:00",
+    "2026-10-09T16:30:00+00:00",
+    "2026-10-09T16:45:00+00:00",
+    "2026-10-09T17:00:00+00:00",
+    "2026-10-09T17:15:00+00:00",
+    "2026-10-09T17:30:00+00:00",
+    "2026-10-09T17:45:00+00:00",
+    "2026-10-09T18:00:00+00:00",
+    "2026-10-09T18:30:00+00:00",
+    "2026-10-09T18:45:00+00:00",
+    "2026-10-09T19:00:00+00:00",
+    "2026-10-09T19:15:00+00:00",
+    "2026-10-09T19:30:00+00:00",
+    "2026-10-09T19:45:00+00:00",
+    "2026-10-12T13:30:00+00:00",
+    "2026-10-12T13:45:00+00:00",
+    "2026-10-12T14:00:00+00:00",
+    "2026-10-12T14:15:00+00:00",
+    "2026-10-12T14:30:00+00:00",
+    "2026-10-12T14:45:00+00:00",
+    "2026-10-12T15:00:00+00:00",
+    "2026-10-12T15:30:00+00:00",
+    "2026-10-12T15:45:00+00:00",
+    "2026-10-12T16:00:00+00:00",
+    "2026-10-12T16:15:00+00:00",
+    "2026-10-12T16:45:00+00:00",
+    "2026-10-12T17:15:00+00:00",
+    "2026-10-12T18:00:00+00:00",
+    "2026-10-12T18:15:00+00:00",
+    "2026-10-12T18:30:00+00:00",
+    "2026-10-12T18:45:00+00:00",
+    "2026-10-12T19:00:00+00:00",
+    "2026-10-12T19:15:00+00:00",
+    "2026-10-12T19:30:00+00:00",
+    "2026-10-12T19:45:00+00:00",
+    "2026-10-13T13:30:00+00:00",
+    "2026-10-13T13:45:00+00:00",
+    "2026-10-13T14:00:00+00:00",
+    "2026-10-13T14:15:00+00:00"
+   ]
+  },
+  {
+   "leg": "ief_pullback_1d",
+   "symbol": "IEF",
+   "timeframe": "1d",
+   "unit": "htf_pullback_trend_2h",
+   "decision_bar": "forming",
+   "execution": "live",
+   "accounts": [
+    "alpaca_live",
+    "alpaca_portfolio",
+    "alpaca_paper"
+   ],
+   "real_money": true,
+   "features": {
+    "side_filter": false,
+    "decision_frame": false,
+    "us_session_gate": true,
+    "long_only": false
+   },
+   "state": "checked",
+   "reason": null,
+   "bars_checked": 4,
+   "evals_checked": 642,
+   "divergences": 0,
+   "by_class": {
+    "previous_bar_signal": 0,
+    "missed_signal": 0,
+    "live_only_signal": 0,
+    "side_mismatch": 0,
+    "candle_mismatch": 0,
+    "lost_bar": 0,
+    "unevaluated_signal": 0,
+    "dropped_no_package": 0,
+    "dropped_no_order": 0
+   },
+   "bars": [
+    {
+     "bar": "2026-10-09T04:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 159,
+     "signal_evals": 95,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-5e636e3adddf4a83"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-12T04:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 167,
+     "signal_evals": 118,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-5e636e3adddf4a83"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-13T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 164,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T04:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 167,
+     "signal_evals": 85,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-5e636e3adddf4a83"
+      ]
+     }
+    }
+   ],
+   "bars_not_comparable": 15,
+   "divergence_detail": [],
+   "replay_calls": 1188,
+   "mode_notes": {},
+   "frames_without_current_bar": {
+    "n": 0,
+    "examples": []
+   },
+   "stale_frames": {
+    "n": 16,
+    "p50_s": 542.0,
+    "p90_s": 1008.2,
+    "max_s": 1151.7480599880219
+   },
+   "adx_gap_max": 0.1361,
+   "live_evals_in_window": 818,
+   "matched_signal_bars": [
+    "2026-10-09T04:00:00+00:00",
+    "2026-10-12T04:00:00+00:00",
+    "2026-10-14T04:00:00+00:00"
+   ],
+   "replay_signal_windows": [
+    "2026-10-09T16:30:00+00:00|short",
+    "2026-10-09T16:45:00+00:00|short",
+    "2026-10-09T17:00:00+00:00|short",
+    "2026-10-09T17:15:00+00:00|short",
+    "2026-10-09T17:30:00+00:00|short",
+    "2026-10-09T17:45:00+00:00|short",
+    "2026-10-09T18:00:00+00:00|short",
+    "2026-10-09T18:15:00+00:00|short",
+    "2026-10-09T18:30:00+00:00|short",
+    "2026-10-09T18:45:00+00:00|short",
+    "2026-10-09T19:00:00+00:00|short",
+    "2026-10-09T19:15:00+00:00|short",
+    "2026-10-09T19:30:00+00:00|short",
+    "2026-10-09T19:45:00+00:00|short",
+    "2026-10-12T13:30:00+00:00|short",
+    "2026-10-12T13:45:00+00:00|short",
+    "2026-10-12T14:15:00+00:00|short",
+    "2026-10-12T14:30:00+00:00|short",
+    "2026-10-12T14:45:00+00:00|short",
+    "2026-10-12T15:00:00+00:00|short",
+    "2026-10-12T15:30:00+00:00|short",
+    "2026-10-12T15:45:00+00:00|short",
+    "2026-10-12T16:00:00+00:00|short",
+    "2026-10-12T16:15:00+00:00|short",
+    "2026-10-12T16:45:00+00:00|short",
+    "2026-10-12T18:45:00+00:00|short",
+    "2026-10-14T14:15:00+00:00|short",
+    "2026-10-14T14:30:00+00:00|short",
+    "2026-10-14T14:45:00+00:00|short",
+    "2026-10-14T15:00:00+00:00|short",
+    "2026-10-14T15:15:00+00:00|short",
+    "2026-10-14T15:30:00+00:00|short",
+    "2026-10-14T15:45:00+00:00|short",
+    "2026-10-14T16:00:00+00:00|short",
+    "2026-10-14T16:15:00+00:00|short",
+    "2026-10-14T16:30:00+00:00|short",
+    "2026-10-14T16:45:00+00:00|short",
+    "2026-10-14T17:00:00+00:00|short"
+   ],
+   "replay_none_windows": [
+    "2026-10-09T13:15:00+00:00",
+    "2026-10-09T13:45:00+00:00",
+    "2026-10-09T14:00:00+00:00",
+    "2026-10-09T14:15:00+00:00",
+    "2026-10-09T14:30:00+00:00",
+    "2026-10-09T14:45:00+00:00",
+    "2026-10-09T15:00:00+00:00",
+    "2026-10-09T15:15:00+00:00",
+    "2026-10-09T15:30:00+00:00",
+    "2026-10-12T19:45:00+00:00",
+    "2026-10-13T13:30:00+00:00",
+    "2026-10-13T13:45:00+00:00",
+    "2026-10-13T14:00:00+00:00",
+    "2026-10-13T14:15:00+00:00",
+    "2026-10-13T14:30:00+00:00",
+    "2026-10-13T14:45:00+00:00",
+    "2026-10-13T15:00:00+00:00",
+    "2026-10-13T15:15:00+00:00",
+    "2026-10-13T15:30:00+00:00",
+    "2026-10-13T15:45:00+00:00",
+    "2026-10-13T16:00:00+00:00",
+    "2026-10-13T16:15:00+00:00",
+    "2026-10-13T16:30:00+00:00",
+    "2026-10-13T16:45:00+00:00",
+    "2026-10-13T17:00:00+00:00",
+    "2026-10-13T17:15:00+00:00",
+    "2026-10-13T17:30:00+00:00",
+    "2026-10-13T17:45:00+00:00",
+    "2026-10-13T18:00:00+00:00",
+    "2026-10-13T18:15:00+00:00",
+    "2026-10-13T18:30:00+00:00",
+    "2026-10-13T18:45:00+00:00",
+    "2026-10-13T19:00:00+00:00",
+    "2026-10-13T19:15:00+00:00",
+    "2026-10-13T19:30:00+00:00",
+    "2026-10-13T19:45:00+00:00",
+    "2026-10-14T13:30:00+00:00",
+    "2026-10-14T13:45:00+00:00",
+    "2026-10-14T17:30:00+00:00",
+    "2026-10-14T18:00:00+00:00",
+    "2026-10-14T18:15:00+00:00",
+    "2026-10-14T18:30:00+00:00",
+    "2026-10-14T18:45:00+00:00",
+    "2026-10-14T19:00:00+00:00",
+    "2026-10-14T19:15:00+00:00",
+    "2026-10-14T19:30:00+00:00",
+    "2026-10-14T19:45:00+00:00"
+   ]
+  },
+  {
+   "leg": "slv_pullback_1d",
+   "symbol": "SLV",
+   "timeframe": "1d",
+   "unit": "htf_pullback_trend_2h",
+   "decision_bar": "forming",
+   "execution": "live",
+   "accounts": [
+    "alpaca_live",
+    "alpaca_portfolio",
+    "alpaca_paper"
+   ],
+   "real_money": true,
+   "features": {
+    "side_filter": false,
+    "decision_frame": false,
+    "us_session_gate": true,
+    "long_only": false
+   },
+   "state": "checked",
+   "reason": null,
+   "bars_checked": 4,
+   "evals_checked": 657,
+   "divergences": 0,
+   "by_class": {
+    "previous_bar_signal": 0,
+    "missed_signal": 0,
+    "live_only_signal": 0,
+    "side_mismatch": 0,
+    "candle_mismatch": 0,
+    "lost_bar": 0,
+    "unevaluated_signal": 0,
+    "dropped_no_package": 0,
+    "dropped_no_order": 0
+   },
+   "bars": [
+    {
+     "bar": "2026-10-09T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 159,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 167,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 164,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 167,
+     "signal_evals": 0
+    }
+   ],
+   "bars_not_comparable": 0,
+   "divergence_detail": [],
+   "replay_calls": 1339,
+   "mode_notes": {},
+   "frames_without_current_bar": {
+    "n": 0,
+    "examples": []
+   },
+   "stale_frames": {
+    "n": 4,
+    "p50_s": 385.8,
+    "p90_s": 444.6,
+    "max_s": 444.5781719684601
+   },
+   "adx_gap_max": 0.0382,
+   "live_evals_in_window": 818,
+   "matched_signal_bars": [],
+   "replay_signal_windows": [],
+   "replay_none_windows": [
+    "2026-10-09T13:30:00+00:00",
+    "2026-10-09T13:45:00+00:00",
+    "2026-10-09T14:00:00+00:00",
+    "2026-10-09T14:15:00+00:00",
+    "2026-10-09T14:30:00+00:00",
+    "2026-10-09T14:45:00+00:00",
+    "2026-10-09T15:00:00+00:00",
+    "2026-10-09T15:15:00+00:00",
+    "2026-10-09T15:30:00+00:00",
+    "2026-10-09T15:45:00+00:00",
+    "2026-10-09T16:00:00+00:00",
+    "2026-10-09T16:15:00+00:00",
+    "2026-10-09T16:30:00+00:00",
+    "2026-10-09T16:45:00+00:00",
+    "2026-10-09T17:00:00+00:00",
+    "2026-10-09T17:15:00+00:00",
+    "2026-10-09T17:30:00+00:00",
+    "2026-10-09T17:45:00+00:00",
+    "2026-10-09T18:00:00+00:00",
+    "2026-10-09T18:15:00+00:00",
+    "2026-10-09T18:30:00+00:00",
+    "2026-10-09T18:45:00+00:00",
+    "2026-10-09T19:00:00+00:00",
+    "2026-10-09T19:15:00+00:00",
+    "2026-10-09T19:30:00+00:00",
+    "2026-10-09T19:45:00+00:00",
+    "2026-10-12T13:30:00+00:00",
+    "2026-10-12T13:45:00+00:00",
+    "2026-10-12T14:00:00+00:00",
+    "2026-10-12T14:15:00+00:00",
+    "2026-10-12T14:30:00+00:00",
+    "2026-10-12T14:45:00+00:00",
+    "2026-10-12T15:00:00+00:00",
+    "2026-10-12T15:15:00+00:00",
+    "2026-10-12T15:30:00+00:00",
+    "2026-10-12T15:45:00+00:00",
+    "2026-10-12T16:00:00+00:00",
+    "2026-10-12T16:15:00+00:00",
+    "2026-10-12T16:30:00+00:00",
+    "2026-10-12T16:45:00+00:00",
+    "2026-10-12T17:00:00+00:00",
+    "2026-10-12T17:15:00+00:00",
+    "2026-10-12T17:30:00+00:00",
+    "2026-10-12T17:45:00+00:00",
+    "2026-10-12T18:00:00+00:00",
+    "2026-10-12T18:15:00+00:00",
+    "2026-10-12T18:30:00+00:00",
+    "2026-10-12T18:45:00+00:00",
+    "2026-10-12T19:00:00+00:00",
+    "2026-10-12T19:15:00+00:00"
+   ]
+  },
+  {
+   "leg": "trend_donchian_eth_4h",
+   "symbol": "ETHUSDT",
+   "timeframe": "4h",
+   "unit": "trend_donchian",
+   "decision_bar": "forming",
+   "execution": "live",
+   "accounts": [
+    "bybit_2",
+    "bybit_portfolio",
+    "bybit_1"
+   ],
+   "real_money": true,
+   "features": {
+    "side_filter": true,
+    "decision_frame": true,
+    "us_session_gate": false,
+    "long_only": false
+   },
+   "state": "checked",
+   "reason": null,
+   "bars_checked": 41,
+   "evals_checked": 4194,
+   "divergences": 0,
+   "by_class": {
+    "previous_bar_signal": 0,
+    "missed_signal": 0,
+    "live_only_signal": 0,
+    "side_mismatch": 0,
+    "candle_mismatch": 0,
+    "lost_bar": 0,
+    "unevaluated_signal": 0,
+    "dropped_no_package": 0,
+    "dropped_no_order": 0
+   },
+   "bars": [
+    {
+     "bar": "2026-10-08T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 102,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-08T12:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 99,
+     "signal_evals": 16,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-d29c9c617aa14b40"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-08T16:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 100,
+     "signal_evals": 2,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-d29c9c617aa14b40"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-08T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 103,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 103,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 102,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 100,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 101,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 98,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 99,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 100,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 101,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 100,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 100,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 104,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 102,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 100,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 100,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 100,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 101,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 102,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 99,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 100,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 101,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 102,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 102,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 104,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T20:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 104,
+     "signal_evals": 15,
+     "downstream": {
+      "class": null,
+      "packages": [
+       "pkg-6808b9ae4e4a4a27"
+      ],
+      "gates": [
+       "open_package_blocked"
+      ],
+      "orders_by_account": {
+       "bybit_portfolio": [
+        {
+         "id": 6594,
+         "status": "closed"
+        }
+       ],
+       "bybit_2": [
+        {
+         "id": 6593,
+         "status": "closed"
+        }
+       ],
+       "bybit_1": [
+        {
+         "id": 6592,
+         "status": "closed"
+        }
+       ]
+      }
+     }
+    },
+    {
+     "bar": "2026-10-13T00:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 101,
+     "signal_evals": 11,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-6808b9ae4e4a4a27"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-13T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 106,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 106,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 106,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 100,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 105,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 107,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 104,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 106,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 103,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 106,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 109,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-15T00:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 106,
+     "signal_evals": 28,
+     "downstream": {
+      "class": null,
+      "packages": [
+       "pkg-9717b4e639944dfb"
+      ],
+      "gates": [
+       "open_package_blocked"
+      ],
+      "orders_by_account": {
+       "bybit_portfolio": [
+        {
+         "id": 6624,
+         "status": "open"
+        }
+       ],
+       "bybit_2": [
+        {
+         "id": 6623,
+         "status": "open"
+        }
+       ],
+       "bybit_1": [
+        {
+         "id": 6622,
+         "status": "open"
+        }
+       ]
+      }
+     }
+    }
+   ],
+   "bars_not_comparable": 0,
+   "divergence_detail": [],
+   "replay_calls": 10129,
+   "mode_notes": {},
+   "frames_without_current_bar": {
+    "n": 0,
+    "examples": []
+   },
+   "stale_frames": {
+    "n": 0,
+    "p50_s": null,
+    "p90_s": null,
+    "max_s": null
+   },
+   "adx_gap_max": 0.0982,
+   "live_evals_in_window": 4298,
+   "matched_signal_bars": [
+    "2026-10-08T12:00:00+00:00",
+    "2026-10-08T16:00:00+00:00",
+    "2026-10-12T20:00:00+00:00",
+    "2026-10-13T00:00:00+00:00",
+    "2026-10-15T00:00:00+00:00"
+   ],
+   "replay_signal_windows": [
+    "2026-10-08T15:30:00+00:00|short",
+    "2026-10-08T15:45:00+00:00|short",
+    "2026-10-12T23:45:00+00:00|short",
+    "2026-10-15T03:30:00+00:00|short",
+    "2026-10-15T03:45:00+00:00|short"
+   ],
+   "replay_none_windows": [
+    "2026-10-08T07:45:00+00:00",
+    "2026-10-08T08:00:00+00:00",
+    "2026-10-08T08:15:00+00:00",
+    "2026-10-08T08:30:00+00:00",
+    "2026-10-08T08:45:00+00:00",
+    "2026-10-08T09:00:00+00:00",
+    "2026-10-08T09:15:00+00:00",
+    "2026-10-08T09:30:00+00:00",
+    "2026-10-08T09:45:00+00:00",
+    "2026-10-08T10:00:00+00:00",
+    "2026-10-08T10:15:00+00:00",
+    "2026-10-08T10:30:00+00:00",
+    "2026-10-08T10:45:00+00:00",
+    "2026-10-08T11:00:00+00:00",
+    "2026-10-08T11:15:00+00:00",
+    "2026-10-08T11:30:00+00:00",
+    "2026-10-08T11:45:00+00:00",
+    "2026-10-08T12:00:00+00:00",
+    "2026-10-08T12:15:00+00:00",
+    "2026-10-08T12:30:00+00:00",
+    "2026-10-08T12:45:00+00:00",
+    "2026-10-08T13:00:00+00:00",
+    "2026-10-08T13:15:00+00:00",
+    "2026-10-08T14:00:00+00:00",
+    "2026-10-08T14:15:00+00:00",
+    "2026-10-08T14:30:00+00:00",
+    "2026-10-08T14:45:00+00:00",
+    "2026-10-08T15:00:00+00:00",
+    "2026-10-08T16:00:00+00:00",
+    "2026-10-08T16:15:00+00:00",
+    "2026-10-08T16:30:00+00:00",
+    "2026-10-08T16:45:00+00:00",
+    "2026-10-08T17:00:00+00:00",
+    "2026-10-08T17:15:00+00:00",
+    "2026-10-08T17:30:00+00:00",
+    "2026-10-08T17:45:00+00:00",
+    "2026-10-08T18:00:00+00:00",
+    "2026-10-08T18:15:00+00:00",
+    "2026-10-08T18:30:00+00:00",
+    "2026-10-08T18:45:00+00:00",
+    "2026-10-08T19:00:00+00:00",
+    "2026-10-08T19:15:00+00:00",
+    "2026-10-08T19:30:00+00:00",
+    "2026-10-08T19:45:00+00:00",
+    "2026-10-08T20:00:00+00:00",
+    "2026-10-08T20:15:00+00:00",
+    "2026-10-08T20:30:00+00:00",
+    "2026-10-08T20:45:00+00:00",
+    "2026-10-08T21:00:00+00:00",
+    "2026-10-08T21:15:00+00:00"
+   ]
+  },
+  {
+   "leg": "trend_donchian_xrp_4h",
+   "symbol": "XRPUSDT",
+   "timeframe": "4h",
+   "unit": "trend_donchian",
+   "decision_bar": "closed",
+   "execution": "live",
+   "accounts": [
+    "bybit_2",
+    "bybit_portfolio",
+    "bybit_1"
+   ],
+   "real_money": true,
+   "features": {
+    "side_filter": true,
+    "decision_frame": true,
+    "us_session_gate": false,
+    "long_only": false
+   },
+   "state": "checked",
+   "reason": null,
+   "bars_checked": 41,
+   "evals_checked": 41,
+   "divergences": 0,
+   "by_class": {
+    "previous_bar_signal": 0,
+    "missed_signal": 0,
+    "live_only_signal": 0,
+    "side_mismatch": 0,
+    "candle_mismatch": 0,
+    "lost_bar": 0,
+    "unevaluated_signal": 0,
+    "dropped_no_package": 0,
+    "dropped_no_order": 0
+   },
+   "bars": [
+    {
+     "bar": "2026-10-08T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-08T12:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 1,
+     "signal_evals": 1,
+     "downstream": {
+      "class": null,
+      "packages": [
+       "pkg-084ce54398fd4570"
+      ],
+      "gates": [],
+      "orders_by_account": {
+       "bybit_portfolio": [
+        {
+         "id": 6529,
+         "status": "closed"
+        }
+       ],
+       "bybit_2": [
+        {
+         "id": 6528,
+         "status": "closed"
+        }
+       ],
+       "bybit_1": [
+        {
+         "id": 6527,
+         "status": "closed"
+        }
+       ]
+      }
+     }
+    },
+    {
+     "bar": "2026-10-08T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-08T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-15T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 1,
+     "signal_evals": 0
+    }
+   ],
+   "bars_not_comparable": 0,
+   "divergence_detail": [],
+   "replay_calls": 41,
+   "mode_notes": {},
+   "frames_without_current_bar": {
+    "n": 0,
+    "examples": []
+   },
+   "stale_frames": {
+    "n": 0,
+    "p50_s": null,
+    "p90_s": null,
+    "max_s": null
+   },
+   "adx_gap_max": 0.0,
+   "live_evals_in_window": 42,
+   "matched_signal_bars": [
+    "2026-10-08T12:00:00+00:00"
+   ],
+   "replay_signal_windows": [],
+   "replay_none_windows": []
+  },
+  {
+   "leg": "xrp_pullback_2h",
+   "symbol": "XRPUSDT",
+   "timeframe": "2h",
+   "unit": "htf_pullback_trend_2h",
+   "decision_bar": "forming",
+   "execution": "live",
+   "accounts": [
+    "bybit_2",
+    "bybit_portfolio",
+    "bybit_1"
+   ],
+   "real_money": true,
+   "features": {
+    "side_filter": true,
+    "decision_frame": false,
+    "us_session_gate": false,
+    "long_only": false
+   },
+   "state": "checked",
+   "reason": null,
+   "bars_checked": 83,
+   "evals_checked": 4236,
+   "divergences": 0,
+   "by_class": {
+    "previous_bar_signal": 0,
+    "missed_signal": 0,
+    "live_only_signal": 0,
+    "side_mismatch": 0,
+    "candle_mismatch": 0,
+    "lost_bar": 0,
+    "unevaluated_signal": 0,
+    "dropped_no_package": 0,
+    "dropped_no_order": 0
+   },
+   "bars": [
+    {
+     "bar": "2026-10-08T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-08T10:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-08T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-08T14:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 48,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-08T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-08T18:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-08T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-08T22:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T02:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 52,
+     "signal_evals": 19,
+     "downstream": {
+      "class": null,
+      "packages": [
+       "pkg-800b6535825b48b2"
+      ],
+      "gates": [],
+      "orders_by_account": {
+       "bybit_portfolio": [
+        {
+         "id": 6534,
+         "status": "closed"
+        }
+       ],
+       "bybit_2": [
+        {
+         "id": 6533,
+         "status": "closed"
+        }
+       ],
+       "bybit_1": [
+        {
+         "id": 6532,
+         "status": "closed"
+        }
+       ]
+      }
+     }
+    },
+    {
+     "bar": "2026-10-09T04:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 50,
+     "signal_evals": 17,
+     "downstream": {
+      "class": null,
+      "packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ],
+      "gates": [
+       "bar_debounce_blocked",
+       "open_package_scoped"
+      ],
+      "orders_by_account": {
+       "bybit_portfolio": [
+        {
+         "id": 6545,
+         "status": "open"
+        },
+        {
+         "id": 6540,
+         "status": "closed"
+        }
+       ],
+       "bybit_2": [
+        {
+         "id": 6544,
+         "status": "exchange_rejected"
+        },
+        {
+         "id": 6539,
+         "status": "closed"
+        }
+       ],
+       "bybit_1": [
+        {
+         "id": 6538,
+         "status": "open"
+        }
+       ]
+      }
+     }
+    },
+    {
+     "bar": "2026-10-09T06:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 51,
+     "signal_evals": 2,
+     "downstream": {
+      "class": null,
+      "packages": [
+       "pkg-63b56da53bfe4d64"
+      ],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package_scoped"
+      ],
+      "orders_by_account": {
+       "bybit_portfolio": [
+        {
+         "id": 6545,
+         "status": "open"
+        }
+       ],
+       "bybit_2": [
+        {
+         "id": 6544,
+         "status": "exchange_rejected"
+        }
+       ]
+      }
+     }
+    },
+    {
+     "bar": "2026-10-09T08:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 49,
+     "signal_evals": 43,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-09T10:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 51,
+     "signal_evals": 47,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-09T12:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 51,
+     "signal_evals": 49,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-09T14:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 49,
+     "signal_evals": 9,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-09T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 49,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T18:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 48,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-09T22:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 49,
+     "signal_evals": 14,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-10T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 49,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T02:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 51,
+     "signal_evals": 47,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-10T04:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 50,
+     "signal_evals": 2,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-10T06:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 51,
+     "signal_evals": 49,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-10T08:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 50,
+     "signal_evals": 13,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-10T10:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T14:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T18:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-10T22:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 51,
+     "signal_evals": 4,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-11T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T02:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T04:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 49,
+     "signal_evals": 44,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-11T06:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 50,
+     "signal_evals": 41,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-11T08:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 51,
+     "signal_evals": 47,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-11T10:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 49,
+     "signal_evals": 14,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-11T12:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 50,
+     "signal_evals": 45,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-11T14:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 51,
+     "signal_evals": 2,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-11T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T18:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-11T22:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 49,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T02:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T06:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T08:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T10:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T12:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T14:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 53,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T18:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T22:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 50,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T02:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T04:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 52,
+     "signal_evals": 9,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-13T06:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 54,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T08:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 53,
+     "signal_evals": 22,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-13T10:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 53,
+     "signal_evals": 25,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-13T12:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 53,
+     "signal_evals": 8,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-13T14:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 53,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T16:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 50,
+     "signal_evals": 19,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-13T18:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 50,
+     "signal_evals": 1,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-13T20:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 53,
+     "signal_evals": 6,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-13T22:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 52,
+     "signal_evals": 22,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-14T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 54,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T02:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 53,
+     "signal_evals": 8,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-14T04:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 52,
+     "signal_evals": 7,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-14T06:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T08:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 53,
+     "signal_evals": 2,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-14T10:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 53,
+     "signal_evals": 33,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-14T12:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 51,
+     "signal_evals": 1,
+     "downstream": {
+      "class": null,
+      "packages": [],
+      "gates": [
+       "open_package_blocked",
+       "open_package_pair_coupled",
+       "open_package (order_packages)"
+      ],
+      "held_packages": [
+       "pkg-63b56da53bfe4d64",
+       "pkg-249a260aaf094ea5"
+      ]
+     }
+    },
+    {
+     "bar": "2026-10-14T14:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T16:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T18:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T20:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 55,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T22:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 55,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-15T00:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 54,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-15T02:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 52,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-15T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 51,
+     "signal_evals": 0
+    }
+   ],
+   "bars_not_comparable": 0,
+   "divergence_detail": [],
+   "replay_calls": 11214,
+   "mode_notes": {},
+   "frames_without_current_bar": {
+    "n": 0,
+    "examples": []
+   },
+   "stale_frames": {
+    "n": 0,
+    "p50_s": null,
+    "p90_s": null,
+    "max_s": null
+   },
+   "adx_gap_max": 0.092,
+   "live_evals_in_window": 4289,
+   "matched_signal_bars": [
+    "2026-10-09T02:00:00+00:00",
+    "2026-10-09T04:00:00+00:00",
+    "2026-10-09T06:00:00+00:00",
+    "2026-10-09T08:00:00+00:00",
+    "2026-10-09T10:00:00+00:00",
+    "2026-10-09T12:00:00+00:00",
+    "2026-10-09T14:00:00+00:00",
+    "2026-10-09T22:00:00+00:00",
+    "2026-10-10T02:00:00+00:00",
+    "2026-10-10T04:00:00+00:00",
+    "2026-10-10T06:00:00+00:00",
+    "2026-10-10T08:00:00+00:00",
+    "2026-10-10T22:00:00+00:00",
+    "2026-10-11T04:00:00+00:00",
+    "2026-10-11T06:00:00+00:00",
+    "2026-10-11T08:00:00+00:00",
+    "2026-10-11T10:00:00+00:00",
+    "2026-10-11T12:00:00+00:00",
+    "2026-10-11T14:00:00+00:00",
+    "2026-10-13T04:00:00+00:00",
+    "2026-10-13T08:00:00+00:00",
+    "2026-10-13T10:00:00+00:00",
+    "2026-10-13T12:00:00+00:00",
+    "2026-10-13T16:00:00+00:00",
+    "2026-10-13T18:00:00+00:00",
+    "2026-10-13T20:00:00+00:00",
+    "2026-10-13T22:00:00+00:00",
+    "2026-10-14T02:00:00+00:00",
+    "2026-10-14T04:00:00+00:00",
+    "2026-10-14T08:00:00+00:00",
+    "2026-10-14T10:00:00+00:00",
+    "2026-10-14T12:00:00+00:00"
+   ],
+   "replay_signal_windows": [
+    "2026-10-09T04:45:00+00:00|short",
+    "2026-10-09T08:30:00+00:00|short",
+    "2026-10-09T09:15:00+00:00|short",
+    "2026-10-09T09:30:00+00:00|short",
+    "2026-10-09T09:45:00+00:00|short",
+    "2026-10-09T10:45:00+00:00|short",
+    "2026-10-09T11:00:00+00:00|short",
+    "2026-10-09T11:15:00+00:00|short",
+    "2026-10-09T11:30:00+00:00|short",
+    "2026-10-09T12:15:00+00:00|short",
+    "2026-10-09T12:30:00+00:00|short",
+    "2026-10-09T12:45:00+00:00|short",
+    "2026-10-09T13:00:00+00:00|short",
+    "2026-10-09T13:15:00+00:00|short",
+    "2026-10-09T13:30:00+00:00|short",
+    "2026-10-09T13:45:00+00:00|short",
+    "2026-10-10T02:45:00+00:00|short",
+    "2026-10-10T03:00:00+00:00|short",
+    "2026-10-10T03:15:00+00:00|short",
+    "2026-10-10T03:30:00+00:00|short",
+    "2026-10-10T03:45:00+00:00|short",
+    "2026-10-10T06:15:00+00:00|short",
+    "2026-10-10T07:00:00+00:00|short",
+    "2026-10-10T07:15:00+00:00|short",
+    "2026-10-10T07:30:00+00:00|short",
+    "2026-10-10T07:45:00+00:00|short",
+    "2026-10-11T04:15:00+00:00|long",
+    "2026-10-11T04:30:00+00:00|long",
+    "2026-10-11T04:45:00+00:00|long",
+    "2026-10-11T05:00:00+00:00|long",
+    "2026-10-11T05:15:00+00:00|long",
+    "2026-10-11T05:30:00+00:00|long",
+    "2026-10-11T05:45:00+00:00|long",
+    "2026-10-11T06:15:00+00:00|long",
+    "2026-10-11T06:30:00+00:00|long",
+    "2026-10-11T06:45:00+00:00|long",
+    "2026-10-11T07:00:00+00:00|long",
+    "2026-10-11T08:45:00+00:00|long",
+    "2026-10-11T09:00:00+00:00|long",
+    "2026-10-11T09:15:00+00:00|long",
+    "2026-10-11T09:30:00+00:00|long",
+    "2026-10-11T13:15:00+00:00|long",
+    "2026-10-11T13:30:00+00:00|long",
+    "2026-10-11T13:45:00+00:00|long",
+    "2026-10-13T09:45:00+00:00|short",
+    "2026-10-13T10:45:00+00:00|short",
+    "2026-10-13T17:30:00+00:00|short",
+    "2026-10-13T17:45:00+00:00|short"
+   ],
+   "replay_none_windows": [
+    "2026-10-08T07:45:00+00:00",
+    "2026-10-08T08:00:00+00:00",
+    "2026-10-08T08:15:00+00:00",
+    "2026-10-08T08:30:00+00:00",
+    "2026-10-08T08:45:00+00:00",
+    "2026-10-08T09:00:00+00:00",
+    "2026-10-08T09:15:00+00:00",
+    "2026-10-08T09:30:00+00:00",
+    "2026-10-08T09:45:00+00:00",
+    "2026-10-08T10:15:00+00:00",
+    "2026-10-08T10:30:00+00:00",
+    "2026-10-08T10:45:00+00:00",
+    "2026-10-08T11:00:00+00:00",
+    "2026-10-08T11:15:00+00:00",
+    "2026-10-08T11:30:00+00:00",
+    "2026-10-08T11:45:00+00:00",
+    "2026-10-08T12:00:00+00:00",
+    "2026-10-08T12:15:00+00:00",
+    "2026-10-08T12:30:00+00:00",
+    "2026-10-08T12:45:00+00:00",
+    "2026-10-08T13:00:00+00:00",
+    "2026-10-08T13:15:00+00:00",
+    "2026-10-08T13:30:00+00:00",
+    "2026-10-08T13:45:00+00:00",
+    "2026-10-08T14:00:00+00:00",
+    "2026-10-08T14:15:00+00:00",
+    "2026-10-08T14:30:00+00:00",
+    "2026-10-08T14:45:00+00:00",
+    "2026-10-08T15:00:00+00:00",
+    "2026-10-08T15:15:00+00:00",
+    "2026-10-08T15:30:00+00:00",
+    "2026-10-08T15:45:00+00:00",
+    "2026-10-08T16:00:00+00:00",
+    "2026-10-08T16:15:00+00:00",
+    "2026-10-08T16:30:00+00:00",
+    "2026-10-08T16:45:00+00:00",
+    "2026-10-08T17:00:00+00:00",
+    "2026-10-08T17:15:00+00:00",
+    "2026-10-08T17:30:00+00:00",
+    "2026-10-08T17:45:00+00:00",
+    "2026-10-08T18:00:00+00:00",
+    "2026-10-08T18:15:00+00:00",
+    "2026-10-08T18:30:00+00:00",
+    "2026-10-08T18:45:00+00:00",
+    "2026-10-08T19:00:00+00:00",
+    "2026-10-08T19:15:00+00:00",
+    "2026-10-08T19:30:00+00:00",
+    "2026-10-08T19:45:00+00:00",
+    "2026-10-08T20:00:00+00:00",
+    "2026-10-08T20:15:00+00:00"
+   ]
+  },
+  {
+   "leg": "gdx_pullback_1d",
+   "symbol": "GDX",
+   "timeframe": "1d",
+   "unit": "htf_pullback_trend_2h",
+   "decision_bar": "forming",
+   "execution": "live",
+   "accounts": [
+    "alpaca_paper"
+   ],
+   "real_money": false,
+   "features": {
+    "side_filter": false,
+    "decision_frame": false,
+    "us_session_gate": true,
+    "long_only": false
+   },
+   "state": "checked",
+   "reason": null,
+   "bars_checked": 4,
+   "evals_checked": 654,
+   "divergences": 0,
+   "by_class": {
+    "previous_bar_signal": 0,
+    "missed_signal": 0,
+    "live_only_signal": 0,
+    "side_mismatch": 0,
+    "candle_mismatch": 0,
+    "lost_bar": 0,
+    "unevaluated_signal": 0,
+    "dropped_no_package": 0,
+    "dropped_no_order": 0
+   },
+   "bars": [
+    {
+     "bar": "2026-10-09T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 159,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 166,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 163,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 166,
+     "signal_evals": 0
+    }
+   ],
+   "bars_not_comparable": 0,
+   "divergence_detail": [],
+   "replay_calls": 1301,
+   "mode_notes": {},
+   "frames_without_current_bar": {
+    "n": 0,
+    "examples": []
+   },
+   "stale_frames": {
+    "n": 0,
+    "p50_s": null,
+    "p90_s": null,
+    "max_s": null
+   },
+   "adx_gap_max": 0.0594,
+   "live_evals_in_window": 814,
+   "matched_signal_bars": [],
+   "replay_signal_windows": [],
+   "replay_none_windows": [
+    "2026-10-09T13:30:00+00:00",
+    "2026-10-09T13:45:00+00:00",
+    "2026-10-09T14:00:00+00:00",
+    "2026-10-09T14:15:00+00:00",
+    "2026-10-09T14:30:00+00:00",
+    "2026-10-09T14:45:00+00:00",
+    "2026-10-09T15:00:00+00:00",
+    "2026-10-09T15:15:00+00:00",
+    "2026-10-09T15:30:00+00:00",
+    "2026-10-09T15:45:00+00:00",
+    "2026-10-09T16:00:00+00:00",
+    "2026-10-09T16:15:00+00:00",
+    "2026-10-09T16:30:00+00:00",
+    "2026-10-09T16:45:00+00:00",
+    "2026-10-09T17:00:00+00:00",
+    "2026-10-09T17:15:00+00:00",
+    "2026-10-09T17:30:00+00:00",
+    "2026-10-09T17:45:00+00:00",
+    "2026-10-09T18:00:00+00:00",
+    "2026-10-09T18:15:00+00:00",
+    "2026-10-09T18:30:00+00:00",
+    "2026-10-09T18:45:00+00:00",
+    "2026-10-09T19:00:00+00:00",
+    "2026-10-09T19:15:00+00:00",
+    "2026-10-09T19:30:00+00:00",
+    "2026-10-09T19:45:00+00:00",
+    "2026-10-12T13:30:00+00:00",
+    "2026-10-12T13:45:00+00:00",
+    "2026-10-12T14:00:00+00:00",
+    "2026-10-12T14:15:00+00:00",
+    "2026-10-12T14:30:00+00:00",
+    "2026-10-12T14:45:00+00:00",
+    "2026-10-12T15:00:00+00:00",
+    "2026-10-12T15:15:00+00:00",
+    "2026-10-12T15:30:00+00:00",
+    "2026-10-12T15:45:00+00:00",
+    "2026-10-12T16:00:00+00:00",
+    "2026-10-12T16:15:00+00:00",
+    "2026-10-12T16:30:00+00:00",
+    "2026-10-12T16:45:00+00:00",
+    "2026-10-12T17:00:00+00:00",
+    "2026-10-12T17:15:00+00:00",
+    "2026-10-12T17:30:00+00:00",
+    "2026-10-12T17:45:00+00:00",
+    "2026-10-12T18:00:00+00:00",
+    "2026-10-12T18:15:00+00:00",
+    "2026-10-12T18:30:00+00:00",
+    "2026-10-12T18:45:00+00:00",
+    "2026-10-12T19:00:00+00:00",
+    "2026-10-12T19:15:00+00:00"
+   ]
+  },
+  {
+   "leg": "gld_pullback_1d",
+   "symbol": "GLD",
+   "timeframe": "1d",
+   "unit": "htf_pullback_trend_2h",
+   "decision_bar": "forming",
+   "execution": "live",
+   "accounts": [
+    "alpaca_paper"
+   ],
+   "real_money": false,
+   "features": {
+    "side_filter": false,
+    "decision_frame": false,
+    "us_session_gate": true,
+    "long_only": false
+   },
+   "state": "checked",
+   "reason": null,
+   "bars_checked": 4,
+   "evals_checked": 656,
+   "divergences": 0,
+   "by_class": {
+    "previous_bar_signal": 0,
+    "missed_signal": 0,
+    "live_only_signal": 0,
+    "side_mismatch": 0,
+    "candle_mismatch": 0,
+    "lost_bar": 0,
+    "unevaluated_signal": 0,
+    "dropped_no_package": 0,
+    "dropped_no_order": 0
+   },
+   "bars": [
+    {
+     "bar": "2026-10-09T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 158,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 167,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 164,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 167,
+     "signal_evals": 0
+    }
+   ],
+   "bars_not_comparable": 0,
+   "divergence_detail": [],
+   "replay_calls": 1249,
+   "mode_notes": {},
+   "frames_without_current_bar": {
+    "n": 0,
+    "examples": []
+   },
+   "stale_frames": {
+    "n": 4,
+    "p50_s": 441.6,
+    "p90_s": 467.4,
+    "max_s": 467.4040639400482
+   },
+   "adx_gap_max": 0.1908,
+   "live_evals_in_window": 817,
+   "matched_signal_bars": [],
+   "replay_signal_windows": [],
+   "replay_none_windows": [
+    "2026-10-09T13:30:00+00:00",
+    "2026-10-09T13:45:00+00:00",
+    "2026-10-09T14:00:00+00:00",
+    "2026-10-09T14:15:00+00:00",
+    "2026-10-09T14:30:00+00:00",
+    "2026-10-09T14:45:00+00:00",
+    "2026-10-09T15:00:00+00:00",
+    "2026-10-09T15:15:00+00:00",
+    "2026-10-09T15:30:00+00:00",
+    "2026-10-09T15:45:00+00:00",
+    "2026-10-09T16:00:00+00:00",
+    "2026-10-09T16:15:00+00:00",
+    "2026-10-09T16:30:00+00:00",
+    "2026-10-09T16:45:00+00:00",
+    "2026-10-09T17:00:00+00:00",
+    "2026-10-09T17:15:00+00:00",
+    "2026-10-09T17:30:00+00:00",
+    "2026-10-09T17:45:00+00:00",
+    "2026-10-09T18:00:00+00:00",
+    "2026-10-09T18:15:00+00:00",
+    "2026-10-09T18:30:00+00:00",
+    "2026-10-09T18:45:00+00:00",
+    "2026-10-09T19:00:00+00:00",
+    "2026-10-09T19:15:00+00:00",
+    "2026-10-09T19:30:00+00:00",
+    "2026-10-09T19:45:00+00:00",
+    "2026-10-12T13:30:00+00:00",
+    "2026-10-12T13:45:00+00:00",
+    "2026-10-12T14:00:00+00:00",
+    "2026-10-12T14:15:00+00:00",
+    "2026-10-12T14:30:00+00:00",
+    "2026-10-12T14:45:00+00:00",
+    "2026-10-12T15:00:00+00:00",
+    "2026-10-12T15:15:00+00:00",
+    "2026-10-12T15:30:00+00:00",
+    "2026-10-12T15:45:00+00:00",
+    "2026-10-12T16:00:00+00:00",
+    "2026-10-12T16:15:00+00:00",
+    "2026-10-12T16:30:00+00:00",
+    "2026-10-12T16:45:00+00:00",
+    "2026-10-12T17:00:00+00:00",
+    "2026-10-12T17:15:00+00:00",
+    "2026-10-12T17:30:00+00:00",
+    "2026-10-12T17:45:00+00:00",
+    "2026-10-12T18:00:00+00:00",
+    "2026-10-12T18:15:00+00:00",
+    "2026-10-12T18:30:00+00:00",
+    "2026-10-12T18:45:00+00:00",
+    "2026-10-12T19:00:00+00:00",
+    "2026-10-12T19:15:00+00:00"
+   ]
+  },
+  {
+   "leg": "iwm_trend_long_1d",
+   "symbol": "IWM",
+   "timeframe": "1d",
+   "unit": "trend_donchian",
+   "decision_bar": "forming",
+   "execution": "live",
+   "accounts": [
+    "alpaca_paper"
+   ],
+   "real_money": false,
+   "features": {
+    "side_filter": false,
+    "decision_frame": false,
+    "us_session_gate": true,
+    "long_only": true
+   },
+   "state": "checked",
+   "reason": null,
+   "bars_checked": 4,
+   "evals_checked": 656,
+   "divergences": 0,
+   "by_class": {
+    "previous_bar_signal": 0,
+    "missed_signal": 0,
+    "live_only_signal": 0,
+    "side_mismatch": 0,
+    "candle_mismatch": 0,
+    "lost_bar": 0,
+    "unevaluated_signal": 0,
+    "dropped_no_package": 0,
+    "dropped_no_order": 0
+   },
+   "bars": [
+    {
+     "bar": "2026-10-09T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 158,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 167,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 164,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 167,
+     "signal_evals": 0
+    }
+   ],
+   "bars_not_comparable": 0,
+   "divergence_detail": [],
+   "replay_calls": 1441,
+   "mode_notes": {},
+   "frames_without_current_bar": {
+    "n": 0,
+    "examples": []
+   },
+   "stale_frames": {
+    "n": 0,
+    "p50_s": null,
+    "p90_s": null,
+    "max_s": null
+   },
+   "adx_gap_max": 0.0,
+   "live_evals_in_window": 817,
+   "matched_signal_bars": [],
+   "replay_signal_windows": [],
+   "replay_none_windows": [
+    "2026-10-09T13:30:00+00:00",
+    "2026-10-09T13:45:00+00:00",
+    "2026-10-09T14:00:00+00:00",
+    "2026-10-09T14:15:00+00:00",
+    "2026-10-09T14:30:00+00:00",
+    "2026-10-09T14:45:00+00:00",
+    "2026-10-09T15:00:00+00:00",
+    "2026-10-09T15:15:00+00:00",
+    "2026-10-09T15:30:00+00:00",
+    "2026-10-09T15:45:00+00:00",
+    "2026-10-09T16:00:00+00:00",
+    "2026-10-09T16:15:00+00:00",
+    "2026-10-09T16:30:00+00:00",
+    "2026-10-09T16:45:00+00:00",
+    "2026-10-09T17:00:00+00:00",
+    "2026-10-09T17:15:00+00:00",
+    "2026-10-09T17:30:00+00:00",
+    "2026-10-09T17:45:00+00:00",
+    "2026-10-09T18:00:00+00:00",
+    "2026-10-09T18:15:00+00:00",
+    "2026-10-09T18:30:00+00:00",
+    "2026-10-09T18:45:00+00:00",
+    "2026-10-09T19:00:00+00:00",
+    "2026-10-09T19:15:00+00:00",
+    "2026-10-09T19:30:00+00:00",
+    "2026-10-09T19:45:00+00:00",
+    "2026-10-12T13:30:00+00:00",
+    "2026-10-12T13:45:00+00:00",
+    "2026-10-12T14:00:00+00:00",
+    "2026-10-12T14:15:00+00:00",
+    "2026-10-12T14:30:00+00:00",
+    "2026-10-12T14:45:00+00:00",
+    "2026-10-12T15:00:00+00:00",
+    "2026-10-12T15:15:00+00:00",
+    "2026-10-12T15:30:00+00:00",
+    "2026-10-12T15:45:00+00:00",
+    "2026-10-12T16:00:00+00:00",
+    "2026-10-12T16:15:00+00:00",
+    "2026-10-12T16:30:00+00:00",
+    "2026-10-12T16:45:00+00:00",
+    "2026-10-12T17:00:00+00:00",
+    "2026-10-12T17:15:00+00:00",
+    "2026-10-12T17:30:00+00:00",
+    "2026-10-12T17:45:00+00:00",
+    "2026-10-12T18:00:00+00:00",
+    "2026-10-12T18:15:00+00:00",
+    "2026-10-12T18:30:00+00:00",
+    "2026-10-12T18:45:00+00:00",
+    "2026-10-12T19:00:00+00:00",
+    "2026-10-12T19:15:00+00:00"
+   ]
+  },
+  {
+   "leg": "qld_trend_long_1d",
+   "symbol": "QLD",
+   "timeframe": "1d",
+   "unit": "trend_donchian",
+   "decision_bar": "forming",
+   "execution": "live",
+   "accounts": [
+    "alpaca_paper"
+   ],
+   "real_money": false,
+   "features": {
+    "side_filter": false,
+    "decision_frame": false,
+    "us_session_gate": true,
+    "long_only": true
+   },
+   "state": "checked",
+   "reason": null,
+   "bars_checked": 4,
+   "evals_checked": 548,
+   "divergences": 0,
+   "by_class": {
+    "previous_bar_signal": 0,
+    "missed_signal": 0,
+    "live_only_signal": 0,
+    "side_mismatch": 0,
+    "candle_mismatch": 0,
+    "lost_bar": 0,
+    "unevaluated_signal": 0,
+    "dropped_no_package": 0,
+    "dropped_no_order": 0
+   },
+   "bars": [
+    {
+     "bar": "2026-10-09T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 158,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 163,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 163,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 166,
+     "signal_evals": 0
+    }
+   ],
+   "bars_not_comparable": 102,
+   "divergence_detail": [],
+   "replay_calls": 861,
+   "mode_notes": {},
+   "frames_without_current_bar": {
+    "n": 0,
+    "examples": []
+   },
+   "stale_frames": {
+    "n": 92,
+    "p50_s": 626.9,
+    "p90_s": 1976.3,
+    "max_s": 2760.514589071274
+   },
+   "adx_gap_max": 0.1017,
+   "live_evals_in_window": 810,
+   "matched_signal_bars": [],
+   "replay_signal_windows": [],
+   "replay_none_windows": [
+    "2026-10-09T13:30:00+00:00",
+    "2026-10-09T13:45:00+00:00",
+    "2026-10-09T14:00:00+00:00",
+    "2026-10-09T14:15:00+00:00",
+    "2026-10-09T14:30:00+00:00",
+    "2026-10-09T14:45:00+00:00",
+    "2026-10-09T15:00:00+00:00",
+    "2026-10-09T15:15:00+00:00",
+    "2026-10-09T15:30:00+00:00",
+    "2026-10-09T15:45:00+00:00",
+    "2026-10-09T16:00:00+00:00",
+    "2026-10-09T16:15:00+00:00",
+    "2026-10-09T16:30:00+00:00",
+    "2026-10-09T16:45:00+00:00",
+    "2026-10-09T17:00:00+00:00",
+    "2026-10-09T17:15:00+00:00",
+    "2026-10-09T17:30:00+00:00",
+    "2026-10-09T17:45:00+00:00",
+    "2026-10-09T18:00:00+00:00",
+    "2026-10-09T18:15:00+00:00",
+    "2026-10-09T18:30:00+00:00",
+    "2026-10-09T18:45:00+00:00",
+    "2026-10-09T19:00:00+00:00",
+    "2026-10-09T19:15:00+00:00",
+    "2026-10-09T19:30:00+00:00",
+    "2026-10-09T19:45:00+00:00",
+    "2026-10-12T13:30:00+00:00",
+    "2026-10-12T13:45:00+00:00",
+    "2026-10-12T14:00:00+00:00",
+    "2026-10-12T14:15:00+00:00",
+    "2026-10-12T14:45:00+00:00",
+    "2026-10-12T15:00:00+00:00",
+    "2026-10-12T15:15:00+00:00",
+    "2026-10-12T15:30:00+00:00",
+    "2026-10-12T15:45:00+00:00",
+    "2026-10-12T16:00:00+00:00",
+    "2026-10-12T16:15:00+00:00",
+    "2026-10-12T16:30:00+00:00",
+    "2026-10-12T16:45:00+00:00",
+    "2026-10-12T17:00:00+00:00",
+    "2026-10-12T17:15:00+00:00",
+    "2026-10-12T18:00:00+00:00",
+    "2026-10-12T18:15:00+00:00",
+    "2026-10-12T18:45:00+00:00",
+    "2026-10-12T19:45:00+00:00",
+    "2026-10-13T13:30:00+00:00",
+    "2026-10-13T13:45:00+00:00",
+    "2026-10-13T14:00:00+00:00",
+    "2026-10-13T14:30:00+00:00",
+    "2026-10-13T14:45:00+00:00"
+   ]
+  },
+  {
+   "leg": "qqq_trend_long_1d",
+   "symbol": "QQQ",
+   "timeframe": "1d",
+   "unit": "trend_donchian",
+   "decision_bar": "forming",
+   "execution": "live",
+   "accounts": [
+    "alpaca_paper"
+   ],
+   "real_money": false,
+   "features": {
+    "side_filter": false,
+    "decision_frame": false,
+    "us_session_gate": true,
+    "long_only": true
+   },
+   "state": "checked",
+   "reason": null,
+   "bars_checked": 4,
+   "evals_checked": 656,
+   "divergences": 0,
+   "by_class": {
+    "previous_bar_signal": 0,
+    "missed_signal": 0,
+    "live_only_signal": 0,
+    "side_mismatch": 0,
+    "candle_mismatch": 0,
+    "lost_bar": 0,
+    "unevaluated_signal": 0,
+    "dropped_no_package": 0,
+    "dropped_no_order": 0
+   },
+   "bars": [
+    {
+     "bar": "2026-10-09T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 158,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 167,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 164,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 167,
+     "signal_evals": 0
+    }
+   ],
+   "bars_not_comparable": 0,
+   "divergence_detail": [],
+   "replay_calls": 1371,
+   "mode_notes": {},
+   "frames_without_current_bar": {
+    "n": 0,
+    "examples": []
+   },
+   "stale_frames": {
+    "n": 0,
+    "p50_s": null,
+    "p90_s": null,
+    "max_s": null
+   },
+   "adx_gap_max": 0.0,
+   "live_evals_in_window": 816,
+   "matched_signal_bars": [],
+   "replay_signal_windows": [],
+   "replay_none_windows": [
+    "2026-10-09T13:15:00+00:00",
+    "2026-10-09T13:30:00+00:00",
+    "2026-10-09T13:45:00+00:00",
+    "2026-10-09T14:00:00+00:00",
+    "2026-10-09T14:15:00+00:00",
+    "2026-10-09T14:30:00+00:00",
+    "2026-10-09T14:45:00+00:00",
+    "2026-10-09T15:00:00+00:00",
+    "2026-10-09T15:15:00+00:00",
+    "2026-10-09T15:30:00+00:00",
+    "2026-10-09T15:45:00+00:00",
+    "2026-10-09T16:00:00+00:00",
+    "2026-10-09T16:15:00+00:00",
+    "2026-10-09T16:30:00+00:00",
+    "2026-10-09T16:45:00+00:00",
+    "2026-10-09T17:00:00+00:00",
+    "2026-10-09T17:15:00+00:00",
+    "2026-10-09T17:30:00+00:00",
+    "2026-10-09T17:45:00+00:00",
+    "2026-10-09T18:00:00+00:00",
+    "2026-10-09T18:15:00+00:00",
+    "2026-10-09T18:30:00+00:00",
+    "2026-10-09T18:45:00+00:00",
+    "2026-10-09T19:00:00+00:00",
+    "2026-10-09T19:15:00+00:00",
+    "2026-10-09T19:30:00+00:00",
+    "2026-10-09T19:45:00+00:00",
+    "2026-10-12T13:15:00+00:00",
+    "2026-10-12T13:30:00+00:00",
+    "2026-10-12T13:45:00+00:00",
+    "2026-10-12T14:00:00+00:00",
+    "2026-10-12T14:15:00+00:00",
+    "2026-10-12T14:30:00+00:00",
+    "2026-10-12T14:45:00+00:00",
+    "2026-10-12T15:00:00+00:00",
+    "2026-10-12T15:15:00+00:00",
+    "2026-10-12T15:30:00+00:00",
+    "2026-10-12T15:45:00+00:00",
+    "2026-10-12T16:00:00+00:00",
+    "2026-10-12T16:15:00+00:00",
+    "2026-10-12T16:30:00+00:00",
+    "2026-10-12T16:45:00+00:00",
+    "2026-10-12T17:00:00+00:00",
+    "2026-10-12T17:15:00+00:00",
+    "2026-10-12T17:30:00+00:00",
+    "2026-10-12T17:45:00+00:00",
+    "2026-10-12T18:00:00+00:00",
+    "2026-10-12T18:15:00+00:00",
+    "2026-10-12T18:30:00+00:00",
+    "2026-10-12T18:45:00+00:00"
+   ]
+  },
+  {
+   "leg": "scha_trend_long_1d",
+   "symbol": "SCHA",
+   "timeframe": "1d",
+   "unit": "trend_donchian",
+   "decision_bar": "forming",
+   "execution": "live",
+   "accounts": [
+    "alpaca_paper"
+   ],
+   "real_money": false,
+   "features": {
+    "side_filter": false,
+    "decision_frame": false,
+    "us_session_gate": true,
+    "long_only": true
+   },
+   "state": "checked",
+   "reason": null,
+   "bars_checked": 4,
+   "evals_checked": 633,
+   "divergences": 0,
+   "by_class": {
+    "previous_bar_signal": 0,
+    "missed_signal": 0,
+    "live_only_signal": 0,
+    "side_mismatch": 0,
+    "candle_mismatch": 0,
+    "lost_bar": 0,
+    "unevaluated_signal": 0,
+    "dropped_no_package": 0,
+    "dropped_no_order": 0
+   },
+   "bars": [
+    {
+     "bar": "2026-10-09T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 158,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 164,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 163,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 166,
+     "signal_evals": 0
+    }
+   ],
+   "bars_not_comparable": 18,
+   "divergence_detail": [],
+   "replay_calls": 932,
+   "mode_notes": {},
+   "frames_without_current_bar": {
+    "n": 0,
+    "examples": []
+   },
+   "stale_frames": {
+    "n": 38,
+    "p50_s": 498.9,
+    "p90_s": 975.5,
+    "max_s": 1407.1720418930054
+   },
+   "adx_gap_max": 0.0602,
+   "live_evals_in_window": 811,
+   "matched_signal_bars": [],
+   "replay_signal_windows": [],
+   "replay_none_windows": [
+    "2026-10-09T13:30:00+00:00",
+    "2026-10-09T13:45:00+00:00",
+    "2026-10-09T14:00:00+00:00",
+    "2026-10-09T14:30:00+00:00",
+    "2026-10-09T14:45:00+00:00",
+    "2026-10-09T15:00:00+00:00",
+    "2026-10-09T15:15:00+00:00",
+    "2026-10-09T15:30:00+00:00",
+    "2026-10-09T15:45:00+00:00",
+    "2026-10-09T16:00:00+00:00",
+    "2026-10-09T16:15:00+00:00",
+    "2026-10-09T16:30:00+00:00",
+    "2026-10-09T16:45:00+00:00",
+    "2026-10-09T17:00:00+00:00",
+    "2026-10-09T17:15:00+00:00",
+    "2026-10-09T17:30:00+00:00",
+    "2026-10-09T17:45:00+00:00",
+    "2026-10-09T18:00:00+00:00",
+    "2026-10-09T18:30:00+00:00",
+    "2026-10-09T18:45:00+00:00",
+    "2026-10-09T19:00:00+00:00",
+    "2026-10-09T19:15:00+00:00",
+    "2026-10-09T19:30:00+00:00",
+    "2026-10-09T19:45:00+00:00",
+    "2026-10-12T13:30:00+00:00",
+    "2026-10-12T13:45:00+00:00",
+    "2026-10-12T14:00:00+00:00",
+    "2026-10-12T14:15:00+00:00",
+    "2026-10-12T14:30:00+00:00",
+    "2026-10-12T14:45:00+00:00",
+    "2026-10-12T15:00:00+00:00",
+    "2026-10-12T15:15:00+00:00",
+    "2026-10-12T15:30:00+00:00",
+    "2026-10-12T15:45:00+00:00",
+    "2026-10-12T16:00:00+00:00",
+    "2026-10-12T16:15:00+00:00",
+    "2026-10-12T16:30:00+00:00",
+    "2026-10-12T17:00:00+00:00",
+    "2026-10-12T17:15:00+00:00",
+    "2026-10-12T17:30:00+00:00",
+    "2026-10-12T17:45:00+00:00",
+    "2026-10-12T18:00:00+00:00",
+    "2026-10-12T18:15:00+00:00",
+    "2026-10-12T18:30:00+00:00",
+    "2026-10-12T18:45:00+00:00",
+    "2026-10-12T19:00:00+00:00",
+    "2026-10-12T19:15:00+00:00",
+    "2026-10-12T19:30:00+00:00",
+    "2026-10-12T19:45:00+00:00",
+    "2026-10-13T13:30:00+00:00"
+   ]
+  },
+  {
+   "leg": "splg_trend_long_1d",
+   "symbol": "SPLG",
+   "timeframe": "1d",
+   "unit": "trend_donchian",
+   "decision_bar": "forming",
+   "execution": "live",
+   "accounts": [
+    "alpaca_paper"
+   ],
+   "real_money": false,
+   "features": {
+    "side_filter": false,
+    "decision_frame": false,
+    "us_session_gate": true,
+    "long_only": true
+   },
+   "state": "could_not_check",
+   "reason": "15m candles: no_data",
+   "bars_checked": null,
+   "evals_checked": null,
+   "divergences": null,
+   "by_class": null,
+   "bars": null
+  },
+  {
+   "leg": "spy_trend_long_1d",
+   "symbol": "SPY",
+   "timeframe": "1d",
+   "unit": "trend_donchian",
+   "decision_bar": "forming",
+   "execution": "live",
+   "accounts": [
+    "alpaca_paper"
+   ],
+   "real_money": false,
+   "features": {
+    "side_filter": false,
+    "decision_frame": false,
+    "us_session_gate": true,
+    "long_only": true
+   },
+   "state": "checked",
+   "reason": null,
+   "bars_checked": 4,
+   "evals_checked": 656,
+   "divergences": 0,
+   "by_class": {
+    "previous_bar_signal": 0,
+    "missed_signal": 0,
+    "live_only_signal": 0,
+    "side_mismatch": 0,
+    "candle_mismatch": 0,
+    "lost_bar": 0,
+    "unevaluated_signal": 0,
+    "dropped_no_package": 0,
+    "dropped_no_order": 0
+   },
+   "bars": [
+    {
+     "bar": "2026-10-09T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 158,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 167,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 164,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 167,
+     "signal_evals": 0
+    }
+   ],
+   "bars_not_comparable": 0,
+   "divergence_detail": [],
+   "replay_calls": 1434,
+   "mode_notes": {},
+   "frames_without_current_bar": {
+    "n": 0,
+    "examples": []
+   },
+   "stale_frames": {
+    "n": 0,
+    "p50_s": null,
+    "p90_s": null,
+    "max_s": null
+   },
+   "adx_gap_max": 0.4855,
+   "live_evals_in_window": 816,
+   "matched_signal_bars": [],
+   "replay_signal_windows": [],
+   "replay_none_windows": [
+    "2026-10-09T13:30:00+00:00",
+    "2026-10-09T13:45:00+00:00",
+    "2026-10-09T14:00:00+00:00",
+    "2026-10-09T14:15:00+00:00",
+    "2026-10-09T14:30:00+00:00",
+    "2026-10-09T14:45:00+00:00",
+    "2026-10-09T15:00:00+00:00",
+    "2026-10-09T15:15:00+00:00",
+    "2026-10-09T15:30:00+00:00",
+    "2026-10-09T15:45:00+00:00",
+    "2026-10-09T16:00:00+00:00",
+    "2026-10-09T16:15:00+00:00",
+    "2026-10-09T16:30:00+00:00",
+    "2026-10-09T16:45:00+00:00",
+    "2026-10-09T17:00:00+00:00",
+    "2026-10-09T17:15:00+00:00",
+    "2026-10-09T17:30:00+00:00",
+    "2026-10-09T17:45:00+00:00",
+    "2026-10-09T18:00:00+00:00",
+    "2026-10-09T18:15:00+00:00",
+    "2026-10-09T18:30:00+00:00",
+    "2026-10-09T18:45:00+00:00",
+    "2026-10-09T19:00:00+00:00",
+    "2026-10-09T19:15:00+00:00",
+    "2026-10-09T19:30:00+00:00",
+    "2026-10-09T19:45:00+00:00",
+    "2026-10-12T13:30:00+00:00",
+    "2026-10-12T13:45:00+00:00",
+    "2026-10-12T14:00:00+00:00",
+    "2026-10-12T14:15:00+00:00",
+    "2026-10-12T14:30:00+00:00",
+    "2026-10-12T14:45:00+00:00",
+    "2026-10-12T15:00:00+00:00",
+    "2026-10-12T15:15:00+00:00",
+    "2026-10-12T15:30:00+00:00",
+    "2026-10-12T15:45:00+00:00",
+    "2026-10-12T16:00:00+00:00",
+    "2026-10-12T16:15:00+00:00",
+    "2026-10-12T16:30:00+00:00",
+    "2026-10-12T16:45:00+00:00",
+    "2026-10-12T17:00:00+00:00",
+    "2026-10-12T17:15:00+00:00",
+    "2026-10-12T17:30:00+00:00",
+    "2026-10-12T17:45:00+00:00",
+    "2026-10-12T18:00:00+00:00",
+    "2026-10-12T18:15:00+00:00",
+    "2026-10-12T18:30:00+00:00",
+    "2026-10-12T18:45:00+00:00",
+    "2026-10-12T19:00:00+00:00",
+    "2026-10-12T19:15:00+00:00"
+   ]
+  },
+  {
+   "leg": "tlt_pullback_1d",
+   "symbol": "TLT",
+   "timeframe": "1d",
+   "unit": "htf_pullback_trend_2h",
+   "decision_bar": "forming",
+   "execution": "live",
+   "accounts": [
+    "alpaca_paper"
+   ],
+   "real_money": false,
+   "features": {
+    "side_filter": false,
+    "decision_frame": false,
+    "us_session_gate": true,
+    "long_only": false
+   },
+   "state": "checked",
+   "reason": null,
+   "bars_checked": 4,
+   "evals_checked": 656,
+   "divergences": 0,
+   "by_class": {
+    "previous_bar_signal": 0,
+    "missed_signal": 0,
+    "live_only_signal": 0,
+    "side_mismatch": 0,
+    "candle_mismatch": 0,
+    "lost_bar": 0,
+    "unevaluated_signal": 0,
+    "dropped_no_package": 0,
+    "dropped_no_order": 0
+   },
+   "bars": [
+    {
+     "bar": "2026-10-09T04:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 158,
+     "signal_evals": 76,
+     "downstream": {
+      "class": null,
+      "packages": [
+       "pkg-c65c66dccd364fee"
+      ],
+      "gates": [
+       "bar_debounce_blocked"
+      ],
+      "orders_by_account": {
+       "alpaca_paper": [
+        {
+         "id": 6555,
+         "status": "rejected"
+        }
+       ]
+      }
+     }
+    },
+    {
+     "bar": "2026-10-12T04:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 167,
+     "signal_evals": 61,
+     "downstream": {
+      "class": null,
+      "packages": [
+       "pkg-bec2df7ab1c143d1"
+      ],
+      "gates": [
+       "bar_debounce_blocked"
+      ],
+      "orders_by_account": {
+       "alpaca_paper": [
+        {
+         "id": 6585,
+         "status": "rejected"
+        }
+       ]
+      }
+     }
+    },
+    {
+     "bar": "2026-10-13T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 164,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T04:00:00+00:00",
+     "status": "matched_signal",
+     "evals": 167,
+     "signal_evals": 66,
+     "downstream": {
+      "class": null,
+      "packages": [
+       "pkg-908bc6e0c0f946eb"
+      ],
+      "gates": [],
+      "orders_by_account": {
+       "alpaca_paper": [
+        {
+         "id": 6614,
+         "status": "rejected"
+        }
+       ]
+      }
+     }
+    }
+   ],
+   "bars_not_comparable": 0,
+   "divergence_detail": [],
+   "replay_calls": 1288,
+   "mode_notes": {},
+   "frames_without_current_bar": {
+    "n": 0,
+    "examples": []
+   },
+   "stale_frames": {
+    "n": 1,
+    "p50_s": 346.6,
+    "p90_s": 346.6,
+    "max_s": 346.6238069534302
+   },
+   "adx_gap_max": 0.0921,
+   "live_evals_in_window": 817,
+   "matched_signal_bars": [
+    "2026-10-09T04:00:00+00:00",
+    "2026-10-12T04:00:00+00:00",
+    "2026-10-14T04:00:00+00:00"
+   ],
+   "replay_signal_windows": [
+    "2026-10-09T13:15:00+00:00|short",
+    "2026-10-09T13:45:00+00:00|short",
+    "2026-10-09T14:00:00+00:00|short",
+    "2026-10-09T15:15:00+00:00|short",
+    "2026-10-09T15:30:00+00:00|short",
+    "2026-10-09T15:45:00+00:00|short",
+    "2026-10-09T16:00:00+00:00|short",
+    "2026-10-09T16:15:00+00:00|short",
+    "2026-10-12T13:30:00+00:00|short",
+    "2026-10-12T16:00:00+00:00|short",
+    "2026-10-12T16:45:00+00:00|short",
+    "2026-10-14T13:15:00+00:00|short",
+    "2026-10-14T13:30:00+00:00|short",
+    "2026-10-14T13:45:00+00:00|short",
+    "2026-10-14T14:00:00+00:00|short",
+    "2026-10-14T14:15:00+00:00|short",
+    "2026-10-14T15:00:00+00:00|short",
+    "2026-10-14T16:00:00+00:00|short"
+   ],
+   "replay_none_windows": [
+    "2026-10-09T14:30:00+00:00",
+    "2026-10-09T16:45:00+00:00",
+    "2026-10-09T17:00:00+00:00",
+    "2026-10-09T17:45:00+00:00",
+    "2026-10-09T18:00:00+00:00",
+    "2026-10-09T19:00:00+00:00",
+    "2026-10-09T19:30:00+00:00",
+    "2026-10-09T19:45:00+00:00",
+    "2026-10-12T14:00:00+00:00",
+    "2026-10-12T15:00:00+00:00",
+    "2026-10-12T17:15:00+00:00",
+    "2026-10-12T19:15:00+00:00",
+    "2026-10-12T19:30:00+00:00",
+    "2026-10-12T19:45:00+00:00",
+    "2026-10-13T13:15:00+00:00",
+    "2026-10-13T13:30:00+00:00",
+    "2026-10-13T13:45:00+00:00",
+    "2026-10-13T14:00:00+00:00",
+    "2026-10-13T14:15:00+00:00",
+    "2026-10-13T14:30:00+00:00",
+    "2026-10-13T14:45:00+00:00",
+    "2026-10-13T15:00:00+00:00",
+    "2026-10-13T15:15:00+00:00",
+    "2026-10-13T15:30:00+00:00",
+    "2026-10-13T15:45:00+00:00",
+    "2026-10-13T16:00:00+00:00",
+    "2026-10-13T16:15:00+00:00",
+    "2026-10-13T16:30:00+00:00",
+    "2026-10-13T16:45:00+00:00",
+    "2026-10-13T17:00:00+00:00",
+    "2026-10-13T17:15:00+00:00",
+    "2026-10-13T17:30:00+00:00",
+    "2026-10-13T17:45:00+00:00",
+    "2026-10-13T18:00:00+00:00",
+    "2026-10-13T18:15:00+00:00",
+    "2026-10-13T18:30:00+00:00",
+    "2026-10-13T18:45:00+00:00",
+    "2026-10-13T19:00:00+00:00",
+    "2026-10-13T19:15:00+00:00",
+    "2026-10-13T19:30:00+00:00",
+    "2026-10-13T19:45:00+00:00",
+    "2026-10-14T16:45:00+00:00",
+    "2026-10-14T17:00:00+00:00",
+    "2026-10-14T17:15:00+00:00",
+    "2026-10-14T17:30:00+00:00",
+    "2026-10-14T17:45:00+00:00",
+    "2026-10-14T18:00:00+00:00",
+    "2026-10-14T18:15:00+00:00",
+    "2026-10-14T18:30:00+00:00",
+    "2026-10-14T18:45:00+00:00"
+   ]
+  },
+  {
+   "leg": "tqqq_trend_long_1d",
+   "symbol": "TQQQ",
+   "timeframe": "1d",
+   "unit": "trend_donchian",
+   "decision_bar": "forming",
+   "execution": "live",
+   "accounts": [
+    "alpaca_paper"
+   ],
+   "real_money": false,
+   "features": {
+    "side_filter": false,
+    "decision_frame": false,
+    "us_session_gate": true,
+    "long_only": true
+   },
+   "state": "checked",
+   "reason": null,
+   "bars_checked": 4,
+   "evals_checked": 653,
+   "divergences": 0,
+   "by_class": {
+    "previous_bar_signal": 0,
+    "missed_signal": 0,
+    "live_only_signal": 0,
+    "side_mismatch": 0,
+    "candle_mismatch": 0,
+    "lost_bar": 0,
+    "unevaluated_signal": 0,
+    "dropped_no_package": 0,
+    "dropped_no_order": 0
+   },
+   "bars": [
+    {
+     "bar": "2026-10-09T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 159,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-12T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 165,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-13T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 163,
+     "signal_evals": 0
+    },
+    {
+     "bar": "2026-10-14T04:00:00+00:00",
+     "status": "matched_no_signal",
+     "evals": 166,
+     "signal_evals": 0
+    }
+   ],
+   "bars_not_comparable": 0,
+   "divergence_detail": [],
+   "replay_calls": 1396,
+   "mode_notes": {},
+   "frames_without_current_bar": {
+    "n": 0,
+    "examples": []
+   },
+   "stale_frames": {
+    "n": 2,
+    "p50_s": 364.1,
+    "p90_s": 364.1,
+    "max_s": 364.08703207969666
+   },
+   "adx_gap_max": 0.0165,
+   "live_evals_in_window": 813,
+   "matched_signal_bars": [],
+   "replay_signal_windows": [],
+   "replay_none_windows": [
+    "2026-10-09T13:15:00+00:00",
+    "2026-10-09T13:30:00+00:00",
+    "2026-10-09T13:45:00+00:00",
+    "2026-10-09T14:00:00+00:00",
+    "2026-10-09T14:15:00+00:00",
+    "2026-10-09T14:30:00+00:00",
+    "2026-10-09T14:45:00+00:00",
+    "2026-10-09T15:00:00+00:00",
+    "2026-10-09T15:15:00+00:00",
+    "2026-10-09T15:30:00+00:00",
+    "2026-10-09T15:45:00+00:00",
+    "2026-10-09T16:00:00+00:00",
+    "2026-10-09T16:15:00+00:00",
+    "2026-10-09T16:30:00+00:00",
+    "2026-10-09T16:45:00+00:00",
+    "2026-10-09T17:00:00+00:00",
+    "2026-10-09T17:15:00+00:00",
+    "2026-10-09T17:30:00+00:00",
+    "2026-10-09T17:45:00+00:00",
+    "2026-10-09T18:00:00+00:00",
+    "2026-10-09T18:15:00+00:00",
+    "2026-10-09T18:30:00+00:00",
+    "2026-10-09T18:45:00+00:00",
+    "2026-10-09T19:00:00+00:00",
+    "2026-10-09T19:15:00+00:00",
+    "2026-10-09T19:30:00+00:00",
+    "2026-10-09T19:45:00+00:00",
+    "2026-10-12T13:15:00+00:00",
+    "2026-10-12T13:30:00+00:00",
+    "2026-10-12T13:45:00+00:00",
+    "2026-10-12T14:00:00+00:00",
+    "2026-10-12T14:15:00+00:00",
+    "2026-10-12T14:30:00+00:00",
+    "2026-10-12T14:45:00+00:00",
+    "2026-10-12T15:00:00+00:00",
+    "2026-10-12T15:15:00+00:00",
+    "2026-10-12T15:30:00+00:00",
+    "2026-10-12T15:45:00+00:00",
+    "2026-10-12T16:00:00+00:00",
+    "2026-10-12T16:15:00+00:00",
+    "2026-10-12T16:30:00+00:00",
+    "2026-10-12T16:45:00+00:00",
+    "2026-10-12T17:00:00+00:00",
+    "2026-10-12T17:15:00+00:00",
+    "2026-10-12T17:30:00+00:00",
+    "2026-10-12T17:45:00+00:00",
+    "2026-10-12T18:00:00+00:00",
+    "2026-10-12T18:15:00+00:00",
+    "2026-10-12T18:30:00+00:00",
+    "2026-10-12T18:45:00+00:00"
+   ]
+  }
+ ],
+ "headline": "Live\u2194replay parity (2026-10-15, 2026-10-08\u21922026-10-15): 16 legs checked (7 real-money), 296 bars, divergences = 0 \u00b7 controls: planted_defect pass, historical_positive pass, liveness pass"
+}

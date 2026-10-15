@@ -590,5 +590,30 @@ def test_sheet_diag_is_kept_and_never_raises_the_unseen_alert(env):
     for reason in ("sheet_sheet_not_open", "amend_sheet_unmeasured", "sheet_ok"):
         pe.record_event(_dev(), {"event": "positions_miss", "reason": reason, "headers": ["child:none", "group:clicked"],
                                  "controls": ["stop px=1 pen=1", "  button P ✎"]})
-        assert pe.last_positions_diag("breakout_2")["state"] == reason
+        assert pe.last_sheet_diag("breakout_2")["state"] == reason   # BREAKOUT-NATIVE-TAP: its own slot
     assert _unseen_pings(env) == []
+
+
+def test_sheet_diag_has_its_own_slot(env):
+    # BREAKOUT-NATIVE-TAP finding (b): 2026-10-15 08:21:38Z the sheet probe (sheet_sheet_not_open) was overwritten one
+    # second later by the Positions read's own side_unread miss. Sheet / child probes now land in a separate slot.
+    pe.record_event(_dev(), {"event": "positions_miss", "reason": "sheet_sheet_not_open",
+                             "headers": ["child/native:touched k=2.63", "child/native:no_sheet"], "controls": ["up: span"]})
+    pe.record_event(_dev(), {"event": "positions_miss", "reason": "side_unread miss=side bad=0 n=1", "headers": ["Market"]})
+    assert pe.last_sheet_diag("breakout_2")["state"] == "sheet_sheet_not_open"
+    assert pe.last_sheet_diag("breakout_2")["headers"][0].startswith("child/native:touched")
+    assert pe.last_positions_diag("breakout_2")["state"] == "side_unread miss=side bad=0 n=1"
+    pe.record_event(_dev(), {"event": "positions_miss", "reason": "amend_sheet_unmeasured"})
+    pe.record_event(_dev(), {"event": "positions_miss", "reason": "child_side_unread"})
+    assert pe.last_sheet_diag("breakout_2")["state"] == "child_side_unread"
+    assert pe.last_positions_diag("breakout_2")["state"] == "side_unread miss=side bad=0 n=1"
+
+
+def test_row_side_read_off_the_expanded_child_row_is_measured(env):
+    # BREAKOUT-NATIVE-TAP finding (a): the expanded child row shows the side as TEXT; the phone labels it side_source row
+    _open("prop-manual-f6552263ed1d", direction="short", qty=0.54, entry=2458.24, sl=2504.25, tp=2214.87)
+    _status([{"symbol": "ETH", "side": "short", "side_source": "row", "qty": 0.54, "entry": 2461.52, "mark": 2440.65,
+              "upnl": 20.88}], state="read")
+    raw = json.loads(prop_journal.latest_account_status("breakout_2")["raw"])
+    assert (raw["positions_state"], raw["positions_side_source"], raw["positions_provenance"]) == ("read", "row", "MEASURED")
+    assert raw["positions"][0]["side_source"] == "row" and "upnl_signed" not in raw["positions"][0]

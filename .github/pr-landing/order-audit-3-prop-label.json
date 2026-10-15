@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for manager/operator review (lane ORDER-AUDIT-3, item 13). Tier-2: the prop DXtrade order path (tradeify_1 browser path; velotrade_1 REST path shares classify_confirmation). (a) submit_label_mismatch now refuses a LIMIT ticket whose submit label states a price more than one declared price_step from the typed limit. (b) classify_confirmation compares SL/TP within one spec price_step instead of 2% relative, falling back to the old 2% when no step is declared. Both are per-ticket verdicts on the existing paths; no latch, no halt.",
+  "why": "OA-07 (PI-20261004-GCFA5DOR-0004), parts (a) and (b). (a) tradeify's price field reverts to a market-derived price unless it sees typing; a label moved from 'at 120.91' to 'at 120.94' after the click, and the measured #15930 label 'at 2,683.584' for a typed 2683.59 passed because the label price was never compared. (b) a 2% relative SL/TP tolerance let a terminal-default SL within 2% of the typed one read as bracketed. Tightening (b) can turn a confirmation that read 'placed'/'open' into 'partial_no_sl_tp' (contain/repair path) when the terminal's SL/TP is more than one tick from the typed value."
+}

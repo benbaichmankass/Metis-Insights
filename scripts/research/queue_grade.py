@@ -48,6 +48,29 @@ file moves):
     `grading.latest` is refreshed, and a fail is recorded, not re-queued (the
     cadence re-asks anyway).
 
+HAND-WRITTEN UNITS WHOSE ROWS ATTEST THEIR OWN RULE (RESEARCH-GRADE-BACKLOG, 2026-10-15)
+--------------------------------------------------------------------------------------
+Until 2026-10-15 a hand-written unit was graded only if it opted in with
+`grading: {auto: true}`, and no step of the loop ever closed the rest:
+research-ops READ their results (its record lists the verdicts) but its
+queue edits hold for a human (E57), and this grader skipped them. MEASURED on
+main 55bb4fdd: 140 queued hand-written units had result rows, 130 of them with
+EVERY row stamped with the unit's own `decision_rule.id` -- i.e. the producer
+(script_run / harness_dispatch_result / ml_bakeoff) graded the run under that
+unit's registered rule. Those are the units this path now grades:
+
+  * `cadence: once`, not `generated`, no `grading.auto`;
+  * every E5 row for the unit carries `decision_rule.id` equal to the unit's
+    own, non-empty rule id (a row from a generic producer -- e.g.
+    RULE-E7-HARNESS-DISPATCHABLE or RULE-M20-EXIT-LEVER-IS-OOS-GATE -- is NOT
+    an application of the unit's rule and leaves the unit to a session);
+  * grading is then the same unanimity read as above, with ONE difference: a
+    FAIL closes the unit (`status: done`, verdict fail). The confirmatory
+    re-run is the template grader's policy for mechanically generated cells;
+    it is not part of a session-registered rule, and re-dispatching a
+    deterministic replay over the same fixed window reproduces the same number
+    at the cost of a dispatcher slot. The block says `attested: <rule id>`.
+
 DETERMINISM. The `grading:` block is a pure function of (the unit at the
 merge-base, the rows at HEAD, `graded_at`), so `check_pr_landing.py` can
 re-run `--verify` at a PR's merge-base and demand the same bytes before a
@@ -73,6 +96,14 @@ QUEUE = Path("research/queue")
 RESULTS = Path("research/results")
 E35_CORPUS = Path("docs/research/e35-bracket-corpus.jsonl")
 E35_FLOOR = 39
+# RESEARCH-LOOP-AUDIT RC5 (2026-10-15, docs/research/research-loop-audit-2026-10-15.md § 2a):
+# a recurring e35 unit graded indeterminate at base_oos_trades < floor/3 cannot reach the floor
+# on its own cadence (MEASURED: 19 monthly daily-bar legs at OOS n 0-11, adding ~1 trade/month),
+# so re-asking it monthly spends a runner slot to learn nothing. It is NOT retired (refinement-
+# first, operator 2026-09-27): the grader stretches the re-ask to RECHECK_DAYS via its own
+# grading block, which dispatch_queue.due() honours. The unit's registered fields never move.
+INFEASIBLE_FRACTION = 3
+RECHECK_DAYS = 90
 MECHANICAL = ("pass", "fail", "no_action_warranted")
 _RECURRING = ("daily", "weekly", "monthly")
 
@@ -110,6 +141,55 @@ def e5_rows(root: Path, unit_id: str, since: Optional[datetime]) -> List[Tuple[s
                 continue
             out.append((f.relative_to(root).as_posix(), r))
     return out
+
+
+def rule_attested(root: Path, unit_id: str, unit: Dict[str, Any]) -> bool:
+    """True when a hand-written `once` unit's E5 rows ALL carry its own rule id.
+
+    That stamp is how a producer says it graded the run under this unit's
+    registered rule; a generic producer rule id (or none) means it did not, so
+    the unit stays with a session. No rows -> False (nothing to attest)."""
+    rid = str((unit.get("decision_rule") or {}).get("id") or "").strip()
+    if not rid or str(unit.get("cadence") or "once") != "once":
+        return False
+    seen = 0
+    for _f, r in e5_rows(root, unit_id, None):
+        rule = r.get("decision_rule") if isinstance(r.get("decision_rule"), dict) else {}
+        if str(rule.get("id") or r.get("decision_rule_id") or "").strip() != rid:
+            return False
+        seen += 1
+    return seen > 0
+
+
+def session_owned(unit: Dict[str, Any]) -> bool:
+    """True when a hand-written unit's disposition belongs to a session, so the attested
+    path must not touch it (RESEARCH-LOOP-AUDIT RC1 delta, 2026-10-15): it opted out with
+    `grading: {auto: false}`, or it carries ANY `grading:` block a session wrote (no
+    `auto: true`) -- a hand grade, a needs-review note, a triage verdict. Without this the
+    attested path would overwrite a human read whenever the rows happen to attest."""
+    g = unit.get("grading")
+    return isinstance(g, dict) and g.get("auto") is not True
+
+
+def confirm_fail(unit: Dict[str, Any]) -> bool:
+    """True when an attested hand-written unit's first FAIL should be re-run once before it
+    closes (manager, 2026-10-15 06:58Z): only when a re-run can produce a DIFFERENT number --
+    an ML training run (`ml_bakeoff:` block), a unit that declares top-level `seeds` /
+    `n_seeds` (stochastic content it controls), or an explicit `grading.confirm_fail: true`.
+    A deterministic replay over a fixed window -- including a simulation whose argv pins its
+    seeds -- reproduces the identical number, so re-running it only spends a runner slot."""
+    g = unit.get("grading") if isinstance(unit.get("grading"), dict) else {}
+    return bool(g.get("confirm_fail") is True or isinstance(unit.get("ml_bakeoff"), dict)
+                or unit.get("seeds") is not None or unit.get("n_seeds") is not None)
+
+
+def _declared_runs(lands: Dict[str, Any]) -> int:
+    """`lands.runs: N` -- a unit designed as N dispatches (the RQ-20260928-005 fan-out shape)
+    is not graded until N result files landed; `lands.min_rows` still counts rows."""
+    try:
+        return int(lands.get("runs") or 1)
+    except (TypeError, ValueError):
+        return 1
 
 
 def e35_rows(root: Path, unit_id: str) -> List[Dict[str, Any]]:
@@ -179,7 +259,7 @@ def grade_e35(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     passing = sorted({f"{r.get('leg')}:{r.get('cell')}" for r in rows if r.get("gate_verdict") == "is_oos_pass"})
     if n_oos < E35_FLOOR:
         return {"verdict": "indeterminate", "reason": f"base_oos_trades {n_oos} < {E35_FLOOR} (unresolvable_at_current_n)",
-                "rows": len(rows), "files": [E35_CORPUS.as_posix()], "passing_cells": passing}
+                "rows": len(rows), "files": [E35_CORPUS.as_posix()], "passing_cells": passing, "base_oos_trades": n_oos}
     if passing:
         return {"verdict": "pass", "reason": f"{len(passing)} cell(s) is_oos_pass at base_oos_trades {n_oos}: {passing[:6]}",
                 "rows": len(rows), "files": [E35_CORPUS.as_posix()], "passing_cells": passing}
@@ -187,21 +267,40 @@ def grade_e35(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
             "rows": len(rows), "files": [E35_CORPUS.as_posix()], "passing_cells": []}
 
 
-def decide(unit: Dict[str, Any], g: Dict[str, Any], graded_at: str) -> Optional[Dict[str, Any]]:
+def decide(unit: Dict[str, Any], g: Dict[str, Any], graded_at: str,
+           attested: bool = False) -> Optional[Dict[str, Any]]:
     """The disposition for one unit, or None when nothing is to be written.
-    Returns {"status": new|None, "reset_stamp": bool, "grading": block}."""
+    Returns {"status": new|None, "reset_stamp": bool, "grading": block}.
+    `attested`: a hand-written `once` unit whose rows all carry its own rule id
+    (see the module docstring) -- a FAIL closes it instead of re-queueing."""
     cadence = str(unit.get("cadence") or "once")
     prior = unit.get("grading") if isinstance(unit.get("grading"), dict) else {}
     base = {"auto": True, "graded_at": graded_at, "grader": "scripts/research/queue_grade.py",
             "decision_rule_id": str((unit.get("decision_rule") or {}).get("id") or ""),
             "rows": g.get("rows"), "evidence": g.get("files"), "reason": g.get("reason")}
+    if attested:
+        base["attested"] = base["decision_rule_id"]
     v = g.get("verdict")
+    if attested and v == "fail" and cadence not in _RECURRING and not confirm_fail(unit):
+        return {"status": "done", "reset_stamp": False,
+                "grading": {**base, "verdict": "fail",
+                            "note": "hand-written unit, every row graded under its own registered rule: "
+                                    "FAIL closes it (no template confirmatory re-run)"}}
     if v is None:
         if g.get("rows", 0) == 0 and not g.get("reason", "").startswith("read_state"):
             return None    # nothing landed yet -- not due, not a finding
         return {"status": None, "reset_stamp": False,
                 "grading": {**base, "verdict": None, "needs_review": True}}
     if cadence in _RECURRING:
+        n_oos = g.get("base_oos_trades")
+        if v == "indeterminate" and isinstance(n_oos, int) and n_oos * INFEASIBLE_FRACTION < E35_FLOOR:
+            # Infeasible at this cadence: a mechanical outcome, not a human read -- so no needs_review.
+            return {"status": None, "reset_stamp": False,
+                    "grading": {**base, "verdict": v, "latest": True, "power": "infeasible_at_cadence",
+                                "recheck_after_days": RECHECK_DAYS,
+                                "note": f"base_oos_trades {n_oos} < floor {E35_FLOOR}/{INFEASIBLE_FRACTION}: the "
+                                        f"{cadence} re-ask cannot reach the floor; re-checked every {RECHECK_DAYS} "
+                                        "days instead (not retired)"}}
         return {"status": None, "reset_stamp": False,
                 "grading": {**base, "verdict": v, "latest": True, "needs_review": v == "indeterminate"}}
     if int(prior.get("confirmatory_run") or 0) >= 1 and v != "fail":
@@ -276,8 +375,13 @@ def grade_unit(root: Path, unit_id: str, text: str, graded_at: str) -> Optional[
     # this grader's to second-guess -- it stays in the session's queue.
     auto = isinstance(unit.get("generated"), dict) or \
         (isinstance(unit.get("grading"), dict) and unit["grading"].get("auto") is True)
+    attested = False
     if not auto:
-        return None
+        if session_owned(unit):
+            return None    # opted out, or a session already dispositioned it -- never overwrite a human read
+        attested = rule_attested(root, unit_id, unit)
+        if not attested:
+            return None
     prior = unit.get("grading") if isinstance(unit.get("grading"), dict) else {}
     confirmatory = int(prior.get("confirmatory_run") or 0) >= 1
     # A recurring unit reads only its latest cadence window. A confirmatory
@@ -293,7 +397,10 @@ def grade_unit(root: Path, unit_id: str, text: str, graded_at: str) -> Optional[
         g = grade_e5(e5_rows(root, unit_id, since), int(lands.get("min_rows") or 1))
     if confirmatory and not g.get("rows"):
         return None    # the confirmatory run has not landed anything yet -- not due
-    d = decide(unit, g, graded_at)
+    runs = _declared_runs(lands)
+    if runs > 1 and not confirmatory and unit.get("cadence") not in _RECURRING and len(g.get("files") or []) < runs:
+        return None    # a declared multi-dispatch unit: not every run has landed yet -- not due
+    d = decide(unit, g, graded_at, attested=attested)
     if d is None:
         return None
     new = apply_text(text, d)
@@ -402,6 +509,11 @@ def _self_test() -> int:
     d3 = decide({**u, "grading": {"confirmatory_run": 1}}, {"verdict": "pass", "rows": 1, "files": [], "reason": "r"}, "2030-01-01")
     assert d3["status"] is None and d3["grading"]["needs_review"] and "not unanimous" in d3["grading"]["note"], d3
     assert decide({**u, "cadence": "monthly"}, {"verdict": "fail", "rows": 1, "files": [], "reason": "r"}, "2030-01-01")["status"] is None
+    # RC5: an infeasible recurring e35 read stretches the re-ask, no needs_review; a near-floor one does not
+    di5 = decide({**u, "cadence": "monthly"}, {"verdict": "indeterminate", "rows": 1, "files": [], "reason": "r", "base_oos_trades": 5}, "2030-01-01")
+    assert di5["grading"]["recheck_after_days"] == RECHECK_DAYS and not di5["grading"].get("needs_review") and di5["status"] is None, di5
+    di29 = decide({**u, "cadence": "monthly"}, {"verdict": "indeterminate", "rows": 1, "files": [], "reason": "r", "base_oos_trades": 29}, "2030-01-01")
+    assert di29["grading"]["needs_review"] and "recheck_after_days" not in di29["grading"], di29
     assert decide(u, {"verdict": None, "rows": 0, "files": [], "reason": "0 result row(s)"}, "2030-01-01") is None
     assert decide(u, {"verdict": None, "rows": 2, "files": [], "reason": "verdicts not unanimous"}, "2030-01-01")["grading"]["needs_review"]
 
@@ -466,6 +578,47 @@ def _self_test() -> int:
         p.write_text(p.read_text().replace("verdict: pass", "verdict: fail"))
         git("commit", "-q", "-am", "tamper")
         assert any("does not reproduce" in x for x in verify(r, "main"))
+    # hand-written units: graded only when every row attests the unit's own rule id
+    with tempfile.TemporaryDirectory() as td:
+        r = Path(td)
+        (r / QUEUE).mkdir(parents=True)
+        d = r / RESULTS / "RQ-20300101-002"
+        d.mkdir(parents=True)
+        hand = ("id: RQ-20300101-002\nstatus: queued\ncadence: once\ndecision_rule:\n  id: RULE-H\n"
+                "lands:\n  min_rows: 1\nlast_dispatched_at: '2030-01-01T00:00:00+00:00'\n")
+        own = lambda v, rid="RULE-H": json.dumps({"verdict": v, "read_state": "measured", "decision_rule": {"id": rid}})  # noqa: E731
+        (d / "1.jsonl").write_text(own("fail", "RULE-GENERIC") + "\n")
+        assert grade_unit(r, "RQ-20300101-002", hand, "2030-01-02") is None      # generic producer rule: not attested
+        (d / "1.jsonl").write_text(own("fail") + "\n" + own("fail", "RULE-GENERIC") + "\n")
+        assert grade_unit(r, "RQ-20300101-002", hand, "2030-01-02") is None      # one foreign row spoils it
+        (d / "1.jsonl").write_text(own("fail") + "\n")
+        tf = grade_unit(r, "RQ-20300101-002", hand, "2030-01-02")
+        assert "status: done" in tf and "verdict: fail" in tf and "attested: RULE-H" in tf and \
+            "last_dispatched_at: '2030" in tf, tf                                 # FAIL closes, no re-queue
+        (d / "1.jsonl").write_text(own("pass") + "\n")
+        assert "status: done" in grade_unit(r, "RQ-20300101-002", hand, "2030-01-02")
+        (d / "1.jsonl").write_text(own("indeterminate") + "\n")
+        assert "awaiting: more_data" in grade_unit(r, "RQ-20300101-002", hand, "2030-01-02")
+        (d / "1.jsonl").write_text(json.dumps({"verdict": "not_applicable", "read_state": "producer_failed",
+                                                "decision_rule": {"id": "RULE-H"}}) + "\n")
+        assert "needs_review: true" in grade_unit(r, "RQ-20300101-002", hand, "2030-01-02")
+        # an ML training run (or declared seeds / confirm_fail) re-runs its first FAIL once instead of closing
+        (d / "1.jsonl").write_text(own("fail") + "\n")
+        tml = grade_unit(r, "RQ-20300101-002", hand + "ml_bakeoff:\n  family: f\n", "2030-01-02")
+        assert tml and "status: queued" in tml and "last_dispatched_at: null" in tml and "confirmatory_run: 1" in tml, tml
+        assert "last_dispatched_at: null" in grade_unit(r, "RQ-20300101-002", hand + "n_seeds: 5\n", "2030-01-02")
+        weekly = hand.replace("cadence: once", "cadence: weekly")
+        (d / "1.jsonl").write_text(own("pass") + "\n")
+        assert grade_unit(r, "RQ-20300101-002", weekly, "2030-01-02") is None   # recurring hand units stay a session's
+        # RC1 delta (2026-10-15): an attested unit that opted out, or that a session already graded, is never touched
+        assert grade_unit(r, "RQ-20300101-002", hand + "grading:\n  auto: false\n", "2030-01-02") is None
+        assert grade_unit(r, "RQ-20300101-002", hand + "grading:\n  verdict: fail\n  by: a session\n", "2030-01-02") is None
+        # ... and a declared multi-dispatch unit waits for every run's result FILE (2 rows in 1 file, runs: 2)
+        (d / "1.jsonl").write_text(own("pass") + "\n" + own("pass") + "\n")
+        multi = hand.replace("  min_rows: 1\n", "  min_rows: 1\n  runs: 2\n")
+        assert grade_unit(r, "RQ-20300101-002", multi, "2030-01-02") is None
+        (d / "2.jsonl").write_text(own("pass") + "\n")
+        assert "status: done" in (grade_unit(r, "RQ-20300101-002", multi, "2030-01-02") or "")
     print("queue_grade self-test OK")
     return 0
 

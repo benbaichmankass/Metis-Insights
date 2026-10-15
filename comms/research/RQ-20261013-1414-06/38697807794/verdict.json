@@ -1,0 +1,472 @@
+{
+  "verdict": "indeterminate",
+  "read_state": "measured",
+  "n": 3564,
+  "population": "2 group(s) ['BTCUSDT_15m_last3000', 'MES_1d']; baseline lgbm; candidates ['tabicl', 'tabpfn']; metric macro_f1; n = baseline OOS test rows summed over groups; cv folds per group >= 5",
+  "note": "between the pass bar and the fail floor | UNAVAILABLE ARMS: {'tabpfn': 'TabPFNLicenseError: TabPFN requires a one-time license acceptance to download\\nmodel weights for local inference, but no interactive terminal\\nis available.\\n\\nTo authenticate in a non-interactive environment:\\n  1. Open https://ux.priorlabs.ai in a browser and log in (or register)\\n  2. Accept the license on the Licenses tab\\n  3. Copy your API Key from https://ux.priorlabs.ai/account\\n  4. Set the environment variable: export TABPFN_TOKEN=\"<your-api-key>\"\\n     or in Python (before calling .fit()): import os; os.environ[\"TABPFN_TOKEN\"] = \"<your-api-key>\"'}",
+  "measurement": {
+    "engine": "scripts/research/ml_bakeoff.py",
+    "metric": "macro_f1",
+    "higher_is_better": true,
+    "delta_sign": "positive = learner better than reference",
+    "baseline": "lgbm",
+    "controls": [
+      "prior",
+      "logit"
+    ],
+    "candidates": [
+      "tabicl",
+      "tabpfn"
+    ],
+    "arm_status": {
+      "prior": "ok",
+      "lgbm": "ok",
+      "logit": "ok",
+      "tabicl": "ok",
+      "tabpfn": "error"
+    },
+    "groups": {
+      "BTCUSDT_15m_last3000": {
+        "n_rows": 3000,
+        "classes": [
+          "range",
+          "volatile"
+        ],
+        "arms": {
+          "prior": {
+            "status": "ok",
+            "features": [
+              "rolling_log_return_vol",
+              "log_return",
+              "log_return_lag_1",
+              "log_return_lag_2",
+              "dayofweek"
+            ],
+            "windows": {
+              "cv": {
+                "fold_metric": [
+                  1.0,
+                  0.4957983193277311,
+                  1.0,
+                  1.0,
+                  0.4965034965034965
+                ],
+                "n_test_rows": 1800
+              }
+            }
+          },
+          "lgbm": {
+            "status": "ok",
+            "features": [
+              "rolling_log_return_vol",
+              "log_return",
+              "log_return_lag_1",
+              "log_return_lag_2",
+              "dayofweek"
+            ],
+            "windows": {
+              "cv": {
+                "fold_metric": [
+                  1.0,
+                  0.4957983193277311,
+                  1.0,
+                  1.0,
+                  0.4965034965034965
+                ],
+                "n_test_rows": 1800
+              }
+            }
+          },
+          "logit": {
+            "status": "ok",
+            "features": [
+              "rolling_log_return_vol",
+              "log_return",
+              "log_return_lag_1",
+              "log_return_lag_2",
+              "dayofweek"
+            ],
+            "windows": {
+              "cv": {
+                "fold_metric": [
+                  1.0,
+                  0.4957983193277311,
+                  1.0,
+                  1.0,
+                  0.4965034965034965
+                ],
+                "n_test_rows": 1800
+              }
+            }
+          },
+          "tabicl": {
+            "status": "ok",
+            "features": [
+              "rolling_log_return_vol",
+              "log_return",
+              "log_return_lag_1",
+              "log_return_lag_2",
+              "dayofweek"
+            ],
+            "windows": {
+              "cv": {
+                "fold_metric": [
+                  1.0,
+                  0.4957983193277311,
+                  1.0,
+                  1.0,
+                  0.4965034965034965
+                ],
+                "n_test_rows": 1800
+              }
+            }
+          },
+          "tabpfn": {
+            "status": "error",
+            "reason": "TabPFNLicenseError: TabPFN requires a one-time license acceptance to download\nmodel weights for local inference, but no interactive terminal\nis available.\n\nTo authenticate in a non-interactive environment:\n  1. Open https://ux.priorlabs.ai in a browser and log in (or register)\n  2. Accept the license on the Licenses tab\n  3. Copy your API Key from https://ux.priorlabs.ai/account\n  4. Set the environment variable: export TABPFN_TOKEN=\"<your-api-key>\"\n     or in Python (before calling .fit()): import os; os.environ[\"TABPFN_TOKEN\"] = \"<your-api-key>\""
+          }
+        }
+      },
+      "MES_1d": {
+        "n_rows": 2940,
+        "classes": [
+          "range",
+          "volatile"
+        ],
+        "arms": {
+          "prior": {
+            "status": "ok",
+            "features": [
+              "rolling_log_return_vol",
+              "log_return",
+              "log_return_lag_1",
+              "log_return_lag_2",
+              "dayofweek"
+            ],
+            "windows": {
+              "cv": {
+                "fold_metric": [
+                  0.2903225806451613,
+                  0.2706611570247934,
+                  0.23922413793103448,
+                  0.35934664246823955,
+                  0.35818181818181816
+                ],
+                "n_test_rows": 1764
+              }
+            }
+          },
+          "lgbm": {
+            "status": "ok",
+            "features": [
+              "rolling_log_return_vol",
+              "log_return",
+              "log_return_lag_1",
+              "log_return_lag_2",
+              "dayofweek"
+            ],
+            "windows": {
+              "cv": {
+                "fold_metric": [
+                  0.7481707911937823,
+                  0.7578775132428166,
+                  0.6616278576578869,
+                  0.6570476534585892,
+                  0.555050799854495
+                ],
+                "n_test_rows": 1764
+              }
+            }
+          },
+          "logit": {
+            "status": "ok",
+            "features": [
+              "rolling_log_return_vol",
+              "log_return",
+              "log_return_lag_1",
+              "log_return_lag_2",
+              "dayofweek"
+            ],
+            "windows": {
+              "cv": {
+                "fold_metric": [
+                  0.7712800519818064,
+                  0.7675535936394897,
+                  0.6645290846135412,
+                  0.654321582225647,
+                  0.5253143279768708
+                ],
+                "n_test_rows": 1764
+              }
+            }
+          },
+          "tabicl": {
+            "status": "ok",
+            "features": [
+              "rolling_log_return_vol",
+              "log_return",
+              "log_return_lag_1",
+              "log_return_lag_2",
+              "dayofweek"
+            ],
+            "windows": {
+              "cv": {
+                "fold_metric": [
+                  0.7875505676627952,
+                  0.7793474184273034,
+                  0.6830272431553266,
+                  0.657124738105368,
+                  0.5783190904610347
+                ],
+                "n_test_rows": 1764
+              }
+            }
+          },
+          "tabpfn": {
+            "status": "error",
+            "reason": "TabPFNLicenseError: TabPFN requires a one-time license acceptance to download\nmodel weights for local inference, but no interactive terminal\nis available.\n\nTo authenticate in a non-interactive environment:\n  1. Open https://ux.priorlabs.ai in a browser and log in (or register)\n  2. Accept the license on the Licenses tab\n  3. Copy your API Key from https://ux.priorlabs.ai/account\n  4. Set the environment variable: export TABPFN_TOKEN=\"<your-api-key>\"\n     or in Python (before calling .fit()): import os; os.environ[\"TABPFN_TOKEN\"] = \"<your-api-key>\""
+          }
+        }
+      }
+    },
+    "deltas": {
+      "BTCUSDT_15m_last3000": {
+        "cv": {
+          "prior": {
+            "lgbm": {
+              "n_folds": 5,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ],
+              "sign_consistent": false
+            },
+            "prior": {
+              "n_folds": 5,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ],
+              "sign_consistent": false
+            },
+            "logit": {
+              "n_folds": 5,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ],
+              "sign_consistent": false
+            }
+          },
+          "logit": {
+            "lgbm": {
+              "n_folds": 5,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ],
+              "sign_consistent": false
+            },
+            "prior": {
+              "n_folds": 5,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ],
+              "sign_consistent": false
+            },
+            "logit": {
+              "n_folds": 5,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ],
+              "sign_consistent": false
+            }
+          },
+          "tabicl": {
+            "lgbm": {
+              "n_folds": 5,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ],
+              "sign_consistent": false
+            },
+            "prior": {
+              "n_folds": 5,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ],
+              "sign_consistent": false
+            },
+            "logit": {
+              "n_folds": 5,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ],
+              "sign_consistent": false
+            }
+          }
+        }
+      },
+      "MES_1d": {
+        "cv": {
+          "prior": {
+            "lgbm": {
+              "n_folds": 5,
+              "mean": -0.3724076558313046,
+              "ci95": [
+                -0.5236622661171072,
+                -0.22115304554550194
+              ],
+              "sign_consistent": true
+            },
+            "prior": {
+              "n_folds": 5,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ],
+              "sign_consistent": false
+            },
+            "logit": {
+              "n_folds": 5,
+              "mean": -0.3730524608372617,
+              "ci95": [
+                -0.5466460186847911,
+                -0.19945890298973223
+              ],
+              "sign_consistent": true
+            }
+          },
+          "logit": {
+            "lgbm": {
+              "n_folds": 5,
+              "mean": 0.0006448050059570277,
+              "ci95": [
+                -0.02360107156625565,
+                0.024890681578169708
+              ],
+              "sign_consistent": false
+            },
+            "prior": {
+              "n_folds": 5,
+              "mean": 0.3730524608372617,
+              "ci95": [
+                0.19945890298973223,
+                0.5466460186847911
+              ],
+              "sign_consistent": true
+            },
+            "logit": {
+              "n_folds": 5,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ],
+              "sign_consistent": false
+            }
+          },
+          "tabicl": {
+            "lgbm": {
+              "n_folds": 5,
+              "mean": 0.021118888480851573,
+              "ci95": [
+                0.003771227590550371,
+                0.03846654937115278
+              ],
+              "sign_consistent": true
+            },
+            "prior": {
+              "n_folds": 5,
+              "mean": 0.3935265443121562,
+              "ci95": [
+                0.23432943389930044,
+                0.5527236547250121
+              ],
+              "sign_consistent": true
+            },
+            "logit": {
+              "n_folds": 5,
+              "mean": 0.020474083474894544,
+              "ci95": [
+                -0.003304328742626955,
+                0.044252495692416044
+              ],
+              "sign_consistent": true
+            }
+          }
+        }
+      }
+    },
+    "rule_evaluation": {
+      "verdict": "indeterminate",
+      "why": "between the pass bar and the fail floor",
+      "candidates": {
+        "tabicl": {
+          "evaluated": true,
+          "passes_all": false,
+          "clauses": [
+            {
+              "holds": false,
+              "what": "['BTCUSDT_15m_last3000', 'MES_1d'] >= 0.01 vs lgbm/cv"
+            }
+          ]
+        },
+        "tabpfn": {
+          "evaluated": false,
+          "status": "error"
+        }
+      }
+    },
+    "headline_checks": [],
+    "licences": {
+      "prior": {
+        "kind": "prior",
+        "licence": "n/a",
+        "research_only": false,
+        "weights": ""
+      },
+      "lgbm": {
+        "kind": "lightgbm",
+        "licence": "MIT",
+        "research_only": false,
+        "weights": ""
+      },
+      "logit": {
+        "kind": "numpy_logit",
+        "licence": "n/a",
+        "research_only": false,
+        "weights": ""
+      },
+      "tabicl": {
+        "kind": "tabicl",
+        "licence": "BSD-3-Clause (verify on the Hub)",
+        "research_only": false,
+        "weights": ""
+      },
+      "tabpfn": {
+        "kind": "tabpfn",
+        "licence": "Prior Labs non-commercial (license:other)",
+        "research_only": true,
+        "weights": "Prior Labs non-commercial weights (license:other); offline research evaluation only"
+      }
+    },
+    "n_folds_cv_min_over_groups": 5,
+    "seconds": 1735.1
+  }
+}

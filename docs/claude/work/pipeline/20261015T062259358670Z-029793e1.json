@@ -1,0 +1,25 @@
+{
+  "based_on": "20261005T040142145099Z-216f3a50.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a read-only orders-table dump taken right after a resting entry is cancelled (the first real _expire_resting cancel, or a watched test the manager approved) shows no remaining SL/TP rows for that symbol; OR it shows leftovers, and a fix is filed.",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20260930-KMYJ5XC7-0005",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-14",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane BREAKOUT-ATTRITION session_01KMYJ5xC7gtPjGVf6Nwywoq 2026-09-30, manager review of #14581 items 4(c)/4(d)",
+    "rerun": "grep -n 'Stop loss, Take profit' src/prop/platform/dxtrade.py; then the read-only dump-tables probe (breakout-login-check) after the next cancel_expired_resting action appears in the executor tick log"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Code read 2026-10-15: prop_executor.py post-close re-read logs orphan_orders (~L1840-1869) but no code settles whether DXtrade leaves orphan SL/TP after an entry cancel; breakout_1 (the original venue) is retired, so the observation must come from velotrade_1/tradeify_1 tick logs. PROP-EXEC is done; re-routed.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "checklist row ROUTE-PROP-TRACKING | [BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r) 2026-10-15 re-route]",
+  "state": "routed",
+  "what": "UNVERIFIED, review item 4(d): does cancelling an armed ENTRY order on the live DXtrade terminal also remove its attached SL/TP? What the code and dumps show: the MEASURED Breakout working-orders table (run 36358563148, issue #13385) carries 'Stop loss' and 'Take profit' as COLUMNS of the entry row, and orders_from_tables reads them as attributes of one WorkingOrder. So the legs are INFERRED to be part of the entry order, not separate rows; no dump shows separate leg rows. Not established: whether the venue leaves orphan SL/TP children after the entry is cancelled. Do NOT probe this on the live account without a plan the manager has seen."
+}

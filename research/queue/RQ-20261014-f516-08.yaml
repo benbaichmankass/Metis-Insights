@@ -1,7 +1,7 @@
 id: RQ-20261014-f516-08
 title: 'Programme 05 Q5 breadth: velotrade_1 incumbent book vs +XRP 1h trend (executable now) vs the trend6 book that passed RQ-20261007-215,
   head-to-head on the same seeds'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -164,3 +164,16 @@ related:
 - scripts/research/p2_breakout_symbol_screen.py
 - docs/claude/work/checklist/PROP-ROSTER-EXPAND.json
 last_dispatched_at: '2026-10-14T21:58:15+00:00'
+grading:
+  attested: RULE-RQ1014-F516-08-BREADTH-VELOTRADE1
+  auto: true
+  decision_rule_id: RULE-RQ1014-F516-08-BREADTH-VELOTRADE1
+  evidence:
+  - research/results/RQ-20261014-f516-08/38644319490.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'hand-written unit, every row graded under its own registered rule: FAIL closes it (no template
+    confirmatory re-run)'
+  reason: 1 row(s), all measured, all fail
+  rows: 1
+  verdict: fail

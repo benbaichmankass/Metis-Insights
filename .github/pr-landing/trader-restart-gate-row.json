@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records the operator's verbatim 'Build it (Recommended)' decision on TELEGRAM-RESTART-MSG and files the queued TRADER-RESTART-GATE build row with its spec. Register only."
+}

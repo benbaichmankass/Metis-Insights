@@ -1,0 +1,1 @@
+auto-merge: GH-CAPACITY-INFRA-FIRST

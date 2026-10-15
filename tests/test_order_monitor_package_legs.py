@@ -341,3 +341,29 @@ def test_a_failed_trade_write_after_a_venue_close_never_resends(monkeypatch):
     assert s2.closed_count == 1
     assert [w["status"] for w in db.package_writes] == ["closed"]
     assert om._EXCHANGE_CLOSED_PENDING_DB == {}
+
+
+# ------------------------------------- ORDER-AUDIT-3 / PI-20260930-MEK2XMWT-0002
+
+
+def _unlinked_pkg(pkg_id="P"):
+    return {"order_package_id": pkg_id, "linked_trade_id": None, "status": "open",
+            "strategy_name": "xrp_pullback_2h", "symbol": "XRPUSDT"}
+
+
+def test_fallback_never_binds_another_packages_trade():
+    """Two open packages for one strategy+symbol (per-account gate, #14590).
+    Package P has no rows and no linked id; the only open row belongs to
+    package Q. Before the fix the strategy+symbol fallback handed P that row
+    and P's verdict was effectuated against Q's trade."""
+    db = FakeDB([_leg(7, "alpaca_live", pkg="Q")])
+    legs, state = om._package_open_legs(db, _unlinked_pkg("P"))
+    assert state == "resolved"
+    assert legs == []
+
+
+def test_fallback_still_finds_an_unowned_legacy_row():
+    """Control: the historical fallback for a row with no package id stays."""
+    db = FakeDB([_leg(7, "alpaca_live", pkg="Q"), _leg(8, "alpaca_paper", pkg=None)])
+    legs, _ = om._package_open_legs(db, _unlinked_pkg("P"))
+    assert [x["id"] for x in legs] == [8]

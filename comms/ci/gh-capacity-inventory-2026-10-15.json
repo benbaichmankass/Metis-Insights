@@ -1,0 +1,606 @@
+{
+ "row": "GH-CAPACITY-INFRA-FIRST",
+ "measured_at": "2026-10-15T08:20-08:30Z",
+ "method": "gh api actions/workflows/<file>/runs?status=completed&per_page=30; run minutes = updated_at - run_started_at (wall, includes queue-free waits); runs_last_7d counts within that 30-run sample, so 30 means >=30",
+ "queue_picture_before": {
+  "at": "2026-10-15T08:21Z",
+  "queued_total": 171,
+  "in_progress_runs": 20,
+  "in_progress_jobs_at_08:24Z": {
+   "pytest-run": 12,
+   "Guards": 5,
+   "repo-inventory": 1,
+   "research-queue-dispatch": 1,
+   "live-replay-parity": 1,
+   "total": 20
+  },
+  "queued_top": {
+   "pytest-rerun": 23,
+   "Guards": 15,
+   "pytest-run": 9,
+   "pytest-collect": 8,
+   "claude-run-failure-alert": 10,
+   "claude-pr-automerge": 8,
+   "repo-inventory": 9,
+   "work-digest": 7,
+   "pr-landing hold-merge alarm": 7,
+   "branch-protection-sync": 5,
+   "system-actions": 2,
+   "phone-executor-apk": 1
+  },
+  "ghost_queued": "~20 runs created 2026-05-15 / 2026-09-13 still read 'queued' (vm-web-api-recover x5, vm-cloud-fix x3, trainer-vm-diag x3, vm-net-diag x2, vm-diag-snapshot x2, repo-inventory/pytest-run on dead PR branches); not cancelled by hand per operator",
+  "runner_cap": "20 concurrent jobs observed saturated (20/20) = GitHub Free plan limit for a User-owned public repo; no workflow uses self-hosted runners (runners API is 403 through this session's proxy, so registration is UNVERIFIED)"
+ },
+ "inventory": [
+  {
+   "workflow": "alpaca-settlement-soak-watch.yml",
+   "class": "compute on GitHub-hosted runner",
+   "runs_sampled": 30,
+   "median_run_min": 0.3,
+   "max_run_min": 36.8,
+   "runs_last_7d_of_sample": 5,
+   "last_run": "2026-10-14",
+   "note": ""
+  },
+  {
+   "workflow": "constraint-readout.yml",
+   "class": "compute on GitHub-hosted runner",
+   "runs_sampled": 19,
+   "median_run_min": 23.7,
+   "max_run_min": 42.6,
+   "runs_last_7d_of_sample": 0,
+   "last_run": "2026-09-20",
+   "note": ""
+  },
+  {
+   "workflow": "e35-bracket-sweep.yml",
+   "class": "compute on GitHub-hosted runner",
+   "runs_sampled": 30,
+   "median_run_min": 67.4,
+   "max_run_min": 101.8,
+   "runs_last_7d_of_sample": 20,
+   "last_run": "2026-10-14",
+   "note": "matrix sweep on runner; max-parallel default 6 -> 3 this PR; job-min 28-70 over last 6 runs"
+  },
+  {
+   "workflow": "econ-calendar-backfill.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "econ-calendar-produce.yml",
+   "class": "compute on GitHub-hosted runner",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 16.1,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "econ-calendar-survey-backfill.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "econ-event-study.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "exit-cell-mandate.yml",
+   "class": "compute on GitHub-hosted runner",
+   "runs_sampled": 30,
+   "median_run_min": 0.4,
+   "max_run_min": 27.1,
+   "runs_last_7d_of_sample": 14,
+   "last_run": "2026-10-14",
+   "note": ""
+  },
+  {
+   "workflow": "flip-override-walkforward.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "gpu-burst-train.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped on non-matching events; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.9,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": "RunPod burst; runner dispatches"
+  },
+  {
+   "workflow": "grade-closed-trades.yml",
+   "class": "dispatch-only (trainer VM / Kaggle / RunPod / SSH): runner polls",
+   "runs_sampled": 30,
+   "median_run_min": 4.5,
+   "max_run_min": 67.0,
+   "runs_last_7d_of_sample": 15,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "ict-scalp-backtest.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "ict-scalp-exit-sweep.yml",
+   "class": "compute on GitHub-hosted runner",
+   "runs_sampled": 14,
+   "median_run_min": 38.7,
+   "max_run_min": 104.9,
+   "runs_last_7d_of_sample": 0,
+   "last_run": "2026-10-08",
+   "note": ""
+  },
+  {
+   "workflow": "kaggle-gpu-pilot.yml",
+   "class": "dispatch-only (trainer VM / Kaggle / RunPod / SSH): runner polls",
+   "runs_sampled": 2,
+   "median_run_min": 2.3,
+   "max_run_min": 3.7,
+   "runs_last_7d_of_sample": 2,
+   "last_run": "2026-10-13",
+   "note": ""
+  },
+  {
+   "workflow": "live-replay-parity.yml",
+   "class": "dispatch-only (trainer VM / Kaggle / RunPod / SSH): runner polls",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 12.3,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "m20-capture-census.yml",
+   "class": "dispatch-only (trainer VM / Kaggle / RunPod / SSH): runner polls",
+   "runs_sampled": 8,
+   "median_run_min": 3.5,
+   "max_run_min": 71.7,
+   "runs_last_7d_of_sample": 0,
+   "last_run": "2026-08-17",
+   "note": ""
+  },
+  {
+   "workflow": "m20-exit-lever-sweep.yml",
+   "class": "compute on GitHub-hosted runner",
+   "runs_sampled": 30,
+   "median_run_min": 50.1,
+   "max_run_min": 60.4,
+   "runs_last_7d_of_sample": 25,
+   "last_run": "2026-10-14",
+   "note": "matrix sweep on runner; max-parallel 10 -> 3 this PR; push-triggered on claude/** too"
+  },
+  {
+   "workflow": "m28-value-grade.yml",
+   "class": "compute on GitHub-hosted runner",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 10.4,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "m31-implied-vol-grade.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "m32-credit-curve-grade.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "m33-seasonality-grade.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.3,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "m34-xfamily-grade.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "macro-producer-liveness.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.4,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "macro-valuation-backfill.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "macro-valuation-snapshot.yml",
+   "class": "compute on GitHub-hosted runner",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 9.5,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "ml-data-export-kaggle.yml",
+   "class": "dispatch-only (trainer VM / Kaggle / RunPod / SSH): runner polls",
+   "runs_sampled": 6,
+   "median_run_min": 6.0,
+   "max_run_min": 16.8,
+   "runs_last_7d_of_sample": 6,
+   "last_run": "2026-10-14",
+   "note": ""
+  },
+  {
+   "workflow": "provision-training-vm-auto-retry.yml",
+   "class": "dispatch-only (trainer VM / Kaggle / RunPod / SSH): runner polls",
+   "runs_sampled": 30,
+   "median_run_min": 0.7,
+   "max_run_min": 1.4,
+   "runs_last_7d_of_sample": 0,
+   "last_run": "2026-06-10",
+   "note": ""
+  },
+  {
+   "workflow": "provision-training-vm.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped on non-matching events; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "pullback-frac-cross-leg-sweep.yml",
+   "class": "compute on GitHub-hosted runner",
+   "runs_sampled": 3,
+   "median_run_min": 3.2,
+   "max_run_min": 3.5,
+   "runs_last_7d_of_sample": 0,
+   "last_run": "2026-08-24",
+   "note": ""
+  },
+  {
+   "workflow": "regime-adx-cutpoint-sweep.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "regime-cell-walkforward.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "regime-debt-matrix.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "replay-pregate-nightly.yml",
+   "class": "dispatch-only (trainer VM / Kaggle / RunPod / SSH): runner polls",
+   "runs_sampled": 30,
+   "median_run_min": 0.1,
+   "max_run_min": 127.3,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": "SSH to VM; max 127 min = runner held while remote runs"
+  },
+  {
+   "workflow": "research-backtest-augment.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped on non-matching events; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "research-e2-horizon-arm.yml",
+   "class": "no runs",
+   "runs_sampled": 0,
+   "median_run_min": null,
+   "max_run_min": null,
+   "runs_last_7d_of_sample": 0,
+   "last_run": "-",
+   "note": ""
+  },
+  {
+   "workflow": "research-exit-head-build.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "research-exit-head-replay-trainer.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped on non-matching events; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "research-harness-dispatch.yml",
+   "class": "compute on GitHub-hosted runner",
+   "runs_sampled": 30,
+   "median_run_min": 52.3,
+   "max_run_min": 83.0,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": "runs scripts/backtest_*.py ON the runner; per-run_id group = unbounded fan-out except via dispatcher caps; job-min 11-64 over last 6 runs"
+  },
+  {
+   "workflow": "research-loss-detector.yml",
+   "class": "compute on GitHub-hosted runner",
+   "runs_sampled": 30,
+   "median_run_min": 15.1,
+   "max_run_min": 116.6,
+   "runs_last_7d_of_sample": 14,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "research-panel-build.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "research-queue-dispatch.yml",
+   "class": "compute on GitHub-hosted runner",
+   "runs_sampled": 30,
+   "median_run_min": 33.2,
+   "max_run_min": 103.7,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": "orchestrator; MEASURED last completed run: 33 runner-min in 3 commit-to-main 'land' steps (13+7+13) waiting for its own PRs to merge -- the runner is held idle, not computing"
+  },
+  {
+   "workflow": "research-queue-grade.yml",
+   "class": "compute on GitHub-hosted runner",
+   "runs_sampled": 30,
+   "median_run_min": 12.0,
+   "max_run_min": 78.4,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": "orchestrator; long tail = commit-to-main verify-merged wait"
+  },
+  {
+   "workflow": "research-queue-replenish.yml",
+   "class": "compute on GitHub-hosted runner",
+   "runs_sampled": 30,
+   "median_run_min": 24.5,
+   "max_run_min": 159.4,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": "orchestrator; long tail = commit-to-main verify-merged wait"
+  },
+  {
+   "workflow": "research-script-run-data.yml",
+   "class": "dispatch-only (trainer VM / Kaggle / RunPod / SSH): runner polls",
+   "runs_sampled": 6,
+   "median_run_min": 1.1,
+   "max_run_min": 1.6,
+   "runs_last_7d_of_sample": 6,
+   "last_run": "2026-10-14",
+   "note": ""
+  },
+  {
+   "workflow": "research-script-run-kaggle-cpu.yml",
+   "class": "no runs",
+   "runs_sampled": 0,
+   "median_run_min": null,
+   "max_run_min": null,
+   "runs_last_7d_of_sample": 0,
+   "last_run": "-",
+   "note": "runner only polls a Kaggle CPU kernel"
+  },
+  {
+   "workflow": "research-script-run-kaggle.yml",
+   "class": "dispatch-only (trainer VM / Kaggle / RunPod / SSH): runner polls",
+   "runs_sampled": 15,
+   "median_run_min": 7.1,
+   "max_run_min": 70.9,
+   "runs_last_7d_of_sample": 15,
+   "last_run": "2026-10-14",
+   "note": "runner only polls a Kaggle GPU kernel"
+  },
+  {
+   "workflow": "research-script-run-trainer.yml",
+   "class": "dispatch-only (trainer VM / Kaggle / RunPod / SSH): runner polls",
+   "runs_sampled": 30,
+   "median_run_min": 9.3,
+   "max_run_min": 60.6,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": "runner only SSH-polls the trainer VM (research_compute trainer backend, max 1)"
+  },
+  {
+   "workflow": "research-script-run.yml",
+   "class": "compute on GitHub-hosted runner",
+   "runs_sampled": 30,
+   "median_run_min": 1.0,
+   "max_run_min": 107.4,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": "research_compute.yaml github_runner backend (max_concurrent 3)"
+  },
+  {
+   "workflow": "research-symbol-p0-build.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "research-watchdog.yml",
+   "class": "dispatch-only (trainer VM / Kaggle / RunPod / SSH): runner polls",
+   "runs_sampled": 10,
+   "median_run_min": 4.8,
+   "max_run_min": 67.1,
+   "runs_last_7d_of_sample": 10,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "soak-book-grade-weekly.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "trainer-capture-watch.yml",
+   "class": "dispatch-only (trainer VM / Kaggle / RunPod / SSH): runner polls",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 25.0,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "trainer-offload-train.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped on non-matching events; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "training-rerun-5m.yml",
+   "class": "compute on GitHub-hosted runner",
+   "runs_sampled": 30,
+   "median_run_min": 12.8,
+   "max_run_min": 16.8,
+   "runs_last_7d_of_sample": 0,
+   "last_run": "2026-09-29",
+   "note": ""
+  },
+  {
+   "workflow": "training-run.yml",
+   "class": "compute on GitHub-hosted runner",
+   "runs_sampled": 3,
+   "median_run_min": 2.5,
+   "max_run_min": 13.5,
+   "runs_last_7d_of_sample": 0,
+   "last_run": "2026-05-03",
+   "note": ""
+  },
+  {
+   "workflow": "vix-term-backtest.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.2,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  },
+  {
+   "workflow": "vwap-backtest.yml",
+   "class": "issue/label-gated: last 30 runs all <1 min (skipped on non-matching events; no runner)",
+   "runs_sampled": 30,
+   "median_run_min": 0.0,
+   "max_run_min": 0.1,
+   "runs_last_7d_of_sample": 30,
+   "last_run": "2026-10-15",
+   "note": ""
+  }
+ ]
+}

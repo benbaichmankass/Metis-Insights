@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Checklist row update only: PHONE-FGS-EXEC -> landed_unproven (merged via #18232, signed APK run 233), naming the observation that closes it. No code, config or order-path change."
+}

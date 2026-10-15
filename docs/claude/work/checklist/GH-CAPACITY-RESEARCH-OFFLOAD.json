@@ -1,0 +1,21 @@
+{
+  "id": "GH-CAPACITY-RESEARCH-OFFLOAD",
+  "title": "Research backends stop holding a GitHub runner while the remote job runs (fire-and-forget + collector), so dedicated-first actually frees GitHub capacity",
+  "phase": null,
+  "state": "queued",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "From GH-CAPACITY-INFRA-FIRST, operator 2026-10-15: research has its own dedicated resources. MEASURED (comms/ci/gh-capacity-inventory-2026-10-15.json): e35-bracket-sweep median 67 run-min (job-min 28-70 over last 6), m20-exit-lever-sweep median 50, research-harness-dispatch median 52 (job-min 11-64), all compute ON ubuntu-latest. This lane only capped e35/m20 matrix max-parallel to 3. Route each through research_compute.yaml backends (trainer is 1 OCPU, max 1 -- capacity there must be measured first; kaggle_cpu is the likely target). Rerun: python3 /tmp inventory method in the JSON 'method' field.  | REFRAMED 2026-10-15 by operator scope correction: research MAY use GitHub runners when free; the target is dedicated-first, GitHub spill-over. MEASURED: research-script-run-trainer.yml (while/sleep 60), research-script-run-kaggle.yml and -kaggle-cpu.yml (kernels status poll, sleep 30) each hold ubuntu-latest for the whole remote run, timeout 360 min; so a unit routed to trainer/Kaggle still occupies one of the 20 GitHub slots. Build: dispatch step submits and exits; research-queue-dispatch collect step (collect_runner_results.py already exists) fetches finished outputs next cycle. Then revisit class order for cpu_long (trainer first?) once trainer capacity is measured. [2026-10-15 ML-FRONTIER-W42] MEASURED evidence: research-script-run-trainer run 38706803527 (unit RQ-20261013-1414-06) held a GitHub-hosted runner for 3601.7 s doing nothing: its trainer step waited the full 3600 s for the trainer shared heavy lock (runtime_logs/trainer/.heavy.lock) and exited 75 {\"status\": \"heavy_lock_timeout\", \"waited_s\": 3600.0}; ml_bakeoff.py never started, so the run produced no result and cost one hour of runner time (08:45:39Z-09:45:44Z). PROPOSED CHEAP INTERIM FIX (not built here; this row's lane builds): (a) check the heavy lock BEFORE the job takes a runner (the dispatcher already runs hourly and could skip a trainer unit while the lock is held), or (b) cap the lock wait at ~5 min in script_run/ml_bakeoff for a runner-hosted trainer job and exit 75 so the dispatcher re-queues instead of holding the runner for an hour. Lock holder at the time: see the trainer-vm-diag read dispatched 2026-10-15 ~10:03Z (to be added).",
+  "updated_at": "2026-10-15T10:05:11Z",
+  "updated_by": "lane-ML-FRONTIER-W42",
+  "roadmap": [
+    "L-OPS"
+  ],
+  "_seq": 514
+}

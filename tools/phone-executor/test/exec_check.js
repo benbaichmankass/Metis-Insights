@@ -766,5 +766,39 @@ document.getElementById('mok').onclick=function(){window.__saved++;document.getE
   const nested = sheetPage().replace('<div class=r id=chd>', '<div class=wrap><div class=r id=chd>').replace('\u2715</button></div></div>\n</div></div>', '\u2715</button></div></div></div>\n</div></div>');
   const gn = await (await onHost(nested)).evaluate("__ex.positionsRead()");
   eq([gn.state, gn.rows.length, gn.rows[0].row_kind], ["side_unread", 1, "child"], "child row nested in a wrapper is still the one read");
+  // BREAKOUT-SHEET-PROBE (1b.205 live 05:59Z: click() found both rows, no sheet opened): a row that reacts only to a
+  // touch pointer sequence opens with mode "pointer"; domDiff names what appeared and the tapped cell's ancestors
+  const pp = await onHost(sheetPage().replace("document.getElementById('chd').addEventListener('click'", "document.getElementById('chd').addEventListener('pointerup'"));
+  await pp.evaluate("__ex.domMark()");
+  eq([await pp.evaluate("__ex.sheetOpen('ETHUSD','child','click')"), await pp.evaluate("__ex.sheetInfo('ETHUSD').open")], ["clicked", false], "probe: click() alone does not open a pointer-only row");
+  let dd = await pp.evaluate("__ex.domDiff()");
+  eq([dd.n_new, dd.details_tabs, dd.chain[0].startsWith("div")], [0, 0, true], "probe: nothing new after the click; chain starts at the tapped cell");
+  await pp.evaluate("__ex.domMark()");
+  eq([await pp.evaluate("__ex.sheetOpen('ETHUSD','child','pointer')"), await pp.evaluate("__ex.sheetInfo('ETHUSD').open"), await pp.evaluate("window.__danger")], ["tapped", true, 0], "probe: the touch-style tap opens it; nothing denied clicked");
+  dd = await pp.evaluate("__ex.domDiff()");
+  eq([dd.n_new > 0, dd.details_tabs, dd.leaves.some((x) => /Position details/.test(x)), /\d/.test(JSON.stringify(dd.leaves))], [true, 1, true, false], "probe: the new sheet's texts are listed, digits masked");
+  // BREAKOUT-NATIVE-TAP (1b.210 08:37Z: click() and a synthetic pointer tap reached the cell, NO synthetic event opened
+  // the sheet). A row that opens only on a TRUSTED touch: sheetTarget names the centre of the SAME cell, the app touches
+  // it (here Playwright's real input stands in for MotionEvent), and the sheet opens; nothing denied is ever touched.
+  const tr = sheetPage().replace("document.getElementById('chd').addEventListener('click',function(e){", "document.getElementById('chd').addEventListener('click',function(e){if(!e.isTrusted)return;");
+  const tp = await onHost(tr);
+  eq([await tp.evaluate("__ex.sheetOpen('ETHUSD','child','pointer')"), await tp.evaluate("__ex.sheetInfo('ETHUSD').open")], ["tapped", false], "native: a synthetic tap does not open a trusted-only row");
+  let nt = await tp.evaluate("__ex.sheetTarget('ETHUSD','child',true)");
+  eq([nt.ok, nt.vw > 0, typeof nt.x, await tp.evaluate("document.elementFromPoint(" + nt.x + "," + nt.y + ").closest('#chm') !== null")], [true, true, "number", true], "native: the target is the child row's Market cell centre");
+  await tp.mouse.click(nt.x, nt.y);
+  eq([await tp.evaluate("__ex.sheetInfo('ETHUSD').open"), await tp.evaluate("window.__danger")], [true, 0], "native: a trusted tap at that point opens the sheet; nothing denied clicked");
+  eq((await tp.evaluate("__ex.sheetTarget('ETHUSD','child',false)")).why, "sheet_open", "native: never targeted with the sheet already open");
+  // a point covered by another element (an overlay, a row ✕ drawn over the cell) is refused, never touched
+  const cv = await onHost(sheetPage().replace("</body>", "<div id=ov style='position:fixed;left:0;top:0;width:100%;height:100%'></div></body>"));
+  eq((await cv.evaluate("__ex.sheetTarget('ETHUSD','child',false)")).why, "covered", "native: a covered point is refused");
+  const dz = await onHost(sheetPage().replace('<div id=chm>ETH <span>5x</span></div>', '<div id=chm style="position:relative">ETH <span>5x</span><i aria-label="Close" style="position:absolute;left:0;top:0;right:0;bottom:0"></i></div>'));
+  eq(/^(point_)?deny_/.test((await dz.evaluate("__ex.sheetTarget('ETHUSD','child',false)")).why), true, "native: a close control under the point is refused");
+  eq((await (await onHost(sheetPage({noChild: true}))).evaluate("__ex.sheetTarget('ETHUSD','child',false)")).why, "none", "native: no child row -> none (the amend path reads none as no position only with group none too)");
+  // finding (a): the EXPANDED child row carries the side as text; childShape measures it and positionsRead reads it
+  const ex = await onHost(sheetPage().replace('<div><i class=dot></i></div><div>1,318.20USD</div><div>2,461.52USD</div><div>2,440.65USD</div><div></div><div>20.10USD</div>', '<div>Short</div><div>1,318.20USD</div><div>2,461.52USD</div><div>2,440.65USD</div><div>1 TP / 1 SL</div><div>20.10USD</div>'));
+  let cs = await ex.evaluate("__ex.childShape()");
+  eq([cs.ok, cs.hdr, cs.groups, cs.child_rows, cs.sides.length, cs.sides[0].side, cs.sides[0].cells, cs.sides[0].picked, cs.sides[0].tpsl], [true, 9, 1, 1, 1, "short", 9, true, 1], "child shape: one Short in a 9-cell child row that childRows picks");
+  let er = await ex.evaluate("__ex.positionsRead()");
+  eq([er.state, er.rows.length, er.rows[0].side, er.rows[0].row_kind], ["read", 1, "short", "child"], "expanded child row: side read as text, state read");
   await b.close(); console.log("exec_check: all passed");
 })().catch((e) => { console.error(e); process.exit(1); });

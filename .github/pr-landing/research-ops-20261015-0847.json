@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "hand-authored research/queue units (RQ-20261015-4941-01/-02) and four hand-edited queue units re-queued (E57), plus a one-line dependency addition to .github/workflows/research-script-run.yml (python-dotenv); the guard cannot vouch for these paths, manager merges",
+  "why": "Research-ops pass: two pre-registered S0-C confirmation units, four producer_failed units re-queued with their route fixed (rules untouched), python-dotenv added to the research-script-run runner deps, run record and checklist notes. No config/, src/ or order-path edit."
+}

@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane EXIT-PATH-TELEMETRY-LIVE post-deploy checklist update. main is protected, so it goes through a PR; the manager merges, as with #18166.",
+  "why": "Checklist-row-only update (docs/claude/work/checklist/EXIT-PATH-TELEMETRY-LIVE.json): records the live observation of #18166 (deploy sha, rows, bar advance) and narrows the remaining observation to the no-rows-after-close clause. No code, config or runtime touched."
+}

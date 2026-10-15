@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline record only: closes PI-20261015-QC5PFG9A-0001 as done (fixed by #18234; observed in main dispatch run 230, check -> apk, artifact uploaded). No code, config or order-path change."
+}

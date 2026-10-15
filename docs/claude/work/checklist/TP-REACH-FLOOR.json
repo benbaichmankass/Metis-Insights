@@ -2,18 +2,20 @@
   "id": "TP-REACH-FLOOR",
   "title": "TP-doctrine guard: a declared take-profit reached by fewer than 10% of harness trades grades as non-compliant (reach-rate floor 0.10 for near-sentinel TPs)",
   "phase": null,
-  "state": "queued",
+  "state": "in_flight",
   "owner": "manager",
-  "lane": null,
-  "model": null,
-  "ceiling_usd": null,
+  "lane": "BRACKETS-AS-PREDICTIONS (session_01N7otgLcgA8foMativcP9vF)",
+  "model": "opus",
+  "ceiling_usd": 25,
   "spend_usd": null,
   "tier": 1,
-  "prs": [],
+  "prs": [
+    18203
+  ],
   "blocked_on": [],
-  "note": "[2026-10-14 weekly planning] OPERATOR-APPROVED 2026-10-14. Source: PI-20261007-SXUZGFME-0001 -- scripts/ci/check_tp_doctrine.py keys entry_state on tp_r >= 50 (sentinel) and the venue cap at a reference ATR, so a finite-but-unreachable TP (e.g. trend_donchian_eth_prop tp_r 6.0 reached by 0.9% of 1,004 harness trades, docs/research/mi307-offline-mfe-2026-09-18.json) passes entry_tp. Build: the guard reads the per-leg MFE/reach-rate evidence and grades reach_rate < 0.10 as non-compliant, with a positive control (a TP reached >= 10% still passes) and the ratchet re-run; counts are re-measured, never quoted. Serves the 'brackets as predictions' milestone.",
-  "updated_at": "2026-10-14T07:37:21Z",
-  "updated_by": "session_01DfFYRUG7orGpkE5pVnA8e4",
+  "note": "[2026-10-14 weekly planning] OPERATOR-APPROVED 2026-10-14. Source: PI-20261007-SXUZGFME-0001 -- scripts/ci/check_tp_doctrine.py keys entry_state on tp_r >= 50 (sentinel) and the venue cap at a reference ATR, so a finite-but-unreachable TP (e.g. trend_donchian_eth_prop tp_r 6.0 reached by 0.9% of 1,004 harness trades, docs/research/mi307-offline-mfe-2026-09-18.json) passes entry_tp. Build: the guard reads the per-leg MFE/reach-rate evidence and grades reach_rate < 0.10 as non-compliant, with a positive control (a TP reached >= 10% still passes) and the ratchet re-run; counts are re-measured, never quoted. Serves the 'brackets as predictions' milestone. [2026-10-15 lane BRACKETS-AS-PREDICTIONS] BUILT on branch claude/brackets-as-predictions: check_tp_doctrine.py reads mi307's uncapped per-leg reach curve; a declared target with reach < 0.10 grades entry_tp=unreachable; exact-floor passes (positive control), off-grid straddle = unresolved, no evidence = unmeasured (counted, never reachable), unreadable evidence = could-not-look. Ratchet re-run: the 6 prop routings (6R; reach 0.009 eth / 0.019 sol) re-baselined R->ER. Self-test 50/50; pytest 8/8. Closes on merge + the guard on main showing reach_state per routing.",
+  "updated_at": "2026-10-15T07:05:17Z",
+  "updated_by": "session_01N7otgLcgA8foMativcP9vF",
   "roadmap": [
     "L-ATM"
   ],

@@ -169,9 +169,33 @@ def test_unknown_page_prints_the_page_shape_redacted(monkeypatch, capsys):
     rc = mod.main(["--account", "breakout_1"])
     out = capsys.readouterr().out
 
-    assert rc == mod.EXIT_FEASIBILITY
+    assert rc == mod.EXIT_TRANSIENT  # PROP-FEED-RETRY: an unrecognised page is a transient outage
     assert "feasibility: unknown_page" in out and "page_shape: BEGIN" in out
     assert USER.lower() not in out.lower()
+
+
+def _reason_adapter(reason):
+    class _A(_LeakyAdapter):
+        def login(self, page, url, username, password):
+            raise FeasibilityError(reason, "x")
+    return _A()
+
+
+def test_only_timeout_and_unknown_page_are_transient_every_other_reason_stays_rc4(monkeypatch, capsys):
+    mod = _load_script()
+    pkg, sync_api = _fake_playwright()
+    monkeypatch.setitem(sys.modules, "playwright", pkg)
+    monkeypatch.setitem(sys.modules, "playwright.sync_api", sync_api)
+    monkeypatch.setenv("BREAKOUT_DX_USERNAME", USER)
+    monkeypatch.setenv("BREAKOUT_DX_PASSWORD", PASSWORD)
+    assert mod.EXIT_TRANSIENT not in (0, 1, 3, 4, 5, 6)
+    expect = {"timeout": mod.EXIT_TRANSIENT, "unknown_page": mod.EXIT_TRANSIENT}
+    for reason in ("captcha", "2fa", "challenge", "login_rejected", "password_expired",
+                   "no_credentials", "asn_blocked", "access_denied", "timeout", "unknown_page"):
+        monkeypatch.setattr(mod, "adapter_for_platform", lambda _p, r=reason: _reason_adapter(r))
+        rc = mod.main(["--account", "breakout_1"])
+        capsys.readouterr()
+        assert rc == expect.get(reason, mod.EXIT_FEASIBILITY), reason
 
 
 class _LongErrorAdapter(_LeakyAdapter):

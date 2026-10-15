@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a branch that touches tools/phone-executor/** gets a completed phone-executor-apk run without a manual re-run while other branches merge main (compile no longer shares the signing concurrency group, or pending runs are no longer cancelled)",
+    "kind": "observation"
+  },
+  "id": "PI-20261015-QC5PFG9A-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01TCAAkyPavusAKCqc5Pfg9a",
+    "rerun": "list phone-executor-apk.yml runs (GitHub MCP actions_list list_workflow_runs) and count conclusion=cancelled on push events within a few seconds of each other"
+  },
+  "state": "queued",
+  "what": "PHONE-APK CI CANCELS ITSELF (lane PHONE-FGS-EXEC, 2026-10-15): phone-executor-apk.yml runs on every push touching tools/phone-executor/** and its job sits in ONE concurrency group (phone-executor-apk-signing). When #18158 merged, ~6 branches merged main at 08:06Z; each queued an APK job and GitHub cancelled every PENDING one but the newest (runs 215-219 cancelled; #18217's run 212 cancelled after 14 min queued). A PR's Kotlin compile proof is then silently absent until someone re-runs it. Proposed fix: compile+unit-test under a per-ref group, and sign/upload only under the shared group (or only on main). Tier-1 (CI)."
+}

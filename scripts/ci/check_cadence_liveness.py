@@ -341,6 +341,7 @@ CADENCE_REGISTRY: dict[str, dict] = {
     "doc-audit-weekly.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
     "health-snapshot.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
     "main-tree-watch.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
+    "pytest-run.yml": {"receipt": None, "why": "the 30-min post-merge backstop (GH-CAPACITY-PR-CI-FANOUT 2026-10-15) commits nothing: a tick either no-ops (HEAD already graded) or runs the full suite; its trace is the Actions run history it reads itself, and a red/dead tick pages via claude-run-failure-alert"},
     "oci-inventory.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
     "purge-artifacts.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
     "research-backtest-augment.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},

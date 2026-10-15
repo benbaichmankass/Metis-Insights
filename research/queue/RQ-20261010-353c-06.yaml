@@ -1,7 +1,7 @@
 id: RQ-20261010-353c-06
 title: 'Stage-0 breadth for the prop book: trend harness on LINKUSDT 1h (RESEARCH-NIGHT-1010, PI-20261006-APBY4NTV-0001 batch
   3)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 1
@@ -67,3 +67,16 @@ related:
 - RQ-20261007-224
 - scripts/ops/fetch_backtest_corpus.py
 last_dispatched_at: '2026-10-11T01:03:46+00:00'
+grading:
+  attested: RULE-RQ-20261010-353c-06-TREND-LINKUSDT-1h-STAGE0
+  auto: true
+  decision_rule_id: RULE-RQ-20261010-353c-06-TREND-LINKUSDT-1h-STAGE0
+  evidence:
+  - research/results/RQ-20261010-353c-06/38100579624.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'hand-written unit, every row graded under its own registered rule: FAIL closes it (no template
+    confirmatory re-run)'
+  reason: 1 row(s), all measured, all fail
+  rows: 1
+  verdict: fail

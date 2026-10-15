@@ -274,3 +274,56 @@ def test_position_side_refusal_is_reported_ahead_of_the_leg_side_one():
     split = _split("", [{"side": None, "qty": "1"}], 1)
     _, reason = bls.graded_book_coverage(split)
     assert reason == bls.COVERAGE_UNGRADED_POSITION_SIDE
+
+
+# --------------------------------------------------------------------------
+# over_cover_trip (PI-20261009-GXEDZJQE-0001): narrowed ONLY for a live sibling
+# --------------------------------------------------------------------------
+def _qty_split(pos_side, legs):
+    return bls.split_legs_by_side(
+        pos_side, legs, qty_of=lambda leg: (
+            float(leg["qty"]) if leg.get("qty") is not None else None))
+
+
+def test_over_cover_trip_live_sibling_each_book_covered_does_not_trip():
+    split = _qty_split("Buy", [{"side": "Sell", "qty": "0.12"},
+                               {"side": "Buy", "qty": "19.69"}])
+    assert bls.over_cover_trip(
+        size=0.12, side_blind_qty=19.81, split=split,
+        sibling_live_size=19.69, factor=1.5,
+    ) == (False, bls.OVER_COVER_BASIS_PER_BOOK)
+
+
+@pytest.mark.parametrize("sib", [None, 0.0, "x"])
+def test_over_cover_trip_no_live_sibling_keeps_side_blind_union(sib):
+    """Stranded other-book legs (no live sibling) must keep tripping."""
+    split = _qty_split("Buy", [{"side": "Sell", "qty": "0.12"},
+                               {"side": "Buy", "qty": "19.69"}])
+    assert bls.over_cover_trip(
+        size=0.12, side_blind_qty=19.81, split=split,
+        sibling_live_size=sib, factor=1.5,
+    ) == (True, bls.OVER_COVER_BASIS_SIDE_BLIND)
+
+
+def test_over_cover_trip_same_book_and_sibling_pile_up_still_trip():
+    same = _qty_split("Buy", [{"side": "Sell", "qty": "0.12"},
+                              {"side": "Sell", "qty": "0.12"},
+                              {"side": "Buy", "qty": "19.69"}])
+    assert bls.over_cover_trip(size=0.12, side_blind_qty=19.93, split=same,
+                               sibling_live_size=19.69, factor=1.5)[0] is True
+    sib = _qty_split("Buy", [{"side": "Sell", "qty": "0.12"},
+                             {"side": "Buy", "qty": "19.69"},
+                             {"side": "Buy", "qty": "19.69"}])
+    assert bls.over_cover_trip(size=0.12, side_blind_qty=39.5, split=sib,
+                               sibling_live_size=19.69, factor=1.5)[0] is True
+
+
+def test_over_cover_trip_ungradeable_split_keeps_paging_and_never_widens():
+    bad = _qty_split("Buy", [{"side": "", "qty": "19.69"}])
+    assert bls.over_cover_trip(size=0.12, side_blind_qty=19.69, split=bad,
+                               sibling_live_size=19.69, factor=1.5)[0] is True
+    assert bls.over_cover_trip(size=0.12, side_blind_qty=19.69, split=None,
+                               sibling_live_size=19.69, factor=1.5)[0] is True
+    # Never widens: a side-blind sum under the factor never trips.
+    assert bls.over_cover_trip(size=1.0, side_blind_qty=1.4, split=None,
+                               sibling_live_size=None, factor=1.5)[0] is False

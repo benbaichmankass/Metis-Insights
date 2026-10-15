@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane DATA-STORE-PARQUET-GC (dispatched by Manager Session 2026-10-14, session_01VduHYzdaXe27wTDBLSu8ao; operator decision 2026-10-15 ~05:55Z 'Go, dry-run first'). HELD for the manager to merge. Trainer-only effect: the nightly market_features build (ict-trainer.service) also writes data.parquet beside data.jsonl, and the training runner / oos_edge / live_parity / market_sequences read the fresh sidecar in preference (exact-parity rules, size-checked freshness, fail-open to JSONL). scripts/ops/trainer_dataset_gc.py gains reference checks (manifest, nightly, metadata input closure, repo refs, newest-file age) and loses its stale disk prose; it is report-only unless --apply. No live-VM code path, no order path, no strategy/risk/account config, no DB write. Deletions are NOT in this PR: they run separately through the trainer relay after the manager's 'go' on the posted dry-run list. Revert: git revert of the merge commit; existing data.parquet files are then ignored by the reverted readers (delete with find datasets-out -name data.parquet -delete).",
+  "why": "Programme 06 Q7 (L-DATA): trainer disk headroom from format + GC instead of new OCI block storage (194/200 GB free-tier used)."
+}

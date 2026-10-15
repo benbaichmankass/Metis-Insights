@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "due_date": "2026-10-18",
+    "kind": "date"
+  },
+  "id": "PI-20261015-PD85QJEZ-0004",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-18",
+    "how_to_check": "diag journalctl?unit=ict-trader-live&lines=2000 windows over the readable journal: count 'ErrCode: 10002' (0 beyond the 2026-10-15T09:46:41Z control); 5x diag status captured_at vs local request midpoint: |offset| < 1s",
+    "what": "Bybit ErrCode 10002 has not repeated on ict-trader-live, and the VM clock offset stays under 1s"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "ORDER-AUDIT-3 lane session_015ph6MwWrWPDbc6Pd85QJEZ, manager clock-drift check 2026-10-15",
+    "rerun": "for each 10-min window over the readable journal (diag journalctl?unit=ict-trader-live&lines=2000&since=..&until=..): count 'ErrCode: 10002'; plus 5x diag status captured_at vs local request midpoint. Any repeat, or an offset >1s => dispatch the sync-clock system-action."
+  },
+  "routed_to": "ORDER-AUDIT-3",
+  "severity": "low",
+  "state": "routed",
+  "tier": 2,
+  "what": "Bybit ErrCode 10002 (request timestamp behind server) on the live trader: one event at 2026-10-15T09:46:41Z, req_timestamp 1792057596188 vs server 1792057601323, i.e. 5.1s. pybit widened recv_window by 2.5s and retried. MEASURED 2026-10-15 ~09:55Z: (a) VM clock vs this container (container itself not NTP-verified), 5 samples of diag status captured_at against the request midpoint: +0.13..+0.28s, all bounds within -0.13..+0.69s, so under the manager's 1s threshold; (b) journalctl sample, 7 readable 10-minute windows 10-12..10-15 (journal retention is only ~3.5 days; windows before ~10-12 return 1 line), 13,694 lines: 1 hit, the 09:46 control only. The VM clock is not drifting in any way measured, so this looks like a delayed request (signed, then sent ~5s late). sync-clock (Tier-2) was NOT dispatched: neither threshold was met. Re-measure; dispatch sync-clock if any repeat appears or the offset exceeds 1s. If repeats occur with a clean clock, root-cause the request-to-send latency."
+}

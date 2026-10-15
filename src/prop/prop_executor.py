@@ -285,6 +285,20 @@ def _close(a: Optional[float], b: Optional[float], rel: float) -> bool:
     return math.isclose(a, b, rel_tol=rel, abs_tol=1e-9)
 
 
+def _close_px(a: Optional[float], b: Optional[float], step: Optional[float], rel: float) -> bool:
+    """A bracket PRICE read back from the terminal agrees with the typed one:
+    within one declared ``price_step`` (the form read-back's tolerance,
+    ``dxtrade.verify_form_values``), else -- no step resolvable -- the
+    relative ``rel`` of :func:`_close` (OA-07(b), PI-20261004-GCFA5DOR-0004:
+    a 2% relative tolerance let a terminal-default SL within 2% of the typed
+    one read as bracketed)."""
+    if a is None or b is None:
+        return False
+    if step is not None and step > 0:
+        return abs(float(a) - float(b)) <= step + 1e-9
+    return _close(a, b, rel)
+
+
 def _dir(side: Optional[str]) -> Optional[str]:
     s = (side or "").strip().lower()
     return {"buy": "long", "long": "long", "sell": "short", "short": "short"}.get(s)
@@ -604,16 +618,21 @@ def classify_confirmation(spec: Mapping[str, Any], found: Mapping[str, Any], rel
     full check. Without this, velotrade_1's first live REST ticket
     (2026-10-08 15:28Z, a resting LIMIT IF-THEN) read as ``partial_no_sl_tp``;
     the "repair" cancelled the executor's own order and the AUTO-REVERT latch
-    halted the account for ~17h."""
+    halted the account for ~17h.
+
+    SL / TP agree within ONE ``spec["price_step"]`` when the spec declares
+    it (OA-07(b)); only a spec with no step (a legacy ledger row) falls back
+    to the relative ``rel``."""
     om, pm = list(found.get("orders") or []), list(found.get("positions") or [])
     if len(om) + len(pm) > 1:
         return "duplicate"
     sl, tp = _f(spec.get("stop_loss")), _f(spec.get("take_profit"))
+    step = _f(spec.get("price_step"))
     for leg in om + pm:
         if (atomic_bracket and leg in om and leg.stop_loss is None and leg.take_profit is None
                 and group_accepted and _is_own_entry(spec, leg)):
             continue  # protected server-side: the accepted IF-THEN group's own entry
-        if not (_close(leg.stop_loss, sl, rel) and _close(leg.take_profit, tp, rel)):
+        if not (_close_px(leg.stop_loss, sl, step, rel) and _close_px(leg.take_profit, tp, step, rel)):
             return "partial_no_sl_tp"
     if pm:
         return "open"

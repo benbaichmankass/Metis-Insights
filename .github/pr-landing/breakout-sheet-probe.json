@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "BREAKOUT-SL-AMEND-CLICK follow-up (manager session_01VduHYzdaXe27wTDBLSu8ao). Tier 2 by path: the phone-executor APK. MEASURE-ONLY: on 1b.205 (05:59Z) click() on the child and the group Positions rows opened no sheet. This adds a touch-style pointer tap on the SAME denylist-checked target as a second attempt, plus a dump of what the page showed after each miss. The click gate (SHEET_EDIT_MEASURED=false) is unchanged; no order or position is modified. The manager merges.",
+  "why": "live diag 2026-10-15T05:59:44Z breakout_2: sheet_sheet_not_open, tries child:clicked child:no_sheet group:clicked group:no_sheet. The cause (handler on pointer events vs a WebView layout with no bottom sheet) is unmeasured; the probe records viewport size, newly visible texts and the tapped cell's ancestor chain so the next change is evidence-based."
+}

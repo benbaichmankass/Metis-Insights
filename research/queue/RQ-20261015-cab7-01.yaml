@@ -1,0 +1,110 @@
+id: RQ-20261015-cab7-01
+title: 'TP doctrine, real money: derive ada_pullback_2h''s PREDICTIVE take-profit from its own uncapped MFE distribution
+  (reach curve + IS-chosen K*, graded OOS net of cost vs the current bracket)'
+status: queued
+cadence: once
+kind: experiment
+theme: live_strategy
+priority: 1
+roadmap:
+- L-ATM
+question: 'Where does ada_pullback_2h''s own history say the move runs out? From the leg''s config-exact replay
+  with NO take-profit and NO venue cap, choose on the first 60% of trades the TP level K* (R) that maximises net
+  R subject to being reached by >= 10% of trades and resting below the median venue cap; then, on the last 40% (never
+  seen by the choice), is K* still reached as predicted (calibrated) and does it cost no more than 0.05 R/trade
+  against the leg''s current bracket (4.0 (declared, near the venue cap: median cap_r ~3.5 R))?'
+why_this_matters: 'Real money: ada_pullback_2h trades on bybit_2 and bybit_portfolio (and the bybit_1 soak routing).
+  python3 scripts/ci/check_tp_doctrine.py grades every one of its routings non-compliant (re-run it; never quote
+  it). Operator 2026-10-14/15 (checklist row BRACKETS-AS-PREDICTIONS): every bracket is a prediction of where price
+  will actually reach. The e35 sweeps ask a P&L question over a fixed grid; this unit derives the target from the
+  leg''s own MFE distribution and grades the prediction (reach calibration) as well as the P&L, which is the doctrine''s
+  clause 1. Programme 01 Q2 rung 1-2.'
+power:
+  expected_n: 39
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: 'Declared at the design floor: (1.96 + 0.8416)^2 / 0.45^2 = 38.76 -> 39 OOS trades. Smoke-run measured
+    n = 222 trades (133 IS / 89 OOS) for this leg on 2026-10-15. The OOS half here is the last 40% of the UNCAPPED
+    replay''s trades; a run under 39 lands INDETERMINATE by its own rule, never a verdict.'
+  feasibility:
+    source: corpus
+    corpus: e35
+    statistic: min_per_leg
+    legs:
+    - ada_pullback_2h
+    basis: Grounded on e35 because e35 replays the SAME leg config-exact on the same 1830 d binance_vision window
+      and records its achieved base_oos_trades; this unit's OOS split (40%) is comparable to e35's.
+decision_rule:
+  id: RULE-RQ-20261015-cab7-01-PREDICTIVE-TP
+  registered_at: '2026-10-15'
+  registered_before_run: true
+  statistic: 'From the leg''s config-exact UNCAPPED no-TP harness replay (scripts/research/tp_prediction_derive.py,
+    base_args tp_cap_pct=0.0, 1830 d binance_vision candles, net_r = the harness''s full cost stack via execution_costs.resolve_cost_policy):
+    trades sorted by entry time, first 60% IS, last 40% OOS. On IS: the reach curve P(mfe_r >= K) and the counterfactual
+    net R of a TP at K (venue cap applied per trade, K_eff = min(K, cap_r); a touched TP exits at K_eff keeping
+    the row''s own cost terms) for K in {1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4, 5, 6, 8}; K* = the IS-best K with
+    IS reach >= 0.10 and K <= the median IS cap_r. On OOS: paired per-trade delta = net(K*) - net(the leg''s declared
+    tp_r, capped), seeded bootstrap 95% CI (2000 resamples, seed 20261015); calibration gap = |reach_OOS(K*) - reach_IS(K*)|;
+    n_oos.'
+  rule: 'INDETERMINATE IF n_oos < 39 OR no K is eligible on IS. FAIL IF reach_OOS(K*) < 0.10 OR calibration gap
+    > 0.10 OR CI upper < -0.05 R/trade -> a FIXED predictive TP on ada_pullback_2h either does not predict (uncalibrated)
+    or costs edge vs 4.0 (declared, near the venue cap: median cap_r ~3.5 R): the leg''s edge lives in a tail no
+    fixed target predicts, so its doctrine route is the per-bar REVISION rule (Q3: RQ-20261014-9807-03 / RQ-20261007-080)
+    or the in-trade exit model (Q8), recorded on PI-20261006-5FUGHVX8-0001; never a demotion. PASS IF reach_OOS(K*)
+    >= 0.10 AND calibration gap <= 0.10 AND CI lower >= -0.05 R/trade (PASS_IMPROVES when CI lower > 0, else PASS_NONINFERIOR)
+    -> K* is a data-derived predictive TP for ada_pullback_2h; the manager files ONE follow-on: the harness-native
+    confirmation of tp_r = K* (an e35 tp_r cell at the exit-refinement P2 gate, Path A/B + the yearly walk-forward).
+    Only if that confirms does a Tier-3 proposal declare tp_r = K* on bybit_2 and bybit_portfolio (and the bybit_1
+    soak routing) in one PR (mirror-equality tests), sent to the manager as an evidence-backed proposal, never applied
+    by a lane. INDETERMINATE otherwise (the CI straddles -0.05). NULL: any other landing is indeterminate.'
+  what_it_does_not_do: 'Touches no config, roster or account. A PASS is a SCREEN, not a ship: the counterfactual
+    ignores the entries an earlier TP exit would have freed (stated in the script), so the harness-native e35 confirmation
+    is mandatory before any Tier-3 proposal. Does not grade the per-bar TP revision (Q3) and does not say the current
+    bracket is profitable or not. A paper or live book is not evidence here.'
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 30
+  basis: 'Runner. One tp_prediction_derive invocation: candle fetch + one uncapped harness replay per leg + stdlib
+    grading. MEASURED 2026-10-15 for ada_pullback_2h in a session: 58 s wall for fetch + replay + grade; est_minutes
+    carries headroom for runner fetch latency.'
+run:
+  workflow: research-script-run.yml
+  command:
+  - python3
+  - scripts/research/tp_prediction_derive.py
+  - --legs
+  - ada_pullback_2h
+  - --days
+  - '1830'
+  - --out
+  - '{out_dir}'
+  timeout_minutes: 120
+  inputs:
+    research_unit: RQ-20261015-cab7-01
+  note: BRACKETS-AS-PREDICTIONS lane 2026-10-15. Thresholds in the decision_rule are the constants in scripts/research/tp_prediction_derive.py,
+    written before any run.
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+  note: research/results/RQ-20261015-cab7-01/<run_id>.jsonl (E5 contract); uncapped emits + the full curve in verdict.json
+    land under comms/research/RQ-20261015-cab7-01/<run_id>/.
+related:
+- docs/research/programmes/01-ACTIVE-TRADE-MANAGEMENT.md
+- scripts/research/tp_prediction_derive.py
+- docs/research/mi307-offline-mfe-2026-09-18.json
+- RQ-20261014-9807-03
+- RQ-20261007-080
+- RQ-20261014-9807-02
+- PI-20261006-5FUGHVX8-0001
+last_dispatched_at: null
+pre_registration_disclosure: 'SMOKE RUN BEFORE REGISTRATION, disclosed: on 2026-10-15 the lane ran tp_prediction_derive.py
+  on this leg once in a session to prove the replay path end to end (58 s; 222 trades). The script''s constants
+  (grid, 0.10 floor, 60/40 split, -0.05 R margin, 0.10 calibration tolerance, 39 OOS floor) were written BEFORE
+  that run and were not changed after it; the registered result is the runner''s run of THIS unit, not the smoke
+  output, which was not committed.'

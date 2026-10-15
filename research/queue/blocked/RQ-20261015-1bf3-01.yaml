@@ -1,0 +1,70 @@
+id: RQ-20261015-1bf3-01
+title: 'Pooled pullback-1d family: does a finite reachable tp_r cell clear the IS/OOS gate when the 1d pullback legs are pooled
+  with the leg as a stratum? (follow-on named by RULE-RQ1006-061 on its unresolvable branch) BLOCKED: no pooled e35 gate'
+status: blocked
+cadence: once
+theme: live_strategy
+priority: 2
+kind: experiment
+question: >-
+  RQ-20261006-061 landed its expected branch, unresolvable_at_current_n: base_oos_trades iaum_pullback_1d 5, ief_pullback_1d 8,
+  slv_pullback_1d 9 against the 39 floor (docs/research/e35-bracket-corpus.jsonl, research_unit RQ-20261006-061). Its rule names
+  this unit as the deliverable on that branch: a family-level test pooling the pullback-1d legs (iaum, ief, slv, gld, gdx, tlt,
+  mgc, mhg) with the leg as a stratum. Question: over the pooled OOS trades, does at least one finite reachable tp_r cell
+  (tp_r below each leg's cap_r) read is_oos_pass on the pooled IS/OOS gate, net of the full cost stack?
+power:
+  expected_n: 39
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Same floor as RQ-20261006-061: (1.96+0.8416)^2 / 0.45^2 = 38.76 -> 39 pooled OOS trades. Per-leg base_oos_trades in the
+    current e35 corpus: iaum 5, ief 8, slv 9 (RQ-20261006-061), gld 5 (RQ-20260929-002), gdx 9 (RQ-20260928-018), tlt 6
+    (RQ-20261010-006), mgc 8 (RQ-20261005-004), mhg 11 (RQ-20261005-013); sum 61 >= 39 before any stratum adjustment.
+  feasibility:
+    source: corpus
+    corpus: e35
+    statistic: max_per_leg
+    legs: [iaum_pullback_1d, ief_pullback_1d, slv_pullback_1d, gld_pullback_1d, gdx_pullback_1d, tlt_pullback_1d, mgc_pullback_1d, mhg_pullback_1d]
+    basis: >-
+      Per-leg numbers above, read 2026-10-15 from the e35 grading blocks of the named units. No single leg reaches the floor
+      (max 11); only the pooled sum (61) does, which is the design change this unit exists for.
+decision_rule:
+  id: RULE-RQ20261015-1bf3-01-POOLED-PULLBACK-1D-FINITE-TP
+  registered_at: '2026-10-15'
+  registered_before_run: true
+  statistic: >-
+    Per finite reachable tp_r cell, pooled over the eight pullback-1d legs with the leg as a stratum: pooled IS and OOS d_net_r
+    vs the per-leg config-exact base (sum of per-leg deltas), pooled OOS trade count, and the count of legs whose own OOS delta
+    is > 0. Net of execution_costs.resolve_cost_policy.
+  rule: >-
+    PASS IF a cell's pooled IS and OOS d_net_r are both > 0 AND pooled OOS trades >= 39 AND at least 5 of the 8 legs have own OOS
+    delta > 0 -> a Tier-3 proposal to declare that tp_r on the real-money legs among them (alpaca_live + alpaca_portfolio in one
+    PR, mirror equality), noted on the owning checklist row for the manager. FAIL (honest_negative) IF pooled OOS trades >= 39
+    and no cell passes -> the doctrine answer for these legs routes to the per-leg MFE-quantile target
+    (PI-20261006-5FUGHVX8-0001 / RQ-20261009-900); never a demotion. INDETERMINATE IF pooled OOS trades < 39.
+  what_it_does_not_do: >-
+    Touches no config and demotes nothing. Does not blend alpaca_paper copies with real-money evidence. A pooled pass is not a
+    per-leg pass: the proposal names the per-leg deltas beside the pooled number.
+blocked_on:
+- what: >-
+    No pooled gate exists for the e35 bracket sweep: e35-bracket-sweep.yml gates each leg separately and the corpus carries
+    per-leg cell summaries, not trades, so a stratified pooled IS/OOS gate cannot be computed from it.
+    scripts/research/e38_pooled_trend_donchian.py is the nearest precedent (pooled trend_donchian), not a pullback-1d instrument.
+  ref: checklist RESEARCH-GRADE-PILE (lever note 2026-10-15)
+  clears_when: >-
+    A pooled e35 gate (per-leg --emit-trades from the e35 sweep, or a pooled mode in the e35 harness) lands and writes
+    verdict.json; then git mv to research/queue/, fill run.workflow/run.command and lands.store.
+roadmap: [L-ATM]
+compute: cpu_long
+value:
+  bucket: own_losses
+  basis: 'alpaca_live real-money roster: 3 of 4 real-money TP-doctrine failures (RQ-20261006-061 question).'
+run:
+  workflow: "none (blocked: instrument missing)"
+lands:
+  store: research/results/
+  min_rows: 1
+last_dispatched_at: null

@@ -1,0 +1,23 @@
+{
+  "id": "GH-CAPACITY-PR-CI-FANOUT",
+  "title": "PR pytest-run holds 12 of 20 runner slots for ~40 min each",
+  "phase": null,
+  "state": "in_flight",
+  "owner": "manager",
+  "lane": "session_018g6RBL3Tu3zfJxN6rcMVtJ",
+  "model": null,
+  "ceiling_usd": 15,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [
+    18240
+  ],
+  "blocked_on": [],
+  "note": "CORRECTION to the previous note: guards are NOT already bounded. main-tree-watch grades only the diff-independent rules. The diff-scoped guards have the same token-merge gap. Not folded into #18240 because it needs a last-graded-sha base in run_guards (a design change). Filed as pipeline PI-20261015-N6RCMVTJ-0001 (due 2026-10-22).",
+  "updated_at": "2026-10-15T09:58:20Z",
+  "updated_by": "session_018g6RBL3Tu3zfJxN6rcMVtJ",
+  "roadmap": [
+    "L-OPS"
+  ],
+  "_seq": 516
+}

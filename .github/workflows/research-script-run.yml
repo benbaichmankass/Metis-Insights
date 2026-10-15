@@ -89,7 +89,15 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install numpy pandas pyyaml requests
+          pip install numpy pandas pyyaml requests python-dotenv
+          # dukascopy-python: the non-crypto candle lane (scripts/ops/fetch_backtest_candles.py
+          # --source dukascopy), so a unit can replay equity/ETF legs config-exact here as the
+          # e35 sweep does (BRACKETS-AS-PREDICTIONS, RQ-20261015-cab7-06). Optional for every
+          # other unit: nothing imports it unless a command asks for that lane.
+          # PINNED: 4.0.1 is the latest release (PyPI upload 2025-04-28, >2 weeks old);
+          # maintainer Eghosa Osayande, homepage github.com/Eghosa-Osayande/dukascopy
+          # (PyPI metadata). The same package e35-bracket-sweep.yml already installs.
+          pip install dukascopy-python==4.0.1
       - name: Check the unit's declared command against the allowlist
         env:
           UNIT: ${{ inputs.research_unit }}

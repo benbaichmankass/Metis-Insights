@@ -310,7 +310,29 @@ ESTIMATED_SOURCES = frozenset({
     # (ESTIMATED), never `venue_bracket_order`. Written by
     # order_monitor._exit_alpaca_row (FIX-SA-03 / #14241).
     "rearm_preflight",
+    # `exit_reason_source`: the exit REASON is the one the STRATEGY's own
+    # monitor verdict authored (`sl_cross`, `tp_cross`, `stale_stop`, ...), and
+    # the monitor sent that close to the venue itself. Same footing as
+    # `rearm_preflight`: the strategy DECIDED the reason from price, the venue
+    # never said a stop order filled — a derivation, never `venue_bracket_order`.
+    # Written by order_monitor._apply_update's full-close branch (ORDER-AUDIT-3,
+    # PI-20260929-TWEW1FZJ-0002: before it, every such close carried NO
+    # exit_reason_source at all).
+    "strategy_verdict",
 })
+
+#: `exit_reason_source` value meaning: the strategy's verdict asked for a close,
+#: but the venue reported the position ALREADY FLAT when the close was sent —
+#: something else (normally the resting bracket) ended it first. The row keeps
+#: the verdict's reason, and this marker says that reason is NOT evidence of why
+#: the position ended. It is deliberately in none of the three source sets
+#: (UNVERIFIED): it is a pending state, and
+#: `order_monitor._sweep_exit_label_from_bracket_order` replaces it with
+#: `venue_bracket_order` once the venue fills show the trade's own stop or target
+#: order closed it. MEASURED 2026-10-15 on real money: bybit_2 trades 6565 and
+#: 6593 were booked `sl_cross` with no source while their closing fills were on
+#: their own `sl_order_id`, 53 s and 45 s before the monitor wrote the close.
+EXIT_LABEL_VERDICT_VENUE_FLAT = "strategy_verdict_venue_flat"
 
 #: `exit_reason_source` value meaning: the classifier was reached, LOOKED, and
 #: DECLINED to label — because the exit price it would have compared against the

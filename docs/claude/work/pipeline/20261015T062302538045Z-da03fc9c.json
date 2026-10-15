@@ -1,0 +1,28 @@
+{
+  "based_on": "20261013T145434515080Z-dc59fe52.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "the rerun prints a non-zero first number and 0 as the second (rows carry slippage; no path_b_wf_pass row has null base_oos_trades), or the manager kills this row",
+    "kind": "event",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20260930-39SDYWCO-0002",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-13",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01R2PHzyjMvQoNiB39SdYWco",
+    "rerun": "python3 -c \"import json;r=[json.loads(l) for l in open('docs/research/e35-bracket-corpus.jsonl')];print(sum(1 for x in r if 'slippage' in json.dumps(x)), sum(1 for x in r if x.get('gate_verdict')=='path_b_wf_pass' and x.get('base_oos_trades') is None))\""
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-ran origin.rerun 2026-10-15 over docs/research/e35-bracket-corpus.jsonl (9059 rows): 0 slippage-bearing rows and 33 path_b_wf_pass rows with base_oos_trades None; e35_bracket_geometry_sweep.py:794 still writes only a fee string. SOL-BRACKET-REGRADE (done) never touched the corpus cost fields; ~30-line harness fix.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "checklist row EVIDENCE-HARNESS-GAPS | [BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r) 2026-10-15 re-route]",
+  "severity": "low",
+  "state": "routed",
+  "tier": 1,
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('RESEARCH (re-pointed from RESEARCH (BACKLOG-BURNDOWN-2 2026-'); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "Bracket-corpus rows cannot PROVE the cost stack they were graded under: every row carries fee_bps_roundtrip='harness default (execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP)' and NO slippage/funding field. MD-SOAK-EXIT-CELL-PATHB therefore keys on `family` in {pullback, donchian} plus docs/research/d1-cost-stack-verification-2026-09-25.md (which I read for backtest_pullback.py only; backtest_trend.py's slippage resolution is cited there, not re-read this session). Also: the 2026-08-30 batch rows carry base_oos_trades=null, so 6 of the 8 batch cells with a computable ratio return NEEDS-DATA (R-BASE-N) on re-evaluation. Fix: the e35 sweep stamps the resolved cost policy (fee, slippage, funding bps) and always fills base_oos_trades on each row."
+}

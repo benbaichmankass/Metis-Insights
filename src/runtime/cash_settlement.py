@@ -522,6 +522,7 @@ def record_observation(
     basis: SettlementBasis,
     available_usd: Optional[float],
     applied: bool,
+    venue_available_usd: Optional[float] = None,
 ) -> None:
     """Append one soak row. Best-effort; never raises into dispatch.
 
@@ -531,6 +532,12 @@ def record_observation(
     corrected to make. ``would_have_reduced_usd`` is the review figure: how
     much the gate WOULD have taken off the sizer's basis, which is what an
     operator needs before flipping to ``apply``.
+
+    ``venue_available_usd`` is the venue figure BEFORE the settled basis
+    replaced it. The reduction is measured against it: measured against the
+    post-replacement ``available_usd`` it read 0 on exactly the rows where the
+    gate DID reduce size (PI-20260927-ECILBBVH-0008, ORDER-AUDIT-3). Omitted,
+    the old behaviour stands (``available_usd`` is used).
     """
     import json
     import os
@@ -546,8 +553,9 @@ def record_observation(
             else ("not_allowlisted" if mode == "apply" else "not_apply")
         )
         would_reduce = None
-        if basis.basis_usd is not None and available_usd is not None:
-            would_reduce = round(max(available_usd - basis.basis_usd, 0.0), 4)
+        _pre = venue_available_usd if venue_available_usd is not None else available_usd
+        if basis.basis_usd is not None and _pre is not None:
+            would_reduce = round(max(_pre - basis.basis_usd, 0.0), 4)
         row = {
             "ts": datetime.now(timezone.utc).isoformat(),
             "account_id": account_id,
@@ -559,6 +567,7 @@ def record_observation(
             "unsettled_usd": basis.unsettled_usd,
             "venue_cash": basis.venue_cash,
             "venue_buying_power": basis.venue_buying_power,
+            "available_usd_before": venue_available_usd,
             "available_usd_after": available_usd,
             "would_have_reduced_usd": would_reduce,
             "detail": basis.detail,

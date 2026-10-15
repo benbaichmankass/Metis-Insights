@@ -1,7 +1,7 @@
 id: RQ-20261011-8025-02
 title: 'Stage-0 breadth for the prop book: trend harness on HYPEUSDT 1h (RESEARCH-OPS-20261011-0247, PI-20261006-APBY4NTV-0001
   batch 5)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -63,3 +63,14 @@ related:
 - RQ-20261010-353c-04
 - scripts/ops/fetch_backtest_corpus.py
 last_dispatched_at: '2026-10-11T18:00:16+00:00'
+grading:
+  attested: RULE-RQ-20261011-8025-02-TREND-HYPEUSDT-1h-STAGE0
+  auto: true
+  decision_rule_id: RULE-RQ-20261011-8025-02-TREND-HYPEUSDT-1h-STAGE0
+  evidence:
+  - research/results/RQ-20261011-8025-02/38161638739.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  reason: 1 row(s), all measured, all pass
+  rows: 1
+  verdict: pass

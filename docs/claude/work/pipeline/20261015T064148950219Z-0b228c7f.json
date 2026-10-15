@@ -1,0 +1,20 @@
+{
+  "based_on": "20261014T055614260740Z-1ab2f2ee.json",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "a velotrade_1 close in GET /api/bot/prop/fills carries a non-null exit_price and pnl from venue trade history, or this item is killed with a stated reason",
+    "kind": "event",
+    "last_checked": "2026-10-11"
+  },
+  "id": "PI-20261011-MJ5KSFIO-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "UNPROVEN-SWEEP-2 2026-10-11 (rows VELOTRADE-RECON, PROP-EXIT-READ, PERF-REVIEW-W41)",
+    "rerun": "curl -sS https://ict-bot.duckdns.org/api/bot/prop/fills?account_id=velotrade_1 | python3 -c \"import json,sys;[print(f['ticket_id'],f['status'],f['exit_price'],f['pnl'],f['reason']) for f in json.load(sys.stdin)['fills']]\""
+  },
+  "routed_to": "ROUTE-PROP-TRACKING | [ROUTING-ALARM-20261014] routed from daily review WR-20261014-0530Z; the row owns this item and carries the rerun command",
+  "state": "done",
+  "terminal_reason": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r), 2026-10-15: LIVE prop/fills velotrade_1 2026-10-15: the item's ticket prop-manual-6fbebc711fa6 (row 97) closed with exit 2499.37, reason sl, non-null pnl; rows 104/115 also priced sl closes — clears_when (non-null exit_price and pnl) holds.",
+  "what": "velotrade_1 (REST/DXtrade executor) close of ticket prop-manual-6fbebc711fa6 was recorded 2026-10-11T03:58Z as status=closed, exit_price=null, pnl=null, reason 'closed_on_terminal (executor reconcile; exit read from the terminal history is not built)'. The REST path should read the venue trade history (VELOTRADE-RECON) and PROP-EXIT-READ wants a priced close; neither holds on the only velotrade_1 close so far, and PERF-REVIEW-W41's 'closed and graded' cannot be met. Find whether #16978 is deployed and why the close fell to the browser-path terminal reconcile."
+}

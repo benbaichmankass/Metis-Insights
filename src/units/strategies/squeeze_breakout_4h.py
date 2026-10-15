@@ -343,6 +343,7 @@ def monitor(cfg, candles_df, open_pkg):
         from src.runtime.position_telemetry import record_position_telemetry
 
         record_position_telemetry(
+            candles_df=candles_df, atr=atr,
             open_pkg=open_pkg, meta=meta, window=window, direction=direction,
             current_price=current_price, stop=sl,
             target=_coerce_float(open_pkg.get("tp")),

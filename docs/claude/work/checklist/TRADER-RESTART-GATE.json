@@ -1,0 +1,21 @@
+{
+  "id": "TRADER-RESTART-GATE",
+  "title": "Deploy: skip restarting ict-trader-live when the runtime diff touches nothing the trader loads (Phase 1, operator-approved)",
+  "phase": null,
+  "state": "queued",
+  "owner": null,
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "OPERATOR DECISION (popup ~2026-10-15T10:10Z, relayed by manager session_01VduHYzdaXe27wTDBLSu8ao), verbatim choice: \"Build it (Recommended)\". SPEC = the TIER-2 PROPOSAL in the TELEGRAM-RESTART-MSG row note, Phase 1 exactly: in scripts/deploy_pull_restart.sh, restart ict-trader-live iff a changed path (diff vs the TRADER's deployed sha) is (a) a .py in the static import closure from src.main (AST walk incl. function-level imports + importlib.import_module literals; ~382 files on 2026-10-15), (b) any non-.py runtime path (i.e. not in the existing safe-set regex), or (c) a .py outside src/ and scripts/. Other units keep today's behaviour. Closure committed as a generated file plus a CI drift guard that recomputes it; a missing/unreadable closure file means restart. deployed_sha becomes per-unit: a trader-specific marker, so a skipped trader keeps its own older sha. src/runtime/restart_cause.py's describe_deploy range and the cause line, plus /api/diag restart_pending (src/web/api/routers/diag.py, lockstep test tests/test_diag_restart_pending_lockstep.py) read per unit. Deliverables: tests (deploy-gate tests alongside tests/test_deploy_pull_restart_runtime_gate.py); a replay over first-parent merges 2026-10-08T09:40Z..2026-10-15T09:40Z reproducing the measured split (879 merges: 711 non-runtime, 168 runtime, 42 skip / 126 restart; prototype closure + replay scripts were in the lane's scratchpad; regenerate rather than trust these numbers); hold PR, hold_reason tier_2_3_needs_approval. Phase 2 (comms data-file reader map) out of scope. Previous lane handed off near its $15 ceiling.",
+  "updated_at": "2026-10-15T10:24:22Z",
+  "updated_by": "session_01LtduMwXcSLF2D7F6L3Xgyj",
+  "roadmap": [
+    "M6"
+  ],
+  "_seq": 517
+}

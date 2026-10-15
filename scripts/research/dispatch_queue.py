@@ -413,10 +413,25 @@ def _is_due(entry: Dict[str, Any], now: datetime) -> tuple:
         return False, (f"research/results/{uid}/ holds {result_rows} row(s) with no readable "
                        "generated_at and there is no stamp — refusing to treat an undated "
                        "result as elapsed")
-    gap = timedelta(days=_CADENCE_DAYS.get(cadence, 1))
+    gap = timedelta(days=max(_CADENCE_DAYS.get(cadence, 1), recheck_after_days(entry)))
     if now - when >= gap:
         return True, f"last ran {when.isoformat()} ({basis}), cadence {cadence} elapsed"
     return False, f"last ran {when.isoformat()} ({basis}), cadence {cadence} not yet elapsed"
+
+
+def recheck_after_days(entry: Dict[str, Any]) -> int:
+    """A re-ask stretch the GRADER wrote into its own grading block (queue_grade RC5: a
+    recurring unit whose power cannot reach its floor at its cadence). Honoured only when
+    the block is the grader's (`auto: true` + `grader` names queue_grade.py), so a hand edit
+    of `grading:` cannot silently park a unit; clamped to [0, 366] days. It can only
+    LENGTHEN the gap -- `due()` takes max(cadence, this)."""
+    g = entry.get("grading")
+    if not (isinstance(g, dict) and g.get("auto") is True and str(g.get("grader") or "").endswith("queue_grade.py")):
+        return 0
+    try:
+        return max(0, min(366, int(g.get("recheck_after_days") or 0)))
+    except (TypeError, ValueError):
+        return 0
 
 
 def _waiting_since(entry: Dict[str, Any], uid: str) -> Optional[datetime]:
@@ -796,8 +811,8 @@ def _run_age_hours(row: Dict[str, Any], now: datetime) -> Optional[float]:
 
 def backpressure(research_names: Dict[str, str], *, max_inflight: int, max_queued: int,
                  runs_by_status: Optional[Dict[str, Optional[List[Dict[str, Any]]]]] = None,
-                 now: Optional[datetime] = None, stale_after_hours: float = STALE_PRESSURE_HOURS
-                 ) -> Dict[str, Any]:
+                 now: Optional[datetime] = None, stale_after_hours: float = STALE_PRESSURE_HOURS,
+                 infra_names: Optional[List[str]] = None) -> Dict[str, Any]:
     """What the runner pool looks like before this cycle fires anything.
 
     Returns {inflight_research, repo_queued, stale_ignored, block, detail}.
@@ -808,7 +823,15 @@ def backpressure(research_names: Dict[str, str], *, max_inflight: int, max_queue
     A run created more than `stale_after_hours` ago and still queued / in
     progress is STUCK, not load (see STALE_PRESSURE_HOURS): it is reported in
     `stale_ignored` and counted against neither cap. A run whose `createdAt`
-    cannot be read counts as fresh -- the conservative direction."""
+    cannot be read counts as fresh -- the conservative direction.
+
+    YIELD TO INFRA (GH-CAPACITY-INFRA-FIRST, operator 2026-10-15: "GitHub should give infra first
+    preference ... Research can use the spare capacity there"). `infra_names` are workflow NAMES
+    (research_compute.yaml limits.infra_workflows). While ANY fresh run of one is QUEUED, every fire is
+    deferred -- including fires to trainer/Kaggle, because each of those backends' workflows also holds a
+    GitHub runner while it polls the remote job (measured: research-script-run-trainer/-kaggle loop on
+    ubuntu-latest up to their 360-min timeouts). GitHub has no job priority, so not adding a job while
+    infra waits is the only yield available on a shared runner pool."""
     if runs_by_status is None:
         runs_by_status = {st: gh_runs(st) for st in ("queued", "in_progress")}
     now = now or datetime.now(timezone.utc)
@@ -835,11 +858,18 @@ def backpressure(research_names: Dict[str, str], *, max_inflight: int, max_queue
     for r in queued + inprog:
         if str(r.get("workflowName")) in names:
             by_name[str(r["workflowName"])] = by_name.get(str(r["workflowName"]), 0) + 1
+    infra = set(infra_names or [])
+    infra_waiting = sorted({str(r.get("workflowName")) for r in queued if str(r.get("workflowName")) in infra})
+    infra_queued = sum(1 for r in queued if str(r.get("workflowName")) in infra)
     out = {"inflight_research": inflight, "by_name": by_name, "repo_queued": len(queued), "stale_ignored": stale, "block": None,
+           "infra_queued": infra_queued,
            "detail": f"research compute in flight {inflight} (cap {max_inflight}); repo runs queued "
                      f"{len(queued)} (cap {max_queued}); {stale} stuck run(s) older than "
                      f"{stale_after_hours:g} h ignored"}
-    if len(queued) > max_queued:
+    if infra_queued:
+        out["block"] = (f"{infra_queued} infra run(s) queued ({', '.join(infra_waiting)}): research yields "
+                        "the shared GitHub runner pool to infra -- deferring every fire this cycle")
+    elif len(queued) > max_queued:
         out["block"] = (f"{len(queued)} workflow runs are queued repo-wide (> {max_queued}): research "
                         "must not add to a saturated runner pool -- deferring every fire this cycle")
     elif inflight >= max_inflight:
@@ -1133,7 +1163,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         wf_names = research_workflow_names(jobs)
         pressure = backpressure(wf_names, max_inflight=max_inflight,
                                 max_queued=args.max_repo_queued,
-                                stale_after_hours=args.pressure_stale_hours)
+                                stale_after_hours=args.pressure_stale_hours,
+                                infra_names=list((cfg or {}).get("limits", {}).get("infra_workflows") or []))
         print(f"backpressure: {pressure.get('detail') or pressure.get('block')}", file=sys.stderr)
         if pressure["block"]:
             print(f"::notice::research-queue-dispatch deferred every fire: {pressure['block']}", file=sys.stderr)

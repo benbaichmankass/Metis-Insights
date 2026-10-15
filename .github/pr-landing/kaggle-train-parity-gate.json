@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "Row KAGGLE-TRAIN-RUNNER-FIRST (operator 2026-10-15 'Train on free runner'). Research tooling only: scripts/research/train_parity.py (trains one manifest via run_experiment(register=False) into a temp dir on rows ts < cutoff and grades off-VM vs trainer parity), tests, a compute_router helper deriving a train_parity unit's dataset path from its manifest (checked against the published allowlist), design-doc addendum, capability-index row, checklist notes, and the two hand-authored queue units that run it (RQ-20261015-8b93-01 trainer reference -> -02 kaggle_cpu). No registry write, no src/, config/, workflow, timer, risk or order-path change.",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Two hand-authored queue units (RQ-20261015-8b93-01/-02) carry pre-registered decision rules the landing guard cannot vouch for (E57); the manager reads and merges."
+}

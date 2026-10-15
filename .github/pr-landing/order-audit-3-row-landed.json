@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only: ORDER-AUDIT-3 checklist row -> landed_unproven with observation + writeback after all 7 lane PRs merged and item 17 applied/observed. No code, config, workflow or order-path change."
+}

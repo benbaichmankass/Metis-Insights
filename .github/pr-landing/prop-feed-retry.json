@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 live VM timer script scripts/ops/prop_feed_tick.sh + scripts/prop/breakout_login_check.py exit codes. Operator-approved in the 2026-10-14 weekly planning (checklist row PROP-FEED-RETRY) and chosen again 2026-10-15 ~06:20Z (\"Prop feed retry (Rec.)\"); the manager merges.",
+  "why": "PROP-FEED-RETRY. After NO-HALT, any FeasibilityError (incl. timeout / unknown_page) exited 4 and the feed backed off to the 2 h cap on the first occurrence, so a ~4 min Tradeify terminal blip silenced tradeify_1 for 26 h+ (PI-20261007-APBY4NTV-0007). breakout_login_check.py now exits 7 for timeout/unknown_page only; the feed treats 7 like any ordinary failure: re-checked on the next 5-min tick, and only the 3rd consecutive one backs off (5 min doubling) and raises the ONE flag. rc 4 is unchanged for captcha/2fa/challenge/login_rejected/password_expired/no_credentials/asn_blocked/access_denied. NO-HALT holds: nothing latches, the feed keeps trying. Not built: --dump-dir on the trip path (it only writes on a successful login read; a login failure already journals the redacted page_shape). Revert: git revert of the merge commit."
+}

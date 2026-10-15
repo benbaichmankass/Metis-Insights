@@ -450,7 +450,7 @@ def test_run_pairs_tick_live_submin_leg_skips_no_placement(tmp_path, monkeypatch
     })
     monkeypatch.setattr(px, "_fetch_leg",
                         lambda sym, tf, lim, s: (list(ca) if sym == "SOLUSDT" else list(cb), "T1"))
-    monkeypatch.setattr(px, "_pair_is_open", lambda *a, **k: False)
+    monkeypatch.setattr(px, "_pair_holds_legs", lambda *a, **k: False)
     monkeypatch.setattr(px, "_held_leg_symbols", lambda *a, **k: set())
     monkeypatch.setattr(px, "_count_correlated_open", lambda *a, **k: 0)
     monkeypatch.setattr(px, "_save_decision_bars", lambda state: None)
@@ -502,7 +502,7 @@ def test_run_pairs_tick_shadow_places_nothing(tmp_path, monkeypatch):
     })
     monkeypatch.setattr(px, "_fetch_leg",
                         lambda sym, tf, lim, s: (list(ca) if sym == "SOLUSDT" else list(cb), "T1"))
-    monkeypatch.setattr(px, "_pair_is_open", lambda *a, **k: False)
+    monkeypatch.setattr(px, "_pair_holds_legs", lambda *a, **k: False)
     monkeypatch.setattr(px, "_held_leg_symbols", lambda *a, **k: set())
     monkeypatch.setattr(px, "_count_correlated_open", lambda *a, **k: 0)
     monkeypatch.setattr(px, "_save_decision_bars", lambda state: None)
@@ -860,7 +860,7 @@ def _live_open_tick(tmp_path, monkeypatch, *, halted: bool):
     })
     monkeypatch.setattr(px, "_fetch_leg",
                         lambda sym, tf, lim, s: (list(ca) if sym == "SOLUSDT" else list(cb), "T1"))
-    monkeypatch.setattr(px, "_pair_is_open", lambda *a, **k: False)
+    monkeypatch.setattr(px, "_pair_holds_legs", lambda *a, **k: False)
     monkeypatch.setattr(px, "_held_leg_symbols", lambda *a, **k: set())
     monkeypatch.setattr(px, "_count_correlated_open", lambda *a, **k: 0)
     monkeypatch.setattr(px, "_save_decision_bars", lambda state: None)
@@ -1353,3 +1353,22 @@ def test_exit_fires_on_a_readable_open_pair_while_the_budget_is_unavailable(
     assert soak[-1]["state_source"] == "journal"
     assert not any(r["event"] == "skip_no_risk_basis" for r in soak)
     assert balance_reads == [], "the budget must not be derived for an open pair"
+
+
+# ── ORDER-AUDIT-3 / PI-20260927-ECILBBVH-0009 ──────────────────────────────
+# A half-open pair's stranded leg must block a sibling pair on that symbol.
+def test_half_open_pair_holds_its_leg_symbols_for_the_concurrency_gate(monkeypatch):
+    stranded = {"name": "pairs_sol_btc", "symbol_a": "SOLUSDT", "symbol_b": "BTCUSDT"}
+    sibling = {"name": "pairs_sol_eth", "symbol_a": "SOLUSDT", "symbol_b": "ETHUSDT"}
+    _patch_leg_openness(monkeypatch, {"SOLUSDT"})          # only leg A open
+    assert px._pair_leg_state(stranded, "bybit_1", None) == "half_open"
+    held = px._held_leg_symbols([stranded, sibling], "bybit_1", None,
+                                exclude_name="pairs_sol_eth")
+    assert "SOLUSDT" in held
+    assert px._count_correlated_open(sibling, [stranded, sibling], "bybit_1", None) == 1
+
+
+def test_flat_pair_holds_nothing(monkeypatch):
+    stranded = {"name": "pairs_sol_btc", "symbol_a": "SOLUSDT", "symbol_b": "BTCUSDT"}
+    _patch_leg_openness(monkeypatch, set())
+    assert px._held_leg_symbols([stranded], "bybit_1", None, exclude_name="x") == set()

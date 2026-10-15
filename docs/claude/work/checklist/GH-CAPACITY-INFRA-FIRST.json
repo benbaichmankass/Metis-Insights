@@ -1,0 +1,38 @@
+{
+  "id": "GH-CAPACITY-INFRA-FIRST",
+  "title": "Give infra (system-actions/vm-ops/deploy/diag/phone-executor-apk) preference on GitHub runner capacity over research and superseded CI",
+  "phase": null,
+  "state": "landed_unproven",
+  "owner": "lane GH-CAPACITY-INFRA-FIRST",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    18225
+  ],
+  "blocked_on": [],
+  "note": "OPERATOR 2026-10-15 ~08:24Z verbatim: \"generally we want to give infra preference on github capacity since the resaerch has its own dedicated resources\"; also: let the current queue drain on its own -- NO manual cancels. TRIGGER/EVIDENCE (manager, 08:15Z): ~100 Actions runs queued (12 pytest-run, 11 pytest-rerun on superseded main shas, 10 Guards, 10 repo-inventory, 10 claude-pr-automerge, 9 pytest-collect ...) with research-queue-dispatch running on ubuntu-latest; phone-executor-apk queued 07:49Z finished ~08:20Z; system-actions runs 8472-8474 for an operator-approved live change queued 40+ min, one issue with no run at all; only 7 of 179 workflows set cancel-in-progress. SCOPE: (1) inventory research-*/ml-*/backtest workflows: compute-on-GitHub vs dispatch-only, measured durations; move heavy compute off GitHub runners. (2) concurrency + cancel-in-progress on PR CI (workflow + PR/head ref), pytest-rerun/workflow_run chains keyed on branch; never cancel main-push jobs that commit to main, deploy or run system-actions. (3) infra never queues behind research or superseded CI: measure what this plan allows (runner cap, research parallelism caps, self-hosted/trainer runners). LANE MEASUREMENT 08:21-08:30Z: 171 queued, 20/20 jobs in progress (Free-plan cap) = 12 pytest-run (PR, ~35-48 min each) + 5 Guards + 1 repo-inventory + 1 research-queue-dispatch + 1 live-replay-parity. Research held 1 of 20 slots; superseded/PR CI held 18. Inventory: comms/ci/gh-capacity-inventory-2026-10-15.json.  | SCOPE CORRECTION (operator ~08:25Z via manager, replaces scope (1)): not a migration but a PRIORITY ORDER -- research compute aims first at its dedicated resources (trainer VM, Kaggle, others); GitHub runners are spill-over only; infra (system-actions, deploy, vm-ops, diag relays, phone APK, PR CI on current heads) always first; research may use GitHub runners when free but must never make infra queue. BUILT: dispatch_queue.backpressure defers every research fire while any fresh run of research_compute.yaml limits.infra_workflows is QUEUED (tests in tests/test_research_backpressure.py). MEASURED caveat: every research backend workflow (trainer, kaggle, kaggle_cpu) holds a GitHub runner while it polls the remote job (loops up to 360 min), so dedicated-first does not by itself free GitHub slots; that needs fire-and-forget dispatch + collector (row GH-CAPACITY-RESEARCH-OFFLOAD, reframed). Class order already puts dedicated first where a unit can run there.  | GHOST RUNS (measured 08:40Z): 37 runs created before 2026-10-14 still read queued (23 from 2026-05-15, 11 from 2026-09-13, 3 other); EVERY one has 0 jobs (no runner held, nothing queued for a slot), and every workflow they belong to -- including constant-group ones (vm-cloud-fix, vm-net-diag) -- has completed newer runs today, so they block no concurrency group. 3 belong to workflows that no longer exist (Dry-run guard, Env-gate guard, claim-basis-guard). Effect is count noise only: the 171 queued at 08:21Z was ~134 real. Research backpressure already ignores them (STALE_PRESSURE_HOURS 24). Not cancelled (operator: no manual cancels); cancelling them is cosmetic and would need operator OK.  | 2026-10-15 ~08:45Z: manager: ghost runs -- leave them (cosmetic). pytest-skip-attribution-guard local failure EXAMINED: its --self-test generates reports with REAL pytest; the first local guard run had no pytest installed (the same run listed 2 guards as could-not-run for that reason). After pip install pytest: self-test OK. Environment, not this diff. Research test suite locally: 363 passed, 2 failed -- both ModuleNotFoundError fastapi (sandbox has no fastapi), identical on origin/main.  | Local full guard run #2 (pytest installed): 75 PASS; ruff-lint FAILED only under the sandbox ruff 0.16.8 -- with the repo pin (requirements-dev ruff>=0.15,<0.16; 0.15.22) `ruff check .` passes on origin/main, #18225 and #18228 alike. layer-guard could not run (import-linter absent locally). CI is the gate.  | MERGED 2026-10-15 (#18225, head ede6da00d, all 4 required checks green). landed_unproven, NOT done. Closing observation: an after-snapshot ~24h after merge showing (a) pytest-rerun runs no longer piling up in queue (before: 23 queued at 08:21Z), (b) branch-protection-sync at most 2 runs per merge burst, (c) infra queued->started wait for system-actions / phone-executor-apk / diag relays, and (d) at least one research-queue-dispatch run logging the infra-yield deferral when an infra run was queued. If infra still waits > ~10 min, re-raise GH-CAPACITY-INFRA-RUNNER.  | CLOSE-OUT 2026-10-15 ~10:10Z (lane session_01PhYMEkk7p8AzzzVHLsqCLw ended; lane archived). Merged: #18225, #18228, #18254. Remaining observation is owned by the manager's fresh-session task scheduled 2026-10-16T09:15Z. CORRECTION / UNVERIFIED LABEL: \"20 concurrent jobs = GitHub Free plan cap\" in this row, the follow-up rows and comms/ci/gh-capacity-inventory-2026-10-15.json is an INFERENCE from observing exactly 20/20 jobs in progress with 150+ queued at 08:24Z; the account plan tier was never read (billing/runners APIs are 403 through the session proxy). The measured fact is the 20-job saturation, not the plan name.",
+  "updated_at": "2026-10-15T10:10:15Z",
+  "updated_by": "session_01PhYMEkk7p8AzzzVHLsqCLw",
+  "roadmap": [
+    "L-OPS"
+  ],
+  "observation": {
+    "what": "after-snapshot of GitHub Actions capacity ~24h after #18225 merged: infra queued->started wait (system-actions, phone-executor-apk, diag relays) under ~10 min; pytest-rerun no longer accumulating in queue (before: 23 queued at 08:21Z); branch-protection-sync <= 2 runs per merge burst; >=1 research-queue-dispatch run logging the infra-yield deferral",
+    "how_to_check": "gh api repos/benbaichmankass/metis-insights/actions/runs?status=queued and ?status=in_progress grouped by name; per infra run created_at -> run_started_at; grep research-queue-dispatch job logs for \"research yields the shared GitHub runner pool to infra\"; compare with comms/ci/gh-capacity-inventory-2026-10-15.json queue_picture_before",
+    "due_by": "2026-10-16"
+  },
+  "writeback": {
+    "roadmap": "none: CI runner-capacity hygiene under L-OPS changes no milestone measure or status; the outcome is recorded on this row and in comms/ci/gh-capacity-inventory-2026-10-15.json",
+    "arch": "none: no trade/comms pipeline or contract changed -- GitHub workflow concurrency, research-dispatch backpressure and matrix caps only"
+  },
+  "lane_history": [
+    {
+      "lane": "session_01PhYMEkk7p8AzzzVHLsqCLw",
+      "archived_at": "2026-10-15T10:10:15Z"
+    }
+  ],
+  "_seq": 512
+}

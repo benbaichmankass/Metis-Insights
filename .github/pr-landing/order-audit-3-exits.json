@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "ORDER-AUDIT-3 lane PR, Tier 3: order-path change held for the manager and the operator's explicit yes on the Tier-3 sizing parts (lane brief: HOLD PR, manager merges).",
+  "why": "ORDER-AUDIT-3 1/3: pairs dry-run close/unwind/TP-amend gate, venue-scoped _is_session_defer, package-scoped order_monitor fallback. Tier 3 by path (src/units/strategies/**); no entry/size change."
+}

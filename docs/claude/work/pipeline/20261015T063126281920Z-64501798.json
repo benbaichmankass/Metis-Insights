@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-18",
+    "kind": "date"
+  },
+  "id": "PI-20261015-WNBZB5WN-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "RESEARCH-GRADE-BACKLOG lane 2026-10-15 (branch lane/research-grade-backlog)",
+    "rerun": "python3 -c \"import json,glob;[print(f) for f in glob.glob('comms/research/RQ-*/*/measurement.json') if any(w.get('n_test_rows')==0 for g in json.load(open(f)).get('groups',{}).values() for a in g.get('arms',{}).values() for k,w in a.get('windows',{}).items() if k=='holdout')]\""
+  },
+  "state": "queued",
+  "what": "ML bake-off holdout windows are EMPTY: 7 ml_bakeoff units on market_features 15m (RQ-20261012-75b2-19/-22/-24/-25/-27, RQ-20261013-a793-01/-02) measured holdout n_test_rows 0, so every registered holdout clause went unevaluated (two landed a false FAIL; producer fixed on lane/research-grade-tooling). INFERRED, not verified: the trainer dataset (datasets-out/market_features/<SYM>/15m/v002 with tail_rows) ends before each unit's holdout_after (e.g. 2026-07-12), or tail_rows truncates it. Read the dataset's last ts on the trainer, then rebuild or fix tail_rows; re-arm the affected units only once a holdout window has >= 20 rows."
+}

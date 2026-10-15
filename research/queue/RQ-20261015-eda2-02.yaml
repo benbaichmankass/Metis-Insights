@@ -1,0 +1,140 @@
+id: RQ-20261015-eda2-02
+title: Frontier / TabPFN-only research-eval at small n (3,000-row BTC 15m tail, MES 1d) vs LightGBM -- the TabPFN arm RQ-20261013-1414-06 could
+  not run (licence, then trainer heavy-lock wait)
+status: queued
+cadence: once
+theme: ml_health
+priority: 2
+kind: experiment
+question: Does TabPFN (research-eval only; Prior Labs weights, licence for tabpfn_3_5 accepted by the operator 2026-10-15) beat LightGBM by >=
+  0.01 macro-F1 under purged CV on BOTH the last-3,000-row BTC 15m shard and MES 1d? Same datasets, features, folds and bar as RQ-20261013-1414-06;
+  only the tabpfn arm is new here (the tabicl/logit arms already ran 'ok' in that unit's run 38529192993 and are not repeated).
+why_this_matters: 'RQ-20261013-1414-06''s tabpfn arm errored twice with TabPFNLicenseError (run 38529192993, run 38697807794): the licence had
+  not been accepted. After the acceptance, a third attempt (run 38706803527) never started because it waited 3,600 s for the trainer heavy lock
+  and exited 75 (heavy_lock_timeout): NO TabPFN arm has yet run. Probe 38708077926 (trainer, 2026-10-15 08:48Z) shows the token valid and tabpfn_3_5
+  accepted=True, the default model version V3_5. This unit is the smallest way to exercise exactly that arm; ml_bakeoff.py reports a missing arm
+  as unavailable (never a FAIL), so an environment fault cannot be read as a verdict. TabPFN weights are non-commercial: offline research evaluation
+  ONLY; a PASS raises a licence question to the operator before any serving.'
+power:
+  expected_n: 600
+  min_detectable_effect: 0.1
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: tail_rows 3000 with min_train_frac 0.4 leaves ~1,800 out-of-sample rows over 5 folds (~360 per fold) per dataset; d=0.1 paired needs
+    785 rows, so each dataset alone is UNDERPOWERED on rows and the rule requires the same-direction CV mean on BOTH datasets instead of a significance
+    test on one. Autocorrelation makes the true requirement higher.
+  feasibility:
+    source: none
+    accrual_basis: 'Fixed by construction (tail_rows 3000 / the MES history length): n does not grow with waiting, so an underpowered result is
+      reported as such and the follow-up is the larger meta-label dataset in 9da8-02, not a re-run.'
+decision_rule:
+  id: RULE-RQ20261015-TABPFN-ONLY-SMALL-N
+  registered_at: '2026-10-15'
+  registered_before_run: true
+  statistic: Paired per-fold macro-F1 difference (tabpfn minus LightGBM) on identical purged folds (5, embargo 96, min_train_frac 0.4); mean over
+    folds, per dataset. Identical to RQ-20261013-1414-06's statistic for its tabpfn arm.
+  rule: PASS IF tabpfn beats LightGBM by >= +0.010 macro-F1 on the CV mean on BOTH datasets (feature-lift gate only; a PASS earns the meta-label
+    unit 9da8-02 a higher priority and a licence question for the operator before ANY live use). FAIL IF tabpfn does not reach >= 0 vs LightGBM
+    on ANY dataset AND the tabpfn arm was evaluated on both (a FAIL closes only this checkpoint at n~3k on these 5 features). INDETERMINATE otherwise,
+    or if folds < 3, or the arm is unavailable/errored. An error naming the licence, the heavy lock or the model download is a ROUTE FAULT, never
+    a verdict.
+  min_n: 3 usable CV folds per dataset; reported n_rows per dataset (MES may hold fewer than 3,000 rows).
+  what_it_does_not_do: 'Serves nothing, registers nothing, touches no config. TabPFN is research-eval only: the operator''s 2026-10-15 decision
+    is ''Accept, research only; no live use without a fresh licence review''. Says nothing about TabICL (already measured in 1414-06) or about
+    larger n.'
+compute: needs_vm_data
+value:
+  bucket: frontier
+  usd_at_stake_per_month: 200
+  confidence: 0.2
+  basis: 'stand-in: if a pretrained tabular learner wins at n~3k it is the candidate for the ~99-trade meta-label head (the label wall); not a
+    measured P&L'
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 5.0
+  est_minutes: 60
+  basis: 'Estimate, NOT measured: one in-context learner, 5 folds x 2 datasets of ~1.8k train rows, 1 OCPU. The first run replaces it. NOTE: the
+    trainer heavy lock may delay the start; see FRONTIER/GH-CAPACITY-RESEARCH-OFFLOAD.'
+ml_bakeoff:
+  task: classification
+  metric: macro_f1
+  dataset:
+    kind: jsonl
+    groups:
+      BTCUSDT_15m_last3000:
+        path: datasets-out/market_features/BTCUSDT/15m/v002/data.jsonl
+      MES_1d:
+        path: datasets-out/market_features/MES/1d/v002/data.jsonl
+    ts_col: ts
+    target: regime_label
+    features:
+    - rolling_log_return_vol
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - dayofweek
+    tail_rows: 3000
+  cv:
+    folds: 5
+    embargo_rows: 96
+    min_train_frac: 0.4
+  baseline: lgbm
+  controls:
+  - prior
+  candidates:
+  - tabpfn
+  learners:
+    prior:
+      kind: prior
+    lgbm:
+      kind: lightgbm
+      params:
+        n_estimators: 150
+        learning_rate: 0.05
+        num_leaves: 15
+        min_child_samples: 20
+    tabpfn:
+      kind: tabpfn
+      params: {}
+      weights_note: Prior Labs non-commercial weights (license:other); offline research evaluation only
+  rule:
+    min_folds: 3
+    pass_if:
+    - group:
+      - BTCUSDT_15m_last3000
+      - MES_1d
+      vs: baseline
+      window: cv
+      op: '>='
+      value: 0.01
+    fail_if_no_candidate_reaches:
+    - group: any
+      vs: baseline
+      window: cv
+      op: '>='
+      value: 0.0
+run:
+  command:
+  - python3
+  - scripts/research/ml_bakeoff.py
+  - --unit
+  - '{unit}'
+  - --out
+  - '{out_dir}'
+  timeout_minutes: 300
+  inputs:
+    research_unit: RQ-20261015-eda2-02
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+roadmap:
+- M25
+related:
+- RQ-20261013-1414-06
+- RQ-20261011-9da8-02
+- FRONTIER-LEVER-TABULAR
+- ML-TABPFN-LICENCE

@@ -1,0 +1,79 @@
+id: RQ-20261015-8b93-01
+title: 'Training parity, REFERENCE side: train eth-regime-1h-lgbm-v1 on the trainer VM on rows ts < 2026-10-01 (no registry write)'
+status: queued
+cadence: once
+theme: ml_health
+priority: 2
+kind: experiment
+question: 'Does the trainer VM produce a usable reference run (metrics + per-row eval predictions + input sha256) of eth-regime-1h-lgbm-v1
+  on the ETHUSDT 1h v002 rows with ts < 2026-10-01, for the off-VM parity comparison in RQ-20261015-8b93-02?'
+why_this_matters: 'Row KAGGLE-TRAIN-RUNNER-FIRST (operator 2026-10-15, "Train on free runner"): nothing trained off the trainer may enter the
+  registry until the SAME manifest on the SAME rows gives the same model within a tolerance declared before the run. This unit is the trainer
+  half of that measurement; RQ-20261015-8b93-02 is the off-VM half and carries the parity rule.'
+power:
+  expected_n: 1000
+  min_detectable_effect: 0.1
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: 'Not a statistical test: a reference measurement. n is the eval split (time_aware_holdout 20%) of the ETHUSDT 1h v002 rows before
+    2026-10-01; the shard row count was NOT read for this unit (expected_n is a floor, the run reports the real n). Fixed by construction.'
+  feasibility:
+    source: none
+    accrual_basis: 'Fixed by construction (rows before a fixed cutoff): n does not grow with waiting.'
+decision_rule:
+  id: RULE-RQ20261015-8b93-01-PARITY-REFERENCE
+  registered_at: '2026-10-15'
+  registered_before_run: true
+  statistic: n_eval of the reference run and the count of input rows kept by the cutoff.
+  rule: PASS IF the trainer run completes with n_eval >= 100 and > 0 input rows (a usable reference). FAIL IF it completes with n_eval < 100 or
+    0 rows. A crash lands producer_failed.
+  min_n: 100 eval rows.
+  what_it_does_not_do: Registers nothing (run_experiment register=False into a temp dir), promotes nothing, edits no config; it is not a
+    model-quality claim.
+compute: needs_vm_data
+value:
+  bucket: ai_trader
+  usd_at_stake_per_month: 100
+  confidence: 0.5
+  basis: 'stand-in: gates moving ~86% of training manifests off the saturated trainer; not a measured P&L'
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 1.5
+  est_minutes: 10
+  basis: 'Estimate: one LightGBM multiclass fit (200 iterations, 7 features) on the ETH 1h shard -- the nightly cycle trains this manifest in ~1 min.
+    Reads the trainer-resident datasets-out/ copy so it MUST run on the trainer (this is the trainer side of the comparison).'
+train_parity:
+  manifest: eth-regime-1h-lgbm-v1
+  cutoff: '2026-10-01T00:00:00Z'
+  side: reference
+run:
+  command:
+  - python3
+  - scripts/research/train_parity.py
+  - --manifest
+  - eth-regime-1h-lgbm-v1
+  - --cutoff
+  - '2026-10-01T00:00:00Z'
+  - --backend
+  - trainer
+  - --unit
+  - '{unit}'
+  - --out
+  - '{out_dir}'
+  timeout_minutes: 30
+  inputs:
+    research_unit: RQ-20261015-8b93-01
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+roadmap:
+- M25
+related:
+- KAGGLE-TRAIN-RUNNER-FIRST
+- RQ-20261015-8b93-02
+- scripts/research/train_parity.py
+- docs/plans/KAGGLE-TRAINING-PIPELINE-DESIGN-2026-10-13.md

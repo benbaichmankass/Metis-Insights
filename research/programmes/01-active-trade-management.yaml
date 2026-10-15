@@ -1,0 +1,70 @@
+# Programme P1 -- active trade management: the machine-readable question tree for
+# docs/research/programmes/01-ACTIVE-TRADE-MANAGEMENT.md (§ 4 backlog, W1-W4).
+# Read by scripts/research/queue_replenish.py (programme source, RESEARCH-LOOP-AUDIT RC2/RC3):
+#   * a `unit:` node is materialised as a queue unit once its `after` verdicts are CLOSED;
+#   * a `needs_authoring:` node is listed in the authoring queue
+#     (`queue_replenish.py --authoring-queue`), which research-ops drafts from first.
+# Landing machinery (check_pr_landing.py): every edit holds for a human merge.
+# `value` figures are INFERRED planning weights (same scale as the programme's minted units,
+# e.g. d6e7-02 declares $400 x 0.25), not measurements; the dispatcher re-ranks every unit
+# by its own declared value block.
+programme: P1
+plan: docs/research/programmes/01-ACTIVE-TRADE-MANAGEMENT.md
+nodes:
+  # ── Q8 in-trade exit line: the FAIL branches nobody pre-registered ──────────
+  - id: P1-Q8.2-fail
+    goal: G1
+    roadmap: [M31]
+    value: {usd_at_stake_per_month: 400, confidence: 0.2}
+    after: [{unit: RQ-20261014-d6e7-02, verdict: fail}]
+    needs_authoring: >-
+      Rung 2 (simple in-trade state -> P(SL before TP)) FAILED its pre-registered rule. Register the
+      refinement before any kill: the next state set or horizon to try (d6e7-01 PASSed with a 0.656 R/trade
+      turn-oracle saving, so the prize is real), or a scoped negative written back to row IN-TRADE-EXIT-MODEL.
+  - id: P1-Q8.4-fail
+    goal: G1
+    roadmap: [M31]
+    value: {usd_at_stake_per_month: 400, confidence: 0.2}
+    after: [{unit: RQ-20261014-d6e7-04, verdict: fail}]
+    needs_authoring: >-
+      Rung 4 (momentum / ADX-slope / range / regime features beyond where the trade is) FAILED. Register
+      the refinement (feature family, per-class split, longer window) or record the negative on
+      IN-TRADE-EXIT-MODEL with the number.
+  # ── Q1 giveback census -> which rung next, per class ────────────────────────
+  - id: P1-Q1-read
+    goal: G1
+    roadmap: [M20]
+    value: {usd_at_stake_per_month: 300, confidence: 0.4}
+    after: [{unit: RQ-20261014-9807-01, verdict: any}]
+    needs_authoring: >-
+      The census baseline landed (any verdict). Decide per strategy class whether Q4 (the "stop waiting"
+      SL rule) or Q3 (per-bar TP revision) is the second rung, and register that class's first unit
+      against the census number (01 § 4, W1 decision point).
+  # ── Q3 TP revision confirmation ──────────────────────────────────────────────
+  - id: P1-Q3-second-leg
+    goal: G1
+    roadmap: [M20]
+    value: {usd_at_stake_per_month: 300, confidence: 0.3}
+    after: [{unit: RQ-20261014-9807-03, verdict: pass}]
+    needs_authoring: >-
+      A landed revision cell CONFIRMED. Register the second-leg confirmation on the monthly re-sweep
+      (01 § 4 W3) and the TP-DOCTRINE B1 declared-rule draft for the confirmed leg (no flip).
+  - id: P1-Q3-fail
+    goal: G1
+    roadmap: [M20]
+    value: {usd_at_stake_per_month: 200, confidence: 0.3}
+    after: [{unit: RQ-20261014-9807-03, verdict: fail}]
+    needs_authoring: >-
+      The 2026-10-08 revision cells did NOT confirm. Register the redirect: census-keyed cells via the
+      `cells` input (GEOM-CELLS-INPUT) instead of the fixed gb1R grid, or an honest "no cell confirmed"
+      written to M20.
+  # ── TP doctrine on real money: alpaca 1d family-pooled finite target ─────────
+  - id: P1-Q2-alpaca-1d-pooled
+    goal: G1
+    roadmap: [M20]
+    value: {usd_at_stake_per_month: 150, confidence: 0.3}
+    after: [{unit: RQ-20261006-061, verdict: any}]
+    needs_authoring: >-
+      061 (finite target for alpaca_live's three 1d pullback legs) closed; its named follow-on is a
+      FAMILY-POOLED finite-target unit across the alpaca 1d legs (per-leg n is ~5-9 OOS trades, so pooling
+      is the only way to power it). Register it with the pooled power block.

@@ -1,7 +1,7 @@
 id: RQ-20261014-f516-09
 title: 'Programme 05 Q5 pool admission (PROP-BOOK-SEARCH-1095D): the admitted 4h Donchian pair (ETH 4h + SOL 4h, 1095 d) as a tradeify_247_1step
   book'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -98,3 +98,14 @@ related:
 - docs/claude/work/checklist/PROP-BOOK-SEARCH-1095D.json
 - research/queue/RQ-20261007-030.yaml
 last_dispatched_at: '2026-10-14T21:58:15+00:00'
+grading:
+  attested: RULE-RQ1014-F516-09-POOL-1095D-TRADEIFY_1
+  auto: true
+  decision_rule_id: RULE-RQ1014-F516-09-POOL-1095D-TRADEIFY_1
+  evidence:
+  - research/results/RQ-20261014-f516-09/38644323065.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  reason: 1 row(s), all measured, all pass
+  rows: 1
+  verdict: pass

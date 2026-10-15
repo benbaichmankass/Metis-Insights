@@ -1,0 +1,24 @@
+{
+  "based_on": "20261012T205435037168Z-dfc36387.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Every operator surface that shows an open trade's unrealised P&L derives it from the trade's journal entry (or labels it position-level), verified on a position whose venue avg entry differs from its trade row.",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261012-LFDSWFCG-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "MIRROR-QTY-DIVERGE lane session_01Vtqkf7hNHtVFYZLfDSWfcG",
+    "rerun": "bash scripts/ops/diag_fetch.sh '/api/diag/exchange_positions' | python3 -c \"import json,sys;[print(a['account_id'],p) for a in json.load(sys.stdin)['accounts'] for p in a.get('positions') or [] if p.get('symbol')=='XRPUSDT']\"  # compare entry_price with journal entry of the open trade row"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, still open: no operator surface derives open-trade uPnL from the journal entry vs venue unrealised_pnl (only diag.py:2606 documents the venue field); the Bybit mirror surface is unchanged.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "MIRROR-QTY-DIVERGE",
+  "state": "routed",
+  "what": "Venue uPnL on a hedge-mode position that outlived a Partial-tpsl sibling is NOT the open trade's P&L. bybit_portfolio XRPUSDT Sell 160.9 (trade 6545, journal entry 1.3964) reads venue entry_price 1.34864 (blended with the closed trend_donchian_xrp_4h leg, fills at 1.3478) and unrealised_pnl -10.15 at 2026-10-12T06:26Z, while the trade's own P&L at that mark is about -2.5. The manager's 06:20Z note quoted the venue -9.47 as the trade's uPnL. Establish which operator surfaces (/api/bot/positions, the SPA, pings) take a per-trade uPnL from the venue position and, where they do, compute it from the journal entry instead, or label the venue figure as position-level."
+}

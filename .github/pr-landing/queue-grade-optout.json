@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Edits scripts/research/queue_grade.py (an E58 producer whose --verify vouches its own queue PRs), so the manager merges. Carries RESEARCH-GRADE-BACKLOG's attested grading (moved here from #18179, which dropped it as superseded by this PR) plus the RESEARCH-LOOP-AUDIT RC1 delta: the attested path respects grading.auto:false and any session-written grading block, and lands.runs N waits for N result files.",
+  "why": "Tier-1 research tooling: scripts/research/queue_grade.py, tests/test_research_queue_autonomy.py, research/queue/README.md. No config/, src/, workflow, schedule or live path."
+}

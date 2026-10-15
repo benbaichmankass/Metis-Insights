@@ -99,8 +99,8 @@ def _bybit_fixture(*, position_side="long", stop=50000, target=70000, realized_u
                                         "position_idx": 0}],
                          "orders": []}}]}
     wt = {"accounts": [{"account_id": "bybit_2", "state": "measured_api",
-          "realized_usd": realized_usd, "window_start_ms": 1758000000000,
-          "window_end_ms": 1759000000000}]}
+          "realized_usd": realized_usd, "window_start_ms": 1790553600000,
+          "window_end_ms": 1790640000000}]}
     return j_pos, j_closed, broker, wt
 
 
@@ -256,8 +256,8 @@ def test_grade_and_fingerprint_are_stable_across_captured_at_and_pnl_noise():
 
     def _run(realized_usd):
         wt = {"accounts": [{"account_id": "bybit_2", "state": "measured_api",
-              "realized_usd": realized_usd, "window_start_ms": 1758000000000,
-              "window_end_ms": 1759000000000}]}
+              "realized_usd": realized_usd, "window_start_ms": 1790553600000,
+              "window_end_ms": 1790640000000}]}
         return m.run(j_pos, j_closed, alpaca_payload, bybit_payload, wt, prop_status,
                      fills, now=fixed_now)
 
@@ -313,8 +313,8 @@ def test_bybit_wallet_truth_state_field_is_read_not_read_state():
     measured_api evidence, not permanently fall back to could_not_look."""
     j_pos, j_closed, broker, _ = _bybit_fixture()
     wt = {"accounts": [{"account_id": "bybit_2", "state": "measured_api",
-          "realized_usd": 10.0, "window_start_ms": 1758000000000,
-          "window_end_ms": 1759000000000}]}
+          "realized_usd": 10.0, "window_start_ms": 1790553600000,
+          "window_end_ms": 1790640000000}]}
     assert "read_state" not in wt["accounts"][0]  # prove the shape
     r = m.reconcile_bybit(j_pos, j_closed, broker, wt)
     assert r["pnl_state"] == "agree"
@@ -355,9 +355,12 @@ _RAW_5682 = {"id": 5682, "account_id": "bybit_2", "symbol": "ETHUSDT",
              "notes": json.dumps({"pnl_source": "bybit_closed_pnl"})}
 
 
-def _wt(realized):
+def _wt(realized, start="2026-09-11T08:30:35.831000+00:00"):
+    # The window starts AT the oldest close the page holds, as the workflow
+    # now derives it (ORDER-AUDIT-3) -- the page provably covers the window.
+    start_ms = m._close_ms({"closedAt": start})
     return {"accounts": [{"account_id": "bybit_2", "state": "measured_api",
-            "realized_usd": realized, "window_start_ms": 1782902876782,
+            "realized_usd": realized, "window_start_ms": start_ms,
             "window_end_ms": 1790678876782}]}
 
 
@@ -390,7 +393,8 @@ def test_bybit_reduce_leg_via_run_and_diag_envelope():
 def test_bybit_raw_journal_reduce_row_is_excluded_by_setup_type():
     """A raw journal row passed as the closed list is classified directly."""
     j_pos, _, broker, _ = _bybit_fixture()
-    r = m.reconcile_bybit(j_pos, [_RAW_5682, _RAW_5702], broker, _wt(-2.8395))
+    r = m.reconcile_bybit(j_pos, [_RAW_5682, _RAW_5702], broker,
+                          _wt(-2.8395, start=_RAW_5702["closed_at"]))
     assert r["pnl_state"] == "agree"
     assert r["pnl"]["reduce_legs_excluded"] == ["5702"]
 
@@ -422,7 +426,8 @@ def test_bybit_wire_realizedPnl_field_is_read_not_pnl():
     j_pos, _, broker, _ = _bybit_fixture()
     closes = [_wire_close(5682, -2.8395, "2026-09-13T08:31:31Z")]
     assert "pnl" not in closes[0]  # prove the shape
-    r = m.reconcile_bybit(j_pos, closes, broker, _wt(-2.8395))
+    r = m.reconcile_bybit(j_pos, closes, broker,
+                          _wt(-2.8395, start="2026-09-13T08:31:31Z"))
     assert r["pnl_state"] == "agree"
 
 
@@ -460,3 +465,29 @@ def test_breakout_genuinely_different_symbol_still_divergent():
     r = m.reconcile_breakout(_prop_status("SOLUSDT", "ETHUSD"), [])
     assert r["positions_state"] == "divergent"
     assert sorted(p["state"] for p in r["positions"]) == ["broker_only", "journal_only"]
+
+
+# ------------------------- window alignment (ORDER-AUDIT-3, PXGMJYTX-0001)
+# The journal side summed the LAST 20 closes; the broker side was a fixed
+# days=90 wallet window. Live 2026-09-29: 09-03 -> 09-28 vs 07-01 -> 09-29.
+
+def test_pnl_sums_only_closes_inside_the_wallet_window():
+    j_pos, _, broker, _ = _bybit_fixture()
+    closes = [_wire_close(1, -1.0, "2026-09-13T00:00:00Z"),
+              _wire_close(2, -2.0, "2026-09-12T00:00:00Z"),
+              _wire_close(3, -50.0, "2026-09-01T00:00:00Z")]   # before the window
+    r = m.reconcile_bybit(j_pos, closes, broker,
+                          _wt(-3.0, start="2026-09-12T00:00:00Z"))
+    assert r["pnl_state"] == "agree"
+    assert r["pnl"]["journal_pnl_sum"] == -3.0 and r["pnl"]["n_closes"] == 2
+
+
+def test_a_journal_page_that_does_not_reach_the_window_start_cannot_grade():
+    """The live shape: a short journal page against a 90-day wallet window.
+    Before the fix this graded agree/divergent over two populations."""
+    j_pos, _, broker, _ = _bybit_fixture()
+    closes = [_wire_close(1, -1.0, "2026-09-13T00:00:00Z")]
+    r = m.reconcile_bybit(j_pos, closes, broker,
+                          _wt(-1.0, start="2026-07-01T00:00:00Z"))
+    assert r["pnl_state"] == "could_not_look"
+    assert r["pnl"]["window_coverage"] == "journal_page_does_not_reach_window_start"

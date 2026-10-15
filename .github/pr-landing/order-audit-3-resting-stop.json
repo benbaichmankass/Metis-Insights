@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "ORDER-AUDIT-3 P0 lane PR, Tier 2 (src/runtime/order_monitor.py, the live monitor's equity naked sweep). Detection + paging only through the existing _page_rearm_refusal path; places and cancels nothing. Held for the manager to merge (lane brief: HOLD PR).",
+  "why": "ORDER-AUDIT-3 P0: alpaca_paper GLD pkg-6a8e3fb325464be3 -- a resting OCO stop ~37 points through the market for ~15 days was counted as healthy stop_resting by the equity naked sweep."
+}

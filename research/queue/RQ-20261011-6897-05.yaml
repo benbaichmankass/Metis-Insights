@@ -1,7 +1,7 @@
 id: RQ-20261011-6897-05
 title: 'Stage-0 breadth for the prop book: trend harness on BNBUSDT 15m (RESEARCH-OPS-20261011-0847, PI-20261006-APBY4NTV-0001
   batch 6)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -63,3 +63,16 @@ related:
 - RQ-20261010-353c-01
 - scripts/ops/fetch_backtest_corpus.py
 last_dispatched_at: '2026-10-11T14:09:31+00:00'
+grading:
+  attested: RULE-RQ-20261011-6897-05-TREND-BNBUSDT-15m-STAGE0
+  auto: true
+  decision_rule_id: RULE-RQ-20261011-6897-05-TREND-BNBUSDT-15m-STAGE0
+  evidence:
+  - research/results/RQ-20261011-6897-05/38145788471.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'hand-written unit, every row graded under its own registered rule: FAIL closes it (no template
+    confirmatory re-run)'
+  reason: 1 row(s), all measured, all fail
+  rows: 1
+  verdict: fail

@@ -708,6 +708,11 @@ LANDING_MACHINERY = [
     "scripts/research/queue_replenish.py",
     "scripts/research/queue_grade.py",
     "research/templates/**",
+    # RESEARCH-LOOP-AUDIT RC2 (2026-10-15): programme question nodes are queue_replenish's
+    # sixth source -- a node's `unit:` is a pre-registration exactly like a template, and
+    # E58 vouches what it emits by re-rendering from the committed node, so an edit to a
+    # node file must be read by a human, never self-landed (E57's property, extended).
+    "research/programmes/**",
     f"{APPROVAL_DIR}/**",
 ]
 

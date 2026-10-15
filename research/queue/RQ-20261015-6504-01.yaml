@@ -1,6 +1,6 @@
 id: RQ-20261015-6504-01
 title: 'Programme 05 Q5 pool head-to-head (velotrade_1): current ETH+SOL 1h prop book vs the same book PLUS the admitted 4h Donchian pair (ETH 4h + SOL 4h, 1095 d)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -88,3 +88,14 @@ related:
 what_it_does_not_do: 'Changes no roster or config. Pool admission is not promotion: trend_donchian_sol_4h is execution: shadow and neither 4h leg is on a prop account. Window mismatch
   (1095 d vs 730 d) is reported, not corrected. Does not check symbol lot sizes or same-symbol netting across the 1h and 4h ETH legs beyond what --no-hedge models.'
 last_dispatched_at: '2026-10-15T03:05:47+00:00'
+grading:
+  attested: RULE-RQ_20261015_6504_01
+  auto: true
+  decision_rule_id: RULE-RQ_20261015_6504_01
+  evidence:
+  - research/results/RQ-20261015-6504-01/38674505859.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  reason: 1 row(s), all measured, all pass
+  rows: 1
+  verdict: pass

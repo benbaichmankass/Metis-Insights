@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Adds research/programmes/01-active-trade-management.yaml and 02-ai-trader.yaml. research/programmes/** is landing machinery since #18193 (a node's unit: body is a pre-registration), so the manager reviews and merges (manager decision 2026-10-15 06:25Z: node sidecars land as HOLD PRs for manager merge).",
+  "why": "Tier-1 research planning content: 11 question nodes, all needs_authoring (no unit: bodies), so merging emits no unit; they populate queue_replenish.py --authoring-queue. No config/, src/, workflow or live path."
+}

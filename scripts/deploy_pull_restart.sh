@@ -720,6 +720,13 @@ for unit in "${ICT_UNITS[@]}"; do
     if stop_note="$(stopped_unit_note "${unit}")"; then
         echo ">>>   starting stopped ${unit} (${stop_note}). To keep the trader stopped use stop-bot-service."
     fi
+    if [ "${unit}" = "${TRADER_UNIT}" ]; then
+        # TELEGRAM-RESTART-MSG: tell the trader's boot ping WHY it is starting
+        # (src/runtime/restart_cause.py reads + consumes this). Best-effort.
+        printf '{"cause": "deploy", "sha": "%s", "from": "%s", "at": %s}\n' \
+            "${POST_SYNC_HEAD}" "${RUNTIME_BASE}" "$(date +%s)" \
+            > "${REPO_DIR}/runtime_logs/trader_restart_intent.json" 2>&- || true
+    fi
     if "${SYSTEMCTL[@]}" restart "${unit}"; then
         echo ">>>   restarted ${unit}"
         RESTARTED_UNITS+=("${unit}")

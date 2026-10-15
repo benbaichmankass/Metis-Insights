@@ -1,7 +1,7 @@
 id: RQ-20261011-8025-06
 title: 'Stage-0 breadth for the prop book: squeeze harness on SOLUSDT 4h (RESEARCH-OPS-20261011-0247, PI-20261006-APBY4NTV-0001
   batch 5)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -63,3 +63,17 @@ related:
 - RQ-20261010-353c-01
 - scripts/ops/fetch_backtest_corpus.py
 last_dispatched_at: '2026-10-11T21:54:10+00:00'
+grading:
+  attested: RULE-RQ-20261011-8025-06-SQUEEZE-SOLUSDT-4h-STAGE0
+  auto: true
+  awaiting: more_data
+  decision_rule_id: RULE-RQ-20261011-8025-06-SQUEEZE-SOLUSDT-4h-STAGE0
+  evidence:
+  - research/results/RQ-20261011-8025-06/38178271590.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'indeterminate is the pre-registered under-powered/null outcome: complete, but NOT a pass and
+    NOT a kill'
+  reason: 1 row(s), all measured, all indeterminate
+  rows: 1
+  verdict: indeterminate

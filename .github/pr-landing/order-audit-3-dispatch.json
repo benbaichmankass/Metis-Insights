@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "ORDER-AUDIT-3 2/3, Tier 3 (sizing). Operator approval of both Tier-3 parts, relayed by the manager (popup ~2026-10-15T06:57Z), verbatim: \"Approve both (Recommended)\" -- covering the whole-unit floor-requantize after the multiplier chain (incl. the downsized_to_zero refusal) and NaN conviction inputs dropped like a missing key. Held for the manager to merge once green.",
+  "why": "ORDER-AUDIT-3 2/3: account_scope before legacy no-mapping return, NaN conviction dropped, whole-unit requantize after multipliers (TIER 3 sizing), cash-settlement soak figure, ACCOUNTS_YAML_PATH in coordinator."
+}

@@ -2,7 +2,7 @@ id: RQ-20261014-da7a-01
 title: >-
   Programme 06 Q1 (L-DATA): is the SL-first tie convention a material first-passage LABEL error? 1m re-walk of the committed
   ledgers, fixed bracket K in {1,2,3} R, per family
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: infra
@@ -108,3 +108,12 @@ related:
 - docs/claude/work/checklist/DATA-LABEL-TIES.json
 - ml/datasets/labeling/triple_barrier.py
 last_dispatched_at: '2026-10-14T23:59:27+00:00'
+grading:
+  decision_rule_id: RULE-RQ20261014-DA7A-01-INTRABAR-TIE-FIDELITY
+  graded_at: '2026-10-15'
+  graded_by: session_01AHy9CTrdF2hMBAWNBzB5wN (lane RESEARCH-GRADE-BACKLOG)
+  read_state: measured
+  reason: 'verdict.json measured MIXED (not an accepted row verdict, so the row landed producer_failed):
+    no eligible family >= 0.02 mislabel (max ict_scalp K=1 0.0054); not every family < 0.005. MIXED is
+    neither NEEDED nor NOT_NEEDED: no label prerequisite named, information only.'
+  verdict: indeterminate

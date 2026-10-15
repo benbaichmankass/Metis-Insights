@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only: pipeline records dispositioning due items on queued ROUTE-* rows and on landed_unproven rows (re-dated with what was read, or closed with a stated reason). No code, config, workflow or order-path change."
+}

@@ -9,10 +9,18 @@
   "ceiling_usd": 25,
   "spend_usd": null,
   "tier": 1,
-  "prs": [],
+  "prs": [
+    18168,
+    18189,
+    18191,
+    18193,
+    18195,
+    18197,
+    18198
+  ],
   "blocked_on": [],
-  "note": "OPERATOR 2026-10-15 ~06:12Z (verbatim in docs/research/research-loop-audit-2026-10-15.md): build it, but make sure we are not rebuilding what exists and that it is not a band-aid. PHASE 1 (audit) landed in this PR: docs/research/research-loop-audit-2026-10-15.md. Root causes RC1 grader opt-in (140 hand once-units with results ungraded, 123 mechanically gradable), RC2 nothing machine-reads the programme plans (replenish = 5 exhausted templates), RC3 verdict->next unit only on pre-minted PASS chains, RC4 health counts units not plan coverage/backend supply, RC5 supply mis-shaped (Kaggle GPU 0.19/30h used, runner 3/3 with 12 waiting, infeasible e35 monthlies), RC6 research-ops crowded into hand-closing. PHASE 2 build awaits manager scope confirmation. Ceiling $25 (manager dispatch).",
-  "updated_at": "2026-10-15T06:23:17Z",
+  "note": "OPERATOR 2026-10-15 ~06:12Z (verbatim in docs/research/research-loop-audit-2026-10-15.md): build it, but make sure we are not rebuilding what exists and that it is not a band-aid. PHASE 1 (audit) landed in this PR: docs/research/research-loop-audit-2026-10-15.md. Root causes RC1 grader opt-in (140 hand once-units with results ungraded, 123 mechanically gradable), RC2 nothing machine-reads the programme plans (replenish = 5 exhausted templates), RC3 verdict->next unit only on pre-minted PASS chains, RC4 health counts units not plan coverage/backend supply, RC5 supply mis-shaped (Kaggle GPU 0.19/30h used, runner 3/3 with 12 waiting, infeasible e35 monthlies), RC6 research-ops crowded into hand-closing. PHASE 2 build awaits manager scope confirmation. Ceiling $25 (manager dispatch). [2026-10-15 PHASE 2, manager confirmed scope 1-5 at 06:25Z] #18168 audit MERGED. Opened: #18189 RC1 default-in grading (hold, landing machinery; dry run 149 units change incl. 78 first-fail confirmatory re-queues ~26h of runner); #18191 RC5 infeasible e35 recheck 90d (hold; 14 units); #18193 RC2/RC3 programme source in queue_replenish (hold; research/programmes/** made landing machinery; --authoring-queue, --programme-state computed on read instead of a STATE.json); #18197 sidecars 01/02, 11 needs_authoring nodes, 5 ready on main (hold, after #18193); #18195 RC4 health supply: programme refill, H1-AUTHOR, computed floor 63 (page still <25, H1-THIN between), idle backends (self-land); #18198 RC6 research-ops SKILL + PLANNING 1b (hold, after #18189/91/93/95). All: self-tests + pytest + ruff 0.15.22 + layer-guard green locally. NOT OBSERVED: no grade/replenish run on main with these changes yet. Closes (observation): one research-queue-grade run on main closes hand-written units with E5 rows, and one replenish run emits a programme unit from a ready unit: node (or lists the authoring queue) -- then landed_unproven -> done.",
+  "updated_at": "2026-10-15T06:52:57Z",
   "updated_by": "session_01SeprpR3WMmfQKt3SmhiER1",
   "roadmap": [
     "L-OPS"

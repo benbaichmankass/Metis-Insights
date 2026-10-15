@@ -99,3 +99,27 @@ def test_custom_weights_respected():
 def test_to_dict_serializable():
     d = compute_conviction({"c_strat": 0.6}).to_dict()
     assert set(d) >= {"conviction", "blended", "below_floor", "inputs_used"}
+
+
+# ── ORDER-AUDIT-3 / PI-20260927-ECILBBVH-0006 ──────────────────────────────
+# NaN survived `_clip01` and `nan < floor` is False, so a NaN input skipped the
+# no-trade floor (probe: conviction=nan below_floor=False).
+def test_nan_input_never_yields_a_nan_conviction():
+    import math
+    from src.runtime.conviction import compute_conviction
+    r = compute_conviction({"c_strat": float("nan")}, floor=0.5)
+    assert r.conviction is None or not math.isnan(r.conviction)
+    assert r.note == "no_inputs_present"
+
+
+def test_nan_input_is_dropped_and_the_floor_reads_the_rest():
+    from src.runtime.conviction import compute_conviction
+    r = compute_conviction({"c_strat": float("nan"), "c_setup": 0.2}, floor=0.5)
+    assert r.inputs_used == {"c_setup": 0.2}
+    assert abs(r.conviction - 0.2) < 1e-9 and r.below_floor is True
+
+
+def test_non_finite_news_multiplier_is_inert():
+    from src.runtime.conviction import compute_conviction
+    r = compute_conviction({"c_strat": 0.8}, news_multiplier=float("nan"))
+    assert r.news_multiplier == 1.0 and r.conviction == 0.8

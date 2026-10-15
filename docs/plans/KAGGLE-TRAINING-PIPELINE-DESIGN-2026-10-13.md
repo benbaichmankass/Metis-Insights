@@ -96,3 +96,44 @@ Effort = lane working days of a Sonnet-class lane plus the operator OKs named; n
 * The runner-vs-VM speed ratio is an assumption until the dual-run measures it.
 * Per-manifest peak memory was not measured; the 6 GB OOM history is why the runner (16 GB) is preferred for the heavy ones.
 * The writer that truncated the BTC/SOL 15m shards is **unidentified**. `build_funding_oi` re-overwriting the 15m shards minutes after a join is a documented precedent (`MB-20260726-FC-CLOBBER`, in `ml/configs/btc-regime-15m-lgbm-fc-pcv-v2.yaml`) and is the first suspect to read, but nothing here shows it is the cause.
+
+## 10. Addendum 2026-10-15 — backend per manifest, and the parity gate as built (row KAGGLE-TRAIN-RUNNER-FIRST)
+
+Operator, 2026-10-15 ~06:20Z: *"Train on free runner (Rec.)"*. This section is what the lane built and measured; §§ 0–9 above are unchanged.
+
+**Backend per manifest** (MEASURED 2026-10-15 by parsing the 73 active `ml/configs/*.yaml` and testing each dataset path with
+`market_data_export.covers()`; `.disabled` files excluded):
+
+| backend | manifests | which |
+|---|---|---|
+| **off-VM now** — the shard is in the published `metis-market-data` allowlist | **18** | `market_features` BTC/ETH/SOL 15m/1h `v002` (LightGBM 15, RegimeClassifier 2, HMM 1). SOL 15m is currently WITHHELD by the export integrity check (ML-SHARD-TRUNCATED), so its 2 manifests skip until that shard is whole |
+| **off-VM after export widening** — market data, shard not exported | **45** | `market_features` 5m v002 (10), 15m research versions v003/v004/v5xx/v901/v001 (~23), 1h v003 (1), 1d v002 (1), `setup_candidates` (10: synthetic labels over public bars) |
+| **trainer only** — OURS data | **10** | `conviction_meta` 3, `execution_quality` 2, `account_context` 1, `setup_labels` 1, `setup_labels_audit` 1, `trade_outcomes` 1, `exit_candidates` 1 |
+| **Kaggle GPU** | **0** | no active manifest uses a GPU trainer (trainers: LightGBM multiclass 47, LightGBM regression 11, PerStrategyWinRate 5, RegimeClassifier 5, CausalHMM 5). The GPU route is for future TCN/TSFM heads only |
+
+**Which off-VM CPU, and why not the GitHub runner first.** The operator's pick was the free runner. MEASURED (row ML-DATA-RUNNER-FETCH, runs
+38507974681 / 38512183556 / 38514877849): a GitHub runner cannot download the private dataset (kaggle 2.2.4 `DownloadDataset` 404s), while a
+Kaggle CPU kernel mounts it (20/20 files re-hashed). So the off-VM CPU backend that has the data today is the **Kaggle CPU kernel**
+(`kaggle_cpu`, free, not metered by the 30 GPU-h/week). It needs no new workflow: the research-queue dispatcher already routes
+`routing.published_data` units there. Two ways to put the runner itself back in front, neither built: (a) fix the 404 (ML-DATA-RUNNER-FETCH);
+(b) a runner workflow that pulls the shard over the existing trainer SSH route the export already uses — a new workflow holding `VM_SSH_KEY`,
+so a hold PR for the manager, not a lane self-land.
+
+**The parity gate (built, `scripts/research/train_parity.py`, tests `tests/test_train_parity.py`).** Both sides keep only rows with
+`ts < cutoff`, byte for byte, so a shard the nightly rebuild has since extended still yields the identical input; its sha256 is recorded.
+Both train through the production `run_experiment(register=False)` into a temp dir — no registry write anywhere. Rule, pre-registered on
+RQ-20261015-8b93-02:
+
+* **INDETERMINATE** — either run failed, or the input sha256 / row count differ (not the same rows; parity undefined).
+* **PASS** — same input, every count metric (`n_eval`, `n_train*`, `support_*`) exactly equal, every score metric within **0.01 absolute**,
+  and **≥ 0.99** of eval rows given the same predicted class.
+* **FAIL** — same input, anything above out of tolerance.
+
+Fixed manifest: `eth-regime-1h-lgbm-v1` (ETH 1h is whole and published; LightGBM is the 47-manifest majority class), cutoff
+`2026-10-01T00:00:00Z`. Units: **RQ-20261015-8b93-01** (trainer reference, `needs_vm_data`, idle windows) →
+**RQ-20261015-8b93-02** (`requires_result` 01 pass; `kaggle_cpu`; bundles 01's record). The dispatcher fires both; nobody hand-dispatches.
+
+**What a PASS does and does not authorise.** One manifest class on one platform pair. It is the evidence for ONE operator OK: the first
+off-VM artefact entering the registry as `candidate` under a namespaced id (`<model_id>-offload`, §7 dual-writer rule) through the existing
+drain/ladder. It does not move the nightly cycle (phase 4, Tier-2 timer change) and does not cover the HMM / RegimeClassifier /
+regression classes, which need their own parity unit before their manifests leave the trainer.

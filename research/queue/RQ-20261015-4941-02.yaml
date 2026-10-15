@@ -1,0 +1,107 @@
+id: RQ-20261015-4941-02
+title: 'CONFIRM RQ-20261014-470a-09 on a fresh window: does trend_donchian_eth_4h min_confidence=0.7 still beat the declared setting on the 1095
+  days BEFORE the window it was chosen on, net of the full cost stack, with no re-selection?'
+status: queued
+cadence: once
+theme: live_strategy
+priority: 1
+kind: experiment
+question: 'RQ-20261014-470a-09 PASSED (MC07: dR +2.50 R, dDD -5.23 R, 3/4 folds, n(B)=116, 2023-10-13..2026-10-11; margin over the 2.0 R bar is
+  thin) but MC07 was the best of THREE pre-registered arms on ONE leg on ONE window, so its dR carries selection inflation. This unit re-asks
+  the single chosen arm against the declared setting on the disjoint, immediately preceding window (2020-10-13 .. 2023-10-12), which the selection
+  never saw. Two arms only (B, MC07): there is nothing to select among, so the verdict is MC07''s alone. The RQ-20261014-470a-09 window is NOT
+  pooled with this one.'
+why_this_matters: 'The RQ-20261014-470a-09 rule registered this rung (S0-C) before its run: a best-of-3 single-window PASS is a LEAD, and no Tier-3
+  proposal is written until a fresh-window unit reads CONFIRMED. trend_donchian_eth_4h is a real-money leg, so a selection-artifact promoted to
+  a config change is the error the ladder exists to refuse.'
+power:
+  expected_n: 116
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: d=0.45 at alpha 0.05 / power 0.8 needs 39 trades (the repo standing E35 floor). expected_n=116 is an ESTIMATE from the 470a-09 window
+    n(B)=116 over the same 1095-day length. Below 39 baseline trades the unit grades indeterminate (underpowered), never FAIL. The R bar is a
+    MATERIALITY bar over the whole window, not a significance test; the 3-of-4 fold majority refuses a one-period artifact.
+  feasibility:
+    source: none
+    accrual_basis: Re-measurement on freshly fetched keyless Binance Vision candles over a pinned window; the harness replays history, nothing
+      accrues.
+decision_rule:
+  id: RULE-RQ20261015494102
+  registered_at: '2026-10-15'
+  registered_before_run: true
+  statistic: 'Per arm, from the harness''s own --json summary (argv built by regime_debt_matrix.build_harness_cmd plus the arm''s tokens; full
+    cost stack: fee + resolved slippage + funding via execution_costs.resolve_cost_policy, never a zero default): total_trades, net_total_r, max_drawdown_r,
+    plus net_r per fold over FOUR equal calendar spans (same boundaries every arm). Arms: B = leg as declared; MC07 = min_confidence=0.7. No other
+    arm. dR = net_r(MC07) - net_r(B); dDD = maxDD(MC07) - maxDD(B); fold_wins = folds in which MC07 out-earns B. Also reported per arm, not graded:
+    net_r_per_capital_day.'
+  rule: 'indeterminate IF n(B) < 39 (underpowered: no verdict; never FAIL on thin n); no committed record exists on this window, so no positive
+    control is passed and the B arm is itself the baseline. MC07 PASSES iff dR >= 2.0 R AND dDD <= 0 AND fold_wins >= 3 of 4. PASS reads CONFIRMED:
+    the RQ-20261014-470a-09 lead survives out of sample; the owning checklist row (P3-STRATEGY-PROGRAMME) gets a Tier-3 PROPOSAL note for the
+    manager (evidence = both records), never a config edit. FAIL reads NOT CONFIRMED: the RQ-20261014-470a-09 PASS is recorded as a selection/period
+    artifact, the declared value stays, and the axis is honest_negative for trend_donchian_eth_4h on the earlier window. indeterminate (n(B) <
+    39): file one follow-up on the manager''s note, nothing else changed. The 2.0 R bar, the drawdown clause, the 3-of-4 fold majority and the
+    39 floor are the RQ-20261014-470a-09 bars, unchanged after any result.'
+  what_it_does_not_do: 'Does not re-select: one candidate arm, fixed before any run. Does not pool the in-sample window. Does not edit config
+    or any roster; a CONFIRMED is a proposal input via the manager, never a promotion case on its own. Does not test any other axis or leg.'
+compute: cpu_light
+value:
+  usd_at_stake_per_month: 120
+  confidence: 0.25
+  bucket: own_losses
+  basis: 'stand-in: the largest real-money Stage-0 earner plus its mirror; estimate, not a measurement.'
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 20
+  basis: One keyless Binance Vision fetch of ~2215 days and 2 harness passes over it; GitHub-hosted runner, no trainer data.
+run:
+  command:
+  - python3
+  - scripts/research/exit_lever_ablation.py
+  - --leg
+  - trend_donchian_eth_4h
+  - --arm
+  - B=
+  - --arm
+  - MC07=min_confidence=0.7
+  - --days
+  - '2215'
+  - --start
+  - '2020-10-13'
+  - --end
+  - 2023-10-12 23:59
+  - --grade
+  - sweep
+  - --baseline
+  - B
+  - --delta-r
+  - '2.0'
+  - --fold-majority
+  - '3'
+  - --n-floor
+  - '39'
+  - --out
+  - '{out_dir}'
+  timeout_minutes: 60
+  inputs:
+    research_unit: RQ-20261015-4941-02
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+  note: research/results/RQ-20261015-4941-02/<run_id>.jsonl via the batch collector; per-arm summaries and verdict.json under comms/research/RQ-20261015-4941-02/<run_id>/.
+roadmap:
+- M21
+- L-LADDER
+related:
+- RQ-20261014-470a-09
+- P3-STRATEGY-PROGRAMME
+- docs/research/programmes/03-STRATEGY-IMPROVEMENT.md
+- scripts/research/exit_lever_ablation.py
+grading:
+  auto: true
+  decision_rule_id: RULE-RQ20261015494102

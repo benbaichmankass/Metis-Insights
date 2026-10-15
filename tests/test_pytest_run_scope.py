@@ -86,6 +86,8 @@ def test_the_allowlist_is_explicit_and_pinned():
         r"^docs/claude/work/pipeline/",
         r"^docs/claude/work/PIPELINE\.jsonl$",
         r"^research/queue/[^/]+\.ya?ml$",
+        # GH-CAPACITY-PR-CI-FANOUT: parked units; their readers name research/queue
+        r"^research/queue/blocked/[^/]+\.ya?ml$",
         r"^research/results/",
         r"^comms/(?!schema/)",
         r"^\.github/pr-landing/",
@@ -129,9 +131,14 @@ def test_the_workflow_is_wired_and_keeps_its_required_check_name():
     steps = {s.get("name", ""): s for s in wf["jobs"]["pytest-run"]["steps"]}
     full = steps["Run tests"]["if"]
     data = next(s["if"] for n, s in steps.items() if n.startswith("Run tests (data-only"))
+    affected = next(s["if"] for n, s in steps.items() if n.startswith("Run tests (pull_request code diff"))
     assert "mode != 'data'" in full and "mode == 'data'" in data
+    # GH-CAPACITY-PR-CI-FANOUT: the affected step is a third, mutually exclusive branch.
+    assert "mode != 'affected'" in full and "mode == 'affected'" in affected
+    # Only github.event_name decides whether affected mode is even considered.
+    assert '--event "${{ github.event_name }}"' in text
     # The first grep -Eq in the file is still the relevance filter (test_pytest_run_filter parses it).
-    assert text.index("grep -Eq '") < text.index("pytest_run_scope.py |")
+    assert text.index("grep -Eq '") < text.index("python3 scripts/ci/pytest_run_scope.py --event")
 
 
 def test_untrusted_file_names_never_reach_a_shell_inline():
@@ -151,7 +158,7 @@ def test_suite_runs_in_parallel_without_deselecting_anything():
         s["run"] for s in wf["jobs"]["pytest-run"]["steps"]
         if s.get("name", "").startswith("Run tests")
     ]
-    assert len(runs) == 2, "one full-mode step and one data-mode step"
+    assert len(runs) == 3, "one full-mode, one data-mode and one affected-mode step"
     for run in runs:
         cmd = " ".join(ln for ln in run.splitlines() if not ln.strip().startswith("#"))
         assert "-n auto --dist loadfile" in cmd

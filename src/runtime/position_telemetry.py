@@ -357,6 +357,10 @@ def record_position_telemetry(**kwargs) -> Optional[Dict[str, Any]]:
     an unmeasured per-pass cost is precisely the shape of both June 2026 wedges.
     """
     db_path = kwargs.pop("db_path", None)
+    # History-only inputs (EXIT-PATH-TELEMETRY-LIVE): the full candle frame for
+    # the bar key + ATR/ADX, and the ATR the monitor's own trail is using.
+    candles_df = kwargs.pop("candles_df", None)
+    monitor_atr = kwargs.pop("atr", None)
     try:
         from src.runtime import tick_cost
         ctx = tick_cost.hook("monitor.position_telemetry")
@@ -367,6 +371,18 @@ def record_position_telemetry(**kwargs) -> Optional[Dict[str, Any]]:
         rec = build_record(**kwargs)
         if rec is not None:
             write_record(rec, db_path=db_path)
+            # The append-only per-bar twin. Its own try: a history failure is
+            # contained here and can never reach the upsert above or the tick.
+            try:
+                from src.runtime import position_path_history as pph
+                pph.write_history(
+                    pph.build_history_row(
+                        rec, window=kwargs.get("window"), candles_df=candles_df,
+                        stop=kwargs.get("stop"), target=kwargs.get("target"),
+                        atr=monitor_atr, now=kwargs.get("now")),
+                    db_path=db_path)
+            except Exception:  # noqa: BLE001 — observe-only, never raises
+                logger.debug("position_telemetry: history hook failed", exc_info=True)
         return rec
 
 

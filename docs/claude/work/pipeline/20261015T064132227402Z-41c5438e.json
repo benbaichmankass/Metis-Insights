@@ -1,0 +1,33 @@
+{
+  "based_on": "20261014T055625327273Z-fbc95dcf.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "PR claude/vol-trail-p5-shadow-ada is deployed AND runtime_logs/vol_trail_shadow.jsonl has been read from the VM and scripts/research/vol_trail_parity_report.py output recorded (n rows, closed-vs-raw disagreement, stops_differ); then the P5 half of PI-20260929-AQRK6CL1-0012 is graded.",
+    "kind": "event",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20260930-KZWVN6MG-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-14",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-29",
+    "how_to_check": "ls runtime_logs/vol_trail_shadow.jsonl on the live VM via the diag relay; python3 scripts/research/vol_trail_parity_report.py <copy>",
+    "what": "PR claude/vol-trail-p5-shadow-ada is deployed AND runtime_logs/vol_trail_shadow.jsonl has been read from the VM and scripts/research/vol_trail_parity_report.py output recorded (n rows, closed-vs-raw disagreement, stops_differ); then the P5 half of PI-20260929-AQRK6CL1-0012 is graded."
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "lane M20-EXITS-3 session_012sUFUwazYENjW2KZwVN6mg, 2026-09-30",
+    "rerun": "ls runtime_logs/vol_trail_shadow.jsonl on the live VM via the diag relay; python3 scripts/research/vol_trail_parity_report.py <copy>"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, still open on its row: LIVE diag log_file vol_trail_shadow (first row 2026-10-12) run through scripts/research/vol_trail_parity_report.py: n_rows 158, n_packages 4, would_fire_closed 4, closed_vs_raw_disagree 7, stops_differ 2 — deployed and logging, but n=4 packages is underpowered; re-read at n_packages >= ~20.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "ROUTE-LEG-EVIDENCE | [ROUTING-ALARM-20261014] routed from daily review WR-20261014-0530Z; the row owns this item and carries the rerun command",
+  "severity": "medium",
+  "state": "routed",
+  "tier": 2,
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('RESEARCH (re-pointed from RESEARCH (BACKLOG-BURNDOWN-2 2026-'); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "Record what the log-only vol_trail shadow logs after deploy (P5 parity for ada_pullback_2h vt_hot90_t2.5). Also unblock RQ-20260930-901 (research/queue/blocked) when a dry sweep at split 2026-09-29 shows base_trades_OOS>=25 (expected ~2027-06-08 at 0.099 trades/day)."
+}

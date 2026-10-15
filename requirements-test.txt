@@ -58,6 +58,13 @@ pyyaml>=6.0
 # Floor matches requirements.txt.
 psutil>=5.9.0
 
+# pyarrow: the data.parquet dataset sidecar (ml/datasets/parquet_sidecar.py,
+# DATA-STORE-PARQUET-GC). Optional at runtime (readers fall back to JSONL), so
+# tests/ml/test_parquet_sidecar.py importorskips it; listed here so CI runs
+# the parity tests instead of skipping them. Floor matches
+# requirements-backtest.txt (the trainer venv; 24.0.0 there on 2026-10-15).
+pyarrow>=14.0.0
+
 # ccxt is a production runtime dep but not in the default sandbox;
 # coordinator and exchange-integration tests import it at the top level.
 ccxt>=4.0.0

@@ -28,8 +28,52 @@ concurrency:
   group: phone-executor-apk-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: false
 
+# TWO JOBS (PI-20261015-QC5PFG9A-0001, MEASURED 2026-10-15 08:06Z-08:48Z): the single job sat in ONE concurrency group
+# (phone-executor-apk-signing), and GitHub keeps only ONE pending job per group -- each newly queued job cancels the
+# one already waiting. Every branch that merges main after a tools/phone-executor change queues a job, so ~8 branch
+# merges in 25 min cancelled each other (runs 215-223) and #18217's compile was cancelled 3 times without running.
+#   check -- compile (debug, no key), JVM unit tests, page-side check. Per-ref group: a newer push to the SAME branch
+#            supersedes it, nothing else can. This is a PR's compile proof.
+#   apk   -- the signed release APK + upload. Only on main and on a manual dispatch (the operator installs from these),
+#            still under the shared signing group, which serialises the one-time key creation below.
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: phone-executor-apk-check-${{ github.ref }}
+      cancel-in-progress: true
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK packages
+        run: |
+          SM=$(ls "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | head -1)
+          yes | "$SM" --licenses >/dev/null || true
+          "$SM" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Compile (debug build, no signing key)
+        working-directory: tools/phone-executor
+        run: gradle assembleDebug --no-daemon --stacktrace
+      - name: JVM unit tests (login matcher, liveness, background-ticket routing)
+        working-directory: tools/phone-executor
+        run: gradle testDebugUnitTest --no-daemon --stacktrace
+      - name: Page-side check (headless Chromium, synthetic ticket)
+        timeout-minutes: 10
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
+          npm init -y >/dev/null && npm i playwright@1.49.1 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          cd "$GITHUB_WORKSPACE" && NODE_PATH="$RUNNER_TEMP/pw/node_modules" node tools/phone-executor/test/exec_check.js
+
   apk:
+    needs: check
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     concurrency:
       group: phone-executor-apk-signing
@@ -84,16 +128,7 @@ jobs:
       - name: Build release APK
         working-directory: tools/phone-executor
         run: gradle assembleRelease --no-daemon --stacktrace
-      - name: Login matcher unit tests (JVM, synthetic mails)
-        working-directory: tools/phone-executor
-        run: gradle testReleaseUnitTest --no-daemon --stacktrace
-      - name: Page-side check (headless Chromium, synthetic ticket)
-        timeout-minutes: 10
-        run: |
-          mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
-          npm init -y >/dev/null && npm i playwright@1.49.1 >/dev/null
-          npx playwright install --with-deps chromium >/dev/null
-          cd "$GITHUB_WORKSPACE" && NODE_PATH="$RUNNER_TEMP/pw/node_modules" node tools/phone-executor/test/exec_check.js
+      # unit tests and the page-side check ran in `check` (this job needs it) on the same commit
       - name: Remove the keystore file
         if: always()
         run: rm -f "$RUNNER_TEMP/phoneexec.jks"

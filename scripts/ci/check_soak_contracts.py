@@ -57,6 +57,16 @@ def _git(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(["git", "-C", str(REPO), *args], capture_output=True, text=True)
 
 
+def _old_ref(base: str) -> str:
+    """The revision the branch's checklist is compared against: ``git merge-base base
+    HEAD``, falling back to ``base`` when it cannot be resolved. Comparing against the
+    TIP of base mis-reads every row main moved on after the branch point (e.g.
+    landed_unproven -> done) as a row the branch itself put into landed_unproven."""
+    mb = _git("merge-base", base, "HEAD")
+    sha = mb.stdout.strip()
+    return sha if mb.returncode == 0 and sha else base
+
+
 def tree_findings(acc: dict, strat: dict, contracts: List[dict]) -> List[str]:
     by_id = {c.get("id"): c for c in contracts}
     shadow = {n for n, v in strat.items() if isinstance(v, dict) and v.get("execution") == "shadow"}
@@ -124,7 +134,7 @@ def diff_findings(base: str, contracts: List[dict]) -> List[str]:
     new_rows = checklist_store.load_path(REPO / _MONOLITH).get("items") or []
     old_state = {}
     try:  # the monolith before the per-row cutover, row files after
-        old_doc = checklist_store.load_at(REPO, base)
+        old_doc = checklist_store.load_at(REPO, _old_ref(base))
     except (ValueError, OSError):
         old_doc = None
     if old_doc is not None:
@@ -219,6 +229,41 @@ def _self_test() -> int:
             ck("an item at base with another next_action is reported as such",
                _prior_next_action("HEAD", "ROUTED") == "dispatch_lane")
             ck("a brand-new id has no prior (still checked)", _prior_next_action("HEAD", "NEW") is None)
+        finally:
+            REPO = saved
+    with tempfile.TemporaryDirectory() as td:
+        def sh(*a):
+            return subprocess.run(a, cwd=td, capture_output=True, text=True, check=True)
+
+        def put(rows):
+            f = Path(td) / _MONOLITH
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(json.dumps({"items": [{"id": i, "state": st} for i, st in rows]}))
+        sh("git", "init", "-q", "-b", "main")
+        sh("git", "config", "user.email", "t@t")
+        sh("git", "config", "user.name", "t")
+        put([("X", "landed_unproven"), ("Y", "open")])
+        sh("git", "add", "-A")
+        sh("git", "commit", "-qm", "base")
+        sh("git", "checkout", "-q", "-b", "br")
+        sh("git", "checkout", "-q", "main")
+        put([("X", "done"), ("Y", "open")])  # main advances X after the branch point
+        sh("git", "commit", "-qam", "main moves X")
+        sh("git", "checkout", "-q", "br")
+        (Path(td) / "unrelated.txt").write_text("x")
+        sh("git", "add", "-A")
+        sh("git", "commit", "-qm", "branch work")
+        saved = REPO
+        REPO = Path(td)
+        try:
+            ck("main advancing a row after the branch point does not flag the branch",
+               diff_findings("main", []) == [])
+            put([("X", "landed_unproven"), ("Y", "landed_unproven")])
+            sh("git", "commit", "-qam", "branch moves Y")
+            got = diff_findings("main", [])
+            ck("a row the branch itself moves to landed_unproven with no observation IS flagged",
+               any("row Y" in f for f in got) and not any("row X" in f for f in got))
+            ck("an unresolvable base falls back to base itself", _old_ref("no-such-ref") == "no-such-ref")
         finally:
             REPO = saved
     print("soak-contract-guard self-test:", "PASS" if ok else "FAIL")

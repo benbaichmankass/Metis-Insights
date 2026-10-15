@@ -135,6 +135,33 @@ def test_feasibility_stop_backs_off_to_the_cap_and_never_stops(tmp_path):
     assert _state(base) is None
 
 
+def test_transient_outage_is_rechecked_on_the_next_tick_not_backed_off_to_the_cap(tmp_path):
+    # PROP-FEED-RETRY: exit 7 (timeout / unknown_page) takes the 3-failure path.
+    repo, base, calls, pings = _setup(tmp_path)
+    assert _tick(tmp_path, repo, base, rc=7).returncode == 7
+    st = _state(base)
+    assert st["consecutive_failures"] == "1" and st["delay_s"] == "0" and st["flagged"] == "0"
+    assert _lines(pings) == []                               # a blip raises nothing
+    # The very next tick logs in again (no 2 h wait) and a success clears it.
+    assert _tick(tmp_path, repo, base, rc=0).returncode == 0
+    assert len(_lines(calls)) == 2 and _state(base) is None and _lines(pings) == []
+
+
+def test_persistent_transient_outage_keeps_retrying_and_raises_one_flag(tmp_path):
+    repo, base, calls, pings = _setup(tmp_path)
+    for _ in range(2):
+        assert _tick(tmp_path, repo, base, rc=7).returncode == 7
+    assert _lines(pings) == []
+    assert _tick(tmp_path, repo, base, rc=7).returncode == 7
+    st = _state(base)
+    assert st["consecutive_failures"] == "3" and st["flagged"] == "1" and st["delay_s"] == "300"
+    assert len(_lines(pings)) == 1 and "transient terminal outage" in _lines(pings)[0]
+    _elapse(base)
+    assert _tick(tmp_path, repo, base, rc=7).returncode == 7  # still trying, still one flag
+    assert len(_lines(calls)) == 4 and len(_lines(pings)) == 1
+    assert not (base / "feed" / "tripped").exists()
+
+
 def test_other_failures_back_off_after_n_consecutive_and_success_resets(tmp_path):
     repo, base, calls, pings = _setup(tmp_path)
     assert _tick(tmp_path, repo, base, rc=1).returncode == 1

@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "EXIT-PATH-TELEMETRY-LIVE. OPERATOR APPROVAL 2026-10-15 ~06:00Z, verbatim choice: \"Build it (Recommended)\" -- popup text: \"A lane builds and tests it and I merge. It only adds recording; trading behaviour doesn't change. I verify rows appear on the next live trades.\" So a human merges; nothing here self-lands. TIER: the content is Tier-2 (a new runtime writer + a new journal table + a diag read route); the guard's path tier is 3 only because src/units/strategies/** is in TIER3_PATHS -- the six monitor edits each add ONE keyword argument (candles_df=..., and atr=atr where the trail already holds it) to the existing record_position_telemetry(...) call, which already sits inside a try/except that cannot alter the trail or exit. No strategy logic, parameter, risk, sizing or order-path line changes. Declared at the most restrictive path tier, as the guard requires. Post-merge: deploy to ict-trader-live (Database() DDL creates the table on start) and read GET /api/diag/position_path_history for open positions' next bars.",
+  "why": "Append-only per-bar position path history beside position_telemetry (the in-trade exit model's live parity read); observe-only, operator-approved build, human merge."
+}

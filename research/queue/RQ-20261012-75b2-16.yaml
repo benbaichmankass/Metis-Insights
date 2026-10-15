@@ -2,7 +2,7 @@ id: RQ-20261012-75b2-16
 title: >-
   Regime-head drift: BTCUSDT 15m regime_label, LightGBM vs class prior, purged CV vs last-90d holdout (does the
   head's skill hold out of sample?)
-status: queued
+status: done
 cadence: once
 theme: ml_health
 priority: 2
@@ -101,3 +101,16 @@ ml_bakeoff:
 roadmap: [M25]
 related: [ML-RQ-RUNNER, scripts/research/ml_bakeoff.py, ml/configs/btc-regime-15m-lgbm-fc-pcv-v2.yaml, .claude/skills/ml-review/SKILL.md]
 last_dispatched_at: '2026-10-12T21:09:54+00:00'
+grading:
+  attested: RULE-RQ1012-75B2-16-ML-DRIFT-BTC
+  auto: true
+  decision_rule_id: RULE-RQ1012-75B2-16-ML-DRIFT-BTC
+  evidence:
+  - research/results/RQ-20261012-75b2-16/38308914451.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'hand-written unit, every row graded under its own registered rule: FAIL closes it (no template
+    confirmatory re-run)'
+  reason: 1 row(s), all measured, all fail
+  rows: 1
+  verdict: fail

@@ -1,0 +1,32 @@
+{
+  "id": "GH-CAPACITY-LAND-VERIFY-OFF-RUNNER",
+  "title": "commit-to-main verify-merged holds a GitHub runner idle while its PR waits on CI",
+  "phase": null,
+  "state": "landed_unproven",
+  "owner": "manager",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [
+    18228
+  ],
+  "blocked_on": [],
+  "note": "From GH-CAPACITY-INFRA-FIRST. MEASURED 2026-10-15: research-queue-dispatch (hourly cron) last completed run spent 33 runner-min in three commit-to-main 'land' steps (13+7+13) waiting for its own PRs to merge; those PRs need pytest-run slots from the same 20-job pool, so a waiting research job lengthens the queue it is waiting on. 37 workflow uses of .github/actions/commit-to-main; verify-timeout up to 80 min (W41). Proposal: open the PR + arm auto-merge in-run, and move the merged-or-not verification to the NEXT scheduled cycle (or a short follow-up job), keeping the 'opened != on main' property. Rerun: gh api runs of research-queue-dispatch.yml -> per-step minutes of the land job.  | DESIGN NOTE 2026-10-15: research-queue-dispatch has 3 commit-to-main calls, all verify-merged \"true\" (results batch, liveness receipt, dispatch stamps), and the results-batch call is followed by \"Assert every batched record is readable on main\", which depends on the merge. .github/actions/commit-to-main/action.yml is in check_pr_landing LANDING_MACHINERY, so changing the action cannot self-land. Lowest-risk first step (caller-only, Tier 1): liveness receipt -> verify-merged false, with the NEXT cycle's liveness check (check_research_queue_dispatch_liveness.py) asserting the previous receipt reached main (7 runner-min/run saved). Stamps: the dispatcher already treats a unit stamped by an OPEN stamp PR as dispatched (--check-open-stamp-prs), so the merged-wait is redundant for double-fire safety; needs a test proving a never-merging stamp PR is detected (stranded-stamp adoption exists, STRANDED_STAMP_HOURS). Results batch: move the readable-on-main assert to the next cycle's collect step.  | 2026-10-15: receipt step built in #18228 (verify-merged false; deferred verify pinned in tests/test_commit_to_main_callers.py::DEFERRED_VERIFY). Stamps and results batch unchanged (still verify true). Observation that closes the receipt part: a research-queue-dispatch run after #18228 merges whose land job shows the receipt step < 1 min and the liveness grader still fresh on main.  | MERGED 2026-10-15 ~09:55Z (#18228; CI caught and I fixed test_the_land_job_still_has_all_three_verified_landings, which pinned all three landings to verify). landed_unproven covers the RECEIPT step only. STILL OPEN on this row: dispatch stamps (open-stamp-PR check already prevents double-fire; needs a test that a never-merging stamp PR is detected) and the results batch (move its readable-on-main assert to the next cycle's collect step). Both remain verify-merged true.",
+  "updated_at": "2026-10-15T09:56:01Z",
+  "updated_by": "session_01PhYMEkk7p8AzzzVHLsqCLw",
+  "roadmap": [
+    "L-OPS"
+  ],
+  "observation": {
+    "what": "a research-queue-dispatch run after #18228 merged where the land job's Land the liveness receipt step takes < 1 min (before: ~7 min waiting for its PR to merge) AND the liveness grader still reads the receipt fresh on main",
+    "how_to_check": "gh api repos/benbaichmankass/metis-insights/actions/workflows/research-queue-dispatch.yml/runs?status=completed&per_page=5 -> jobs -> land job step timings; python3 scripts/ci/check_research_queue_dispatch_liveness.py on main",
+    "due_by": "2026-10-16"
+  },
+  "writeback": {
+    "roadmap": "none: CI runner-capacity hygiene under L-OPS; no milestone measure or status changes",
+    "arch": "none: research-dispatch landing mechanics only; no trade/comms pipeline or contract changed"
+  },
+  "_seq": 513
+}

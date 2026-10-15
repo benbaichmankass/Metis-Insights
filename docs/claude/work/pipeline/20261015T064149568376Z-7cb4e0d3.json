@@ -1,0 +1,21 @@
+{
+  "based_on": "20261014T055624007392Z-6f33de23.json",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "journal rows 5875 and 6097 show exit_reason_source/exit_price_source from the Alpaca venue (or are labelled ESTIMATED), or the finding is killed with a measured reason",
+    "due_date": "2026-10-14",
+    "kind": "date",
+    "last_checked": "2026-10-11"
+  },
+  "id": "PI-20261011-MJ5KSFIO-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "UNPROVEN-SWEEP-2 2026-10-11 (row B5)",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/trades/closed?account_id=alpaca_live&limit=15' | python3 -c \"import json,sys;[print(t['id'],t['closeReason'],t['closedAt']) for t in json.load(sys.stdin)]\"; then scripts/ops/diag_fetch.sh '/api/diag/journal?table=trades&limit=2000' and read id 5875/6097 notes"
+  },
+  "routed_to": "ROUTE-LEG-EVIDENCE | [ROUTING-ALARM-20261014] routed from daily review WR-20261014-0530Z; the row owns this item and carries the rerun command",
+  "state": "killed",
+  "terminal_reason": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r), 2026-10-15: answered: closed rows 5875/6097 were batch-stamped by position_snapshot_reconciler 2026-09-28T13:33:36Z (exchange_flat_reconciled, cost_source estimate) ~3 min after real venue OCO stop fills at 13:30:03Z/13:30:02Z (docs/research/evidence/jc-sa-08-alpaca-mirror-exit-divergence-2026-09-29.md); Gate-2 clause (b) should cite the venue times.",
+  "what": "alpaca_live closed trades 5875 and 6097 both report closedAt 2026-09-28T13:33:36.715881Z (identical to the microsecond) with closeReason sl. Two independent stops do not fill on the same microsecond; this reads as a batch stamp (reconciler/relabel sweep) rather than two venue fills. alpaca_live has only 4 closed trades ever, so these two carry the Gate-2 clause (b) evidence. Read both rows' exit_reason_source, exit_price_source and notes before they are counted as measured sl closes."
+}

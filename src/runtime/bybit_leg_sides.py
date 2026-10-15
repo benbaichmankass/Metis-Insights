@@ -96,6 +96,9 @@ __all__ = [
     "COVERAGE_UNGRADED_LEG_SIDE",
     "COVERAGE_UNGRADED_LEG_QTY",
     "graded_book_coverage",
+    "OVER_COVER_BASIS_SIDE_BLIND",
+    "OVER_COVER_BASIS_PER_BOOK",
+    "over_cover_trip",
 ]
 
 # --- the leg-side vocabulary, never collapsed -------------------------------
@@ -321,3 +324,72 @@ def graded_book_coverage(split: Any):
         # it by another route must not be handed a lower bound as a total.
         return None, COVERAGE_UNGRADED_LEG_QTY
     return float(split.get(f"{LEG_REDUCES_GRADED_BOOK}_qty") or 0.0), COVERAGE_GRADED
+
+
+# --- the over-cover TRIP, narrowed ONLY where the venue proves a live sibling --
+#
+# PI-20261009-GXEDZJQE-0001 (ORDER-AUDIT-3, 2026-10-15). The side-blind trip
+# above paged at ERROR on a hedge symbol whose two books were BOTH live and
+# each exactly covered by its own legs. MEASURED: `bybit_1`/ETHUSDT, journal
+# 2026-10-15T05:01:57Z..05:08:56Z (four ERROR lines in eight minutes, and the
+# 2026-10-08 04:32-04:41Z page the pipeline row names): "position size=0.12
+# side=long; side-blind SL total 19.81 (16508%) ... THIS position is NOT
+# over-protected: legs that reduce it total 0.12 ... 1 leg(s) totalling 19.69
+# rest on the side that reduces the OPPOSITE book". `/api/diag/bybit_open_orders`
+# at 2026-10-15T06:59:26Z shows that opposite book is a LIVE `Sell 19.69
+# positionIdx=2` position. Its own 19.69 SL is its protection, 1.00x.
+#
+# The reason for keeping the trip side-blind still holds where it applies:
+# other-book legs with NO live book to protect are STRANDED, and narrowing the
+# trip would hide them. That reasoning does not cover a sibling book the venue
+# reports as live. Its legs are its own protection, and the sibling's
+# pile-up is graded against the SIBLING'S size here. So this narrows one case
+# only: >= 2 live books in the venue's own position list AND a fully gradeable
+# split. Everything else keeps the side-blind union byte-for-byte.
+OVER_COVER_BASIS_SIDE_BLIND = "side_blind"
+OVER_COVER_BASIS_PER_BOOK = "per_book_live_sibling"
+
+
+def over_cover_trip(
+    *,
+    size: float,
+    side_blind_qty: float,
+    split: Any,
+    sibling_live_size: Any,
+    factor: float,
+):
+    """Does the over-cover check trip? Returns ``(trips, basis)``.
+
+    * The side-blind sum does not exceed ``size * factor``: ``(False,
+      side_blind)``. This function only NARROWS the trip and never widens it.
+    * The venue did NOT report a live sibling book (``sibling_live_size`` is
+      ``None``, unparseable or ``<= 0``), or the split is missing or not fully
+      gradeable: ``(True, side_blind)``. This is the pre-existing behaviour,
+      and it is what keeps STRANDED other-book legs paging.
+    * A live sibling exists and every leg was graded: trip iff the graded book's
+      own legs exceed ``size * factor`` OR the other book's legs exceed
+      ``sibling_live_size * factor``. Each book is compared with its own size.
+
+    Pure. It places nothing and pages nothing. The caller decides what to do.
+    """
+    try:
+        size_f = float(size)
+        total = float(side_blind_qty)
+    except (TypeError, ValueError):
+        return True, OVER_COVER_BASIS_SIDE_BLIND
+    if not total > size_f * factor:
+        return False, OVER_COVER_BASIS_SIDE_BLIND
+    try:
+        sib = float(sibling_live_size) if sibling_live_size is not None else None
+    except (TypeError, ValueError):
+        sib = None
+    if sib is None or not sib > 0:
+        return True, OVER_COVER_BASIS_SIDE_BLIND
+    graded_q, state = graded_book_coverage(split)
+    if graded_q is None or state != COVERAGE_GRADED:
+        # We could not grade every leg, so we cannot show the excess belongs to
+        # the live sibling. Keep paging.
+        return True, OVER_COVER_BASIS_SIDE_BLIND
+    other_q = float(split.get(f"{LEG_REDUCES_OTHER_BOOK}_qty") or 0.0)
+    trips = graded_q > size_f * factor or other_q > sib * factor
+    return trips, OVER_COVER_BASIS_PER_BOOK

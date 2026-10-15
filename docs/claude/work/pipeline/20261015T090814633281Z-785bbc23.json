@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "a session-reachable read (an /api/diag route or the vm-diag relay) returns prop_tickets.meta.phone_trail (amend.sl, amend.status, last_plan, resting_sl) for a breakout_2 ticket",
+    "kind": "observation"
+  },
+  "id": "PI-20261015-JWMGXOTH-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_0184UHpxPYGr9v7rjWmGXoTh",
+    "rerun": "curl /api/bot/prop/tickets?account_id=breakout_2 (no meta field) and try the vm-diag relay on db/table/prop_tickets (HTTP 401, issue #18233 run 38709203459)"
+  },
+  "state": "queued",
+  "what": "PHONE-TRAIL STATE HAS NO READ SURFACE (lane BREAKOUT-SL-AMEND-CLICK, 2026-10-15): the SL the phone trail wants for the live breakout_2 ETH short (prop-manual-f6552263ed1d) lives only in prop_tickets.meta.phone_trail. /api/bot/prop/tickets drops meta (only phone_result/supersede); /api/bot/db/table/* needs a dashboard session (401 with the diag token); the vm-diag-snapshot relay allowlists db/table/* and db/tables but gets 401 on them, so that allowlist entry is dead. Proposed fix (Tier-1 read path, deploy needed): expose meta.phone_trail (amend.{sl,from_sl,status,emitted_at,reported_at}, last_plan, resting_sl, human_hold, fails) on /api/bot/prop/tickets or a token-gated /api/diag route, and drop or credential the dead relay allowlist entries."
+}

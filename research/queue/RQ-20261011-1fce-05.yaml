@@ -1,7 +1,7 @@
 id: RQ-20261011-1fce-05
 title: 'Stage-0 breadth for the prop book: squeeze harness on DOGEUSDT 15m (RESEARCH-OPS-20261011-1447, PI-20261006-APBY4NTV-0001
   batch 7)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -59,3 +59,16 @@ related:
 - PI-20261006-APBY4NTV-0001
 - scripts/ops/fetch_backtest_corpus.py
 last_dispatched_at: '2026-10-11T19:51:45+00:00'
+grading:
+  attested: RULE-RQ-20261011-1fce-05-SQUEEZE-DOGEUSDT-15m-STAGE0
+  auto: true
+  decision_rule_id: RULE-RQ-20261011-1fce-05-SQUEEZE-DOGEUSDT-15m-STAGE0
+  evidence:
+  - research/results/RQ-20261011-1fce-05/38169814488.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'hand-written unit, every row graded under its own registered rule: FAIL closes it (no template
+    confirmatory re-run)'
+  reason: 1 row(s), all measured, all fail
+  rows: 1
+  verdict: fail

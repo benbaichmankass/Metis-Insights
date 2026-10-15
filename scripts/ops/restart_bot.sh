@@ -80,6 +80,11 @@ fi
 # stop_bot.sh placed (PI-20260927-YDVVYLKH-0002).
 clear_trader_stop_marker "restart-bot-service"
 
+# TELEGRAM-RESTART-MSG: the trader's boot ping reads this to say WHY it
+# restarted (src/runtime/restart_cause.py). Best-effort.
+printf '{"cause": "manual", "by": "restart-bot-service", "at": %s}\n' "$(date +%s)" \
+    > "${REPO_DIR}/runtime_logs/trader_restart_intent.json" 2>&- || true
+
 log "Restarting ${UNIT}…"
 "${SYSTEMCTL[@]}" restart "${UNIT}"
 

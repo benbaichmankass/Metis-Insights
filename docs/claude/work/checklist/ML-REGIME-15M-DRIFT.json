@@ -1,0 +1,21 @@
+{
+  "id": "ML-REGIME-15M-DRIFT",
+  "title": "ML: drift-remediation for the 15m regime heads (BTC, ETH, SOL): registered FAIL branches of RQ-20261012-75b2-16/-17/-18",
+  "phase": "W6",
+  "state": "queued",
+  "owner": "unassigned",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "[2026-10-15 RESEARCH-GRADE-BACKLOG] Filed because each unit's registered FAIL branch says 'file a drift-remediation row for this symbol/tf, not a demotion'. MEASURED (research/results/<id>): BTC 15m LightGBM vs class prior macro-F1 CV +0.017, 90d holdout -0.0001 (75b2-16); ETH 15m CV +0.065, holdout +0.022 (75b2-17); SOL 15m CV +0.109, holdout +0.054 (75b2-18); bar +0.10 on both. Process: .claude/skills/drift-remediation/SKILL.md (transient vs persistent). Note the separate empty-holdout defect PI-20261015-WNBZB5WN-0001 affects sibling units, not these three (their holdouts measured). Closes when each head has a drift-remediation disposition (transient / new version shipped).",
+  "updated_at": "2026-10-15T07:25:48Z",
+  "updated_by": "session_01AHy9CTrdF2hMBAWNBzB5wN",
+  "roadmap": [
+    "M25"
+  ],
+  "_seq": 504
+}

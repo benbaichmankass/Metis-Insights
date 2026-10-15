@@ -2,18 +2,20 @@
   "id": "PROP-FEED-RETRY",
   "title": "Prop feed: retry before tripping on a transient terminal outage (timeout / unknown_page), keep rc 4 trips for captcha, 2FA, login_rejected and the other environment findings",
   "phase": null,
-  "state": "queued",
+  "state": "landed_unproven",
   "owner": "manager",
   "lane": null,
   "model": null,
   "ceiling_usd": null,
   "spend_usd": null,
   "tier": 2,
-  "prs": [],
+  "prs": [
+    18164
+  ],
   "blocked_on": [],
-  "note": "[2026-10-14 weekly planning] OPERATOR-APPROVED 2026-10-14 (Tier-2, order-path-adjacent; approval recorded here, relayed by the manager). Source: PI-20261007-APBY4NTV-0007 -- prop_feed_tick.sh maps every FeasibilityError incl. unknown_page ('Loading...') and timeout to rc 4 = trip on first occurrence, never retried, so a ~4-min Tradeify blip stopped tradeify_1 for 26 h+. Build: a distinct exit for environment-class findings so the 3-failure path decides, one auto re-check after a cool-down, --dump-dir on the trip path only; rc 4 unchanged for captcha/2fa/challenge/login_rejected/password_expired/no_credentials/asn_blocked/access_denied. NO-HALT applies: the feed keeps trying and raises one flag. Verify on the VM post-state (prop journal) after deploy.",
-  "updated_at": "2026-10-14T07:37:21Z",
-  "updated_by": "session_01DfFYRUG7orGpkE5pVnA8e4",
+  "note": "[2026-10-14 weekly planning] OPERATOR-APPROVED 2026-10-14 (Tier-2, order-path-adjacent; approval recorded here, relayed by the manager). Source: PI-20261007-APBY4NTV-0007 -- prop_feed_tick.sh maps every FeasibilityError incl. unknown_page ('Loading...') and timeout to rc 4 = trip on first occurrence, never retried, so a ~4-min Tradeify blip stopped tradeify_1 for 26 h+. Build: a distinct exit for environment-class findings so the 3-failure path decides, one auto re-check after a cool-down, --dump-dir on the trip path only; rc 4 unchanged for captcha/2fa/challenge/login_rejected/password_expired/no_credentials/asn_blocked/access_denied. NO-HALT applies: the feed keeps trying and raises one flag. Verify on the VM post-state (prop journal) after deploy.  [2026-10-15 lane] PR #18164 (draft, hold/tier_2_3_needs_approval) built+tested (78 pass); NOT merged/deployed/observed. Closes only when the prop journal shows a timeout/unknown_page outage retried next tick while captcha/2fa/login_rejected still rc 4. --dump-dir on trip path deliberately not built (no-op on login failure).",
+  "updated_at": "2026-10-15T06:30:24Z",
+  "updated_by": "session_01HuzBgLJrf2VrvsyrVXraxs",
   "roadmap": [
     "L-PROP"
   ],
@@ -21,6 +23,10 @@
     "what": "deployed on the VM: a timeout/unknown_page outage is retried after the cool-down and the feed stays untripped, while captcha/2fa/login_rejected still trip (rc 4); seen in the prop journal on the first transient outage after deploy",
     "how_to_check": "diag relay: prop journal feed status rows + prop_feed_tick.sh version on the VM",
     "due_by": "2026-10-24"
+  },
+  "writeback": {
+    "roadmap": "none: retry hardening of an existing prop feed; no L-PROP milestone measure moves until observed",
+    "arch": "none: no contract change; transient prop-feed outages retry instead of tripping, auth failures still trip"
   },
   "_seq": 483
 }

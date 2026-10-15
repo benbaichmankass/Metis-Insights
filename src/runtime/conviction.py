@@ -20,6 +20,7 @@ shadow heads -> conviction == c_strat). ``news_multiplier`` is reductive-only
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 # Default v1 weights (hand-set, tunable via the § 4.2 sweep). c_strat dominates
@@ -86,7 +87,15 @@ def compute_conviction(
     inputs are present (never strands a live signal; ``below_floor`` stays False).
     """
     w = dict(weights) if weights else dict(DEFAULT_CONVICTION_WEIGHTS)
-    news = _clip01(news_multiplier)
+    # A non-finite value is UNMEASURED, not a number: NaN survives `_clip01`
+    # (every comparison with it is False) and then `conviction < floor` is
+    # False too, so a NaN input silently skipped the no-trade floor
+    # (PI-20260927-ECILBBVH-0006, ORDER-AUDIT-3). Inputs are dropped like a
+    # missing key; a non-finite news multiplier is inert (1.0), never a NaN.
+    try:
+        news = _clip01(news_multiplier) if math.isfinite(float(news_multiplier)) else 1.0
+    except (TypeError, ValueError):
+        news = 1.0
 
     present: dict[str, float] = {}
     if inputs:
@@ -94,9 +103,12 @@ def compute_conviction(
             if v is None or k not in w:
                 continue
             try:
-                present[k] = _clip01(float(v))
+                fv = float(v)
             except (TypeError, ValueError):
                 continue
+            if not math.isfinite(fv):
+                continue
+            present[k] = _clip01(fv)
 
     if not present:
         return ConvictionResult(

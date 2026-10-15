@@ -526,6 +526,16 @@ def _clause_holds(cl: Dict[str, Any], cand: str, deltas: Dict[str, Any], baselin
     return (all(v is True for v in vals) and len(vals) > 0), f"{glist} {cl['op']} {cl['value']} vs {ref}/{win}"
 
 
+def _clause_evaluable(cl: Dict[str, Any], cand: str, deltas: Dict[str, Any], baseline: str) -> bool:
+    """True when every group the clause names has a measured delta (mean not None) in its window."""
+    ref = baseline if cl["vs"] == "baseline" else cl["vs"]
+    win = cl.get("window", "cv")
+    groups = cl.get("group", "any")
+    glist = list(deltas) if groups == "any" else ([groups] if isinstance(groups, str) else list(groups or []))
+    return bool(glist) and all((deltas.get(g, {}).get(win, {}).get(cand, {}).get(ref) or {}).get("mean") is not None
+                               for g in glist)
+
+
 def evaluate_rule(rule: Dict[str, Any], deltas: Dict[str, Any], candidates: List[str], baseline: str,
                   arm_status: Dict[str, str], min_folds: int, folds_seen: int) -> Dict[str, Any]:
     """Apply the REGISTERED machine rule. PASS: some candidate meets ALL ``pass_if`` clauses.
@@ -552,6 +562,17 @@ def evaluate_rule(rule: Dict[str, Any], deltas: Dict[str, Any], candidates: List
     if floor is not None:
         alive = [c for c in candidates if arm_status.get(c) == "ok"
                  and any(_clause_holds(cl, c, deltas, baseline)[0] for cl in floor)]
+        # ⚠️ A floor clause over a window that produced NO folds (mean None -- e.g. an empty
+        # 30-day holdout) was never measured; reading it as "does not hold" landed FAIL on
+        # RQ-20261012-75b2-25/-27 whose own rules say holdout rows < 20 is INDETERMINATE
+        # (RESEARCH-GRADE-BACKLOG, 2026-10-15). A FAIL needs every floor clause evaluated.
+        unmeasured = sorted({_clause_holds(cl, c, deltas, baseline)[1] for c in candidates
+                             if arm_status.get(c) == "ok" for cl in floor
+                             if not _clause_evaluable(cl, c, deltas, baseline)})
+        if not alive and evaluated_all and unmeasured:
+            return {"verdict": "indeterminate",
+                    "why": f"no candidate reaches the floor, but floor clause(s) {unmeasured} have no measured "
+                           "folds -- an unmeasured window is not a FAIL", **detail}
         if not alive and evaluated_all:
             return {"verdict": "fail", "why": "no candidate reaches the registered floor on any clause", **detail}
         if not alive and not evaluated_all:
@@ -653,6 +674,15 @@ def _self_test() -> int:
     v = run_spec(spec, unit="selftest")
     assert v["read_state"] == "measured" and v["verdict"] in ("pass", "indeterminate"), v
     assert v["measurement"]["arm_status"]["logit"] == "ok"
+    # an empty window (holdout with no folds) is unmeasured: never a FAIL (RESEARCH-GRADE-BACKLOG)
+    nofold = {"n_folds": 0, "mean": None, "ci95": None}
+    dl = {"ALL": {"cv": {"c": {"prior": {"n_folds": 5, "mean": -0.01}}}, "holdout": {"c": {"prior": nofold}}}}
+    floor = [{"group": ["ALL"], "vs": "baseline", "op": ">=", "value": 0.1, "window": w} for w in ("cv", "holdout")]
+    ev = evaluate_rule({"pass_if": floor, "fail_if_no_candidate_reaches": floor}, dl, ["c"], "prior", {"c": "ok"}, 3, 5)
+    assert ev["verdict"] == "indeterminate" and "no measured" in ev["why"], ev
+    dl["ALL"]["holdout"]["c"]["prior"] = {"n_folds": 1, "mean": -0.01}
+    assert evaluate_rule({"pass_if": floor, "fail_if_no_candidate_reaches": floor}, dl, ["c"], "prior",
+                         {"c": "ok"}, 3, 5)["verdict"] == "fail"
     print("ml_bakeoff self-test OK:", v["verdict"], v["note"][:80])
     return 0
 

@@ -232,3 +232,46 @@ def test_only_colliding_workflows_are_serialized():
     assert not dq.serialized_workflow("research-script-run.yml")      # per-unit group, batch-landed
     assert not dq.serialized_workflow("research-harness-dispatch.yml")  # per-run group
     assert not dq.serialized_workflow("no-such-workflow.yml")
+
+
+# ── yield to infra (GH-CAPACITY-INFRA-FIRST, operator 2026-10-15) ────────────────────────────────────────
+INFRA = ["system-actions", "phone-executor-apk"]
+
+
+def test_a_queued_infra_run_defers_every_research_fire():
+    r = dq.backpressure(RESEARCH, max_inflight=3, max_queued=10, infra_names=INFRA,
+                        runs_by_status={"queued": _runs(["system-actions"]), "in_progress": []})
+    assert r["block"] and "infra" in r["block"] and "system-actions" in r["block"]
+    assert r["infra_queued"] == 1
+
+
+def test_infra_already_running_does_not_block():
+    """Only a WAITING infra run is starved by a new research job; one already on a runner is not."""
+    r = dq.backpressure(RESEARCH, max_inflight=3, max_queued=10, infra_names=INFRA,
+                        runs_by_status={"queued": _runs(["pytest-run"]), "in_progress": _runs(["system-actions"])})
+    assert r["block"] is None and r["infra_queued"] == 0
+
+
+def test_a_stale_queued_infra_ghost_does_not_block_forever():
+    """Measured 2026-10-15: vm-web-api-recover/vm-cloud-fix runs created 2026-05-15 still read `queued`."""
+    old = [{"databaseId": 1, "workflowName": "system-actions", "status": "queued", "createdAt": "2026-05-15T07:45:37Z"}]
+    r = dq.backpressure(RESEARCH, max_inflight=3, max_queued=10, infra_names=INFRA,
+                        runs_by_status={"queued": old, "in_progress": []})
+    assert r["block"] is None and r["infra_queued"] == 0
+
+
+def test_without_infra_names_the_old_behaviour_is_unchanged():
+    r = dq.backpressure(RESEARCH, max_inflight=3, max_queued=10,
+                        runs_by_status={"queued": _runs(["system-actions"]), "in_progress": []})
+    assert r["block"] is None
+
+
+def test_every_configured_infra_workflow_name_exists():
+    """A renamed workflow would silently drop out of the yield: gh matches on the `name:` field."""
+    import yaml
+    cfg = yaml.safe_load((REPO / "scripts/research/research_compute.yaml").read_text())
+    names = cfg["limits"]["infra_workflows"]
+    assert "system-actions" in names and "phone-executor-apk" in names
+    have = {yaml.safe_load(p.read_text()).get("name") for p in (REPO / ".github/workflows").glob("*.yml")}
+    missing = [n for n in names if n not in have]
+    assert not missing, missing

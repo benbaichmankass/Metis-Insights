@@ -1,0 +1,30 @@
+{
+  "id": "BACKLOG-DRAIN-20261015",
+  "title": "Backlog drain: every due pipeline item / landed_unproven row / laneless queued row gets one disposition (do/check/close/route/raise)",
+  "phase": "ops",
+  "state": "landed_unproven",
+  "owner": "lane (Opus, $30)",
+  "lane": "session_019p3X1tJAdUdV2dKaw9no8r",
+  "model": "opus",
+  "ceiling_usd": 30,
+  "spend_usd": null,
+  "tier": 1,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Dispatched 2026-10-15 by manager session_01VduHYzdaXe27wTDBLSu8ao on operator directive ~06:20Z ('a lane dedicated to... working through all those open things... doing it, or closing items that are not relevant anymore'). Scope: 254 due pipeline items, 154 landed_unproven rows, laneless queued rows; excludes DUE-ROUTE-20261015's 8 unrouted / 23 UNPROVEN_OVERDUE / NEEDS_LANE and RESEARCH-GRADE-BACKLOG. Lands ~30 items per PR.  | 2026-10-15 ~06:58Z handoff: 7 PRs. #18173 and #18178 merged. #18170, #18182, #18184, #18186 and b7 have auto-merge armed. Pipeline: 235 dispositions = 80 done, 13 killed, 60 re-routed to an open row, 82 re-dated with an observation. Rows: 35 landed_unproven without an observation = 15 done, 2 dropped, 18 now with a named observation. Stale PRs: 3 closed, 13 listed to manager. The trend_donchian_1h cut was REFUSED by mandate_resolver: MD-DERISK-ONLY-ROSTER-CUT direction is empty, and the implied MD-DEMOTE-S1-OFF is NEEDS-DATA with no evidence record. Per the manager, I stopped there. Left: 12 due items on active-lane rows (excluded); the remaining ~96 landed_unproven rows that carry observations and are not overdue were not swept; the 121 queued laneless rows were not each reviewed beyond their due pipeline items.",
+  "updated_at": "2026-10-15T07:06:03Z",
+  "updated_by": "session_019p3X1tJAdUdV2dKaw9no8r",
+  "roadmap": [
+    "L-OPS"
+  ],
+  "observation": {
+    "what": "all 7 BACKLOG-DRAIN PRs merged and pipeline --stats due count reflects them",
+    "how_to_check": "python3 scripts/ops/pipeline.py --stats on main (due was 254 at lane start)",
+    "due_by": "2026-10-16"
+  },
+  "writeback": {
+    "roadmap": "none: register hygiene (due items dispositioned); no milestone measure moved",
+    "arch": "none: no contract or architecture change"
+  },
+  "_seq": 506
+}

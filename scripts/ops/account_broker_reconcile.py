@@ -390,13 +390,26 @@ def _row_pnl(row: Dict[str, Any]) -> Optional[float]:
     return _num(row.get("pnl"))
 
 
+def _close_ms(row: Dict[str, Any]) -> Optional[int]:
+    """closedAt / closed_at as epoch ms, or None when absent/unparseable."""
+    raw = row.get("closedAt") or row.get("closed_at")
+    if not raw:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return int(dt.timestamp() * 1000)
+
+
 def reconcile_bybit(
     journal_positions: List[Dict[str, Any]],
     journal_closed: List[Dict[str, Any]],
     bybit_payload: Optional[Dict[str, Any]],
     wallet_truth_payload: Optional[Dict[str, Any]],
     account_id: str = "bybit_2",
-    pnl_trade_count: int = 20,
     raw_trades: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     reduce_ids = reduce_leg_ids(raw_trades)
@@ -444,12 +457,16 @@ def reconcile_bybit(
                                or r.get("has_target") is not None])
     protection_state = "divergent" if (prot["naked"] or prot["partial"]) else "agree"
 
-    # Realized P&L: journal sum over the last `pnl_trade_count` bybit_2
-    # closes vs the wallet-truth measured_api figure. ⚠️ The wallet-truth
-    # read is a fixed `days=N` window set by the caller, NOT the span of
-    # these closes — both spans are emitted below so the render states the
-    # two populations instead of implying they match. See module docstring
-    # for why this is the wallet-truth read, not the stale hand ledger.
+    # Realized P&L: journal sum over EVERY bybit_2 close INSIDE the
+    # wallet-truth window vs the wallet-truth measured_api figure -- ONE
+    # population (PI-20260929-PXGMJYTX-0001, ORDER-AUDIT-3). This used to sum
+    # the last `pnl_trade_count` closes against a fixed days=90 wallet window:
+    # live 2026-09-29 that was 2026-09-03 -> 09-28 vs 2026-07-01 -> 09-29, two
+    # different populations graded as one. The journal page is newest-first
+    # and contiguous, so it covers the window only if it reaches back to the
+    # window start; when that is not proven the check is could_not_look, never
+    # a figure over a partial window. See module docstring for why this is the
+    # wallet-truth read, not the stale hand ledger.
     #
     # Reduce legs are dropped BEFORE the NULL check: an intent_reduce leg's
     # pnl is NULL BY DESIGN (BL-20260711 — deferred, never fabricated), so
@@ -458,12 +475,33 @@ def reconcile_bybit(
     # leg). Any OTHER NULL-pnl row still yields could_not_look.
     acct_closes = [c for c in journal_closed
                    if c.get("account") == account_id or c.get("account_id") == account_id]
-    excluded_reduce = [str(c.get("id")) for c in acct_closes if _is_reduce_row(c, reduce_ids)]
+
+    wt = None
+    if isinstance(wallet_truth_payload, dict):
+        accounts = wallet_truth_payload.get("accounts")
+        if isinstance(accounts, list):
+            wt = next((a for a in accounts if a.get("account_id") == account_id), None)
+        elif wallet_truth_payload.get("account_id") == account_id:
+            wt = wallet_truth_payload
+    wt_start = _num(wt.get("window_start_ms")) if isinstance(wt, dict) else None
+    wt_end = _num(wt.get("window_end_ms")) if isinstance(wt, dict) else None
+    if wt_start is not None and wt_end is not None:
+        in_window = [c for c in acct_closes
+                     if (_close_ms(c) is not None and wt_start <= _close_ms(c) <= wt_end)]
+        # An EMPTY page is complete (the account has no closes at all).
+        window_covered = (not acct_closes) or any(
+            _close_ms(c) is not None and _close_ms(c) <= wt_start
+            for c in acct_closes)
+    else:
+        # No window to align to: nothing below can be a comparison.
+        in_window, window_covered = list(acct_closes), False
+
+    excluded_reduce = [str(c.get("id")) for c in in_window if _is_reduce_row(c, reduce_ids)]
     closes = sorted(
-        (c for c in acct_closes if not _is_reduce_row(c, reduce_ids)),
+        (c for c in in_window if not _is_reduce_row(c, reduce_ids)),
         key=lambda c: c.get("closedAt") or c.get("closed_at") or "",
         reverse=True,
-    )[:pnl_trade_count]
+    )
     journal_pnl_sum = None
     null_pnl_ids: List[str] = []
     if closes:
@@ -475,27 +513,23 @@ def reconcile_bybit(
                        closes[0].get("closedAt") or closes[0].get("closed_at")]
                       if closes else None)
 
-    wt = None
-    if isinstance(wallet_truth_payload, dict):
-        accounts = wallet_truth_payload.get("accounts")
-        if isinstance(accounts, list):
-            wt = next((a for a in accounts if a.get("account_id") == account_id), None)
-        elif wallet_truth_payload.get("account_id") == account_id:
-            wt = wallet_truth_payload
-
-    if not closes:
+    if not closes and window_covered:
         pnl_state, pnl = "agree", {"note": "no closed bybit_2 trades in the journal"}
     # WalletTruth.as_dict() (src/runtime/bybit_wallet_truth.py) names its
     # field "state", never "read_state" -- confirmed against the live route
     # (REVIEW-14054 finding #1); reading the wrong key made this permanently
     # could_not_look regardless of what the venue actually reported.
-    elif journal_pnl_sum is None or not isinstance(wt, dict) or wt.get("state") != "measured_api":
+    elif (journal_pnl_sum is None or not window_covered
+          or not isinstance(wt, dict) or wt.get("state") != "measured_api"):
         pnl_state = "could_not_look"
         pnl = {"journal_pnl_sum": journal_pnl_sum, "wallet_truth": wt,
                "n_closes": len(closes), "null_pnl_trade_ids": null_pnl_ids,
                "reduce_legs_excluded": excluded_reduce,
                "reduce_leg_read": "unavailable" if reduce_ids is None else "read",
-               "journal_closed_at_window": journal_window}
+               "journal_closed_at_window": journal_window,
+               "window_coverage": ("journal_page_reaches_window_start"
+                                   if window_covered else
+                                   "journal_page_does_not_reach_window_start")}
     else:
         broker_realized = _num(wt.get("realized_usd"))
         diverges = (broker_realized is None or
@@ -505,6 +539,7 @@ def reconcile_bybit(
         # (REVIEW-14054 finding #3).
         pnl = {"journal_pnl_sum": journal_pnl_sum, "broker_realized_usd": broker_realized,
                "n_closes": len(closes),
+               "window_coverage": "journal_page_reaches_window_start",
                "reduce_legs_excluded": excluded_reduce,
                "journal_closed_at_window": journal_window,
                "wallet_truth_window_ms": [wt.get("window_start_ms"), wt.get("window_end_ms")]}
@@ -788,8 +823,8 @@ def _self_test() -> int:
                                           "position_idx": 0}],
                            "orders": []}}]}
     wt_ok = {"accounts": [{"account_id": "bybit_2", "state": "measured_api",
-             "realized_usd": 10.0, "window_start_ms": 1758000000000,
-             "window_end_ms": 1759000000000}]}
+             "realized_usd": 10.0, "window_start_ms": 1790553600000,
+             "window_end_ms": 1790640000000}]}
     r = reconcile_bybit(j_pos_b, j_closed, bybit_ok, wt_ok)
     check("bybit agree: positions", r["positions_state"] == "agree")
     check("bybit agree: protection", r["protection_state"] == "agree")
@@ -803,8 +838,8 @@ def _self_test() -> int:
                                            "position_idx": 0}],
                             "orders": []}}]}
     wt_div = {"accounts": [{"account_id": "bybit_2", "state": "measured_api",
-              "realized_usd": -500.0, "window_start_ms": 1758000000000,
-              "window_end_ms": 1759000000000}]}
+              "realized_usd": -500.0, "window_start_ms": 1790553600000,
+              "window_end_ms": 1790640000000}]}
     r = reconcile_bybit(j_pos_b, j_closed, bybit_div, wt_div)
     check("bybit divergent: side mismatch", r["positions_state"] == "divergent")
     check("bybit divergent: pnl", r["pnl_state"] == "divergent")
@@ -864,8 +899,8 @@ def _self_test() -> int:
     fixed_now = datetime(2026, 9, 28, tzinfo=timezone.utc)
     fills_fixed = [{"status": "closed", "closed_at": "2026-09-28T01:00:00Z", "pnl": 5.0}]
     wt_ok_2 = {"accounts": [{"account_id": "bybit_2", "state": "measured_api",
-               "realized_usd": 10.4, "window_start_ms": 1758000000000,
-               "window_end_ms": 1759000000000}]}  # still within $1 tolerance of journal 10.0
+               "realized_usd": 10.4, "window_start_ms": 1790553600000,
+               "window_end_ms": 1790640000000}]}  # still within $1 tolerance of journal 10.0
     all_journal_positions = j_pos + j_pos_b
     res_a = run(all_journal_positions, j_closed, alpaca_ok, bybit_ok, wt_ok, prop_ok,
                 fills_fixed, now=fixed_now)

@@ -1,0 +1,20 @@
+{
+  "based_on": "20261015T070743017036Z-4b21dcd5.json",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "session_debt counts a unit as session_graded only when queue_grade would NOT grade it (shared predicate, without widening the web-api in-process import closure -- tests/test_deploy_pull_restart_runtime_gate.py)",
+    "event": "PR #18189 merged to main",
+    "kind": "event"
+  },
+  "id": "PI-20261015-3SMHIER1-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane RESEARCH-LOOP-AUDIT-AND-DRIVER, PR #18189 (scripts/ops/work_report.py::session_debt vs scripts/research/queue_grade.py::grade_unit)",
+    "rerun": "python3 -c \"import sys;sys.path.insert(0,'.');from scripts.ops.work_report import session_debt;print(len(session_debt()['session_graded']))\"  # compare with units queue_grade would close: python3 scripts/research/queue_grade.py --json"
+  },
+  "routed_to": null,
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "work_report.session_debt counts hand-written queue units without grading.auto as 'session_graded', but after #18189 the grader also closes hand-written once units whose rows attest their own rule -- the debt number overcounts them"
+}

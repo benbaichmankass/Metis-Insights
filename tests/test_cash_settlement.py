@@ -379,3 +379,39 @@ def test_soak_row_distinguishes_held_back_from_applied(tmp_path, monkeypatch):
     assert rows[0]["apply_scope"] == "not_allowlisted"
     assert rows[0]["global_mode"] == "apply", "what was ASKED, beside what happened"
     assert rows[0]["would_have_reduced_usd"] == 300.0
+
+
+# ── ORDER-AUDIT-3 / PI-20260927-ECILBBVH-0008 ──────────────────────────────
+# The coordinator passed the POST-replacement available_usd, so the reduction
+# read 0 on exactly the rows where the gate reduced size, and stamped `applied`
+# from the allowlist even when the basis did not bind.
+def test_applied_row_reports_the_reduction_against_the_pre_replacement_figure(
+        tmp_path, monkeypatch):
+    monkeypatch.setenv("ALPACA_CASH_SETTLEMENT_MODE", "apply")
+    monkeypatch.setenv("ALPACA_CASH_SETTLEMENT_ACCOUNTS", "alpaca_live")
+    monkeypatch.setattr("src.utils.paths.runtime_logs_dir", lambda: tmp_path,
+                        raising=False)
+    basis = settled_basis(venue_cash=1000.0, venue_buying_power=1000.0,
+                          unsettled_usd=300.0)
+    record_observation(account_id="alpaca_live", basis=basis,
+                       available_usd=basis.basis_usd, applied=True,
+                       venue_available_usd=1000.0)
+    row = json.loads((tmp_path / "cash_settlement_soak.jsonl").read_text()
+                     .splitlines()[-1])
+    assert row["applied"] is True
+    assert row["available_usd_before"] == 1000.0
+    assert row["would_have_reduced_usd"] == 300.0
+
+
+def test_coordinator_stamps_applied_from_the_replacement_not_the_allowlist():
+    import ast
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[1]
+           / "src/core/coordinator.py").read_text(encoding="utf-8")
+    calls = [n for n in ast.walk(ast.parse(src)) if isinstance(n, ast.Call)
+             and getattr(n.func, "attr", None) == "record_observation"]
+    assert calls, "probe found no record_observation call -- it cannot fail"
+    for c in calls:
+        kw = {k.arg: ast.unparse(k.value) for k in c.keywords}
+        assert "venue_available_usd" in kw
+        assert kw.get("applied") != "bool(_bind)"

@@ -1,0 +1,22 @@
+{
+  "based_on": "20261011T061641031599Z-d6514176.json",
+  "due_when": {
+    "due_date": "2026-10-13",
+    "kind": "date"
+  },
+  "filed": "2026-10-06",
+  "id": "PI-20261006-ZRM27CBW-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "by": "session_01CbWE56MbSskgGNZrm27cBW",
+    "kind": "session",
+    "ref": "VELOTRADE-GOLIVE (branch claude/velotrade-golive)",
+    "rerun": "grep -n 'def read_trade_history' src/prop/platform/dxtrade_api.py  # empty = still missing"
+  },
+  "routed_to": "checklist row VELO-CLOSE-RECON | [VELO-CLOSE-RECON 2026-10-11] read_trade_history EXISTS (#16978) but asked for period=today: MEASURED #17505 today=0 orders at 05:57Z for the 03:52Z close of prop-manual-6fbebc711fa6, so the 03:58Z reconcile logged '0 closing trades match' and journaled fill 97 unpriced (#17512). Fixed on branch velo-close-recon: no-period read, exit reason by order identity, P&L from venue fills, unpriced closes re-read every cycle, journal row corrected in place. Close only when fill 97 reads exit_price 2499.37 / reason sl after deploy.",
+  "severity": "medium",
+  "state": "done",
+  "terminal_reason": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r), 2026-10-15: src/prop/platform/dxtrade_api.py read_trade_history (L453-475) no longer uses the failing period=today filter (#17515, eb5949f2); #17531 (cd3b4fa1) records fill 97 re-read as exit 2499.37 / sl / -34.5.",
+  "tier": 2,
+  "what": "dxtrade_api adapter has no read_trade_history. prop_executor.run_cycle reads it via getattr and skips it when absent, so velotrade_1 close reconciliation falls back to flat_on_terminal WITHOUT the exit fill price from history. Before velotrade_1's first live ticket: implement read_trade_history over GET /accounts/{a}/orders/history (executions lastPrice/lastQuantity; read_history_today already parses them) in the shape _reconcile_journal expects, and test that a TP/SL/Bulk-Close exit journals the right close reason and price."
+}

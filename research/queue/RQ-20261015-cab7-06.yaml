@@ -1,0 +1,113 @@
+id: RQ-20261015-cab7-06
+title: 'TP doctrine, real money: a predictive TP for alpaca_live''s 1d pullback sentinels (iaum / ief / slv), family-pooled
+  with gdx / tlt -- RQ-20261006-061''s named follow-on'
+status: queued
+cadence: once
+kind: experiment
+theme: live_strategy
+priority: 1
+roadmap:
+- L-ATM
+question: 'Pooled over the 1d pullback family (iaum, ief, slv = alpaca_live''s whole real-money roster; gdx, tlt
+  = same unit, paper), each leg cut 60/40 by its own entry time: what common TP K* (R) does the family''s uncapped
+  MFE distribution predict, and on OOS is it calibrated and no more than 0.05 R/trade worse than the 50 R sentinel
+  the three real-money legs rest at the venue cap today?'
+why_this_matters: 'RQ-20261006-061 registered that a single 1d pullback leg cannot reach 39 OOS trades (e35: 4 /
+  4 / 7) and named this pooled design as its follow-on rather than lowering the bar. gld_pullback_1d is EXCLUDED
+  on purpose: IAUM''s dukascopy series is the GLD CFD proxy (scripts/ops/dukascopy_instruments.py, REL_PROXY), so
+  pooling both would count the same trades twice. mgc/mhg (futures proxies) are out of scope for the runner''s data
+  lane.'
+power:
+  expected_n: 39
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: 'Design floor (1.96+0.8416)^2/0.45^2 = 38.76 -> 39 POOLED OOS trades. MEASURED 2026-10-15 by this lane''s
+    feasibility replay (uncapped, dukascopy daily, 2021-10-10..2026-10-14; trade COUNTS only, nothing graded): iaum
+    31, ief 28, slv 43, gdx 30, tlt 23 = 155 trades -> ~62 pooled OOS at 40%.'
+  feasibility:
+    source: corpus
+    corpus: e35
+    statistic: min_per_leg
+    legs:
+    - iaum_pullback_1d
+    - ief_pullback_1d
+    - slv_pullback_1d
+    - gdx_pullback_1d
+    - tlt_pullback_1d
+    basis: 'Declared on e35 so the number the corpus holds is not hidden: per leg it reads 4-7 OOS trades, so the
+      gate will grade this `infeasible` (it runs; README) -- the per-leg bound is exactly why the design pools.
+      The pooled n is measured above and lands in the record.'
+decision_rule:
+  id: RULE-RQ-20261015-cab7-06-PREDICTIVE-TP
+  registered_at: '2026-10-15'
+  registered_before_run: true
+  statistic: 'From the leg''s config-exact UNCAPPED no-TP harness replay (scripts/research/tp_prediction_derive.py,
+    base_args tp_cap_pct=0.0, 1830 d binance_vision candles, net_r = the harness''s full cost stack via execution_costs.resolve_cost_policy):
+    trades sorted by entry time, first 60% IS, last 40% OOS. On IS: the reach curve P(mfe_r >= K) and the counterfactual
+    net R of a TP at K (venue cap applied per trade, K_eff = min(K, cap_r); a touched TP exits at K_eff keeping
+    the row''s own cost terms) for K in {1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4, 5, 6, 8}; K* = the IS-best K with
+    IS reach >= 0.10 and K <= the median IS cap_r. On OOS: paired per-trade delta = net(K*) - net(the leg''s declared
+    tp_r, capped), seeded bootstrap 95% CI (2000 resamples, seed 20261015); calibration gap = |reach_OOS(K*) - reach_IS(K*)|;
+    n_oos.'
+  rule: 'INDETERMINATE IF n_oos < 39 OR no K is eligible on IS. FAIL IF reach_OOS(K*) < 0.10 OR calibration gap
+    > 0.10 OR CI upper < -0.05 R/trade -> a FIXED predictive TP on iaum_pullback_1d, ief_pullback_1d, slv_pullback_1d,
+    gdx_pullback_1d, tlt_pullback_1d either does not predict (uncalibrated) or costs edge vs the 50 R sentinel resting
+    at the venue cap: the leg''s edge lives in a tail no fixed target predicts, so its doctrine route is the per-bar
+    REVISION rule (Q3: RQ-20261014-9807-03 / RQ-20261007-080) or the in-trade exit model (Q8), recorded on PI-20261006-5FUGHVX8-0001;
+    never a demotion. PASS IF reach_OOS(K*) >= 0.10 AND calibration gap <= 0.10 AND CI lower >= -0.05 R/trade (PASS_IMPROVES
+    when CI lower > 0, else PASS_NONINFERIOR) -> K* is a data-derived predictive TP for iaum_pullback_1d, ief_pullback_1d,
+    slv_pullback_1d, gdx_pullback_1d, tlt_pullback_1d; the manager files ONE follow-on: the harness-native confirmation
+    of tp_r = K* (an e35 tp_r cell at the exit-refinement P2 gate, Path A/B + the yearly walk-forward). Only if
+    that confirms does a Tier-3 proposal declare tp_r = K* on alpaca_live and alpaca_portfolio (iaum stays off the
+    mirror, the declared affordability proxy) in one PR (mirror-equality tests), sent to the manager as an evidence-backed
+    proposal, never applied by a lane. INDETERMINATE otherwise (the CI straddles -0.05). NULL: any other landing
+    is indeterminate.'
+  what_it_does_not_do: 'Touches no config, roster or account. A PASS is a SCREEN, not a ship: the counterfactual
+    ignores the entries an earlier TP exit would have freed (stated in the script), so the harness-native e35 confirmation
+    is mandatory before any Tier-3 proposal. Does not grade the per-bar TP revision (Q3) and does not say the current
+    bracket is profitable or not. A paper or live book is not evidence here.'
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 40
+  basis: 'Runner. One tp_prediction_derive invocation: candle fetch + one uncapped harness replay per leg + stdlib
+    grading. MEASURED 2026-10-15 for ada_pullback_2h in a session: 58 s wall for fetch + replay + grade; est_minutes
+    carries headroom for runner fetch latency.'
+run:
+  workflow: research-script-run.yml
+  command:
+  - python3
+  - scripts/research/tp_prediction_derive.py
+  - --legs
+  - iaum_pullback_1d,ief_pullback_1d,slv_pullback_1d,gdx_pullback_1d,tlt_pullback_1d
+  - --days
+  - '1830'
+  - --pool
+  - --out
+  - '{out_dir}'
+  timeout_minutes: 120
+  inputs:
+    research_unit: RQ-20261015-cab7-06
+  note: BRACKETS-AS-PREDICTIONS lane 2026-10-15. Thresholds in the decision_rule are the constants in scripts/research/tp_prediction_derive.py,
+    written before any run.
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+  note: research/results/RQ-20261015-cab7-06/<run_id>.jsonl (E5 contract); uncapped emits + the full curve in verdict.json
+    land under comms/research/RQ-20261015-cab7-06/<run_id>/.
+related:
+- docs/research/programmes/01-ACTIVE-TRADE-MANAGEMENT.md
+- scripts/research/tp_prediction_derive.py
+- docs/research/mi307-offline-mfe-2026-09-18.json
+- RQ-20261014-9807-03
+- RQ-20261007-080
+- RQ-20261014-9807-02
+- PI-20261006-5FUGHVX8-0001
+- RQ-20261006-061
+- scripts/ops/dukascopy_instruments.py
+last_dispatched_at: null

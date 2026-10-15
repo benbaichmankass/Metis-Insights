@@ -2,18 +2,22 @@
   "id": "PHONE-FGS-EXEC",
   "title": "Phone executor: ticket claim and fill inside the foreground service (no bring-to-front) -- only after 24 h of clean background heartbeats",
   "phase": null,
-  "state": "queued",
-  "owner": "manager",
-  "lane": null,
-  "model": null,
-  "ceiling_usd": null,
+  "state": "landed_unproven",
+  "owner": "lane session_01TCAAkyPavusAKCqc5Pfg9a",
+  "lane": "PHONE-FGS-EXEC",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 15,
   "spend_usd": null,
   "tier": 2,
-  "prs": [],
+  "prs": [
+    18217,
+    18232,
+    18234
+  ],
   "blocked_on": [],
-  "note": "[2026-10-14 weekly planning] OPERATOR-APPROVED 2026-10-14 (Tier-2, prop execution path), GATED: start only after the PHONE-AUTOLOGIN-2 APK shows 24 h of clean background heartbeats. Source: PI-20261010-UYZJSGJY-0001 -- login checks, re-login and the account read already run in BgWeb; tickets still bring MainActivity forward, which Android background-activity-start limits can refuse (MEASURED 2026-10-10 'bring-to-front already requested'). Build: move pending peek + claim + fill into the foreground service; the dry-test ticket path (PHONE-DRYTEST-ACTION) is the verification, then one real ticket observed in the prop journal.",
-  "updated_at": "2026-10-14T07:37:21Z",
-  "updated_by": "session_01DfFYRUG7orGpkE5pVnA8e4",
+  "note": "[2026-10-14 weekly planning] OPERATOR-APPROVED 2026-10-14 (Tier-2, prop execution path), GATED: start only after the PHONE-AUTOLOGIN-2 APK shows 24 h of clean background heartbeats. Source: PI-20261010-UYZJSGJY-0001 -- login checks, re-login and the account read already run in BgWeb; tickets still bring MainActivity forward, which Android background-activity-start limits can refuse (MEASURED 2026-10-10 'bring-to-front already requested'). Build: move pending peek + claim + fill into the foreground service; the dry-test ticket path (PHONE-DRYTEST-ACTION) is the verification, then one real ticket observed in the prop journal. [2026-10-15 lane] Dispatched by manager session_01VduHYzdaXe27wTDBLSu8ao on the operator's 2026-10-15 ~06:20Z choice 'Phone fills in background' (this supersedes the 24 h heartbeat gate in the note above; the gate was not re-measured by this lane). BUILT on claude/phone-fgs-exec (held until #18158, BREAKOUT-SL-AMEND-CLICK, merged): every ticket page call goes through one Page (cur) -- the kiosk, or the BgWeb overlay engine while a background ticket runs; backgroundTick routes a waiting ticket to bgJob(ticket=true) -> account terminal on the engine page -> the SAME claimAndRun/execute/executeAmend (gates, read-back, server verify, go-token unchanged). Fallback, never a halt (BgTicket): no engine / 2 no-answers -> bring-to-front; logged in but no terminal -> front for this ticket, engine retried after 10 min; a claimed background ticket ending refused/unconfirmed/mid-fill (amend refusals excepted while the sheet edit is unmeasured) -> front for 6 h, one bg_ticket_fallback event (pinged). Reports/events carry '(bg:<engine>) '; heartbeat bg_tickets/bg_ticket_last/bg_ticket_off_min (server allowlist added). UNMEASURED RISK: typeKeys (the key-event fallback when the native setter does not hold) into the non-focusable overlay window; the native setter is tried first, and a miss refuses fail-closed. Tests: BgTicketTest 6/6 (JVM), tests/test_phone_executor.py 62 passed; the APK compile is CI's. [2026-10-15T10:32Z lane] MERGED via #18232 (b833573, 10:24Z; #18217 closed as superseded, its changes carried byte-identical). Signed APK: phone-executor-apk run 233 (id 38720025294, check then apk SUCCESS), artifact phone-executor-1b-apk id 11965850209, app_version 1b.233. CI unblocked by #18234 (APK workflow split) and PI-20261015-QC5PFG9A-0001 closed (#18257). LANDED_UNPROVEN: merged + built, NOT installed, NOT observed. Closes when, on 1b.233 installed: phone-dry-test with the app backgrounded -> dry_filled whose reason starts '(bg:overlay)' and heartbeat bg_tickets>=1; then one real ticket placed from the background in the prop journal.",
+  "updated_at": "2026-10-15T10:39:22Z",
+  "updated_by": "session_01TCAAkyPavusAKCqc5Pfg9a",
   "roadmap": [
     "L-PROP"
   ],
@@ -21,6 +25,10 @@
     "what": "first, 24 h of clean background heartbeats from the PHONE-AUTOLOGIN-2 APK recorded on this row; then a ticket is claimed and filled from the foreground service with no bring-to-front, observed in the prop journal (dry-test ticket first, then one real ticket)",
     "how_to_check": "/phone heartbeat rows via the diag relay + the prop journal ticket state transitions",
     "due_by": "2026-10-28"
+  },
+  "writeback": {
+    "roadmap": "none: L-PROP where already reads breakout_2 executes automatically via the phone executor; background fill is landed_unproven (not installed or observed), so the milestone line waits for the observation",
+    "arch": "none: phone executor internals (which WebView fills a ticket); the VM ticket/claim/verify contract is unchanged apart from an additive event kind and heartbeat keys"
   },
   "_seq": 484
 }

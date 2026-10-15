@@ -1,0 +1,93 @@
+id: RQ-20261015-8b93-02
+title: 'Training parity, OFF-VM side: does eth-regime-1h-lgbm-v1 trained in a Kaggle CPU kernel match the trainer-VM run on the same rows?'
+status: queued
+cadence: once
+theme: ml_health
+priority: 2
+kind: experiment
+question: 'Trained off-VM (Kaggle CPU kernel, published metis-market-data copy) on the SAME ETHUSDT 1h v002 rows with ts < 2026-10-01 as the
+  trainer reference RQ-20261015-8b93-01, does eth-regime-1h-lgbm-v1 give the same model within the pre-registered tolerance?'
+why_this_matters: 'Row KAGGLE-TRAIN-RUNNER-FIRST: the parity gate an off-VM artefact must clear before the operator OKs the first registry write
+  (as candidate, through the existing ladder). A PASS here is the evidence for that one ask; a FAIL or INDETERMINATE keeps every off-VM model
+  out of the registry. It is also the first dispatcher-fired kaggle_cpu run (row KAGGLE-CPU-ROUTE).'
+power:
+  expected_n: 1000
+  min_detectable_effect: 0.1
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: 'Not a significance test: a deterministic replication. LightGBM runs with deterministic=true and fixed seeds, so on the same rows and
+    library build the two runs should agree exactly; the tolerance absorbs cross-platform (x86 vs aarch64) and lightgbm-version float drift.
+    n = eval rows (time_aware_holdout 20% of the rows before the cutoff), reported by the run.'
+  feasibility:
+    source: none
+    accrual_basis: 'Fixed by construction (rows before a fixed cutoff): n does not grow with waiting.'
+requires_result:
+  unit: RQ-20261015-8b93-01
+  verdict: pass
+decision_rule:
+  id: RULE-RQ20261015-8b93-02-TRAIN-PARITY
+  registered_at: '2026-10-15'
+  registered_before_run: true
+  statistic: Per-metric difference (off-VM minus trainer) on the identical eval split, plus the share of eval rows given the same predicted class.
+  rule: INDETERMINATE IF either run failed or the input differs (sha256 of the rows kept by the cutoff, or their count, not equal -- parity is
+    undefined on different rows). PASS IF the input is identical AND every count metric (n_eval, n_train*, support_*) is exactly equal AND every
+    score metric (accuracy, macro_f1, weighted_f1, precision_*, recall_*, f1_*) differs by at most 0.01 absolute AND eval-prediction agreement
+    is >= 0.99. FAIL otherwise. Constants ABS_TOL / MIN_AGREEMENT in scripts/research/train_parity.py; the rule string is printed into the result.
+  min_n: 100 eval rows on each side.
+  what_it_does_not_do: Registers nothing, promotes nothing, edits no config or timer. A PASS is evidence for ONE operator-gated registry write of
+    an off-VM candidate; it does not move training off the trainer and says nothing about model quality or edge.
+compute: auto
+value:
+  bucket: ai_trader
+  usd_at_stake_per_month: 100
+  confidence: 0.5
+  basis: 'stand-in: gates moving ~86% of training manifests off the saturated trainer; not a measured P&L'
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  published_data: metis-market-data
+  peak_memory_gb: 1.5
+  est_minutes: 10
+  basis: 'Estimate: one LightGBM multiclass fit on the ETH 1h shard (the nightly trains it in ~1 min on the 1-OCPU trainer). The GitHub runner
+    cannot download the private dataset (row ML-DATA-RUNNER-FETCH, 404), so compute: auto + published_data routes it to the Kaggle CPU kernel
+    (kaggle_cpu: free, not metered by the GPU quota). The dataset path is derived from train_parity.manifest and checked against the export
+    allowlist by compute_router.unit_dataset_paths.'
+train_parity:
+  manifest: eth-regime-1h-lgbm-v1
+  cutoff: '2026-10-01T00:00:00Z'
+  side: candidate
+  reference_unit: RQ-20261015-8b93-01
+run:
+  command:
+  - python3
+  - scripts/research/train_parity.py
+  - --manifest
+  - eth-regime-1h-lgbm-v1
+  - --cutoff
+  - '2026-10-01T00:00:00Z'
+  - --backend
+  - kaggle_cpu
+  - --reference-unit
+  - RQ-20261015-8b93-01
+  - --unit
+  - '{unit}'
+  - --out
+  - '{out_dir}'
+  bundle_paths:
+  - comms/research/RQ-20261015-8b93-01
+  timeout_minutes: 30
+  inputs:
+    research_unit: RQ-20261015-8b93-02
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+roadmap:
+- M25
+related:
+- KAGGLE-TRAIN-RUNNER-FIRST
+- KAGGLE-CPU-ROUTE
+- RQ-20261015-8b93-01
+- scripts/research/train_parity.py

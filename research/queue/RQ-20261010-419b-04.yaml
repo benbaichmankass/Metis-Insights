@@ -3,7 +3,7 @@ title: >-
   Portfolio: on the live Bybit roster (bybit_2: xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h,
   ada_pullback_2h) and the prop book, which leg's removal or de-concentration would have raised trailing
   net R / cut co-drawdown? (perf-followup 2026-W41 Track 4)
-status: queued
+status: done
 cadence: once
 theme: live_strategy
 priority: 2
@@ -100,3 +100,14 @@ related:
 - scripts/research/nbook_portfolio.py
 - SRQ-20260715-REALMONEY-ALLOC-BENCHMARK
 last_dispatched_at: '2026-10-11T06:05:57+00:00'
+grading:
+  attested: RULE-RQ-20261010-419b-04-PREREG
+  auto: true
+  decision_rule_id: RULE-RQ-20261010-419b-04-PREREG
+  evidence:
+  - research/results/RQ-20261010-419b-04/38116960563.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  reason: 1 row(s), all measured, all no_action_warranted
+  rows: 1
+  verdict: no_action_warranted

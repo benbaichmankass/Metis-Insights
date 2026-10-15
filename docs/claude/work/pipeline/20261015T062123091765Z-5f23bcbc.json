@@ -1,0 +1,24 @@
+{
+  "based_on": "20261005T040132406816Z-668e953c.json",
+  "due_when": {
+    "check_every_days": 7,
+    "due_date": "2026-10-22",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ECILBBVH-0006",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-12",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-A02.findings.jsonl#AUD-20260927-CA-A02-conviction-nan-bypasses-floor",
+    "rerun": "python3 -c \"from src.runtime.conviction import compute_conviction;r=compute_conviction({'c_strat':float('nan')},floor=0.5);print(r.conviction,r.below_floor)\"  # 'nan False' => still open"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-verified STILL PRESENT on main 9072f2a1 (2026-10-15): re-ran probe: compute_conviction({'c_strat':nan},floor=0.5) -> conviction=nan below_floor=False; fix: _clip01 treats non-finite as 0.0 + NaN test",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "checklist row ORDER-AUDIT-3 (Tier-2; ORDER-AUDIT-2 is done and did not fix this) | [BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r) 2026-10-15 re-route]",
+  "state": "routed",
+  "what": "[AUD-20260927-CA-A02-conviction-nan-bypasses-floor] A NaN c_strat input yields conviction=NaN with below_floor=False (NaN < floor is False), and compute_conviction_sizing then raises ValueError despite its 'never raises' docstring; the callers swallow it and keep the full RiskManager qty, so the no-trade floor is skipped. Proposed fix: _clip01: treat non-finite as 0.0 (or drop the input); clip calibrated c_strat like the other slots. (Tier 2; audit lanes do not enact fixes.)"
+}

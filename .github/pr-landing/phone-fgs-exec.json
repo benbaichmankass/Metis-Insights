@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "PHONE-FGS-EXEC (manager session_01VduHYzdaXe27wTDBLSu8ao; operator chose 'Phone fills in background' 2026-10-15 ~06:20Z). Tier 2 by path: the prop phone executor's order path. A waiting ticket is claimed and filled on the background engine's page (the BgWeb overlay that already runs login checks, re-login and account reads) instead of bringing MainActivity forward; execute()/executeAmend() and every gate, read-back, server verify and go-token are unchanged. Bring-to-front stays as the fallback. Live vs dry is still decided only by the server. The manager merges; the operator installs the APK.",
+  "why": "MEASURED 2026-10-10 (PI-20261010-UYZJSGJY-0001): the bring-to-front for a waiting ticket can be refused by Android's background-activity-start limits ('bring-to-front already requested'), so tickets waited for the operator to open the app. Verification after install: phone-dry-test action with the app backgrounded -> dry_filled whose reason starts '(bg:overlay)', heartbeat bg_tickets >= 1; then one real ticket observed in the prop journal."
+}

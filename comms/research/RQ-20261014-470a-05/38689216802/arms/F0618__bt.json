@@ -1,0 +1,83 @@
+{
+  "strategy": "htf_pullback_trend_2h",
+  "symbol": "ADAUSDT",
+  "timeframe": "2h",
+  "params": {
+    "trend_lookback": 40,
+    "pullback_lookback": 10,
+    "pullback_frac": 0.618,
+    "atr_stop_mult": 1.5,
+    "trail_mult": 5.0,
+    "min_confidence": 0.0,
+    "vol_skip_above_pctl": 0.0,
+    "vol_skip_below_pctl": 0.1,
+    "vol_pctl_window": 200,
+    "adx_min": 28.0,
+    "adx_period": 14
+  },
+  "total_trades": 129,
+  "fee_bps_roundtrip": 7.5,
+  "slippage_bps_roundtrip": 3.0,
+  "funding_bps_per_window": 1.0,
+  "data_start": "2024-10-05 00:00:00+00:00",
+  "data_end": "2026-10-04 22:00:00+00:00",
+  "run_date": "2026-10-15",
+  "tp_r_effective_n": 129,
+  "tp_r_effective_median": 3.036,
+  "tp_r_effective_min": 0.655,
+  "tp_r_effective_max": 4.0,
+  "rr_floor_state": "off",
+  "rr_min_n": 128,
+  "rr_min_p10": 0.155,
+  "rr_min_median": 1.082,
+  "rr_min_p90": 3.8,
+  "rr_floor_exits": 0,
+  "win_rate_pct": 31.78,
+  "total_r": 30.2415,
+  "net_total_r": 23.6296,
+  "net_total_r_long": 0.5641,
+  "net_total_r_short": 23.0655,
+  "net_expectancy_r": 0.1832,
+  "net_total_r_fee_only": 27.165,
+  "net_expectancy_r_fee_only": 0.2106,
+  "trades_long": 68,
+  "trades_short": 61,
+  "avg_win_r": 2.8375,
+  "max_mfe_r": 3.976,
+  "mean_cost_r": {
+    "fee_r": 0.02385,
+    "slippage_r": 0.00954,
+    "funding_r": 0.01787,
+    "total_cost_r": 0.05126,
+    "funding_windows": 5.96899
+  },
+  "max_drawdown_r": 9.4657,
+  "by_outcome": {
+    "stop": 84,
+    "take_profit": 40,
+    "trail_stop": 5
+  },
+  "by_year": {
+    "2024": {
+      "trades": 23,
+      "net_r": 5.2879
+    },
+    "2025": {
+      "trades": 53,
+      "net_r": 2.6182
+    },
+    "2026": {
+      "trades": 53,
+      "net_r": 15.7231
+    }
+  },
+  "bar_minutes": 120.0,
+  "position_days": 257.3333,
+  "capital_days": 257.3333,
+  "mean_bars_held": 23.938,
+  "net_r_per_position_day": 0.0918,
+  "net_r_per_capital_day": 0.0918,
+  "exit_grain": "leg",
+  "subbar_coverage": null,
+  "subbar_missing_bars": null
+}

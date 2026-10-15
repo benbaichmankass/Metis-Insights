@@ -194,3 +194,28 @@ def test_an_unknown_session_does_not_silence_an_alpaca_defer(monkeypatch):
     msg = ("us_equity market closed — exit deferred to next session "
            "(protective bracket left armed)")
     assert om._is_session_defer(msg) is False
+
+
+# ── ORDER-AUDIT-3 / PI-20260930-ZIFJ1RKM-0006 ──────────────────────────────
+# The generic phrases used to be honoured on every venue: a Bybit maintenance
+# rejection read as a session defer, cleared the close-failure streak, and
+# never paged.
+@pytest.mark.parametrize("msg", [
+    "bybit: order rejected, market closed for maintenance",
+    "retCode=10006 exit deferred by risk engine",
+    "oanda: deferring order, instrument halted",
+    "market closed",
+])
+@pytest.mark.parametrize("session", ["rth", "extended", "closed"])
+def test_a_generic_phrase_from_a_non_session_venue_is_not_a_defer(monkeypatch, msg, session):
+    monkeypatch.setattr(om, "_us_equity_session", lambda now=None: session)
+    assert om._is_session_defer(msg) is False
+
+
+def test_a_bybit_maintenance_close_failure_pages(monkeypatch, _clean):
+    """End to end through the streak: before the fix this cleared the streak
+    every tick and paged zero times."""
+    _ticks(monkeypatch, {"ok": False,
+                         "error": "bybit: order rejected, market closed for maintenance"}, 3)
+    assert om._CLOSE_FAIL_STREAK.get(_KEY) == 3
+    assert len(_clean) == 1

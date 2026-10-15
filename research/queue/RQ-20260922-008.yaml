@@ -1,6 +1,6 @@
 id: RQ-20260922-008
 title: Is eth_pullback_prop_2h simply a worse parameterisation of eth_pullback_2h?
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -157,3 +157,14 @@ last_dispatched_at: '2026-09-28T20:06:48+00:00'
 result: >-
   GRADED 2026-09-28 by lane RQ-RUN (session_0179hCBVrY5PJMaHhK3BKcKe, manager session_01KAQRJxRbRwpYTkPgBjNVyQ) against the pre-registered rule, from committed results only.
   DISPOSITION: RE-QUEUED (last_dispatched_at reset to null), not graded -- the 2026-09-24 dispatch produced NO committed rows. MEASURED: docs/research/e35-bracket-corpus.jsonl holds 0 rows tagged research_unit=RQ-20260922-008 (398 rows carry RQ-20260922-005 from the same minute). e35-bracket-sweep runs at 11:58Z: 35996181088 success (that was -005), 35996183907 CANCELLED after 4 s, 35996186685 FAILED: its plan step ran `--only "eth_pullback_2h"` (one shard; eth_pullback_prop_2h was never planned) and then `Land the corpus on main` failed at the commit-to-main wait, so even the one shard's rows never reached main. A single bad pass never kills an idea: the dispatcher will re-fire this unit on its next real run (route=runner). Before it does, the next session should check why the planner received one leg when run.inputs.only names two.
+grading:
+  awaiting: more_data
+  decision_rule_id: RULE-RQ0922-008-PROP-VARIANT-PARAMETERS
+  evidence:
+  - docs/research/e35-bracket-corpus.jsonl
+  graded_at: '2026-10-15'
+  graded_by: session_01AHy9CTrdF2hMBAWNBzB5wN (lane RESEARCH-GRADE-BACKLOG)
+  read_state: measured
+  reason: base_oos_trades 49 for both eth_pullback_2h and eth_pullback_prop_2h < the 52 per-group floor
+    -> unresolvable_at_current_n; none of the three branches fires (rule text).
+  verdict: indeterminate

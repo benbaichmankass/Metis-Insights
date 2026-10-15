@@ -1,0 +1,1 @@
+auto-merge: GH-CAPACITY-LAND-VERIFY-OFF-RUNNER (receipt step)

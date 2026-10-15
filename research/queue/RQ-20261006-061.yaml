@@ -1,6 +1,6 @@
 id: RQ-20261006-061
 title: "TP doctrine, real money: a finite target for alpaca_live's three 1d pullback sentinels (iaum / ief / slv)"
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: live_strategy
@@ -126,3 +126,14 @@ related:
   - 'RQ-20260929-004 (iaum_pullback_1d e35 sweep, graded accruing) and RQ-20260929-002 (gld_pullback_1d) -- the same thin-book finding on sibling legs'
   - 'CLAUDE.md § promotion ladder: alpaca_portfolio mirrors alpaca_live minus the two affordability proxies (iaum is one), so a target change lands on both in one PR'
 last_dispatched_at: '2026-10-14T04:38:04+00:00'
+grading:
+  awaiting: more_data
+  decision_rule_id: RULE-RQ1006-061-FINITE-TP-1D-PULLBACK-OR-POOL
+  evidence:
+  - docs/research/e35-bracket-corpus.jsonl
+  graded_at: '2026-10-15'
+  graded_by: session_01AHy9CTrdF2hMBAWNBzB5wN (lane RESEARCH-GRADE-BACKLOG)
+  read_state: measured
+  reason: 'unresolvable_at_current_n (the expected branch): base_oos_trades iaum 5, ief 8, slv 9 vs the
+    39 floor; no tp_r proposed. Follow-on pooled pullback-1d family unit: research/queue/blocked/RQ-20261015-1bf3-01.yaml.'
+  verdict: indeterminate

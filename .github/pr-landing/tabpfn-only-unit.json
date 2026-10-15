@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "New hand-written pre-registered research unit (E57: hand-written units land in a hold PR; the manager lands them). Manager instruction 2026-10-15 10:03Z: author the small TabPFN-only unit RQ-20261015-eda2-02 and note the runner-waste evidence on GH-CAPACITY-RESEARCH-OFFLOAD.",
+  "why": "One research/queue unit (TabPFN-only research-eval, same datasets and bar as RQ-20261013-1414-06's tabpfn arm) plus two checklist-row notes. Docs/research units only; no runtime, order-path, config or workflow touched."
+}

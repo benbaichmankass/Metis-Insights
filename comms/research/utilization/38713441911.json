@@ -1,0 +1,162 @@
+{
+  "schema": 1,
+  "run_id": "38713441911",
+  "generated_at": "2026-10-15T09:32:40.528765+00:00",
+  "fired": true,
+  "backends": {
+    "github_runner": {
+      "read_state": "measured",
+      "capacity": 3,
+      "inflight_at_start": 0,
+      "fired_this_cycle": 3,
+      "due_waiting": 15,
+      "due_total": 18,
+      "free_slots_after": 0,
+      "busy_fraction": 1.0
+    },
+    "github_runner_data": {
+      "read_state": "measured",
+      "capacity": 2,
+      "inflight_at_start": 0,
+      "fired_this_cycle": 0,
+      "due_waiting": 0,
+      "due_total": 0,
+      "free_slots_after": 2,
+      "busy_fraction": 0.0
+    },
+    "kaggle_cpu": {
+      "read_state": "measured",
+      "capacity": 1,
+      "inflight_at_start": 0,
+      "fired_this_cycle": 0,
+      "due_waiting": 0,
+      "due_total": 0,
+      "free_slots_after": 1,
+      "busy_fraction": 0.0
+    },
+    "trainer": {
+      "read_state": "measured",
+      "capacity": 1,
+      "inflight_at_start": 1,
+      "fired_this_cycle": 0,
+      "due_waiting": 4,
+      "due_total": 4,
+      "free_slots_after": 0,
+      "busy_fraction": 1.0
+    },
+    "kaggle": {
+      "read_state": "measured",
+      "capacity": 1,
+      "inflight_at_start": 0,
+      "fired_this_cycle": 0,
+      "due_waiting": 0,
+      "due_total": 0,
+      "free_slots_after": 1,
+      "busy_fraction": 0.0
+    },
+    "runpod": {
+      "read_state": "measured",
+      "capacity": 1,
+      "inflight_at_start": 0,
+      "fired_this_cycle": 0,
+      "due_waiting": 0,
+      "due_total": 0,
+      "free_slots_after": 1,
+      "busy_fraction": 0.0
+    }
+  },
+  "runner_pool_used_vs_platform": {
+    "research_inflight": 0,
+    "platform_concurrency": 20,
+    "read_state": "measured",
+    "note": "research runs only; other workflows share the pool"
+  },
+  "kaggle_gpu": {
+    "read_state": "measured",
+    "remaining_h": 29.81,
+    "used_h": 0.19,
+    "total_h": 30.0,
+    "refresh_at": "2026-10-17T00:00:00",
+    "hours_to_refresh": 38.5,
+    "expiring_h": 29.81
+  },
+  "gpu_burst": {
+    "read_state": "measured",
+    "month_to_date_usd": 0,
+    "budget_usd": 10.0
+  },
+  "trainer_vm": {
+    "read_state": "measured",
+    "source": "comms/cloud/compute_spare.json",
+    "spare": {
+      "as_of": "2026-10-14T12:21:22+00:00",
+      "consumer": "research router (config/research_compute.yaml), trainer backend = hosts.trainer",
+      "hosts": {
+        "gateway": {
+          "basis": "shape x (1 - max daily p95 over last 7 complete days)",
+          "days_measured": 7,
+          "display_name": "ict-ib-gateway",
+          "memory_gb": 6.0,
+          "ocpus": 1.0,
+          "read_state": "measured",
+          "spare_memory_gb": 4.193,
+          "spare_ocpus": 0.278
+        },
+        "live": {
+          "basis": "shape x (1 - max daily p95 over last 7 complete days)",
+          "days_measured": 7,
+          "display_name": "ict-bot-arm",
+          "memory_gb": 12.0,
+          "ocpus": 2.0,
+          "read_state": "measured",
+          "spare_memory_gb": 9.393,
+          "spare_ocpus": 0.259
+        },
+        "trainer": {
+          "basis": "shape x (1 - max daily p95 over last 7 complete days)",
+          "days_measured": 7,
+          "display_name": "ict-trainer-vm",
+          "memory_gb": 6.0,
+          "ocpus": 1.0,
+          "read_state": "measured",
+          "spare_memory_gb": 0.497,
+          "spare_ocpus": 0.0
+        }
+      }
+    }
+  },
+  "dispatched": [
+    {
+      "id": "RQ-20261015-1bf3-03",
+      "backend": "github_runner",
+      "class": "cpu_light",
+      "value": 66.18,
+      "idle_fill": false
+    },
+    {
+      "id": "RQ-20261015-1bf3-04",
+      "backend": "github_runner",
+      "class": "cpu_light",
+      "value": 66.18,
+      "idle_fill": false
+    },
+    {
+      "id": "RQ-20261015-1bf3-05",
+      "backend": "github_runner",
+      "class": "cpu_light",
+      "value": 53.57,
+      "idle_fill": false
+    },
+    {
+      "id": "RQ-20260929-017",
+      "backend": "unmanaged",
+      "class": null,
+      "value": 11.51,
+      "idle_fill": false
+    }
+  ],
+  "flags": [
+    "floor_thin: github_runner_data has 2 idle slot(s) and nothing due for it, kaggle_cpu has 1 idle slot(s) and nothing due for it, kaggle has 1 idle slot(s) and nothing due for it, runpod has 1 idle slot(s) and nothing due for it -- research-ops should author units whose compute class lands there",
+    "kaggle_quota_expiring: 29.81 GPU h unused with the weekly reset in 38.5 h and no gpu unit due"
+  ]
+}

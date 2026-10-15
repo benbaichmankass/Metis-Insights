@@ -1,0 +1,27 @@
+{
+  "based_on": "20261014T055615403284Z-45635af5.json",
+  "due_when": {
+    "due_date": "2026-10-29",
+    "kind": "date"
+  },
+  "id": "PI-20261012-GNRBKIGG-0003",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-29",
+    "how_to_check": "the rerun command above",
+    "what": "a closed prop_fills row for ticket prop-manual-903de9527c23 with exit_price + pnl read from the Breakout terminal (phone Closed-orders read via #17745's reconcile, or the operator reading the trade history)"
+  },
+  "origin": {
+    "kind": "audit",
+    "ref": "manager session_01G16FfyYSmDPQuuW55BuTmK 2026-10-12T13:50Z relay; PROP-TRACKING lane",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/prop/fills?account_id=breakout_2&limit=20' | jq '[.fills[]|select(.ticket_id==\"prop-manual-903de9527c23\")|{id,status,exit_price,pnl,closed_at}]' -- holds while no closed row for this ticket carries a venue-read exit_price."
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, still open on its row: LIVE prop/fills breakout_2: SOLUSDT ticket prop-manual-903de9527c23 row 108 (closed 2026-10-12T13:30Z) and ETH row 109 still have exit_price null and pnl null; only row 118 (10-13) is priced. No machine read path for Breakout exits; PROP-EXIT-READ owns the build.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "ROUTE-PROP-TRACKING | [ROUTING-ALARM-20261014] routed from daily review WR-20261014-0530Z; the row owns this item and carries the rerun command",
+  "state": "routed",
+  "what": "breakout_2 SOLUSDT long (prop_fills row 107, ticket prop-manual-903de9527c23, entry 111.16, qty 17.26263867) is CLOSED on the Breakout terminal (operator-observed 2026-10-12 ~13:44Z) but its EXIT PRICE and TIME are NOT verified: operator verbatim 'I don't know if it stopped at sl, I'm assuming'. Best estimate: the journal SL 109.71178571 at ~13:30Z (bot SOLUSDT 15m low 109.72 at 13:30Z; est. realized -25.00 USD), ESTIMATED only. Caveat: the phone trail tried to amend the stop 109.71 -> 111.39 at 08:30Z and 09:31Z with no recorded outcome; if either landed the exit was ~111.39 (~ +4 USD). The close must be journaled without a measured exit and the true exit + venue P&L recorded once read from the terminal."
+}

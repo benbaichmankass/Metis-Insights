@@ -1417,3 +1417,86 @@ def test_select_position_row_picks_the_wanted_book():
                                           "positionIdx": None}]
     assert select_position_row(blind, want_side="short").state == (
         "ambiguous_multi_book")
+
+
+# ---------------------------------------------------------------------------
+# PI-20261009-GXEDZJQE-0001 (ORDER-AUDIT-3): a LIVE sibling book's own stop is
+# not an over-cover of this book. The shape is the live bybit_1/ETHUSDT read of
+# 2026-10-15T06:59:26Z (/api/diag/bybit_open_orders): Buy 0.12 positionIdx=1
+# plus Sell 19.69 positionIdx=2, each protected 1.00x by its own SL. The
+# trader journal for 05:01-05:09Z that day holds four "OVER-COVER TRIP ...
+# side-blind SL total 19.81 (16508%)" ERROR lines for this state.
+# ---------------------------------------------------------------------------
+_ETH_LONG = {"symbol": "ETHUSDT", "side": "Buy", "size": "0.12",
+             "positionIdx": 1, "stopLoss": ""}
+_ETH_SHORT = {"symbol": "ETHUSDT", "side": "Sell", "size": "19.69",
+              "positionIdx": 2, "stopLoss": ""}
+_ETH_LONG_SL = {"stopOrderType": "PartialStopLoss", "side": "Sell",
+                "qty": "0.12", "orderId": "eth-long-sl", "positionIdx": 1}
+_ETH_SHORT_SL = {"stopOrderType": "PartialStopLoss", "side": "Buy",
+                 "qty": "19.69", "orderId": "eth-short-sl", "positionIdx": 2}
+
+
+def _eth_dual_db(tmp_path):
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=1, account_id="bybit_2", symbol="ETHUSDT", direction="long",
+            position_size=0.12, stop_loss=2200.0, take_profit_1=2600.0,
+            created_at="2026-07-01T00:00:00+00:00", status="open")
+    _insert(db, id=2, account_id="bybit_2", symbol="ETHUSDT",
+            direction="short", position_size=19.69, stop_loss=2450.0,
+            take_profit_1=2100.0,
+            created_at="2026-07-01T00:00:00+00:00", status="open")
+    return db
+
+
+def test_live_sibling_books_each_fully_covered_do_NOT_trip_over_cover(
+        tmp_path, monkeypatch):
+    """THE DEFECT. Each book is covered exactly 1.00x by its own leg. Before
+    the fix the 0.12 long book tripped on the side-blind 19.81 and paged at
+    ERROR."""
+    db = _eth_dual_db(tmp_path)
+    client = _FakeBybitBooks(
+        positions={"ETHUSDT": [_ETH_LONG, _ETH_SHORT]},
+        stop_legs={"ETHUSDT": [dict(_ETH_LONG_SL), dict(_ETH_SHORT_SL)]})
+    sent = []
+    import src.runtime.outcomes as outcomes
+    monkeypatch.setattr(outcomes, "report", lambda *a, **k: sent.append((a, k)))
+    s = _sweep(db, client, monkeypatch, tmp_path)
+
+    assert s["over_covered"] == 0
+    assert s["over_cover_alerted"] == 0
+    assert [a[0] for a, _ in sent if a and a[0] == "bybit_over_cover"] == []
+    assert s.get("over_cover_live_sibling_explained", 0) >= 1
+    # Nothing is naked and nothing goes to the venue.
+    assert s["broker_naked"] == 0 and client.stops_set == []
+
+
+def test_live_sibling_PILE_UP_still_trips_over_cover(tmp_path, monkeypatch):
+    """Control: when the SIBLING book's own legs pile up past its size, the
+    trip still fires. The change grades each book on its own size and does
+    not hide the sibling's excess."""
+    db = _eth_dual_db(tmp_path)
+    client = _FakeBybitBooks(
+        positions={"ETHUSDT": [_ETH_LONG, _ETH_SHORT]},
+        stop_legs={"ETHUSDT": [
+            dict(_ETH_LONG_SL), dict(_ETH_SHORT_SL),
+            {**_ETH_SHORT_SL, "orderId": "eth-short-sl-stale"},
+        ]})
+    s = _sweep(db, client, monkeypatch, tmp_path)
+    assert s["over_covered"] >= 1
+
+
+def test_position_protection_reports_sibling_live_size():
+    client = _FakeBybitBooks(
+        positions={"ETHUSDT": [_ETH_LONG, _ETH_SHORT]},
+        stop_legs={"ETHUSDT": [dict(_ETH_LONG_SL), dict(_ETH_SHORT_SL)]})
+    st = om._bybit_position_protection(client, "linear", "ETHUSDT",
+                                       want_side="long")
+    assert st["size"] == 0.12
+    assert st.get("sibling_book_live_size") == 19.69
+    # A single live book establishes no sibling: None, never 0.0.
+    single = _FakeBybitBooks(
+        positions={"ETHUSDT": [_ETH_LONG, {**_ETH_SHORT, "size": "0"}]},
+        stop_legs={"ETHUSDT": [dict(_ETH_LONG_SL)]})
+    st1 = om._bybit_position_protection(single, "linear", "ETHUSDT")
+    assert st1["sibling_book_live_size"] is None

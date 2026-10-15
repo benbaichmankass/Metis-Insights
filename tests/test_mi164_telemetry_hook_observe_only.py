@@ -155,6 +155,12 @@ def spy(monkeypatch):
     return calls
 
 
+def _record_kwargs(kw):
+    """The hook's kwargs minus the history-only inputs (EXIT-PATH-TELEMETRY-LIVE)
+    that ``record_position_telemetry`` pops before calling ``build_record``."""
+    return {k: v for k, v in kw.items() if k not in ("candles_df", "atr")}
+
+
 # ---------------------------------------------------------------------------
 
 
@@ -288,7 +294,7 @@ class TestAbsenceIsNamedNeverFaked:
                                                             cfg, frame, pkg,
                                                             _v, spy):
         mod.monitor(cfg, frame, pkg)
-        row = position_telemetry.build_record(**spy[0])
+        row = position_telemetry.build_record(**_record_kwargs(spy[0]))
         assert row is not None, f"{label}: no row built"
         assert row["peak_state"] == self.WANT[label]
         if self.WANT[label] != "measured":
@@ -304,12 +310,12 @@ class TestAbsenceIsNamedNeverFaked:
         the 9. If these two cannot produce a `peak_r`, the hook bought nothing.
         """
         ict_scalp.monitor({}, _scalp_frame(101.2), _scalp_pkg())
-        row = position_telemetry.build_record(**spy[0])
+        row = position_telemetry.build_record(**_record_kwargs(spy[0]))
         assert row["peak_r"] == pytest.approx(1.3)
 
         spy.clear()
         squeeze_breakout_4h.monitor({}, _squeeze_frame(), _squeeze_pkg())
-        row = position_telemetry.build_record(**spy[0])
+        row = position_telemetry.build_record(**_record_kwargs(spy[0]))
         # peak high 150, entry 110, risk 26.25 -> 40 / 26.25. Compared at 1e-4
         # because the stored schema rounds peak_r to 4dp (`position_telemetry._r`),
         # so 4dp is the resolution any consumer of this column actually gets.

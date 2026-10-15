@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "due_date": "2026-10-22",
+    "kind": "date"
+  },
+  "id": "PI-20261015-PD85QJEZ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "ORDER-AUDIT-3 lane session_015ph6MwWrWPDbc6Pd85QJEZ, PR #18208",
+    "rerun": "bash scripts/ops/diag_fetch.sh 'journal?table=trades&limit=1000'  # ids 6565,6566,6593,6594 still exit_reason=sl_cross with no notes.exit_reason_source = still open"
+  },
+  "routed_to": "ORDER-AUDIT-3",
+  "severity": "medium",
+  "state": "routed",
+  "tier": 2,
+  "what": "Backfill the 4 real-money sl_cross closes whose position was actually closed by the venue's own SL order before the monitor wrote anything (ORDER-AUDIT-3 item 12, found by the #18208 investigation). The row's own sl_order_id filled the full quantity in every case (/api/bot/pnl/exchange/fills): 6565 → 71c1cc1e 548@0.2432 (53s before the DB close); 6566 → b519d18a 166397@0.2432; 6593 → 547adb49 0.05@2506.89 (45s before); 6594 → 1812dfa6 17.74@2506.89. Proposed per row: exit_reason sl_cross→sl; notes.exit_reason_source=venue_bracket_order; notes.pre_backfill_exit_reason=sl_cross; no money field touched. Mechanism: system-action backfill-exit-labels (scripts/ops/backfill_exit_labels.py). Its ORDER_ID_RELABEL_REASONS and the apply() WHERE guard first need to accept sl_cross/tp_cross (or the strategy_verdict_venue_flat marker from #18208) when exit_reason_source is NULL and the row's own bracket order ended the position. Then dispatch it as Tier-2, dry-run first."
+}

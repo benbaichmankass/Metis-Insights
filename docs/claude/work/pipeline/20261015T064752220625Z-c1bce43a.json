@@ -1,0 +1,25 @@
+{
+  "based_on": "20261011T060042950831Z-774acfdb.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a registered pairs cost-fidelity rule exists under docs/research/ and comms/research/r3_cost_fidelity/ carries a pairs cell with a verdict other than insufficient_n (or the pairs legs are moved to shadow, or killed with a reason)",
+    "kind": "event",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261011-6ZFRKKPC-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PAIRS-GAPS session_016buW3b1Y4LykWY6zFRkkPc, successor of PI-20261007-N6TXSAL6-0001",
+    "rerun": "python3 - <<'X'\nimport json,glob\nr=sorted(glob.glob('comms/research/r3_cost_fidelity/2026-*.json'))[-1]\nd=json.load(open(r))['per_leg']\nprint(r,{k:[(c['n_entry'],c['n_exit'],c['verdict']) for c in v['cells']] for k,v in d.items() if k.startswith('pairs_')})\nX"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, still open: comms/research/r3_cost_fidelity/2026-10-10.json pairs_bnb_btc_a/b and pairs_sol_eth_a/b have n_entry 155-173, n_exit 0, modelled_bps None (insufficient_n only); no pairs cost-fidelity rule exists under docs/research.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_by": "ROUTE-AND-ASK-TRIAGE session_01BFAVovnP4UK5phrpVWnYsR 2026-10-11",
+  "routed_to": "checklist row PAIRS-GAPS (successor item named in its note)",
+  "state": "routed",
+  "what": "Gate-1 cost fidelity for pairs needs its own rule. RULE-R3 grades entry+exit slippage against a package price reference; a pairs close is a spread exit with none (MEASURED 2026-10-10 record: 145 pairs_stop/pairs_revert rows excluded as exit_measured_no_reference; every pairs cell has n_exit=0), and no comms/strategy_evidence/pairs_* record exists, so modelled_bps is None. MD-PROMOTE-S1-S2 therefore reads insufficient_n for pairs forever, whatever the soak accrues. Decide and register BEFORE a run: grade the pair on entry-leg slippage only against the Stage-0 cost stack (RQ-20261007-005..008 model 3.0 bps roundtrip per leg), or on the realised spread vs the modelled spread. Observed entry-leg means on the 2026-10-10 record: sol_eth_a 0.124, sol_eth_b -0.239, bnb_btc_a -1.754, bnb_btc_b 0.426 bps (negative = favourable), n 155-173 each. Changing the registered rule is Tier 3; this is a research unit + rule doc, not an edit to the grader."
+}

@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "due_date": "2026-10-22",
+    "kind": "date"
+  },
+  "id": "PI-20261015-PD85QJEZ-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "ORDER-AUDIT-3 lane session_015ph6MwWrWPDbc6Pd85QJEZ (from the #18208 investigation)",
+    "rerun": "bash scripts/ops/diag_fetch.sh 'journal?table=trades&limit=1000'  # count real-money (bybit_2/bybit_portfolio/alpaca_live) closes with exit_reason=intent_reduce_executed and no notes.exit_reason_source; >0 = still open"
+  },
+  "routed_to": "ORDER-AUDIT-3",
+  "severity": "medium",
+  "state": "routed",
+  "tier": 2,
+  "what": "4 real-money closes since 2026-10-08 carry exit_reason=intent_reduce_executed with NO notes.exit_reason_source (live read 2026-10-15 via diag journal trades limit=1000, real-money closes since 10-08, n=16). Per CLAUDE.md any close that is not TP/SL/strategy-close with a correct, sourced reason is a bug. Root-cause the intent-reduce close writer (src/units/accounts/execute.py reduce audit path / order_monitor) and stamp a truthful source; separate population from #18208's sl_cross fix."
+}

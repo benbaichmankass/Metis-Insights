@@ -70,3 +70,33 @@ def test_json_output_carries_summary_by_class() -> None:
     data = json.loads(proc.stdout)
     assert set(data["summary"]["by_class"]) <= set(guard.CLASS_RANK)
     assert len(data["routings"]) == data["summary"]["routings"]
+
+
+# ── TP-REACH-FLOOR (operator-approved 2026-10-14, checklist row TP-REACH-FLOOR) ──
+def test_reach_floor_positive_and_negative_controls_on_the_curve() -> None:
+    ev = {"n": 400, "reach": {2.0: 0.30, 3.0: 0.10, 6.0: 0.009}}
+    # positive control: a TP reached by >= 10% still passes (the floor itself included)
+    assert guard.grade_reach(2.0, ev) == (guard.REACH_OK, 0.30)
+    assert guard.grade_reach(3.0, ev)[0] == guard.REACH_OK
+    # negative control: a near-sentinel TP reached by ~1% is below the floor
+    assert guard.grade_reach(6.0, ev) == (guard.REACH_BELOW, 0.009)
+    # absent evidence is never read as reachable
+    assert guard.grade_reach(2.0, None) == (guard.REACH_UNMEASURED, None)
+
+
+def test_reach_floor_grades_the_live_near_sentinel_prop_target_unreachable() -> None:
+    """The finding the row was filed on (PI-20261007-SXUZGFME-0001): trend_donchian_eth_prop's
+    declared 6 R is reached by < 10% of uncapped harness trades, so its routings fail entry_tp.
+    Re-measured by the scan, not quoted: the assertion is the floor, not a number."""
+    rows = [r for r in guard.scan() if r.leg == "trend_donchian_eth_prop"]
+    assert rows, "trend_donchian_eth_prop is no longer rostered -- re-point this control at another below-floor leg"
+    for r in rows:
+        assert r.reach_state == guard.REACH_BELOW and r.reach_rate < guard.REACH_FLOOR
+        assert r.entry_state == guard.ENTRY_UNREACHABLE and guard.DIM_ENTRY in r.fails
+
+
+def test_reach_census_states_its_population() -> None:
+    _, summary = guard.ratchet(guard.scan(), guard.BASELINE_2026_10_06)
+    census = summary["reach_census_over_declared_targets"]
+    declared = [r for r in guard.scan() if r.reach_state != guard.REACH_NA]
+    assert sum(census.values()) == len(declared)

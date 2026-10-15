@@ -555,7 +555,12 @@ jobs:
         if: steps.rcpt.outputs.skip != 'true'
         uses: ./.github/actions/commit-to-main
         with:
-          verify-merged: "true"
+          # "false" (GH-CAPACITY-INFRA-FIRST, operator 2026-10-15: infra first on the shared runner pool):
+          # the in-run wait held an idle runner ~7 min/run. Arrival is still verified -- next cycle, by
+          # check_research_queue_dispatch_liveness.py grading the receipt ON MAIN (pages when stale/absent),
+          # which is the design that script's docstring always described. Exemption is pinned in
+          # tests/test_commit_to_main_callers.py::DEFERRED_VERIFY to this one file.
+          verify-merged: "false"
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
           paths: docs/claude/work/research-queue-dispatch-receipt.json comms/research/utilization
           message: "chore(research-queue): liveness receipt for run ${{ github.run_id }}"

@@ -174,7 +174,12 @@ def test_the_land_job_has_no_group_that_could_drop_a_payload():
     assert "needs.dispatch.outputs.payload == 'true'" in land["if"]
 
 
-def test_the_land_job_still_has_all_three_verified_landings():
+def test_the_land_job_still_has_all_three_landings_with_their_verification():
+    """Results and stamps verify in-run. The receipt alone verifies NEXT cycle (GH-CAPACITY-INFRA-FIRST,
+    2026-10-15: the in-run wait held an idle runner ~7 min/run): it is allowed only through the pinned
+    DEFERRED_VERIFY rule in tests/test_commit_to_main_callers.py, which needs the liveness grader in this
+    workflow to read the receipt on main."""
+    from tests.test_commit_to_main_callers import _deferred_ok
     land = yaml.safe_load(WF.read_text())["jobs"]["land"]
     c2m = [s for s in land["steps"] if s.get("uses") == "./.github/actions/commit-to-main"]
     assert [s["with"]["branch-prefix"] for s in c2m] == [
@@ -182,7 +187,10 @@ def test_the_land_job_still_has_all_three_verified_landings():
         "automation/research-queue-receipt",
         "automation/research-queue-stamp",
     ]
-    assert all(str(s["with"]["verify-merged"]).lower() == "true" for s in c2m)
+    verified = {s["with"]["branch-prefix"]: str(s["with"]["verify-merged"]).lower() == "true" for s in c2m}
+    assert verified["automation/research-results-batch"] and verified["automation/research-queue-stamp"]
+    receipt = c2m[1]
+    assert verified["automation/research-queue-receipt"] or _deferred_ok(WF.name, receipt)
 
 
 def test_a_receipt_pr_in_flight_skips_the_next_receipt_landing():

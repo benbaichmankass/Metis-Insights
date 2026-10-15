@@ -662,10 +662,35 @@
     return null;
   }
   function safeClick(x) { var d = denied(x); if (d) return d; x.click(); return "clicked"; }
+  // a touch-style tap at the element's centre: pointer + mouse down/up, then click (BREAKOUT-SHEET-PROBE)
+  function safeTap(x) {
+    var d = denied(x); if (d) return d;
+    var r = x.getBoundingClientRect(), o = {bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0};
+    var P = typeof PointerEvent === "function" ? PointerEvent : MouseEvent;
+    x.dispatchEvent(new P("pointerdown", Object.assign({pointerType: "touch", isPrimary: true, pointerId: 1}, o)));
+    x.dispatchEvent(new MouseEvent("mousedown", o));
+    x.dispatchEvent(new P("pointerup", Object.assign({pointerType: "touch", isPrimary: true, pointerId: 1}, o)));
+    x.dispatchEvent(new MouseEvent("mouseup", o));
+    x.dispatchEvent(new MouseEvent("click", o));
+    return "tapped";
+  }
   function textEls(root, re, max) {   // innermost visible elements whose own text matches re
     return innermost(Array.prototype.slice.call((root || document).querySelectorAll("*")).filter(function (e) {
       if (!vis(e)) return false; var s = t(e); return s.length > 0 && s.length <= (max || 40) && re.test(s);
     }));
+  }
+  // the ONE Positions row cell to tap for `sym`: which = "child" -> the position row's Market cell ("ETH 5x", a
+  // leverage badge); "group" -> the group row's ("ETH 1", the symbol + a count). Only inside the Positions grid panel.
+  // The element, or why not: no_grid | no_panel | none | rows_<n>
+  function sheetHit(sym, which) {
+    var g = gridHeaders(POS_COLS); if (g.length !== 1) return "no_grid";
+    var panel = gridPanel(g[0]); if (!panel) return "no_panel";
+    var b = base(sym).replace(/[^A-Z0-9]/g, ""), sfx = "(USD[TC]?|PERP)?";
+    var re = which === "group" ? new RegExp("^[\\u2304\\u2335\\u25be\\u25bc\\u02c5v]?\\s*" + b + sfx + "\\s*\\d+$", "i")
+      : new RegExp("^" + b + sfx + "\\s*\\d+(\\.\\d+)?\\s*[x\\u00d7]$", "i");
+    var hits = textEls(panel, re, 24).filter(function (e) { return !g[0].contains(e); });
+    if (!hits.length) return "none"; if (hits.length > 1) return "rows_" + hits.length;
+    return hits[0];
   }
   function sheetRoots() {   // the smallest ancestor of a [Position details] tab that also holds the [n TP / n SL] tab and the subtitle
     var found = [];
@@ -1239,17 +1264,70 @@
     // a leverage badge); "group" taps the group row's ("ETH 1", the symbol + a count). Only inside the Positions grid
     // panel, never a control the denylist names. clicked | bad_host | sheet_open | no_grid | no_panel | none | rows_<n> |
     // deny_*.
-    sheetOpen: function (sym, which) {
+    sheetOpen: function (sym, which, mode) {
       if (!hostOk()) return "bad_host";
       if (sheetRoots().length) return "sheet_open";
-      var g = gridHeaders(POS_COLS); if (g.length !== 1) return "no_grid";
-      var panel = gridPanel(g[0]); if (!panel) return "no_panel";
-      var b = base(sym).replace(/[^A-Z0-9]/g, ""), sfx = "(USD[TC]?|PERP)?";
-      var re = which === "group" ? new RegExp("^[\\u2304\\u2335\\u25be\\u25bc\\u02c5v]?\\s*" + b + sfx + "\\s*\\d+$", "i")
-        : new RegExp("^" + b + sfx + "\\s*\\d+(\\.\\d+)?\\s*[x\\u00d7]$", "i");
-      var hits = textEls(panel, re, 24).filter(function (e) { return !g[0].contains(e); });
-      if (!hits.length) return "none"; if (hits.length > 1) return "rows_" + hits.length;
-      return safeClick(hits[0]);
+      var h = sheetHit(sym, which); if (typeof h === "string") return h;
+      window.__exTap = h;
+      // mode "pointer" (BREAKOUT-SHEET-PROBE): the 1b.205 run tapped both rows with click() and no sheet opened; a
+      // touch-style pointer sequence at the cell's centre is the second, measured attempt. Same target, same denylist.
+      if (mode === "pointer" && h.scrollIntoView) h.scrollIntoView({block: "center", inline: "nearest"});
+      return mode === "pointer" ? safeTap(h) : safeClick(h);
+    },
+    // NATIVE TAP target (BREAKOUT-NATIVE-TAP; 1b.210 08:37Z: click() and a synthetic pointer tap reached the cell, the
+    // group tap EXPANDED the row, and no synthetic event opened the sheet -- the opener likely wants a trusted touch).
+    // The SAME row cell sheetOpen would click, denylist-checked, and the point the app will touch re-checked with
+    // elementFromPoint: the topmost element there must be that cell or inside it (never a row ✕ or an overlay), and
+    // nothing from it up to the cell may be denied. scroll=true centres the cell first (the caller waits, then asks
+    // again without scrolling, right before it touches). {ok, x, y, vw, vh} in CSS px, or {ok:false, why}.
+    sheetTarget: function (sym, which, scroll) {
+      if (!hostOk()) return {ok: false, why: "bad_host"};
+      if (sheetRoots().length) return {ok: false, why: "sheet_open"};
+      var h = sheetHit(sym, which); if (typeof h === "string") return {ok: false, why: h};
+      window.__exTap = h;
+      var d = denied(h); if (d) return {ok: false, why: d};
+      if (scroll && h.scrollIntoView) h.scrollIntoView({block: "center", inline: "nearest"});
+      var r = h.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+      if (!(r.width > 0 && r.height > 0) || x < 0 || y < 0 || x >= window.innerWidth || y >= window.innerHeight) return {ok: false, why: "offscreen"};
+      var pe = document.elementFromPoint(x, y);
+      if (!pe || !h.contains(pe)) return {ok: false, why: "covered", top: pe ? (pe.tagName.toLowerCase() + (pe.getAttribute("role") ? "/" + pe.getAttribute("role") : "")).slice(0, 20) : ""};
+      for (var e = pe; e && e !== h.parentElement; e = e.parentElement) { var de = denied(e); if (de) return {ok: false, why: "point_" + de}; }
+      return {ok: true, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, vw: window.innerWidth, vh: window.innerHeight};
+    },
+    // MEASURE (BREAKOUT-NATIVE-TAP finding a): after the group row expands, the child row shows the side as TEXT
+    // ("Short") and "1 TP / 1 SL". Its shape, so childRows() can be fixed from evidence if the read still misses it:
+    // the exact side words in the Positions panel, and for each the row it sits in -- that row's cell count against the
+    // header's, its depth below the panel, and whether childRows() would pick it. No values (texts are fixed words).
+    childShape: function () {
+      var g = gridHeaders(POS_COLS); if (g.length !== 1) return {ok: false, why: "no_grid", n: g.length};
+      var h = g[0], panel = gridPanel(h) || h.parentElement, n = kids(h).length;
+      var groups = gridRowsOf(h).rows.filter(isGroupRow), ch = childRows(h, groups.length ? groups : [h]);
+      var sides = textEls(panel, /^(long|short)$/i, 6).filter(function (e) { return !h.contains(e); });
+      return {ok: true, hdr: n, groups: groups.length, child_rows: ch.length, sides: sides.slice(0, 4).map(function (e) {
+        var row = e, depth = 0;
+        for (var a = e.parentElement; a && a !== panel; a = a.parentElement) { depth++; if (kids(a).length >= 4) { row = a; break; } }
+        var rd = 0; for (var b = row; b && b !== panel; b = b.parentElement) rd++;
+        var role = row.getAttribute ? (row.getAttribute("role") || "") : "";
+        return {side: t(e).toLowerCase(), cells: kids(row).length, depth: depth, row_depth: rd, role: role, picked: ch.indexOf(row) >= 0,
+          tpsl: textEls(row, SHEET_TAB.tpsl).length};
+      })};
+    },
+    // MEASURE (BREAKOUT-SHEET-PROBE): what the page shows before / after a tap. domMark remembers every visible element;
+    // domDiff returns the viewport size, the dialog count and the NEW visible leaf texts (digits masked, max 15), and
+    // the tapped cell's ancestor chain (tag/role/first classes, masked) so the row's handler can be located.
+    domMark: function () { window.__exMarkSet = typeof Set === "function" ? new Set(all("*")) : null; return window.__exMarkSet ? window.__exMarkSet.size : -1; },
+    domDiff: function () {
+      var m = window.__exMarkSet, nw = m ? all("*").filter(function (e) { return !m.has(e); }) : [];
+      var mk = function (s) { return (s || "").replace(/\d/g, "#"); };
+      var leaves = innermost(nw).map(function (e) { return mk(t(e)).slice(0, 36); }).filter(Boolean);
+      var chain = [], e = window.__exTap;
+      for (var k = 0; e && k < 7 && e !== document.body; e = e.parentElement, k++) {
+        var cls = (typeof e.className === "string" ? e.className : (e.getAttribute("class") || "")).split(/\s+/).slice(0, 2).join(".");
+        chain.push(mk(e.tagName.toLowerCase() + (e.getAttribute("role") ? "/" + e.getAttribute("role") : "") + (cls ? "." + cls : "") +
+          (e.hasAttribute("tabindex") ? " ti" : "") + (e.getAttribute("data-state") ? " ds=" + e.getAttribute("data-state") : "")).slice(0, 40));
+      }
+      return {w: window.innerWidth, h: window.innerHeight, n_new: nw.length, dialogs: dialogs().length, leaves: leaves.slice(0, 15),
+        details_tabs: textEls(document, SHEET_TAB.details).length, tpsl_tabs: textEls(document, SHEET_TAB.tpsl).length, chain: chain};
     },
     // The open sheet: {open, n, title_ok (a title equal to the symbol), subtitle (digits masked), tabs present}
     sheetInfo: function (sym) {

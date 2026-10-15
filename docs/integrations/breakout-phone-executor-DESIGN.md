@@ -671,7 +671,7 @@ Every one of these is a **refusal with the form dump**, never a guess, so the fi
    - In your **main** Gmail: Settings → Forwarding → add the new address. Confirm with the code Google sends to the new inbox.
    - Still in the main Gmail, add a filter `from:(breakoutprop.com)` → "Forward it to" the new address.
 2. **Install:**
-   - Open the latest `phone-executor-apk` run in GitHub Actions and download the `phone-executor-1b-apk` artifact.
+   - Open the latest `phone-executor-apk` run **on `main`** (or a manual dispatch) in GitHub Actions and download the `phone-executor-1b-apk` artifact. Since 2026-10-15 a branch push runs only the compile/test job and publishes no APK (PI-20261015-QC5PFG9A-0001).
    - Unzip it and install `app-release.apk`, allowing "install unknown apps" for your browser once.
 3. **Open "Metis Executor" → Setup:**
    - your Breakout login email;

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only: 43 pipeline records (dispositions of due items orphaned on finished checklist rows) plus two new checklist rows (BACKLOG-DRAIN-20261015 lane row, ORDER-AUDIT-3 queued Tier-2 holding row). No code, config, workflow or order-path change."
+}

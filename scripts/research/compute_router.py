@@ -136,7 +136,23 @@ def unit_dataset_paths(entry: Dict[str, Any]) -> List[str]:
     for g in (groups.values() if isinstance(groups, dict) else []):     # a list of group names (synthetic data) has no paths
         if isinstance(g, dict) and g.get("path"):
             out.append(str(g["path"]))
+    # KAGGLE-TRAIN-RUNNER-FIRST (2026-10-15): a train_parity unit reads exactly its manifest's shard. The path is DERIVED
+    # from ml/configs/<manifest>.yaml, never declared, so the allowlist check below sees what the script will read.
+    man = (entry.get("train_parity") or {}).get("manifest")
+    if man:
+        out.append(manifest_dataset_path(str(man)))
     return out
+
+
+def manifest_dataset_path(manifest_id: str) -> str:
+    """datasets-out/<family>/<symbol>/<tf>/<version>/data.jsonl for ml/configs/<manifest_id>.yaml ('' when unreadable)."""
+    import yaml  # noqa: PLC0415
+    p = _REPO / "ml" / "configs" / f"{manifest_id}.yaml"
+    if "/" in manifest_id or ".." in manifest_id or not p.is_file():
+        return ""
+    ds = (yaml.safe_load(p.read_text(encoding="utf-8")) or {}).get("dataset") or {}
+    parts = [ds.get(k) for k in ("family", "symbol_scope", "timeframe", "version")]
+    return "datasets-out/" + "/".join(str(x) for x in parts) + "/data.jsonl" if all(parts) else ""
 
 
 def published_problem(entry: Dict[str, Any], cfg: Dict[str, Any]) -> Optional[str]:

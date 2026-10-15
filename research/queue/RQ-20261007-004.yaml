@@ -3,7 +3,7 @@ title: >-
   Active geometry, shorter timeframes: on the ict_scalp 5m/15m family (tp_at_r 1.5
   fixed, SL amended on 72 of 192 closes since 2026-09-01, TP on 0), does a re-estimated
   or thesis-extended target beat the fixed 1.5R target?
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: live_strategy
@@ -116,3 +116,14 @@ related:
   - 'docs/research/exit-refinement-coverage.json (exit_ladder verdicts on this family, 2026-08-10)'
   - 'RQ-20261007-001 / -003 (the two revision lever families, defined there)'
 last_dispatched_at: '2026-10-08T04:53:50+00:00'
+grading:
+  attested: RULE-RQ1007-004-SCALP-TARGET-REVISION
+  auto: true
+  decision_rule_id: RULE-RQ1007-004-SCALP-TARGET-REVISION
+  evidence:
+  - research/results/RQ-20261007-004/37729699069.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  reason: 7 row(s), all measured, all no_action_warranted
+  rows: 7
+  verdict: no_action_warranted

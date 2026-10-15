@@ -108,6 +108,41 @@ classes:
 limits:
   max_total_inflight: 8        # runner 3 + runner_data 2 + trainer 1 + kaggle 1 + kaggle_cpu 1
   max_repo_queued: 10          # unchanged from the dispatcher's flag default
+  # YIELD TO INFRA (GH-CAPACITY-INFRA-FIRST, operator 2026-10-15): while any fresh run of one of these
+  # workflows (gh `workflowName`, i.e. the file's `name:`) is QUEUED, the dispatcher fires nothing -- every
+  # backend's workflow, trainer and Kaggle included, holds a GitHub runner while it polls. Research uses
+  # GitHub capacity only when infra is not waiting. Class backend order already puts the dedicated backend
+  # first wherever the unit can run there (gpu/gpu_preferred -> kaggle; published-data cpu units ->
+  # kaggle_cpu via published_variant; needs_vm_data -> trainer); github_runner is the spill-over.
+  infra_workflows:
+    - system-actions
+    - system-actions-cancel-guard
+    - deploy-candidate
+    - deploy-trainer-bootstrap
+    - phone-executor-apk
+    - trainer-vm-diag
+    - trainer-diag-relay
+    - arm-candidate-diag
+    - vm-bybit-diag
+    - vm-caddy-deploy
+    - vm-cloud-fix
+    - vm-cloud-open-ib-port
+    - vm-devnull-deploy-bootstrap
+    - vm-devnull-source-diagnose
+    - vm-diag-snapshot
+    - vm-driver
+    - vm-fix-devnull
+    - vm-git-credential-bootstrap
+    - vm-ib-gateway-deploy
+    - vm-ib-gateway-live-login-test
+    - vm-ib-gateway-recover
+    - vm-ib-gateway-selftest
+    - vm-ib-gateway-stop
+    - vm-ib-gateway-watchdog-enable
+    - vm-net-diag
+    - vm-net-fix
+    - vm-resize-live
+    - vm-web-api-recover
 
 # Value ranking. score = usd_per_month * confidence * bucket_boost * hand_written_boost * age_boost / cost
 #   usd_per_month  unit.value.usd_at_stake_per_month, else priority_usd[declared priority]

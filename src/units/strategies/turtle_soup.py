@@ -574,6 +574,7 @@ def monitor(cfg, candles_df, open_pkg):
 
         _meta = meta if isinstance(meta, dict) else {}
         record_position_telemetry(
+            candles_df=candles_df,
             open_pkg=open_pkg, meta=_meta,
             window=since_entry(candles_df, open_pkg), direction=direction,
             current_price=current_price, stop=sl, target=tp,

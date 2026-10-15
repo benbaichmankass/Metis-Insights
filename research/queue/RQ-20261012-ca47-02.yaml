@@ -1,7 +1,7 @@
 id: RQ-20261012-ca47-02
 title: 'Stage-0 breadth for the prop book: squeeze harness on ETHUSDT 5m (RESEARCH-OPS-20261012-0247, PI-20261006-APBY4NTV-0001
   batch 6)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 3
@@ -68,3 +68,16 @@ related:
 last_dispatched_at: '2026-10-12T16:52:12+00:00'
 roadmap:
 - L-PROP
+grading:
+  attested: RULE-RQ-20261012-ca47-02-SQUEEZE-ETHUSDT-5m-STAGE0
+  auto: true
+  decision_rule_id: RULE-RQ-20261012-ca47-02-SQUEEZE-ETHUSDT-5m-STAGE0
+  evidence:
+  - research/results/RQ-20261012-ca47-02/38280415616.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'hand-written unit, every row graded under its own registered rule: FAIL closes it (no template
+    confirmatory re-run)'
+  reason: 1 row(s), all measured, all fail
+  rows: 1
+  verdict: fail

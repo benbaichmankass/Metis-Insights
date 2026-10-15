@@ -49,6 +49,13 @@ Invariants
   be impossible now the char-slice footgun is gone + the json-notes-cap guard
   is a merge gate). Legacy ⇒ pre-fix backlog, cleared by
   ``scripts/ops/repair_malformed_notes.py``.
+- **INV-8**  an ``order_packages`` row in a terminal state (or ``orphaned``)
+  that still has an OPEN non-backtest leg, by either link direction
+  (``trades.order_package_id`` or ``order_packages.linked_trade_id``). The
+  monitor selects packages by ``status='open'``, so that leg is managed by
+  nobody (ORDER-AUDIT-4, PI-20260930-3QNHBGND-0003). Windowed on the package's
+  ``updated_at``: recent > 0 alerts (a close path closed a package under a
+  live leg). The legacy backlog is reported in ``total``.
 - **INV-7**  ``status='open'`` on an account whose ``config/accounts.yaml``
   ``mode`` is ``dry_run`` (OA-15). order_monitor skips dry accounts, so such a
   row's exits are unmonitored. Current state, not windowed: every such row
@@ -456,6 +463,12 @@ def run_checks(
         # live again.
         checks.append(_inv7_check(conn))
 
+        # INV-8 -- closed package with an OPEN leg (ORDER-AUDIT-4, item 20).
+        # Every package-closing writer in order_monitor now goes through
+        # FIX-CA-05's open-leg hold, so recent > 0 means a new writer (or a
+        # path outside order_monitor) closed a package under a live leg.
+        checks.append(_inv8_check(conn, since_iso=since_iso))
+
         any_alert = any(c["alert"] for c in checks)
         return {
             "generated_at": _iso(now),
@@ -516,6 +529,59 @@ def _inv7_check(conn: sqlite3.Connection,
 # a settled link; an open/pending package is mid-flight and its link is
 # legitimately still being written, so we don't flag it.
 _TERMINAL_OP_STATES = ("closed", "filled", "cancelled", "rejected", "expired")
+
+
+#: INV-8: package states the monitor never selects again. `orphaned` is
+#: included: it is a terminal package state the exit loop does not read.
+_INV8_PACKAGE_STATES = _TERMINAL_OP_STATES + ("orphaned",)
+
+
+def _inv8_check(conn: sqlite3.Connection, *, since_iso: str) -> Dict[str, Any]:
+    """INV-8: terminal/orphaned package that still has an OPEN real leg.
+
+    A leg belongs to the package by EITHER direction: the trade's
+    ``order_package_id`` back-ref, or the package's ``linked_trade_id``.
+    Window basis is the package's ``updated_at``; sample ids are package ids.
+    """
+    placeholders = ", ".join("?" for _ in _INV8_PACKAGE_STATES)
+    base_where = (
+        "op.status IN (" + placeholders + ") "
+        "AND EXISTS ("
+        "  SELECT 1 FROM trades t "
+        "  WHERE t.status = 'open' AND " + _NON_BACKTEST + " "
+        "    AND (t.order_package_id = op.order_package_id "
+        "         OR t.id = op.linked_trade_id)"
+        ")"
+    )
+    params = list(_INV8_PACKAGE_STATES)
+
+    def _ids(where: str, args: list) -> List[str]:
+        return [
+            r["order_package_id"] for r in conn.execute(
+                f"SELECT op.order_package_id FROM order_packages op WHERE {where} "  # noqa: S608
+                f"ORDER BY op.updated_at DESC LIMIT {_SAMPLE_LIMIT}", args,
+            ).fetchall()
+        ]
+
+    def _n(where: str, args: list) -> int:
+        return int(conn.execute(
+            f"SELECT COUNT(*) AS n FROM order_packages op WHERE {where}",  # noqa: S608
+            args,
+        ).fetchone()["n"])
+
+    total_count = _n(base_where, params)
+    recent_where = f"({base_where}) AND op.updated_at >= ?"
+    recent_params = params + [since_iso]
+    recent_count = _n(recent_where, recent_params)
+    return {
+        "id": "INV-8",
+        "title": "terminal order_package with an OPEN leg (leg unmanaged by the exit loop)",
+        "recent_count": recent_count,
+        "total_count": total_count,
+        "sample_ids": (_ids(recent_where, recent_params) if recent_count
+                       else _ids(base_where, params) if total_count else []),
+        "alert": recent_count > 0,
+    }
 
 
 def _inv5_check(conn: sqlite3.Connection, *, since_iso: str) -> Dict[str, Any]:

@@ -1,0 +1,89 @@
+{
+  "run": "RESEARCH-OPS-20261015-0847",
+  "finished_at": "2026-10-15T09:10:00Z",
+  "by": "research-ops-lane-20261015-0847",
+  "baseline": "comms/research/ops/20261015T0305Z.json",
+  "floor": 25,
+  "floor_note": "check_research_queue_health.py now enforces a computed floor max(25, ceil(fired_24h x 19h / 24)) = 54 at fired_24h 68 (its H1 is red at runnable 24 vs 54, deficit 30, refill capacity 0). The skill's static 25 is met (runnable 31); the computed floor is NOT. PR #18198 (skill(research-ops): computed floor) is open and owns that skill edit, so it is not duplicated here.",
+  "throughput": {
+    "runnable_before": 24,
+    "runnable_after": 31,
+    "queued": 128,
+    "units": 712,
+    "fired_24h": 66,
+    "fired_7d": 313,
+    "results_landed_24h": 77,
+    "result_files_unreadable": 0,
+    "hours_since_last_dispatch": 3.2,
+    "idle_alarm": false,
+    "as_of": "2026-10-15T09:02Z",
+    "note": "MEASURED on this branch (origin/main f09815e3 + this PR). 24 -> 31 (+7): 6 attributable to this PR (2 authored, 4 re-queued: 4591-01, 4591-06, 007-009, 007-080), 1 not attributed (a cadence/clock change between the two readings). last_dispatched_at on main lags the dispatcher: runs 293..296 fired in the last 3.5 h (295 in progress, 296 queued) but their stamp PRs (e.g. #18229) had not merged."
+  },
+  "mechanism": {
+    "dispatch_receipt": "ok: check_research_queue_dispatch_liveness fresh (1.5h)",
+    "dispatcher_runs": "research-queue-dispatch runs 290 (03:04Z) concluded failure, 293/294 success, 295 in_progress, 296 queued. 5 of the 20 most recent runs listed concluded failure (269, 272, 279, 280, 290): failures cluster after the in-run merge wait that #18228 (liveness receipt lands without an in-run merge wait) is changing; not diagnosed further this pass.",
+    "collector": "ok: result_files_unreadable 0; 13 verdict.json files committed since 03:05Z",
+    "stranded_stamp_prs": "none: search 'is:pr is:open head:automation/research-queue' returned total_count 0; the open automation PR is research-results-batch #18229 (opened 08:47Z, fresh)",
+    "watchdog": "tail only: newest row is the 2026-10-13T19:16Z backend:trainer self_healed row; no escalated row seen",
+    "utilization": "check_research_queue_health: github_runner_data, kaggle, kaggle_cpu idle with nothing due (utilization 38695258554). Two idle-backend causes addressed: the 4591-01/-06 re-queue gives kaggle_cpu real work; the rest is template capacity 0.",
+    "incident": "none open. Two silent producer_failed units found and root-caused (below), neither a dispatcher/collector/grader defect."
+  },
+  "results_read": {
+    "pass": 6,
+    "fail": 6,
+    "indeterminate": 0,
+    "no_action_warranted": 1,
+    "producer_failed": 0,
+    "population": "13 verdict.json files committed since the 03:05Z baseline (470a-01..06, 08, 09, 11; 9807-01; d6e7-01; 6504-01, 6504-02), all read_state measured. 470a-07/-10 were read last pass.",
+    "units": [
+      {"unit": "RQ-20261014-470a-01", "verdict": "fail", "detail": "eth_pullback_2h adx_min=22 on the preceding 730d (n=106): dR -3.78, 1/4 folds. f0e2-05 lead NOT CONFIRMED (selection/period artifact). Leg is on no roster; nothing to change."},
+      {"unit": "RQ-20261014-470a-02", "verdict": "fail", "detail": "xrp_pullback_2h adx_min=22 (n=122): dR -9.26, 0/4 folds. honest_negative."},
+      {"unit": "RQ-20261014-470a-03", "verdict": "fail", "detail": "ada_pullback_2h adx_min=22 (n=111): dR -26.24, 0/4 folds. honest_negative."},
+      {"unit": "RQ-20261014-470a-04", "verdict": "fail", "detail": "xrp_pullback_2h pullback_frac: best F0382 dR +7.44 but dDD +0.18 and 2/4 folds, fails the registered conjunction. honest_negative."},
+      {"unit": "RQ-20261014-470a-05", "verdict": "pass", "detail": "ada_pullback_2h pullback_frac=0.618: dR +11.76, dDD -5.81, 3/4 folds, n=111. Best-of-3, so a LEAD only; rule opens exactly one fresh-window confirmation -> RQ-20261015-4941-01. No Tier-3 proposal until CONFIRMED."},
+      {"unit": "RQ-20261014-470a-06", "verdict": "fail", "detail": "trend_donchian_xrp_4h cooldown CD4/8/16 (n=46): all arms identical to B (dR 0.0, 0 folds): the lever never binds on this leg. honest_negative."},
+      {"unit": "RQ-20261014-470a-08", "verdict": "fail", "detail": "trend_donchian_eth_4h cooldown: best CD16 dR +6.16 but dDD +1.44 (worse), fails. honest_negative."},
+      {"unit": "RQ-20261014-470a-09", "verdict": "pass", "detail": "trend_donchian_eth_4h min_confidence=0.7: dR +2.50 vs the 2.0 bar, dDD -5.23, 3/4 folds, n=116, control ok. Thin margin, best-of-3: LEAD only -> RQ-20261015-4941-02."},
+      {"unit": "RQ-20261014-470a-11", "verdict": "no_action_warranted", "detail": "Stage-0 census (47 legs read of 50 routings). Dispositions on the P3-STRATEGY-PROGRAMME row: real-money drag xrp_pullback_2h (both entry axes now honest_negative, exit-side next); alpaca_live ief/slv/iaum underpowered = no action, because slow daily accrual and quarterly e35 re-ask (#18191); prop eth/sol drag owned by P5."},
+      {"unit": "RQ-20261014-9807-01", "verdict": "pass", "detail": "giveback census (report is the deliverable). real_money pooled row read_state insufficient_n (n_closed 7) so the routing clause takes the ELSE branch: Q3 (9807-03) first, which already ran 2026-10-14 and sits in needs_review (generic m20 gate, not gradable as registered); Q4 (9807-04) waits for the next census. Paper pooled: n_closed 319, giveback_share_of_peak 0.93, deep_then_loss 0.15."},
+      {"unit": "RQ-20261014-d6e7-01", "verdict": "pass", "detail": "first-passage census: turn-oracle saving 0.656 R/trade >= 0.25 at K=2, n_sl_first 2089 >= 300. Rule: d6e7-02/-04 dispatch on this PASS; the dry run lists both would_dispatch. Fixed-bracket reconstruction, fits no model."},
+      {"unit": "RQ-20261015-6504-01", "verdict": "pass", "detail": "velotrade_1 + 4h pair cushion_vs_flat PASS: Tier-3 roster proposal INPUT only, conditional on the 4h legs passing their own Stage-0 (1bf3-03/-04) and superseded for sizing by 1bf3-02 (risk 0.005). Note on P5-PROP-PROGRAMME."},
+      {"unit": "RQ-20261015-6504-02", "verdict": "fail", "detail": "tradeify_1 + 4h pair: incumbent stands, pair stays pool-only."}
+    ]
+  },
+  "unlocked": [
+    {"unit": "RQ-20261014-4591-01", "why": "landed producer_failed (no run-manifest.json; only the kaggle quota files were committed). The row KAGGLE-CPU-ROUTE records that these units were routed to the Kaggle GPU kernel at the time and that route has since been rebuilt; the cause of the missing manifest itself is UNVERIFIED (no kernel log was read). Re-queued last_dispatched_at null, rule untouched, places on kaggle_cpu."},
+    {"unit": "RQ-20261014-4591-06", "why": "same as 4591-01."},
+    {"unit": "RQ-20261007-009", "why": "producer_failed: prop_ev_sim default --costs breakout needs entry/stop fields the pairs trades.jsonl rows lack. Added --costs as_given to --common (same arms, grade, seeds, bars); reproduced the ValueError and confirmed the cell passes build_trades. Re-queued."},
+    {"unit": "RQ-20261007-080", "why": "producer_failed since 2026-10-08, never noticed (cmd 0 exit 1 in <1s). ROOT CAUSE reproduced in a clean venv with the workflow's deps: tp_revision_sweep.py imports src.runtime.tp_revision -> src/runtime/pipeline.py -> ModuleNotFoundError dotenv. python-dotenv added to research-script-run.yml; script then runs end to end. Re-queued."}
+  ],
+  "retired": [],
+  "blocked_audit": {
+    "population": "68 files in research/queue/blocked/ (not re-listed one by one this pass; the 10 dated 20261014 were audited by the 0247 pass and the lever rows are unchanged) plus blocker_watch: STALE_BLOCK 1 + NOT_RUNNING 14.",
+    "finding": "STALE_BLOCK ML-TABPFN-LICENCE had blocked_on empty; named the real blocker (operator-originated TABPFN_TOKEN secret) so it is no longer a block with no lever and no owner. NOT_RUNNING NEEDS_LANE on 77dc-02, d6e7-02..05, 8b93-01/-02, eda2-01 is the known false reading (empty run.workflow by design on compute-class units; dry run lists them would_dispatch or waiting on requires_result). 1bf3-02..06 are would_dispatch (explicit runner). RQ-20260928-001 remains the known session-local unit (HTF-FILTER-AB-LANE)."
+  },
+  "levers_filed": [
+    {"lever": "python-dotenv on the research-script-run runner", "ref": "this PR (.github/workflows/research-script-run.yml); TP-DOCTRINE note"},
+    {"lever": "ML-TABPFN-LICENCE blocked_on named", "ref": "ML-TABPFN-LICENCE"}
+  ],
+  "units_authored": ["RQ-20261015-4941-01", "RQ-20261015-4941-02"],
+  "followups_filed": [
+    {"what": "S0-C fresh-window confirmation of 470a-05 (ada F0618)", "ref": "RQ-20261015-4941-01"},
+    {"what": "S0-C fresh-window confirmation of 470a-09 (eth_4h MC07)", "ref": "RQ-20261015-4941-02"},
+    {"what": "census dispositions + 470a batch read", "ref": "P3-STRATEGY-PROGRAMME note"},
+    {"what": "6504 results", "ref": "P5-PROP-PROGRAMME note"}
+  ],
+  "not_run": [
+    "research_disposition --record (its ledger covers e35/m20/gld_compat corpora; none of the 13 units read here)",
+    "needs_review triage of the 49 flagged units beyond the 5 producer_failed (14 'wiring_only', 8 'NOT GRADABLE as registered', 21 'insufficient n' indeterminates): counted, not individually dispositioned",
+    "tests/test_research_queue.py (pytest is not installed in this sandbox); the decision-rule and id-band guards were run",
+    "dispatch workflow failure root-cause (runs 290/280/279/272/269)"
+  ],
+  "handoff": [
+    "Read RQ-20261015-4941-01/-02 when they land: CONFIRMED on either writes a Tier-3 proposal note for the manager on P3-STRATEGY-PROGRAMME; NOT CONFIRMED records honest_negative.",
+    "Read the re-queued RQ-20261007-080 (TP doctrine B1), -009 (pairs prop fit; PAIRS-R-SCALE caveat) and 4591-01/-06 (first kaggle_cpu dispatcher-fired run: also KAGGLE-CPU-ROUTE's closing observation).",
+    "Computed floor 54 vs runnable 31: refill capacity (templates + programme nodes) is 0, so closing the gap is authoring work for a topic lane or a manager decision on template capacity; #18193 (programme question nodes as a replenish source) is open and may supply it.",
+    "needs_review backlog 49: the 14 wiring_only and 8 NOT-GRADABLE-as-registered units need a one-off triage lane (RESEARCH-GRADE-BACKLOG follow-up).",
+    "Dispatch run failures (5 of the last 20) cluster around the in-run merge wait; re-check after #18228 merges."
+  ]
+}

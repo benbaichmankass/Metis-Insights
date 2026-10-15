@@ -1,0 +1,58 @@
+# Programme P2 -- AI trader: the machine-readable question tree for
+# docs/research/programmes/02-AI-TRADER.md (§ 6 backlog, W1-W4).
+# Read by scripts/research/queue_replenish.py (programme source, RESEARCH-LOOP-AUDIT RC2/RC3);
+# see research/programmes/01-active-trade-management.yaml for the contract. Landing machinery:
+# every edit holds for a human merge. `value` figures are INFERRED planning weights.
+programme: P2
+plan: docs/research/programmes/02-AI-TRADER.md
+nodes:
+  # ── Q2 meta-labeling: 9d20-02 (thin-column baseline) closed FAIL ────────────
+  - id: P2-Q2.1-fail
+    goal: G4
+    roadmap: [M23]
+    value: {usd_at_stake_per_month: 300, confidence: 0.3}
+    after: [{unit: RQ-20261014-9d20-02, verdict: fail}]
+    needs_authoring: >-
+      The meta-label head on the thin committed columns FAILED. 02 § 6 already names the refinement:
+      widen the emits (row METALABEL-EMIT-FEATURES) and re-test as 9d20-04 (blocked on that row). Until
+      the row lands, register the cheapest measurable step that does not need it (e.g. the same head on
+      the families whose emits already carry the regime/vol columns) or state why none exists.
+  # ── Q3 giveback predictable at entry: 9d20-03 closed FAIL ───────────────────
+  - id: P2-Q3.1-fail
+    goal: G1
+    roadmap: [M23]
+    value: {usd_at_stake_per_month: 300, confidence: 0.3}
+    after: [{unit: RQ-20261014-9d20-03, verdict: fail}]
+    needs_authoring: >-
+      Large peak-to-exit giveback is NOT predictable at entry on the committed columns. That moves the
+      question in-trade: register the link to P1-Q8 (per-bar state, d6e7-02/04) rather than an entry-time
+      re-test, or a refinement with features the census says differ (01's census by class).
+  # ── Q4 family diversity: 9d20-05 closed INDETERMINATE ───────────────────────
+  - id: P2-Q4-et-mlp-extend
+    goal: G4
+    roadmap: [M23]
+    value: {usd_at_stake_per_month: 150, confidence: 0.3}
+    after: [{unit: RQ-20261014-9d20-05, verdict: indeterminate}]
+    needs_authoring: >-
+      ExtraTrees/MLP vs LightGBM on published 1h was underpowered. Extend n (longer published window or
+      more symbols, routed `published_data` -> kaggle_cpu, which is idle) or redesign; write the tested
+      configuration into families.<f>.history in docs/plans/ml-plan-items.yaml either way.
+  # ── Q1.5 conformal abstention: heads beat the prior on log-loss at 1h ───────
+  - id: P2-Q1.5-conformal
+    goal: G4
+    roadmap: [L-REGIME]
+    value: {usd_at_stake_per_month: 150, confidence: 0.3}
+    after: [{unit: RQ-20261014-65cc-10, verdict: pass}]
+    needs_authoring: >-
+      65cc-10 PASSED (1h heads beat the class prior on log-loss). 02 § 6 W3 #20 releases conformal
+      abstention RQ-20261011-9da8-03 on this condition: re-check it is dispatchable (blocked/ or queued)
+      and unlock it, or register the 1h conformal unit if 9da8-03 is scoped to 15m only.
+  # ── Q2.5 pooling parity (no unit yet) ───────────────────────────────────────
+  - id: P2-Q2.5-pooling-parity
+    goal: G4
+    roadmap: [M23]
+    value: {usd_at_stake_per_month: 200, confidence: 0.3}
+    needs_authoring: >-
+      Pooling parity: KS on feature marginals and realised-R per cell, test results vs live trade
+      outcomes (02 § 6 W3 #17; compute needs_vm_data -> trainer, which has idle windows). Decides whether
+      backtest-augmented labels can train the M23 head.

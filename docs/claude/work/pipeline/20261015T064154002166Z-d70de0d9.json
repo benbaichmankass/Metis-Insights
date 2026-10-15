@@ -1,0 +1,23 @@
+{
+  "based_on": "20261014T055613191538Z-c665c8c1.json",
+  "due_when": {
+    "due_date": "2026-10-14",
+    "kind": "date"
+  },
+  "id": "PI-20261013-ZOITBFSM-0001",
+  "next_action": "dispatch_lane",
+  "observation": {
+    "due_by": "2026-10-15",
+    "how_to_check": "ls -t comms/research/utilization | head -3, then read backends.*.due_waiting",
+    "what": "github_runner due_waiting and trainer due_waiting per dispatch cycle over the next 2 cycles"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "lane RESEARCH-UTIL session_01DqZFET8eozkB2uZoiTbfsM, 2026-10-13, PR #17919",
+    "rerun": "python3 scripts/research/dispatch_queue.py --ref main (no --fire) and read comms/research/utilization/*.json: for each backend compare inflight_at_start, capacity, due_waiting"
+  },
+  "routed_to": "ROUTE-RESEARCH-DATA-ROUTES | [ROUTING-ALARM-20261014] routed from daily review WR-20261014-0530Z; the row owns this item and carries the rerun command",
+  "state": "done",
+  "terminal_reason": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r), 2026-10-15: answered: scripts/research/dispatch_queue.py --ref main dry run shows 12 would_dispatch all backend=github_runner, and comms/research/utilization/38689049828.json (2026-10-15T05:52Z) shows github_runner capacity 3, fired 3, due_waiting 12, busy_fraction 1.0 — the binding gate is the github_runner cap of 3/cycle.",
+  "what": "Verify the 'about 33 of 36 research units undispatched because our caps are low' claim. Lane RESEARCH-UTIL (PR #17919) measured the shared runner pool binding at ~20 (CI p90 16, everything p90 20) and the last utilisation record showing github_runner in-flight 0/3, due_waiting 0, with the 5 waiting units on `trainer`. Find which backend/gate the undispatched 407c/1414/a793 units actually wait on (compute_router, dispatch_queue deferral reasons) and then either fix that gate or state that none exists."
+}

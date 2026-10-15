@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI guard only: check_soak_contracts.py compares the checklist at the merge-base instead of the base tip. No runtime, config or order-path change."
+}

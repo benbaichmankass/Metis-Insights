@@ -258,3 +258,16 @@ result: >-
 
   GRADED 2026-09-28 by lane RQ-RUN (session_0179hCBVrY5PJMaHhK3BKcKe, manager session_01KAQRJxRbRwpYTkPgBjNVyQ) against the pre-registered rule, from committed results only.
   DISPOSITION: stays queued, re-dispatch needs a DETACHED trainer run. Both committed attempts are producer_failed (36302282489: cancelled at trainer-vm-diag's 60-min job ceiling, zero output; session-2 record: the corrected driver was still at ~97% CPU after 68 min detached, and SOL was never attempted). No clause of RULE-RQ0927-003-PROP-EXIT-HEAD-SCOPING can fire on a producer_failed record and none is forced. NOT a candidate for the token-free runner (research-script-run.yml): the driver needs trainer-resident 5m candles resampled to 1h. The path that exists: nohup+sentinel dispatch via the trainer relay, polled by a later relay call.
+grading:
+  attested: RULE-RQ0927-003-PROP-EXIT-HEAD-SCOPING
+  auto: true
+  decision_rule_id: RULE-RQ0927-003-PROP-EXIT-HEAD-SCOPING
+  evidence:
+  - research/results/RQ-20260927-003/36302282489.jsonl
+  - research/results/RQ-20260927-003/session2-producer-failed-20260927.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  needs_review: true
+  reason: 'read_state not unanimously measured: [''producer_failed'']'
+  rows: 4
+  verdict: null

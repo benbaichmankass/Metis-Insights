@@ -1,7 +1,7 @@
 id: RQ-20261010-353c-12
 title: 'Stage-0 breadth for the prop book: squeeze harness on AAVEUSDT 1h (RESEARCH-NIGHT-1010, PI-20261006-APBY4NTV-0001
   batch 3)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -66,3 +66,17 @@ related:
 - RQ-20261007-224
 - scripts/ops/fetch_backtest_corpus.py
 last_dispatched_at: '2026-10-11T08:09:01+00:00'
+grading:
+  attested: RULE-RQ-20261010-353c-12-SQUEEZE-AAVEUSDT-1h-STAGE0
+  auto: true
+  decision_rule_id: RULE-RQ-20261010-353c-12-SQUEEZE-AAVEUSDT-1h-STAGE0
+  evidence:
+  - research/results/RQ-20261010-353c-12/38120315971.jsonl
+  - research/results/RQ-20261010-353c-12/38123690183.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'hand-written unit, every row graded under its own registered rule: FAIL closes it (no template
+    confirmatory re-run)'
+  reason: 2 row(s), all measured, all fail
+  rows: 2
+  verdict: fail

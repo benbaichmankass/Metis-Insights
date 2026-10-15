@@ -1,0 +1,1 @@
+{"tier":1,"landing":"self","why":"CI/tooling only: workflow concurrency groups (pytest-rerun, branch-protection-sync, phone-probe-apk), research matrix max-parallel caps (e35, m20), a capacity inventory JSON, one test narrowed, checklist rows. No deploy, system-actions, VM, src or config touched."}

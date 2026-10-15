@@ -1,0 +1,21 @@
+{
+  "id": "ORDER-AUDIT-4",
+  "title": "Order-path audit residue from ORDER-AUDIT-3: own-leg fill attribution (19), closed-package/open-leg invariant (20), orphaned flat/unknown split (21), sl_cross label backfill (PD85QJEZ-0002), unsourced intent_reduce closes (PD85QJEZ-0003)",
+  "phase": "money-path",
+  "state": "in_flight",
+  "owner": "lane ORDER-AUDIT-4 (session_01MAn9pCezunefaeMAhzFaGC)",
+  "lane": "session_01MAn9pCezunefaeMAhzFaGC",
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 25,
+  "spend_usd": null,
+  "tier": 2,
+  "prs": [],
+  "blocked_on": [],
+  "note": "Dispatched 2026-10-15 ~10:25Z by the manager (session_01VduHYzdaXe27wTDBLSu8ao) after ORDER-AUDIT-3 (session_015ph6MwWrWPDbc6Pd85QJEZ) closed at 10:20Z. Scope (from ORDER-AUDIT-3's note): item 19 PI-20260930-3QNHBGND-0002 (own-leg fill attribution), item 20 PI-20260930-3QNHBGND-0003 (closed package with an open leg; paged invariant), item 21 PI-20260930-MEK2XMWT-0003 (orphaned terminal, no flat/unknown split), PI-20261015-PD85QJEZ-0002 (backfill 4 real-money sl_cross closes 6565/6566/6593/6594 that were venue SL fills), PI-20261015-PD85QJEZ-0003 (intent_reduce_executed closes with no exit_reason_source). OUT OF SCOPE: PI-20261015-PD85QJEZ-0001 (GLD reconcile), operator verbatim 'Leave it for now'. Order-path/runtime and DB backfills are Tier 2 (HOLD for the manager; backfills dry-run first with before/after counts); strategy/risk/sizing is Tier 3 (propose only).",
+  "updated_at": "2026-10-15T10:28:28Z",
+  "updated_by": "session_01MAn9pCezunefaeMAhzFaGC",
+  "roadmap": [
+    "L-OPS"
+  ],
+  "_seq": 517
+}

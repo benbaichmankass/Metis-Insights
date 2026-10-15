@@ -56,8 +56,13 @@ raise ``NotImplementedError`` and this script never calls them.
 Exit codes:
   0  login ok and every read parsed
   3  login ok, but part of the read path did not parse (selector work needed)
-  4  feasibility stop: challenge / CAPTCHA / 2FA / login rejected / timeout /
-     no credentials. Printed as ``feasibility: <reason>``.
+  4  feasibility stop: challenge / CAPTCHA / 2FA / login rejected /
+     password expired / no credentials / ASN block / access denied. Printed as
+     ``feasibility: <reason>``. The scheduled feed backs these off to its cap.
+  7  transient terminal outage: the login page timed out or rendered something
+     unrecognised (``feasibility: timeout`` / ``unknown_page``). Still printed
+     as ``feasibility: <reason>``; the feed retries it on the ordinary
+     3-failure path (PROP-FEED-RETRY) instead of the 2 h cap.
   5  environment: Playwright or Chromium is not usable on this host
   1  anything else
 """
@@ -78,6 +83,16 @@ if str(_REPO_ROOT) not in sys.path:
 from src.prop.platform import API_PLATFORMS, FeasibilityError, adapter_for_platform, load_platform_config  # noqa: E402
 
 EXIT_OK, EXIT_ERROR, EXIT_UNPARSED, EXIT_FEASIBILITY, EXIT_ENV = 0, 1, 3, 4, 5
+EXIT_TRANSIENT = 7  # prop_executor_tick.py owns 6 (no session); keep the codes distinct
+# Environment-class findings: the terminal was slow or briefly not itself,
+# which says nothing about the account or the login. Every other reason
+# (captcha, 2fa, challenge, login_rejected, password_expired, no_credentials,
+# asn_blocked, access_denied, ...) stays a hard feasibility stop (rc 4).
+TRANSIENT_REASONS = frozenset({"timeout", "unknown_page"})
+
+
+def feasibility_rc(fe: FeasibilityError) -> int:
+    return EXIT_TRANSIENT if fe.reason in TRANSIENT_REASONS else EXIT_FEASIBILITY
 
 # BTCUSD/ETHUSD/SOLUSD are the operator-confirmed DXtrade symbols in
 # config/prop_rulesets/breakout_routing.yaml (2026-06-23). ADAUSD/XRPUSD are
@@ -244,7 +259,7 @@ def api_status_check(args, cfg, username: str, password: str) -> int:
         adapter.login(None, cfg["login_url"], username, password)
     except FeasibilityError as fe:
         print(_redact(f"feasibility: {fe.reason} ({fe.detail})", username, password))
-        return EXIT_FEASIBILITY
+        return feasibility_rc(fe)
     secrets = (username, password, *getattr(adapter, "_secrets", ()))
     print("login: ok (rest)")
     rc = EXIT_OK
@@ -395,7 +410,7 @@ def main(argv: Optional[list] = None) -> int:
                         discard_storage_state(args.storage_state)
                         print(_redact(f"feasibility: {fe.reason}" + (f" ({fe.detail})" if fe.detail else ""),
                                       username, password))
-                        return EXIT_FEASIBILITY
+                        return feasibility_rc(fe)
                     except Exception as exc:
                         st = f"error {type(exc).__name__}"
                     if st == "logged_in":
@@ -432,7 +447,7 @@ def main(argv: Optional[list] = None) -> int:
                     except Exception as exc:
                         print(_redact(f"page_shape: FAILED ({type(exc).__name__}: {exc})",
                                       username, password, limit=300))
-                return EXIT_FEASIBILITY
+                return feasibility_rc(fe)
             except Exception as exc:
                 # Playwright errors can echo call logs; redact before printing.
                 print(_redact(f"login: ERROR ({type(exc).__name__}: {exc})",

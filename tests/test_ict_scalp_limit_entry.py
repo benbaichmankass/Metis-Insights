@@ -115,7 +115,16 @@ def test_market_mode_byte_identical_to_pre_change_harness(tmp_path):
                          capture_output=True, text=True)
     if src.returncode != 0:
         pytest.skip("origin/main not available")
-    old_path = h.Path(h.__file__).parent / "_backtest_ict_scalp_premarket_ref.py"
+    # The reference module lives under tmp_path, NOT the real scripts/ dir: writing into the repo
+    # tree raced with tests that copytree the repo under pytest-xdist (shutil.Error ENOENT).
+    # It resolves siblings via parents[1], so mirror the layout with symlinks to the real ones.
+    real_scripts = h.Path(h.__file__).resolve().parent
+    fake_scripts = tmp_path / "scripts"
+    fake_scripts.mkdir()
+    for name in ("ops", "research", "capital_efficiency.py", "target_basis.py"):
+        (fake_scripts / name).symlink_to(real_scripts / name)
+    (tmp_path / "src").symlink_to(real_scripts.parent / "src")
+    old_path = fake_scripts / "_backtest_ict_scalp_premarket_ref.py"
     old_path.write_text(src.stdout)
     try:
         spec = importlib.util.spec_from_file_location("_ref_ict", old_path)
@@ -140,7 +149,6 @@ def test_market_mode_byte_identical_to_pre_change_harness(tmp_path):
         assert a["total_trades"] > 0, "fixture produced no trades: the equality proves nothing"
         json.dumps(a, default=str)
     finally:
-        old_path.unlink(missing_ok=True)
         import sys as _s
         _s.modules.pop("_ref_ict", None)
         _reset()

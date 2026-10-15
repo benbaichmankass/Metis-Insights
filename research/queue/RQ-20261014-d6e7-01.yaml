@@ -2,7 +2,7 @@ id: RQ-20261014-d6e7-01
 title: >-
   In-trade exit line, rung 1: first-passage label census -- how often does a trade come within reach of a fixed TP and then hit
   the SL first, and how much R would a perfect 'exit at the turn' have saved, on ~3,000 committed crypto trades?
-status: queued
+status: done
 cadence: once
 theme: live_strategy
 priority: 1
@@ -119,3 +119,14 @@ related:
 - >-
   RQ-20261014-da7a-01 (PR #18112: is SL-first on a shared bar a material label error -- this unit's labels use SL-first)
 last_dispatched_at: '2026-10-15T01:04:30+00:00'
+grading:
+  attested: RULE-RQ20261014-D6E7-01-FIRST-PASSAGE-CENSUS
+  auto: true
+  decision_rule_id: RULE-RQ20261014-D6E7-01-FIRST-PASSAGE-CENSUS
+  evidence:
+  - research/results/RQ-20261014-d6e7-01/38663653665.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  reason: 1 row(s), all measured, all pass
+  rows: 1
+  verdict: pass

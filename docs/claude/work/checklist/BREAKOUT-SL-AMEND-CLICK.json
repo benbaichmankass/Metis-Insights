@@ -2,7 +2,7 @@
   "id": "BREAKOUT-SL-AMEND-CLICK",
   "title": "breakout_2: phone trail amend via the position sheet (read side/qty MEASURED; tighten-only SL edit)",
   "phase": null,
-  "state": "in_flight",
+  "state": "landed_unproven",
   "owner": "build lane (Opus)",
   "lane": "session_017Y39uF5LuaxBMqq5VtJ9FV",
   "model": "claude-opus-5-5",
@@ -10,14 +10,26 @@
   "spend_usd": null,
   "tier": 2,
   "prs": [
-    18114
+    18114,
+    18150,
+    18158,
+    18232
   ],
   "blocked_on": [],
-  "note": "[2026-10-15T05:55Z manager session_01VduHYzdaXe27wTDBLSu8ao] OPERATOR 2026-10-15 ~05:52Z, verbatim: 'you have my okay to change that trade, or the app does'. #18114 merged (381c0cea); APK run 38688996127 sent to operator.",
-  "updated_at": "2026-10-15T05:57:01Z",
-  "updated_by": "session_01VduHYzdaXe27wTDBLSu8ao",
+  "note": "[2026-10-15T06:10Z lane] OBSERVED on 1b.205 (installed 05:59Z), diag 05:59:44Z: sheet_sheet_not_open, tries child:clicked child:no_sheet group:clicked group:no_sheet. The CHILD row 'ETH 5x' IS in the WebView DOM, but click() on either row opened no sheet. Positions still read via the journal (ESTIMATED). No amend attempted yet; one would refuse at the same step, with nothing clicked. Cause unmeasured (pointer-only handler vs a wide WebView layout with no sheet). Probe PR #18158 (claude/breakout-sheet-probe) adds a pointer tap + post-tap DOM diff. [2026-10-15T05:55Z manager session_01VduHYzdaXe27wTDBLSu8ao] OPERATOR 2026-10-15 ~05:52Z, verbatim: 'you have my okay to change that trade, or the app does'. #18114 merged (381c0cea); APK run 38688996127 sent to operator. [2026-10-15T09:38Z lane session_0184UHpxPYGr9v7rjWmGXoTh] PR #18232 (HOLD T2, green, built on #18217 so it lands after it): native MotionEvent tap on the denylist-checked Market cell (elementFromPoint re-check; tries child/native, group/native, tagged fg/bg); collapsed group expanded by one native touch then re-read (side_source row, MEASURED; else childShape dump); sheet_*/amend_sheet_*/child_* diags in their own slot phone_sheet_diag. SHEET_EDIT_MEASURED still false. APK run 38709833540. Trail-wanted SL UNREAD: only in prop_tickets.meta.phone_trail, no session read path (PI-20261015-JWMGXOTH-0001). Next: after install, phone_sheet_diag sheet_ok/opened_by -> propose the tighten-only flip.",
+  "updated_at": "2026-10-15T09:37:41Z",
+  "updated_by": "session_0184UHpxPYGr9v7rjWmGXoTh",
   "roadmap": [
     "L-PROP"
   ],
+  "observation": {
+    "what": "breakout_2 phone opens the position sheet (positions diag sheet_ok, or positions_side_source sheet / MEASURED) and a trail amend posts amend_sheet_unmeasured with the Stop row icon dump; after the reviewed SHEET_EDIT_MEASURED flip, an amend_result amended with sl_read == the asked SL",
+    "how_to_check": "curl -sS \"https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_2\" -> phone_positions_diag.state and the latest status raw positions_side_source. 2026-10-15T05:59Z on 1b.205: sheet_sheet_not_open (child+group click, no sheet); probe PR #18158",
+    "due_by": "2026-10-22T00:00Z"
+  },
+  "writeback": {
+    "roadmap": "none: L-PROP milestone unchanged until the sheet amend is observed working (one-shot observation on this row)",
+    "arch": "none: phone executor page helpers + diag labels only; no contract or component changed"
+  },
   "_seq": 498
 }

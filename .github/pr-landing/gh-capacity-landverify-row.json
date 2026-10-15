@@ -1,0 +1,1 @@
+{"tier":1,"landing":"self","why":"Checklist row state update only (GH-CAPACITY-LAND-VERIFY-OFF-RUNNER in_flight -> landed_unproven after #18228 merged, with observation + writeback); no runtime, config, workflow or src touched"}

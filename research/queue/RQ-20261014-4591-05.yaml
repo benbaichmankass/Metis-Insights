@@ -1,6 +1,6 @@
 id: RQ-20261014-4591-05
 title: 'Frontier / model-family diversity on direction: does CatBoost or sklearn HistGradientBoosting beat the class prior on 1h direction_label LOG-LOSS (BTC, ETH)?'
-status: queued
+status: done
 cadence: once
 theme: ml_health
 priority: 2
@@ -139,3 +139,17 @@ related:
 - scripts/research/ml_bakeoff.py
 - RQ-20261014-4591-02
 last_dispatched_at: '2026-10-14T09:10:30+00:00'
+grading:
+  attested: RULE-RQ20261014-4591-05-DIRECTION-FAMILIES-VS-PRIOR-1H
+  auto: true
+  awaiting: more_data
+  decision_rule_id: RULE-RQ20261014-4591-05-DIRECTION-FAMILIES-VS-PRIOR-1H
+  evidence:
+  - research/results/RQ-20261014-4591-05/38540464626.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'indeterminate is the pre-registered under-powered/null outcome: complete, but NOT a pass and
+    NOT a kill'
+  reason: 1 row(s), all measured, all indeterminate
+  rows: 1
+  verdict: indeterminate

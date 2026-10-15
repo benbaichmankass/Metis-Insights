@@ -107,6 +107,17 @@ clears can still be underpowered; a job that fails is underpowered for certain.
 It also does not adjust for multiplicity — a 40-cell sweep must declare its own
 adjusted `alpha`.
 
+
+## Recurring units that cannot reach their power floor (RESEARCH-LOOP-AUDIT RC5, 2026-10-15)
+
+A RECURRING e35 unit graded `indeterminate` at `base_oos_trades` below a third of its floor
+(`queue_grade.INFEASIBLE_FRACTION`) cannot reach the floor on its own cadence (MEASURED 2026-10-15: daily-bar
+legs at OOS n 0-11 against 39, adding about one trade a month). The grader writes `power: infeasible_at_cadence`
+and `recheck_after_days: 90` into its own grading block (no `needs_review`), and `dispatch_queue.due()` waits
+max(cadence, that). The unit is re-asked quarterly, never retired, and its registered fields never move.
+`recheck_after_days` is honoured only from a grader-written block (`auto: true` + `grader: ...queue_grade.py`)
+and can only lengthen the gap.
+
 ## Fields
 
 ```yaml
@@ -306,9 +317,13 @@ without Claude."* Three scheduled workflows own that:
 A generated or graded unit self-lands ONLY because `check_pr_landing.py` (E58)
 re-runs the producer's `--verify` at the merge-base and gets the same bytes;
 a hand-edited unit, a new hand-written unit, or a rule rewrite still holds for
-a human (E57). Mechanical grading applies to template-generated units and to
-hand-written ones that opt in with `grading: {auto: true}`; every other
-hand-written unit is graded by a session, as before. The `needs_review`
+a human (E57). Mechanical grading applies to template-generated units, to hand-written
+ones that opt in with `grading: {auto: true}`, and (RESEARCH-GRADE-BACKLOG,
+2026-10-15) to hand-written `once` units whose every result row carries the
+unit's own `decision_rule.id` (`attested`). A hand-written unit opts OUT with
+`grading: {auto: false}` or by carrying any session-written `grading:` block --
+the grader never overwrites a human read -- and a multi-dispatch unit declares
+`lands.runs: N` so the grader waits for N result files (RESEARCH-LOOP-AUDIT RC1). The `needs_review`
 bucket is `grep -l "needs_review: true" research/queue/*.yaml`. The alarm
 (`scripts/ci/check_research_queue_health.py`, run from the dispatcher) pages
 through the send-ping system-action when nothing has dispatched in 12 h or runnable units (same definition) < 25 AND the
@@ -386,3 +401,25 @@ confirmed here) — `research/queue/README.md` and `dispatch_queue.py` are silen
 on it. If that pickup mechanism is real, it is undocumented; if it is not, all
 6 units are effectively unrouted. Either way the dispatcher's own grading does
 not distinguish them from a real workflow-routed unit today.
+
+## The programme source -- plans become units without a session (RESEARCH-LOOP-AUDIT, 2026-10-15)
+
+`queue_replenish.py` has a sixth source besides `research/templates/`: **`research/programmes/*.yaml`**,
+one file per research programme (`docs/research/programmes/<NN>-*.md` is the prose plan; the YAML is its
+question tree). Each node names its `goal` (G1 first), `roadmap`, `value`, `after` (prerequisite units or
+nodes and the CLOSED verdict each must reach -- `pass`, `fail`, `indeterminate`, `no_action_warranted` or
+`any`) and either a full pre-registered `unit:` body or `needs_authoring:` (one line).
+
+- A **`unit:` node** is emitted as a queue unit (generated band, `generated.key: programme:<node>`) on the
+  first replenish run after its `after` holds -- whenever ready, not only to fill a template deficit, at most
+  `PROGRAMME_MAX_PER_RUN` per run. E58 vouches it because `verify()` re-renders it from the committed node and
+  checks the node was ready on the merge-base queue. A FAIL branch registered in the plan is therefore as
+  pre-registered as a PASS chain.
+- A **`needs_authoring:` node** never becomes a unit here. Once its `after` holds it is in the **authoring
+  queue**, ranked goal-first then value: `python3 scripts/research/queue_replenish.py --authoring-queue`.
+  research-ops drafts from it first (SKILL § E).
+- `--programme-state` prints every node as `answered` / `in_queue` / `ready` / `waiting` / `moot` (a branch
+  not taken) / `retired`. It is computed on read, so there is no state file to go stale.
+- `research/programmes/**` is landing machinery (`check_pr_landing.py`): every edit holds for a human merge,
+  because a node's `unit:` is a registration.
+

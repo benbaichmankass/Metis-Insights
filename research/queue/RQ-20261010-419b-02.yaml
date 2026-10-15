@@ -2,7 +2,7 @@ id: RQ-20261010-419b-02
 title: >-
   Pullback short side: is the 2h pullback's SHORT side a durable drag on the live legs (xrp_pullback_2h,
   ada_pullback_2h), or window luck? (perf-followup 2026-W41 L1)
-status: queued
+status: done
 cadence: once
 theme: live_strategy
 priority: 1
@@ -100,3 +100,16 @@ related:
 - RQ-20260928-016
 - RQ-20260928-019
 last_dispatched_at: '2026-10-11T06:05:57+00:00'
+grading:
+  attested: RULE-RQ-20261010-419b-02-PREREG
+  auto: true
+  decision_rule_id: RULE-RQ-20261010-419b-02-PREREG
+  evidence:
+  - research/results/RQ-20261010-419b-02/38116959391.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'hand-written unit, every row graded under its own registered rule: FAIL closes it (no template
+    confirmatory re-run)'
+  reason: 1 row(s), all measured, all fail
+  rows: 1
+  verdict: fail

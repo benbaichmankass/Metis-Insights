@@ -800,6 +800,61 @@ class Database:
             "CREATE INDEX IF NOT EXISTS idx_position_telemetry_strategy "
             "ON position_telemetry(strategy, updated_at)")
 
+        # EXIT-PATH-TELEMETRY-LIVE (operator OK 2026-10-15, "Build it
+        # (Recommended)") — the per-bar PATH of each open position, one row per
+        # (order_package_id, bar_ts). OBSERVE-ONLY: nothing reads it back to
+        # change an exit.
+        # data-wiring: position_path_history is a PROJECTION of position_telemetry
+        # — the same writer, on the same pass, copies the record
+        # position_telemetry.build_record already built (same since_entry_peak,
+        # same r_distances), keyed to order_packages.order_package_id and
+        # carrying trades.id as trade_id. Never a second truth: position_telemetry
+        # stays the canonical latest state. Nothing to backfill — the per-bar
+        # path was overwritten by the upsert and exists nowhere upstream.
+        # Bounded: position_path_history.RETENTION_DAYS, pruned on the write path.
+        # Sole writer: src/runtime/position_path_history.py.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS position_path_history (
+                order_package_id TEXT NOT NULL,
+                bar_ts TEXT NOT NULL,
+                trade_id TEXT,
+                account_id TEXT,
+                strategy TEXT,
+                symbol TEXT,
+                direction TEXT,
+                entry REAL,
+                risk_per_unit REAL,
+                last_price REAL,
+                open_r REAL,
+                peak_r REAL,
+                peak_state TEXT,
+                mae_r REAL,
+                giveback_r REAL,
+                bars_held INTEGER,
+                bars_since_peak INTEGER,
+                sl_price REAL,
+                tp_price REAL,
+                sl_r REAL,
+                tp_r REAL,
+                r_to_stop REAL,
+                r_to_target REAL,
+                rr_from_here REAL,
+                atr REAL,
+                atr_source TEXT,
+                adx REAL,
+                passes INTEGER NOT NULL DEFAULT 1,
+                first_seen_at TEXT,
+                written_at TEXT NOT NULL,
+                PRIMARY KEY (order_package_id, bar_ts)
+            )
+        ''')
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_position_path_history_written "
+            "ON position_path_history(written_at)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_position_path_history_trade "
+            "ON position_path_history(trade_id, bar_ts)")
+
         # AI Analyst — per-run history (M13 S1).
         # Every generator cycle appends one row per refreshed endpoint
         # so the dashboard can render "what did the analyst say

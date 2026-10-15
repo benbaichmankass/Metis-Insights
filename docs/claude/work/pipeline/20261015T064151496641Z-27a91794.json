@@ -1,0 +1,26 @@
+{
+  "based_on": "20261014T055624675314Z-aed4cb3a.json",
+  "due_when": {
+    "due_date": "2026-10-29",
+    "kind": "date"
+  },
+  "filed": "2026-10-11",
+  "id": "PI-20261011-HOPS1447-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "by": "research-ops-1447",
+    "kind": "session",
+    "ref": "RESEARCH-OPS-20261011-1447 reading RQ-20261010-419b-02",
+    "rerun": "python3 -c \"import json;r=json.loads(open('research/results/RQ-20261010-419b-02/38116959391.jsonl').readline());print({k:(v['pooled_long_net_r'],v['folds_negative_long'],v['n_long']) for k,v in r['measurement']['per_leg'].items()})\"  # expect ada (-18.7R,3,119) xrp (-25.2R,3,142)"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, still open on its row: scripts/research/leg_replay_emit.py --rule choices are none/short-drag/trend-asym/portfolio (no long-drag); no long-drag unit in research/queue or blocked/; measurement stays exploratory (ada -18.74R n119; xrp -25.15R n142).",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "ROUTE-LEG-EVIDENCE | [ROUTING-ALARM-20261014] routed from daily review WR-20261014-0530Z; the row owns this item and carries the rerun command",
+  "severity": "medium",
+  "state": "routed",
+  "tier": 1,
+  "what": "RQ-20261010-419b-02 (short-drag, NOT_CONFIRMED) also MEASURED the opposite side at config-exact live params over 1830 d: LONG net R is negative in 3 of 4 folds for BOTH ada_pullback_2h (pooled -18.74R, n_long 119) and xrp_pullback_2h (pooled -25.15R, n_long 142) while SHORT is positive (+11.39R / +9.88R, n 155 each). The unit's what_it_does_not_do says the long side is 'already refuted as a drag by #7915' - this read disagrees at the current window. Exploratory only (not pre-registered; cannot be a promotion basis). Needed: (1) add a `long-drag` rule to scripts/research/leg_replay_emit.py mirroring short-drag; (2) author ONE pre-registered unit that tests it on legs the exploratory read did not select from (the other pullback_2h legs on bybit_2: check config/accounts.yaml) and on a disjoint window once research-harness-dispatch.yml accepts one (RQ-20261007-033 lever, PI-20261004-APBY4NTV-0001). A confirmed stable long drag would be a Tier-3 side_filter proposal for the manager, never a config edit here."
+}

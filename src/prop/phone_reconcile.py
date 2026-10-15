@@ -176,7 +176,7 @@ def clean_positions(account_id: str, rows: Any) -> List[Dict[str, Any]]:
         out.append({"symbol": bot_symbol(account_id, venue), "venue_symbol": venue, "direction": side, "qty": qty,
                     "entry": _num(r.get("entry"), signed=False), "mark": _num(r.get("mark"), signed=False),
                     "upnl": _num(r.get("upnl"))})
-        if r.get("side_source") in ("journal", "sheet"):
+        if r.get("side_source") in ("journal", "sheet", "row"):
             out[-1]["side_source"] = r["side_source"]
         if r.get("side_source") == "sheet":
             # BREAKOUT-SL-AMEND-CLICK: side / qty / entry read off the row's position sheet (MEASURED). A uPnL the sheet

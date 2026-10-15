@@ -139,9 +139,16 @@ class TestManifestTrainingStaleness:
 
 
 def _run_gc(root: Path, configs: Path, *extra: str):
+    # Point every repo-reading keep reason at an EMPTY dir: these tests pin
+    # the manifest / nightly / age rules, and must not depend on what the real
+    # repo's docs, code or build script happen to name.
+    empty = root.parent / "gc-empty-refs"
+    empty.mkdir(exist_ok=True)
     r = subprocess.run(
         [sys.executable, str(_OPS / "trainer_dataset_gc.py"),
-         "--datasets-root", str(root), "--configs", str(configs), *extra],
+         "--datasets-root", str(root), "--configs", str(configs),
+         "--doc-roots", str(empty), "--ref-roots", str(empty),
+         "--builder-scripts", str(empty / "none.sh"), *extra],
         capture_output=True, text=True,
     )
     events = [json.loads(line) for line in r.stdout.splitlines() if line.strip()]
@@ -155,8 +162,12 @@ class TestTrainerDatasetGc:
                  version: str, age_days: float) -> Path:
         d = root / family / scope / tf / version
         d.mkdir(parents=True)
-        (d / "data.jsonl").write_text("x" * 1000, encoding="utf-8")
+        f = d / "data.jsonl"
+        f.write_text("x" * 1000, encoding="utf-8")
         past = time.time() - age_days * 86400
+        # The GC ages a version by its NEWEST FILE (a nightly in-place
+        # rewrite of data.jsonl leaves the dir mtime alone), so age both.
+        os.utime(f, (past, past))
         os.utime(d, (past, past))
         return d
 

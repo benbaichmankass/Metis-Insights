@@ -2,7 +2,7 @@ id: RQ-20261012-75b2-22
 title: >-
   Feature ablation: BTCUSDT 15m regime_label, LightGBM + HAR-RV horizons (d/w/m realised-variance) vs LightGBM on
   the shipped features
-status: queued
+status: done
 cadence: once
 theme: ml_health
 priority: 3
@@ -106,3 +106,18 @@ ml_bakeoff:
 roadmap: [M25]
 related: [ML-RQ-RUNNER, scripts/research/ml_bakeoff.py, ml/configs/btc-regime-15m-lgbm-fc-pcv-v2.yaml, .claude/skills/ml-review/SKILL.md]
 last_dispatched_at: '2026-10-13T08:58:12+00:00'
+grading:
+  attested: RULE-RQ1012-75B2-22-ML-HAR-BTC
+  auto: true
+  awaiting: more_data
+  decision_rule_id: RULE-RQ1012-75B2-22-ML-HAR-BTC
+  evidence:
+  - research/results/RQ-20261012-75b2-22/38361174791.jsonl
+  - research/results/RQ-20261012-75b2-22/38365071563.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'indeterminate is the pre-registered under-powered/null outcome: complete, but NOT a pass and
+    NOT a kill'
+  reason: 2 row(s), all measured, all indeterminate
+  rows: 2
+  verdict: indeterminate

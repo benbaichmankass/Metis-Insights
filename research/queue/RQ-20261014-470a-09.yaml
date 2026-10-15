@@ -1,7 +1,7 @@
 id: RQ-20261014-470a-09
 title: 'Breakout strength floor, real money: does trend_donchian_eth_4h''s min_confidence (0.4, 0.7, 0.8) beat the declared 0.6 on its 1095-day
   window, net of the full cost stack?'
-status: queued
+status: done
 cadence: once
 theme: live_strategy
 priority: 2
@@ -105,7 +105,14 @@ related:
 - P3-STRATEGY-PROGRAMME
 - docs/research/programmes/03-STRATEGY-IMPROVEMENT.md
 - scripts/research/exit_lever_ablation.py
+last_dispatched_at: '2026-10-15T04:43:06+00:00'
 grading:
   auto: true
   decision_rule_id: RULE-RQ20261014470a09
-last_dispatched_at: '2026-10-15T04:43:06+00:00'
+  evidence:
+  - research/results/RQ-20261014-470a-09/38682954997.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  reason: 1 row(s), all measured, all pass
+  rows: 1
+  verdict: pass

@@ -986,22 +986,17 @@ def main() -> None:
     except Exception as exc:  # noqa: BLE001
         logger.warning("dup-key check skipped: %s", exc)
 
-    # S-021: log open packages per strategy on every startup so the operator
-    # can see at a glance that monitoring will resume (BUG-048 observability gap).
+    # TELEGRAM-RESTART-MSG (2026-10-15): ONE restart ping — status headline,
+    # cause line, and a per-account journal <-> broker reconcile (positions,
+    # tracked, measured SL/TP) — replacing the S-021 per-strategy package list
+    # and the Sprint A-3 Bybit-only ghost alert. Runs on a daemon thread; boot waits
+    # at most boot_audit.REPORT_WAIT_S for it, so a slow broker read cannot hold
+    # the first tick back longer than that. Never raises.
     try:
-        from src.runtime.boot_audit import report_open_packages_on_boot
-        report_open_packages_on_boot()
+        from src.runtime.boot_audit import start_restart_report_thread
+        start_restart_report_thread()
     except Exception as exc:  # noqa: BLE001
-        logger.warning("boot_audit skipped: %s", exc)
-
-    # Sprint A-3: compare journal open rows against live Bybit positions.
-    # Ghost rows (journal open, Bybit flat) get a Telegram alert immediately
-    # on startup — before the first tick — so the operator can investigate.
-    try:
-        from src.runtime.boot_audit import reconcile_journal_vs_exchange_on_boot
-        reconcile_journal_vs_exchange_on_boot()
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("boot_reconcile skipped: %s", exc)
+        logger.warning("boot restart report skipped: %s", exc)
 
     # S-PERSIST-CANON: snapshot the active strategies.yaml into the
     # (previously dead) trade_journal.db::strategy_versions table so the

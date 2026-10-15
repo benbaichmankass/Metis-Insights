@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Edits scripts/research/queue_replenish.py (an E58 producer) and scripts/ci/check_pr_landing.py (adds research/programmes/** to LANDING_MACHINERY), so the manager merges. Change: programme question nodes become queue_replenish's sixth source (RESEARCH-LOOP-AUDIT RC2/RC3): a unit: node is emitted once its after-verdicts are closed and verify() re-renders it from the committed node and checks readiness on the merge-base; needs_authoring nodes form a ranked authoring queue (--authoring-queue); --programme-state. No programme files in this PR (sidecars 01/02 follow as their own hold PR). Manager confirmed scope 2026-10-15 06:25Z.",
+  "why": "Tier-1 research tooling and the landing guard's machinery list. No config/, src/, workflow, schedule or live path."
+}

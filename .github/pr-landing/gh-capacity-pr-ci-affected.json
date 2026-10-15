@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "GH-CAPACITY-PR-CI-FANOUT (P1). Operator decision 2026-10-15 ~08:41Z, relayed by the manager: \"Yes, affected tests on PRs\". This changes what the REQUIRED `pytest-run` context means on a pull_request: a code diff now runs the test files the import graph says can observe it, not the whole suite. Context names are unchanged and push-to-main still runs the full suite. The paths are Tier-1 (scripts/ci, tests, .github/workflows), but a change to a required check's meaning is held for the manager to land, as the lane prompt asked.",
+  "why": "pytest-run on pull_request runs import-graph-affected tests (full-suite fallback on conftest, requirements, high fan-in, .github/, scripts/ci/, guard scripts, config-named modules, undecidable diffs); full suite unchanged on push to main."
+}

@@ -622,6 +622,22 @@ def test_loop_restarted_is_an_accepted_event_kind(_iso):
     assert pe.recent_events("breakout_2")[-1]["kind"] == "loop_restarted"
 
 
+def test_background_ticket_fields_and_fallback_event(_iso):
+    """PHONE-FGS-EXEC: the background-ticket heartbeat fields are kept, the fallback event is accepted and pinged, and
+    the engine tag on a reason survives the scrub."""
+    pe.record_event(_dev(), {"event": "heartbeat", "reason": "background: no ticket waiting",
+                             "state": {"st": "background", "bg_tickets": 3, "bg_ticket_last": "dry_filled",
+                                       "bg_ticket_off_min": 0}})
+    st = pe.last_heartbeat("breakout_2")["state"]
+    assert st["bg_tickets"] == 3 and st["bg_ticket_last"] == "dry_filled" and st["bg_ticket_off_min"] == 0
+    sent = []
+    pe.record_event(_dev(), {"event": "bg_ticket_fallback", "reason": "background ticket ended refused (overlay)",
+                             "ticket_id": "t-1"}, send=lambda m, **k: sent.append(m) or True)
+    assert pe.recent_events("breakout_2")[-1]["kind"] == "bg_ticket_fallback" and len(sent) == 1
+    pe.record_event(_dev(), {"event": "dry_fill_ok", "reason": "(bg:overlay) filled + read back"}, send=lambda *a, **k: True)
+    assert pe.recent_events("breakout_2")[-1]["reason"].startswith("(bg:overlay) filled")
+
+
 def test_pending_poll_runs_the_stale_claim_watchdog(tmp_path, monkeypatch, _iso):
     """BREAKOUT-UNTRACKED-1014: the backgrounded app only polls /phone/pending, never /phone/claim, so a live
     submit the phone never confirmed sat `claimed` for 5 h with no alert. The pending poll now runs the watchdog."""

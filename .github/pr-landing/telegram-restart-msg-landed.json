@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "TELEGRAM-RESTART-MSG checklist row -> landed_unproven after PR #18226 merged; names the observation that closes it. Docs/register only."
+}

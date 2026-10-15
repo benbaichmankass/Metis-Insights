@@ -1,6 +1,6 @@
 id: RQ-20261014-f516-07
 title: 'Programme 05 Q4: what does the armed daily-DD switch (0.8 x firm limit) cost or buy velotrade_1 in E[profit per life] and P(breach)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -101,3 +101,16 @@ related:
 - docs/claude/work/checklist/DAILY-DD-SWITCH.json
 - src/units/accounts/daily_dd_switch.py
 last_dispatched_at: '2026-10-14T23:00:56+00:00'
+grading:
+  attested: RULE-RQ1014-F516-07-DDSWITCH-VELOTRADE1
+  auto: true
+  decision_rule_id: RULE-RQ1014-F516-07-DDSWITCH-VELOTRADE1
+  evidence:
+  - research/results/RQ-20261014-f516-07/38651476879.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'hand-written unit, every row graded under its own registered rule: FAIL closes it (no template
+    confirmatory re-run)'
+  reason: 1 row(s), all measured, all fail
+  rows: 1
+  verdict: fail

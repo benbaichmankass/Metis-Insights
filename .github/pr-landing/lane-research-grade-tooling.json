@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research tooling only: scripts/research/ml_bakeoff.py now reads a floor clause over a window with no measured folds (an empty holdout) as INDETERMINATE, never FAIL. Before this, RQ-20261012-75b2-25/-27 landed a FAIL although their registered rules say holdout rows < 20 is INDETERMINATE. Self-tested (an empty holdout -> indeterminate; a measured negative holdout -> still fail). No config, no live path, no queue edit. The queue_grade.py half of this PR was dropped on 2026-10-15 in favour of RESEARCH-LOOP-AUDIT's #18189, which changes the same file."
+}

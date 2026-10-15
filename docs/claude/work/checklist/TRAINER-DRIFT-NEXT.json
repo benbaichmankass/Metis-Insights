@@ -11,9 +11,9 @@
   "tier": 3,
   "prs": [],
   "blocked_on": [],
-  "note": "[2026-10-14 weekly planning] Operator direction 2026-10-14: PROPOSAL ONLY. The drift-retrain cadence for advisory heads is a Tier-3 question (model lifecycle feeding live sizing); the two candidate shapes are (a) a 3-hourly drift retrain on the trainer VM inside its windows, (b) drift retrain off-VM once KAGGLE-TRAIN-RUNNER-FIRST's parity gate exists. Do not decide before KAGGLE-TRAIN-RUNNER-FIRST reports; then write the exact proposal (manifests, cadence, cost in trainer-minutes, revert) for an operator yes/no. No config edit under this row.",
-  "updated_at": "2026-10-14T07:37:20Z",
-  "updated_by": "session_01DfFYRUG7orGpkE5pVnA8e4",
+  "note": "[2026-10-14 weekly planning] Operator direction 2026-10-14: PROPOSAL ONLY. The drift-retrain cadence for advisory heads is a Tier-3 question (model lifecycle feeding live sizing); the two candidate shapes are (a) a 3-hourly drift retrain on the trainer VM inside its windows, (b) drift retrain off-VM once KAGGLE-TRAIN-RUNNER-FIRST's parity gate exists. Do not decide before KAGGLE-TRAIN-RUNNER-FIRST reports; then write the exact proposal (manifests, cadence, cost in trainer-minutes, revert) for an operator yes/no. No config edit under this row. [2026-10-15 lane session_01YH1am2LXDBtyPPp3PFA1gk] NOT STARTED, by design: the dispatch says write the proposal only after the runner parity result. PR #18199 (hold) carries the parity units RQ-20261015-8b93-01/-02; the proposal follows a landed 8b93-02 verdict.",
+  "updated_at": "2026-10-15T06:52:42Z",
+  "updated_by": "session_01YH1am2LXDBtyPPp3PFA1gk",
   "roadmap": [
     "M25"
   ],

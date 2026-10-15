@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-17",
+    "kind": "date"
+  },
+  "id": "PI-20261015-WNBZB5WN-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "RESEARCH-GRADE-BACKLOG lane 2026-10-15 (branch lane/research-grade-backlog)",
+    "rerun": "grep -l producer_failed research/results/RQ-20261007-009/*.jsonl research/results/RQ-20261007-080/*.jsonl research/results/RQ-20261014-4591-01/*.jsonl research/results/RQ-20261014-4591-06/*.jsonl research/results/RQ-20260929-104/*.jsonl research/results/RQ-20260927-003/*.jsonl"
+  },
+  "state": "queued",
+  "what": "Six queued units ran and landed only producer_failed rows, so no verdict exists: RQ-20261007-009 and RQ-20261007-080 (research-script-run cmd 0 exit=1; the cmd-0.log the row names is NOT on main, so the cause cannot be read), RQ-20261014-4591-01 and -06 (Kaggle route, no run-manifest.json; siblings -02..-05 measured, so the route fails intermittently), RQ-20260929-104 (BNB funding-carry harness build failed twice), RQ-20260927-003 (session-bound trainer-vm-diag relay, 4 failed attempts). Root-cause each (the collector should also commit cmd logs), then re-arm (last_dispatched_at: null) or retire with a reason."
+}

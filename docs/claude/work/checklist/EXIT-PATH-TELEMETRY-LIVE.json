@@ -2,21 +2,32 @@
   "id": "EXIT-PATH-TELEMETRY-LIVE",
   "title": "PROPOSAL (Tier-2): live per-bar position_telemetry history, so the in-trade exit model can be parity-checked and later served",
   "phase": null,
-  "state": "in_flight",
-  "owner": "manager to route; operator OK required before build/deploy (Tier-2)",
+  "state": "landed_unproven",
+  "owner": "lane (Opus); human merge per operator approval 2026-10-15",
   "lane": "session_01Sj2RBEyZFFngAWQWRiAVV4",
-  "model": null,
-  "ceiling_usd": null,
+  "model": "claude-opus-5-5",
+  "ceiling_usd": 20,
   "spend_usd": null,
   "tier": 2,
-  "prs": [],
+  "prs": [
+    18166
+  ],
   "blocked_on": [],
-  "note": "[2026-10-15T05:57Z manager session_01VduHYzdaXe27wTDBLSu8ao] OPERATOR popup 2026-10-15 ~05:56Z, verbatim choice: 'Build it (Recommended)'. Recording only, no trading behaviour change. Lane Opus $20, hold PR, manager merges and verifies rows on live trades.",
-  "updated_at": "2026-10-15T05:57:01Z",
-  "updated_by": "session_01VduHYzdaXe27wTDBLSu8ao",
+  "note": "[2026-10-14 lane IN-TRADE-EXIT-MODEL] PROPOSAL ONLY -- not built, not approved. src/runtime/position_telemetry.py keeps ONE upserted row per position (peak_r, giveback_r, bars_since_peak; latest only), so a live trade's path is overwritten bar by bar and MAE is never stored. The in-trade exit model (row IN-TRADE-EXIT-MODEL) is learned OFFLINE from harness path emits (row EXIT-PATH-EMIT-OFFLINE, the priority); this row is what lets it be (1) PARITY-checked on live trades (harness state at bar t == live state at bar t, the exit-refinement skill's parity step) and (2) eventually SERVED in shadow. PROPOSED SHAPE: an append-only per-bar history alongside the upsert (same writer, same tick, one row per open position per bar close: ts, order_package_id, open_r, peak_r, mae_r, bars_since_peak, sl/tp in force in R, atr, adx), a declared canonical-source relationship for the new-table-wiring guard (it PROJECTS the same telemetry, never a second truth), a retention bound, and a /api/diag read path. TIER-2 (runtime writer + DB table): prepare + validate, one operator OK, ship, verify post-state per CLAUDE.md. CONSUMERS: blocked/RQ-20261014-9807-05 (live rows as its parity read, never pooled), the shadow rung of the exit ladder (Programme 01 Q8). Not a prerequisite for any research unit filed 2026-10-14; schedule it when the offline model has a PASS worth shadowing. [2026-10-15 lane session_01Sj2RBEyZFFngAWQWRiAVV4] BUILT per operator OK 2026-10-15 ~06:00Z verbatim 'Build it (Recommended)'. PR #18166 (draft, landing hold tier_2_3_needs_approval; guard path-tier 3 only via one-kwarg edits in 6 strategy monitors). Table position_path_history (PK order_package_id+bar_ts), projected from the position_telemetry record on the same pass; adds mae_r, sl_r/tp_r, atr/atr_source/adx; no rows after terminal stamp; 90d retention; failures contained (warn once). Read: GET /api/diag/position_path_history. Tests 983 passed locally; new-table-wiring/api-tier/collapsed-state/pr-landing/ruff(pinned)/lint-imports clean. MERGED: no. DEPLOYED: no. OBSERVED: no -- see observation. [2026-10-15T10:10Z lane session_01Sj2RBEyZFFngAWQWRiAVV4] OBSERVED LIVE. MERGED #18166 (f09815e3) at ~08:48Z. DEPLOYED: trader+web-api on 58044ca89, which includes the merge; restart ~08:53Z, no manual restart. ROWS: 09:06Z read gave 7 rows / 7 packages, matching all 7 open position_telemetry rows that are updated each pass (2 stale 'open' rows pkg-785d9a600c894c81 / pkg-32a5162bbbdd4ef6 are PI-20260930-3QNHBGND-0003 -> ORDER-AUDIT-3, not this). Every row has account_id, peak_state=measured, mae_r, atr_source=monitor, adx. BAR ADVANCE: pkg-63b56da53bfe4d64 (xrp_pullback_2h) 08:00Z row stopped at 10:04:18Z after 143 passes; 10:00Z row started 10:04:48Z; bars_since_peak 3->4. The new bar row appears ~4.8 min after the bar boundary (candle-fetch lag), so a bar row is the last pass seen while that candle was newest. NOT YET OBSERVED: no-rows-after-close; 0 monitored closes since deploy. Kept landed_unproven on that one clause.",
+  "updated_at": "2026-10-15T10:10:40Z",
+  "updated_by": "session_01Sj2RBEyZFFngAWQWRiAVV4",
   "roadmap": [
     "L-ATM",
     "M31"
   ],
+  "observation": {
+    "what": "the first monitored trade that CLOSES after the 2026-10-15 ~08:53Z deploy: its position_telemetry row is stamped terminal_state=final and position_path_history gets NO row with written_at after terminal_at for that order_package_id (the only clause not yet observed live; it is unit-tested in tests/test_position_path_history.py::test_no_rows_after_close)",
+    "how_to_check": "diag: position_telemetry?limit=1000 -> rows with terminal_at >= 2026-10-15T08:53; for each, position_path_history?order_package_id=<pkg> -> max(written_at) <= terminal_at",
+    "due_by": "2026-10-22"
+  },
+  "writeback": {
+    "roadmap": "none: telemetry plumbing for IN-TRADE-EXIT-MODEL; no milestone measure moves until rows are observed on live trades",
+    "arch": "none: additive journal table + diag read route; trade/order path contracts unchanged"
+  },
   "_seq": 498
 }

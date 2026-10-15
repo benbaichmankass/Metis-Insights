@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Tier-1 bookkeeping: the lane's dispatch says the manager merges, so this is held for the manager rather than self-landed.",
+  "why": "docs/claude/work/checklist/BREAKOUT-SL-AMEND-CLICK.json only -- state in_flight -> landed_unproven after #18114 merged (381c0cea), with the three observations that close it. No src/, config/, order path or deploy file."
+}

@@ -1,0 +1,24 @@
+{
+  "based_on": "20261014T145409468329Z-fc199836.json",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "each of the 6 named surfaces has either a producer that is observed non-null on a live journal row (diag pull) or is deleted/retired by a merged PR named here",
+    "kind": "observation",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261014-MVBJLVJ3-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01QdFKBCgBQ5T8tfMvBjLVj3",
+    "rerun": "grep -rn 'meta\\[\"killzone\"\\]\\|meta\\[\"bias\"\\]\\|\"killzone\"' src --include=*.py | head; grep -rln 'fvg_detector\\|order_blocks\\|key_levels' src scripts | grep -v test"
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, still open: killzone/bias still consumed from meta by strategy_signal_builders.py:345, advisory_sizing.py:78, vwap.py:872 and others; no producer identified and none of the six surfaces shown non-null live or deleted.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "SIGNAL-CATALOG (dead killzone/bias columns in trades: catalog finding; any src/units/accounts/execute.py change is Tier-2, needs manager)",
+  "state": "routed",
+  "what": "DEAD SIGNAL PATHS (found by lane AI-TRADER-PROGRAMME, SIGNALS-CATALOG section 2, 2026-10-14): trades.killzone and trades.bias are written from meta[\"killzone\"]/meta[\"bias\"] (src/units/accounts/execute.py ~L2609-2610) but no live strategy sets either key, so both columns are always NULL while being read as features by strategy_signal_builders._emit_shadow_preds, advisory_sizing.py and the execution_quality dataset family; src/ict_detection/{fvg_detector,order_blocks,key_levels}.py and swing_points.mark_market_structure have no caller outside tests/visualize; signal_writer._write_ict_signals_from_meta's fvg_*/ob_* rows have no producer. Decide per item: give the column a producer (killzone = session hour window, cheap; the catalog's Q19 question) or drop the dead read; retire or route the library detectors. Tier-1."
+}

@@ -128,4 +128,16 @@ roadmap:
 related:
 - RQ-20261014-65cc-10
 - scripts/research/ml_bakeoff.py
-last_dispatched_at: '2026-10-14T09:54:42+00:00'
+last_dispatched_at: null
+grading:
+  attested: RULE-RQ20261014-4591-01-REGIME-LOGLOSS-HOLDOUT
+  auto: true
+  decision_rule_id: RULE-RQ20261014-4591-01-REGIME-LOGLOSS-HOLDOUT
+  evidence:
+  - research/results/RQ-20261014-4591-01/38545857760.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  needs_review: true
+  reason: 'read_state not unanimously measured: [''producer_failed'']'
+  rows: 1
+  verdict: null

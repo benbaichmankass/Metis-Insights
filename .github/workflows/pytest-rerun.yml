@@ -20,9 +20,18 @@ permissions:
   contents: read
   pull-requests: read
 
+# GH-CAPACITY-INFRA-FIRST (2026-10-15, operator: "give infra preference on github capacity").
+# Keyed on the triggering run's BRANCH, cancel-in-progress. MEASURED 08:21Z: 23 pytest-rerun runs
+# queued for the repo's 20-job runner cap, one per completed pytest-run (most of them PR runs
+# CANCELLED by a newer push), each waiting a runner only to decide "superseded -> no rerun".
+# A newer completion on the same branch makes the older decision moot: pytest_rerun.py already
+# refuses a run whose branch head moved on, so cancelling it loses nothing. (The run's own
+# head_branch is the default branch for workflow_run; the TRIGGERING run's branch is
+# github.event.workflow_run.head_branch.) pytest-rerun is not in claude-run-failure-alert's
+# watch list, so a cancelled decision run pages nobody.
 concurrency:
-  group: pytest-rerun-${{ github.event.workflow_run.head_sha }}
-  cancel-in-progress: false
+  group: pytest-rerun-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
 
 jobs:
   rerun:

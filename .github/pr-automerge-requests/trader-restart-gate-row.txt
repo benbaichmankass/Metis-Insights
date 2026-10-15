@@ -1,0 +1,1 @@
+TRADER-RESTART-GATE row + decision record

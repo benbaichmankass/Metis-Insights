@@ -53,6 +53,7 @@ from src.runtime.strategy_monocle import (  # noqa: E402
     _recent_refusal_for_strategy,
     _same_bar_entry_for_strategy,
     _empty_sizing_refusal_for_signal,
+    UNREADABLE_PACKAGE_PREFIX,
 )
 from src.runtime.order_bridge import signal_key_for_signal  # noqa: E402
 
@@ -215,6 +216,55 @@ _OUTCOME_LEVEL_BY_STATUS: Dict[str, Level] = {
 # would report a genuinely new failure as "already alerting" and say nothing.
 _BUILDER_EXC_ALERT_KIND = "strategy_builder_exception"
 _BUILDER_EXC_COOLDOWN_S: float = 6 * 3600.0
+
+
+# A PERSISTENT open-package read failure refuses every entry on every account
+# every tick (both gates fail closed), and until ORDER-AUDIT-3 it wrote only a
+# WARNING line and a signals row -- nothing paged (PI-20260930-MEK2XMWT-0004).
+# Consecutive gated rounds whose read failed are counted in-process; at the
+# threshold ONE ERROR reaches the operator through the existing `report()` path,
+# latched by `alert_cooldown` so a standing fault is downgraded to WARN rather
+# than paging every tick. Any clean read resets the streak. This only REPORTS:
+# the gate keeps failing closed per round and retrying next tick -- no halt.
+_OPEN_PKG_READ_FAIL_ALERT_KIND = "open_package_read_failed"
+_OPEN_PKG_READ_FAIL_PAGE_AT = 3
+_OPEN_PKG_READ_FAIL_COOLDOWN_S: float = 6 * 3600.0
+_OPEN_PKG_READ_FAIL_STREAK = 0
+
+
+def _note_open_package_read(failed: bool, *, strategy: Any = None,
+                            symbol: Any = None, cause: Any = None) -> None:
+    """Count consecutive failed open-package reads and page at the threshold.
+    Never raises."""
+    global _OPEN_PKG_READ_FAIL_STREAK
+    try:
+        if not failed:
+            _OPEN_PKG_READ_FAIL_STREAK = 0
+            return
+        _OPEN_PKG_READ_FAIL_STREAK += 1
+        streak = _OPEN_PKG_READ_FAIL_STREAK
+        if streak < _OPEN_PKG_READ_FAIL_PAGE_AT:
+            return
+        try:
+            from src.runtime.alert_cooldown import cooldown_admits
+
+            first = cooldown_admits(_OPEN_PKG_READ_FAIL_ALERT_KIND, "journal",
+                                    _OPEN_PKG_READ_FAIL_COOLDOWN_S)
+        except Exception:  # noqa: BLE001 -- an unreachable latch pages (fail loud)
+            first = True
+        report(
+            "open_package_gate",
+            "read_failed",
+            level=Level.ERROR if first else Level.WARN,
+            reason=(f"open-package journal read failed on {streak} consecutive "
+                    f"dispatch rounds -- every entry is refused (fail closed) "
+                    f"until a read succeeds; still retrying each tick. "
+                    f"Last cause: {cause}"),
+            strategy=strategy,
+            symbol=symbol,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("open-package read-failure alert failed")
 
 
 def _builder_exception_cause(exc: BaseException) -> str:
@@ -706,6 +756,16 @@ def _monocle_gate(
     _existing_open = None if open_package_checked else _has_open_package_for_strategy(
         _gate_strategy, signal.get("symbol")
     )
+    # `_has_open_package_for_strategy` fails closed with
+    # UNREADABLE_PACKAGE_PREFIX + <exc type>; that is a READ FAILURE, not an
+    # open package, and must say so (PI-20260930-MEK2XMWT-0005, ORDER-AUDIT-3).
+    # The block itself is unchanged.
+    _read_failed = (isinstance(_existing_open, str)
+                    and _existing_open.startswith(UNREADABLE_PACKAGE_PREFIX))
+    if not open_package_checked:
+        _note_open_package_read(_read_failed, strategy=_gate_strategy,
+                                symbol=signal.get("symbol"),
+                                cause=_existing_open if _read_failed else None)
     if _existing_open is not None:
         logger.info(
             "strategy_monocle: skipping dispatch — strategy=%s "
@@ -723,11 +783,13 @@ def _monocle_gate(
         # Best-effort — an audit failure never bypasses the gate.
         try:
             log_signal({
-                "event": "open_package_blocked",
+                "event": ("open_package_read_failed" if _read_failed
+                          else "open_package_blocked"),
                 "strategy": _gate_strategy,
                 "symbol": signal.get("symbol"),
                 "side": signal.get("side"),
                 "open_package_id": _existing_open,
+                **({"cause": _existing_open} if _read_failed else {}),
             })
         except Exception:  # noqa: BLE001
             logger.exception(
@@ -735,9 +797,11 @@ def _monocle_gate(
             )
         result = {
             "status": "skipped",
-            "reason": "open_package_exists",
+            "reason": ("open_package_read_failed" if _read_failed
+                       else "open_package_exists"),
             "strategy": _gate_strategy,
             "open_package_id": _existing_open,
+            **({"cause": _existing_open} if _read_failed else {}),
             "signal": signal,
         }
         return result
@@ -920,6 +984,9 @@ def _open_package_round(
     """
     strategy = (signal.get("meta") or {}).get("strategy_name") or signal.get("strategy")
     verdict = _open_package_scope(strategy, signal.get("symbol"), scope)
+    _note_open_package_read(bool(verdict.get("read_error")), strategy=strategy,
+                            symbol=signal.get("symbol"),
+                            cause=verdict.get("read_error"))
     action = verdict["action"]
     if action == "pass":
         return None, verdict["scope"]

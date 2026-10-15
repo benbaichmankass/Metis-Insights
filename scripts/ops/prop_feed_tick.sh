@@ -29,8 +29,16 @@
 #         PROP_FEED_BACKOFF_BASE_S (300) doubling per further failure, capped
 #         at PROP_FEED_BACKOFF_CAP_S (7200 = 2 h);
 #       * a feasibility stop (exit 4: challenge, CAPTCHA, 2FA, rejected
-#         login, login timeout, missing creds) goes straight to the cap: a
-#         refused login is retried every 2 h, never every 5 min.
+#         login, expired password, missing creds, ASN block, access denied)
+#         goes straight to the cap: a refused login is retried every 2 h,
+#         never every 5 min;
+#       * a TRANSIENT terminal outage (exit 7: the login page timed out or
+#         rendered something unrecognised, `feasibility: timeout` /
+#         `unknown_page`; PROP-FEED-RETRY, operator-approved 2026-10-14) is
+#         NOT a refusal, so it takes the ordinary path above: the next 5-min
+#         tick is the re-check, and only the MAX_FAILURES-th consecutive one
+#         backs off and raises the one flag. Before this a ~4 min terminal
+#         blip exited 4 and silenced tradeify_1 for 26 h+.
 #     ONE red-flag ping (and audit record) when the feed first enters that
 #     backoff (MAX_FAILURES-th failure, a feasibility stop, or the relogin
 #     ceiling below), ONE "recovered" ping when a later tick succeeds. Ticks
@@ -76,7 +84,8 @@
 # passed, so nothing about the page is written to disk.
 #
 # Exit: 0 ok / backoff-skip / lock-busy; otherwise the python exit code
-# (3 unparsed, 4 feasibility, 5 environment, 124 timeout, 1 other).
+# (3 unparsed, 4 feasibility, 5 environment, 7 transient outage, 124 timeout,
+# 1 other).
 
 set -euo pipefail
 
@@ -430,6 +439,7 @@ case "${rc}" in
     3) record_failure 3 "login ok but part of the read did not parse" ;;
     4) record_failure 4 "the check printed a feasibility stop" ;;
     5) record_failure 5 "environment (chromium/playwright unusable)" ;;
+    7) record_failure 7 "transient terminal outage (login page timeout/unrecognised page); re-checked on the next tick" ;;
     124|137) record_failure "${rc}" "hard timeout after ${TIMEOUT_S}s" ;;
     *) record_failure "${rc}" "error" ;;
 esac

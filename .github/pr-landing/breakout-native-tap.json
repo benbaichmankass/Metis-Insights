@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "BREAKOUT-SL-AMEND-CLICK follow-up (manager session_01VduHYzdaXe27wTDBLSu8ao; operator OK 2026-10-15 ~05:52Z 'you have my okay to change that trade, or the app does'). Tier 2 by path: the phone-executor APK + the prop web-api diag slot. (1) The position sheet is opened with a NATIVE touch (MotionEvent to the WebView) at the centre of the same denylist-checked Market cell, re-checked with elementFromPoint right before the touch. (2) A collapsed group row is expanded with one native touch and Positions re-read: the child row's text side is MEASURED (side_source row). (3) Sheet / child probes get their own server diag slot (phone_sheet_diag) so the Positions miss no longer overwrites them. SHEET_EDIT_MEASURED stays false: no stop is edited, no order placed. The manager merges, then sends the operator the APK.",
+  "why": "live diag 2026-10-15T08:37:29Z breakout_2 on 1b.210: sheet_sheet_not_open after click() and a synthetic pointer tap on both rows; the group tap expanded the row (79 new elements incl. 'Short', '1 TP / 1 SL'). Synthetic events reach the cell but do not open the sheet."
+}

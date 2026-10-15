@@ -2,7 +2,7 @@
   "id": "RESEARCH-GRADE-PILE",
   "title": "Session-grade 17 hand-written research units that ran and sit queued with no verdict (their Tier-3 candidates are unread)",
   "phase": "W6",
-  "state": "queued",
+  "state": "landed_unproven",
   "owner": "unassigned",
   "lane": null,
   "model": null,
@@ -11,11 +11,20 @@
   "tier": 1,
   "prs": [],
   "blocked_on": [],
-  "note": "[2026-10-11 RESEARCH-OPS-20261011-0030] research_disposition.py --unread-only (read 2026-10-11 00:45Z): 26 unread rows = 17 e35 rows (all power=accruing, units RQ-20260928-016..RQ-20261010-009, auto-graded; no verdict can be read from an accruing row) + 9 m20 rows dated 2026-10-04 (not_queue_dispatched; Tier-3 candidates, already summarised in the RESEARCH-NIGHT-1010 note for eth_prop/sol_prop/xrp_4h/xrp_pullback_2h). Not hand-recorded by research-ops (ledger entries are a topic lane's read). check_research_queue_health reports needs_review=31. [2026-10-14 manager] Decision (c) from RESEARCH-PROGRAMMES (#18012): the landed 2026-10-08 PASS rows of RQ-20261007-001 (tp_extend 6/24, xrp_pullback_2h + ada_pullback_2h) and RQ-20261007-003 (tp_retarget 2/9, trend_donchian_xrp_4h) get a ledger disposition in the next research-ops pass: 'confirming' pointing at RQ-20261014-9807-03 (the fresh-partition confirmation unit). No promotion on them before -03 reads.",
-  "updated_at": "2026-10-14T08:21:33Z",
-  "updated_by": "session_01G16FfyYSmDPQuuW55BuTmK",
+  "note": "[2026-10-11 RESEARCH-OPS-20261011-0030] research_disposition.py --unread-only (read 2026-10-11 00:45Z): 26 unread rows = 17 e35 rows (all power=accruing, units RQ-20260928-016..RQ-20261010-009, auto-graded; no verdict can be read from an accruing row) + 9 m20 rows dated 2026-10-04 (not_queue_dispatched; Tier-3 candidates, already summarised in the RESEARCH-NIGHT-1010 note for eth_prop/sol_prop/xrp_4h/xrp_pullback_2h). Not hand-recorded by research-ops (ledger entries are a topic lane's read). check_research_queue_health reports needs_review=31. [2026-10-14 manager] Decision (c) from RESEARCH-PROGRAMMES (#18012): the landed 2026-10-08 PASS rows of RQ-20261007-001 (tp_extend 6/24, xrp_pullback_2h + ada_pullback_2h) and RQ-20261007-003 (tp_retarget 2/9, trend_donchian_xrp_4h) get a ledger disposition in the next research-ops pass: 'confirming' pointing at RQ-20261014-9807-03 (the fresh-partition confirmation unit). No promotion on them before -03 reads. [2026-10-15 RESEARCH-GRADE-BACKLOG, Opus lane] Backlog graded. ROOT CAUSE of the gap: queue_grade.py graded only template/grading.auto units; research-ops READ hand-written units' results into its run record but never closed them (its queue edits hold under E57, and skill step D did not say to close). MEASURED on main 55bb4fdd: 140 queued hand-written units had result rows. FIX: lane/research-grade-tooling (queue_grade grades a hand-written once-unit whose every row carries its own decision_rule.id; ml_bakeoff empty window -> indeterminate; research-ops step D 'reading is not closing'). GRADES: lane/research-grade-backlog closes 127 attested units (an independent re-read of every rule agreed with the producer on 127/130; 3 session overrides: 75b2-25/-27 fail->indeterminate, f516-04 indeterminate->fail) plus da7a-01 and 3 hand e35 units (0922-008 indet, 1006-061 indet, 1010-419b-01 fail); retires 353c-04; re-arms 75b2-20/-21 (timeout 45->90). OPEN, needs a topic lane (P1 exit programme): 8 units whose rows carry a GENERIC gate (RULE-M20-EXIT-LEVER-IS-OOS-GATE / RULE-E7-HARNESS-DISPATCHABLE) and never measured the registered statistic: RQ-20261007-001/-002/-003/-017/-024/-042/-043, RQ-20261014-9807-03 (marked needs_review). LEVER: no pooled e35 gate -> blocked unit RQ-20261015-1bf3-01. PIs: PI-20261015-WNBZB5WN-0001 (empty ML holdouts), -0002 (6 producer_failed units). MANAGER TIER-3 NOTES: (a) RQ-20261015-6504-02 strict FAIL, but adding 4h ETH+SOL to tradeify_1 lifts EV ~$185->~$880/life while survival drops 0.16->0.11: an EV-vs-survival preference call; (b) RQ-20261015-6504-01 PASS for velotrade_1 (EV ~$670 vs ~$130, survival 0.26 vs ~0) but the windows differ (1095d vs 730d) and sol_4h is shadow; (c) RQ-20261007-043's provisional momentum-stale PASS (eth_4h ms12_a20/a25, eth_prop ms8_a25) is NOT an evidence record until its wf folds are measured.",
+  "updated_at": "2026-10-15T07:25:23Z",
+  "updated_by": "session_01AHy9CTrdF2hMBAWNBzB5wN",
   "roadmap": [
     "L-ATM"
   ],
+  "observation": {
+    "what": "the next scheduled queue_grade run on main closes no unit that #18180 already graded, and the hand-written once-units with results stay at 0 queued-with-results (no re-forming pile)",
+    "how_to_check": "python3 scripts/research/queue_grade.py --dry-run on main after the next 6-hourly grade run; count queued units with result rows",
+    "due_by": "2026-10-17"
+  },
+  "writeback": {
+    "roadmap": "none: research register hygiene; grades recorded on the units themselves",
+    "arch": "none: no contract change"
+  },
   "_seq": 385
 }

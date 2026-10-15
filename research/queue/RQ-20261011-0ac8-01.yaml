@@ -1,6 +1,6 @@
 id: RQ-20261011-0ac8-01
 title: 'ML-RQ-RUNNER smoke: the trainer-side bake-off path end to end on a synthetic planted-signal dataset (plumbing, not research)'
-status: queued
+status: done
 cadence: once
 theme: infra
 priority: 1
@@ -69,3 +69,14 @@ related:
 - scripts/research/ml_bakeoff.py
 - .github/workflows/research-script-run-trainer.yml
 last_dispatched_at: '2026-10-11T19:51:45+00:00'
+grading:
+  attested: RULE-RQ1011-0AC8-01-ML-RUNNER-SMOKE
+  auto: true
+  decision_rule_id: RULE-RQ1011-0AC8-01-ML-RUNNER-SMOKE
+  evidence:
+  - research/results/RQ-20261011-0ac8-01/38169810099.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  reason: 1 row(s), all measured, all pass
+  rows: 1
+  verdict: pass

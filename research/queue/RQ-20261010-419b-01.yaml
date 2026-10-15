@@ -2,7 +2,7 @@ id: RQ-20261010-419b-01
 title: >-
   TP doctrine, real money, gating-gap re-run: do the REACHABLE finite targets (tp_r <= 4.0) of trend_donchian_eth_4h
   pass the IS/OOS gate? (RQ-20261006-060 and its 10-10 re-sweep gated only unreachable tp6 cells)
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: live_strategy
@@ -146,3 +146,15 @@ related:
 - PI-20261006-5FUGHVX8-0001
 - comms/perf_followup/perf-followup-20261010-191000.json
 last_dispatched_at: '2026-10-11T01:59:08+00:00'
+grading:
+  decision_rule_id: RULE-RQ-20261010-419b-01-REACHABLE-FINITE-TP-OOS
+  evidence:
+  - docs/research/e35-bracket-corpus.jsonl
+  graded_at: '2026-10-15'
+  graded_by: session_01AHy9CTrdF2hMBAWNBzB5wN (lane RESEARCH-GRADE-BACKLOG)
+  read_state: measured
+  reason: 'FAIL (honest_negative): |G| = 10 distinct finite cells tp_r <= 4.0 reached the gate, all is_oos_fail
+    (gate_oos_d_net_r -3.19..-6.43), base_oos_trades 49 >= 39. A fixed R-multiple does not beat the sentinel
+    at OOS on trend_donchian_eth_4h; doctrine answer routes to RQ-20261009-900 / PI-20261006-5FUGHVX8-0001.
+    Never a demotion.'
+  verdict: fail

@@ -68,7 +68,7 @@ routing:
     200-tree LightGBM x 5 folds.
 run:
   workflow: research-script-run-trainer.yml
-  timeout_minutes: 45
+  timeout_minutes: 90
   command: [python3, scripts/research/ml_bakeoff.py, --unit, '{unit}', --out, '{out_dir}']
   inputs: {research_unit: RQ-20261012-75b2-21}
 lands: {store: research/results/, assert_field: read_state, min_rows: 1}
@@ -104,4 +104,4 @@ ml_bakeoff:
     - {group: ALL, vs: baseline, window: cv, op: '>=', value: 0.0}
 roadmap: [M25]
 related: [ML-RQ-RUNNER, scripts/research/ml_bakeoff.py, ml/configs/btc-regime-15m-lgbm-fc-pcv-v2.yaml, .claude/skills/ml-review/SKILL.md]
-last_dispatched_at: '2026-10-13T05:55:19+00:00'
+last_dispatched_at: null

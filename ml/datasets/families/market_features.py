@@ -419,6 +419,9 @@ class MarketFeaturesBuilder(DatasetBuilder):
     builder_version: ClassVar[str] = "v12"
     leakage_test_status: ClassVar[LeakageStatus] = LeakageStatus.PASSED
     label_version: ClassVar[str] = "regime-3class-v1"
+    # data.parquet beside data.jsonl, read in preference by load_dataset_rows
+    # (DATA-STORE-PARQUET-GC; 7.9 of 9.6 GB datasets-out on 2026-10-14).
+    parquet_sidecar: ClassVar[bool] = True
     schema: ClassVar[Mapping[str, type]] = {
         "ts": str,
         "symbol": str,

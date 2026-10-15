@@ -459,6 +459,189 @@ def next_ids(units: Dict[str, Dict[str, Any]], day: str, count: int) -> List[str
     return [f"RQ-{compact}-{n:03d}" for n in range(start, min(start + count, HAND_FLOOR))]
 
 
+# ── the programme source (RESEARCH-LOOP-AUDIT RC2/RC3, 2026-10-15) ─────────
+# docs/research/research-loop-audit-2026-10-15.md § 2b: nothing machine-read the
+# research programme plans, so this producer saw only the five template families
+# and read "exhausted" while the plans held weeks of questions; and a verdict
+# reached its next question only when a session had pre-minted a PASS chain.
+#
+# research/programmes/<NN>.yaml holds one programme's QUESTION NODES. A node is
+#   id            "P1-Q8.3" -- unique across all programme files
+#   goal          roadmap goal it serves ("G1" first: net P&L) -- ranks the authoring queue
+#   roadmap       milestone ref(s), copied onto the unit (roadmap-map-guard)
+#   after         [{unit: RQ-..., verdict: pass|fail|indeterminate|no_action_warranted|any}, ...]
+#                 or {node: <node id>, verdict: ...} -- ALL must hold. A verdict counts only
+#                 once the unit is CLOSED (status done; grading.verdict), so a first FAIL that
+#                 the grader re-queued for confirmation does not yet unlock a fail branch.
+#                 No `after` = ready now.
+#   value         {usd_at_stake_per_month, confidence} -- copied onto the unit, ranks the queue
+#   unit:         the FULL pre-registered unit body (question, power, decision_rule, compute,
+#                 routing, run, lands, ...) -- materialised as-is once `after` holds; OR
+#   needs_authoring: one line -- a question the plan holds but nobody has registered yet.
+#                 It never becomes a unit here; it is listed in the AUTHORING QUEUE
+#                 (`--authoring-queue`), which research-ops reads first (SKILL § E).
+#
+# THE SAFETY PROPERTY IS THE SAME AS A TEMPLATE'S: a node's `unit:` is registered when its
+# file lands (research/programmes/** is landing machinery in check_pr_landing.py, so every
+# edit holds for a human), and what this producer emits must re-render byte-for-byte from
+# that committed node -- `verify()` checks it, so E58 can vouch the emitted units. The node
+# rule is written BEFORE its prerequisite's verdict exists, so a FAIL branch registered in
+# the plan is as pre-registered as a PASS chain (operator 2026-09-27: refinement, not a
+# one-strike kill, is the default -- the plan says what the refinement is, in advance).
+PROGRAMMES = Path("research/programmes")
+PROGRAMME_FAMILY = "programme"
+PROGRAMME_MAX_PER_RUN = 20       # bounds one PR's size; the rest follow next run
+_VERDICTS = ("pass", "fail", "indeterminate", "no_action_warranted", "any")
+_NODE_ID_RE = re.compile(r"^P\d+-[A-Za-z0-9.\-]+$")
+_UNIT_RESERVED = ("id", "status", "last_dispatched_at", "generated", "grading")
+
+
+def load_programmes(root: Path) -> List[Tuple[str, str, Dict[str, Any]]]:
+    """[(path, sha12, doc)] for research/programmes/*.yaml; validates node shape."""
+    yaml = _yaml()
+    out = []
+    seen: set = set()
+    for path in sorted((root / PROGRAMMES).glob("*.yaml")):
+        text = path.read_text(encoding="utf-8")
+        doc = yaml.safe_load(text) or {}
+        rel = path.relative_to(root).as_posix()
+        for key in ("programme", "nodes"):
+            if key not in doc:
+                raise ValueError(f"{rel}: programme file lacks `{key}`")
+        for n in doc["nodes"]:
+            nid = str(n.get("id") or "")
+            if not _NODE_ID_RE.match(nid):
+                raise ValueError(f"{rel}: node id {nid!r} is not P<n>-<q>")
+            if nid in seen:
+                raise ValueError(f"{rel}: node id {nid} is duplicated across programme files")
+            seen.add(nid)
+            if bool(n.get("unit")) == bool(n.get("needs_authoring")):
+                raise ValueError(f"{rel}: node {nid} needs exactly one of `unit:` or `needs_authoring:`")
+            for a in n.get("after") or []:
+                if str(a.get("verdict")) not in _VERDICTS or not (a.get("unit") or a.get("node")):
+                    raise ValueError(f"{rel}: node {nid} has a malformed `after` entry {a!r}")
+            if n.get("unit"):
+                bad = [k for k in _UNIT_RESERVED if k in n["unit"]]
+                for k in ("question", "decision_rule", "lands"):
+                    if k not in n["unit"]:
+                        bad.append(f"missing {k}")
+                if bad:
+                    raise ValueError(f"{rel}: node {nid} unit: {bad} (reserved keys or missing fields)")
+        out.append((rel, hashlib.sha256(text.encode("utf-8")).hexdigest()[:12], doc))
+    return out
+
+
+def node_key(node_id: str) -> str:
+    return f"{PROGRAMME_FAMILY}:{node_id}"
+
+
+def closed_verdict(u: Optional[Dict[str, Any]]) -> Optional[str]:
+    """The verdict a unit CLOSED with, or None while it is open. `done` + grading.verdict
+    (the grader's or a session's); `retired` reads as 'retired' and satisfies nothing."""
+    if not isinstance(u, dict):
+        return None
+    if u.get("status") == "retired":
+        return "retired"
+    g = u.get("grading") if isinstance(u.get("grading"), dict) else {}
+    if u.get("status") == "done" and g.get("verdict"):
+        return str(g["verdict"])
+    return None
+
+
+def node_state(node: Dict[str, Any], units: Dict[str, Dict[str, Any]], by_key: Dict[str, str]) -> Tuple[str, List[str]]:
+    """('ready'|'waiting'|'moot', reasons). moot = a prerequisite closed with a verdict this
+    node's `after` does not accept (or was retired): the branch was not taken."""
+    reasons: List[str] = []
+    state = "ready"
+    for a in node.get("after") or []:
+        uid = str(a.get("unit") or by_key.get(node_key(str(a.get("node") or ""))) or "")
+        want = str(a["verdict"])
+        got = closed_verdict(units.get(uid)) if uid else None
+        label = a.get("unit") or f"node {a.get('node')}"
+        if got is None:
+            state = "waiting" if state != "moot" else state
+            reasons.append(f"{label}: open" + ("" if uid else " (not materialised yet)"))
+        elif got == "retired" or (want != "any" and got != want):
+            state = "moot"
+            reasons.append(f"{label}: closed {got}, branch wants {want}")
+        else:
+            reasons.append(f"{label}: closed {got}")
+    return state, reasons
+
+
+def render_node(node: Dict[str, Any], prog_path: str, prog_sha: str, programme: str, unit_id: str, day: str) -> str:
+    """The unit file's exact text for (programme node, id, date) -- pure, so verify() can re-run it."""
+    yaml = _yaml()
+    body = copy.deepcopy(node["unit"])
+    unit: Dict[str, Any] = {"id": unit_id, "title": str(body.pop("title", node.get("title") or node["id"])),
+                            "status": "queued", "cadence": str(body.pop("cadence", "once"))}
+    roadmap = body.pop("roadmap", None) or node.get("roadmap")
+    if roadmap:
+        unit["roadmap"] = [str(m) for m in roadmap] if isinstance(roadmap, list) else str(roadmap)
+    if node.get("value") and "value" not in body:
+        unit["value"] = node["value"]
+    unit.update(body)
+    rule = dict(unit["decision_rule"])
+    rule["registered_before_run"] = True
+    rule.setdefault("registered_at", day)
+    unit["decision_rule"] = rule
+    run = dict(unit.get("run") or {})
+    if run.get("workflow") == "research-script-run.yml":
+        run["inputs"] = {**dict(run.get("inputs") or {}), "research_unit": unit_id}
+    if run:
+        unit["run"] = run
+    unit["programme_node"] = {"programme": programme, "node": node["id"], "goal": node.get("goal"),
+                              "after": node.get("after") or []}
+    unit["generated"] = {"family": f"{PROGRAMME_FAMILY}:{programme}", "template": prog_path,
+                         "template_sha": prog_sha, "key": node_key(node["id"]),
+                         "params": {"node": node["id"]}}
+    unit["last_dispatched_at"] = None
+    text = yaml.safe_dump(unit, sort_keys=False, width=100, allow_unicode=True)
+    left = unresolved_placeholders(text)
+    if left:
+        raise ValueError(f"{prog_path}: node {node['id']} leaves placeholder(s) {left} unresolved")
+    return HEADER.format(tpl=prog_path, sha=prog_sha, date=day, key=node_key(node["id"])) + text
+
+
+def _goal_rank(goal: Any) -> int:
+    m = re.match(r"^G(\d+)$", str(goal or ""))
+    return int(m.group(1)) if m else 99
+
+
+def _node_value(node: Dict[str, Any]) -> float:
+    v = node.get("value") or (node.get("unit") or {}).get("value") or {}
+    try:
+        return float(v.get("usd_at_stake_per_month") or 0) * float(v.get("confidence") or 0.3)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def programme_plan(root: Path, units: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    """Every node with its state; the ready `unit:` nodes not yet materialised (to emit);
+    and the AUTHORING QUEUE (ready `needs_authoring` nodes), ranked goal-first then value."""
+    by_key = {str(u["generated"]["key"]): uid for uid, u in units.items() if isinstance(u.get("generated"), dict)}
+    nodes, emit, authoring = [], [], []
+    for path, sha, doc in load_programmes(root):
+        prog = str(doc["programme"])
+        for n in doc["nodes"]:
+            st, why = node_state(n, units, by_key)
+            materialised = by_key.get(node_key(n["id"]))
+            if materialised:
+                v = closed_verdict(units.get(materialised))
+                st = "answered" if v and v != "retired" else ("retired" if v == "retired" else "in_queue")
+            nodes.append({"node": n["id"], "programme": prog, "goal": n.get("goal"), "state": st,
+                          "unit": materialised, "why": why})
+            if st == "ready" and n.get("unit"):
+                emit.append((path, sha, prog, n))
+            elif st == "ready" and n.get("needs_authoring"):
+                authoring.append({"node": n["id"], "programme": prog, "goal": n.get("goal"),
+                                  "value": round(_node_value(n), 2), "compute": n.get("compute"),
+                                  "ask": str(n["needs_authoring"]), "after": why, "plan": doc.get("plan")})
+    emit.sort(key=lambda t: (_goal_rank(t[3].get("goal")), -_node_value(t[3]), t[3]["id"]))
+    authoring.sort(key=lambda a: (_goal_rank(a["goal"]), -a["value"], a["node"]))
+    return {"nodes": nodes, "emit": emit[:PROGRAMME_MAX_PER_RUN], "emit_ready": len(emit), "authoring_queue": authoring}
+
+
 def plan(root: Path, *, day: str, target: int, now: Optional[datetime] = None) -> Dict[str, Any]:
     facts = repo_facts(root)
     units, bad = existing_units(root)
@@ -477,14 +660,22 @@ def plan(root: Path, *, day: str, target: int, now: Optional[datetime] = None) -
     for f in families:
         for key, p in f["candidates"][:alloc[f["family"]]]:
             chosen.append((f, key, p))
-    ids = next_ids(units, day, len(chosen))
+    # Programme nodes are the PLAN's questions, unlocked by graded verdicts: they are emitted
+    # whenever ready, not only to fill a template deficit (the dispatcher's value ranking then
+    # orders them against everything else). Programme first, so a full id band drops templates.
+    prog = programme_plan(root, units)
+    ids = next_ids(units, day, len(prog["emit"]) + len(chosen))
     new_units = []
-    for (f, key, p), uid in zip(chosen, ids):
+    for (path, sha, pname, node), uid in zip(prog["emit"], ids):
+        new_units.append({"id": uid, "family": f"{PROGRAMME_FAMILY}:{pname}", "key": node_key(node["id"]),
+                          "text": render_node(node, path, sha, pname, uid, day)})
+    for (f, key, p), uid in zip(chosen, ids[len(prog["emit"]):]):
         new_units.append({"id": uid, "family": f["family"], "key": key,
                           "text": render(f["tpl"], f["path"], f["sha"], p, uid, day)})
     return {"day": day, "target": target, "runnable_before": len(have), "deficit": deficit, "unreadable": bad,
             "queued_not_due": sorted(uid for uid, u in units.items() if dispatchable(u) and uid not in have),
             "candidates": {f["family"]: len(f["candidates"]) for f in families}, "allocation": alloc,
+            "programme_ready": prog["emit_ready"], "authoring_queue": len(prog["authoring_queue"]),
             "new_units": new_units}
 
 
@@ -508,6 +699,7 @@ def verify(root: Path, base: str) -> List[str]:
         return ["queue diff unreadable"]
     problems: List[str] = []
     templates = {p: (sha, tpl) for p, sha, tpl in load_templates(root)}
+    base_units = _units_at(root, mb)
     # ⚠️ REVIEW FIX (2026-09-29): `generated.params` comes from the unit under
     # test, so a hand-made unit could carry ANY params (a leg that does not
     # exist, a `../../evil` harness, shell metacharacters in an arm) and still
@@ -537,6 +729,9 @@ def verify(root: Path, base: str) -> List[str]:
             continue
         gen = (unit or {}).get("generated") or {}
         tpl_path = str(gen.get("template") or "")
+        if str(gen.get("family") or "").startswith(PROGRAMME_FAMILY + ":"):
+            problems.extend(_verify_programme_unit(root, path, text, unit, gen, base_units))
+            continue
         if tpl_path not in templates:
             problems.append(f"{path}: names template {tpl_path!r}, which is not committed at HEAD")
             continue
@@ -562,6 +757,59 @@ def verify(root: Path, base: str) -> List[str]:
         if expected != text:
             problems.append(f"{path}: does not reproduce from {tpl_path} + generated.params (hand-edited?)")
     return problems
+
+
+def _units_at(root: Path, rev: str) -> Dict[str, Dict[str, Any]]:
+    """{id: unit} for research/queue/**/*.yaml AT `rev` -- readiness is judged on the
+    merge-base, the queue the producer actually read, never on the branch under test."""
+    yaml = _yaml()
+    rc, out = _git(root, "ls-tree", "-r", "--name-only", rev, "--", QUEUE.as_posix())
+    units: Dict[str, Dict[str, Any]] = {}
+    if rc != 0:
+        return units
+    for path in out.splitlines():
+        if not path.endswith(".yaml"):
+            continue
+        rc2, text = _git(root, "show", f"{rev}:{path}")
+        try:
+            u = yaml.safe_load(text) if rc2 == 0 else None
+        except yaml.YAMLError:
+            u = None
+        if isinstance(u, dict):
+            units[Path(path).stem] = u
+    return units
+
+
+def _verify_programme_unit(root: Path, path: str, text: str, unit: Dict[str, Any], gen: Dict[str, Any],
+                           base_units: Dict[str, Dict[str, Any]]) -> List[str]:
+    """A programme-generated unit is vouched only when (a) its node is committed at HEAD in the
+    file it names, at that file's sha, (b) the node was READY on the merge-base queue (its
+    prerequisites closed with the verdicts it registered), (c) no unit for that node existed on
+    the merge-base, and (d) it re-renders byte-for-byte."""
+    progs = {p: (sha, doc) for p, sha, doc in load_programmes(root)}
+    prog_path = str(gen.get("template") or "")
+    if prog_path not in progs:
+        return [f"{path}: names programme file {prog_path!r}, which is not committed at HEAD"]
+    sha, doc = progs[prog_path]
+    if str(gen.get("template_sha")) != sha:
+        return [f"{path}: generated from programme sha {gen.get('template_sha')}, HEAD's is {sha}"]
+    nid = str((gen.get("params") or {}).get("node") or "")
+    node = next((n for n in doc["nodes"] if n.get("id") == nid), None)
+    if node is None or not node.get("unit") or str(gen.get("key")) != node_key(nid):
+        return [f"{path}: node {nid!r} is not a `unit:` node of {prog_path} (or key mismatch)"]
+    by_key = {str(u["generated"]["key"]): uid for uid, u in base_units.items() if isinstance(u.get("generated"), dict)}
+    if node_key(nid) in by_key:
+        return [f"{path}: node {nid} already had unit {by_key[node_key(nid)]} on the merge-base"]
+    st, why = node_state(node, base_units, by_key)
+    if st != "ready":
+        return [f"{path}: node {nid} was {st} on the merge-base ({'; '.join(why)}) -- not unlocked, refused"]
+    m = _ID_RE.match(str(unit.get("id")))
+    if not m or Path(path).stem != unit.get("id"):
+        return [f"{path}: id/filename mismatch"]
+    day = f"{m.group(1)[:4]}-{m.group(1)[4:6]}-{m.group(1)[6:]}"
+    if render_node(node, prog_path, sha, str(doc["programme"]), str(unit["id"]), day) != text:
+        return [f"{path}: does not reproduce from {prog_path} node {nid} (hand-edited?)"]
+    return []
 
 
 # ── self-test ───────────────────────────────────────────────────────────────
@@ -748,6 +996,76 @@ def _self_test() -> int:
         (r / QUEUE / "RQ-20250101-001.yaml").write_text("id: RQ-20250101-001\nstatus: done\n")
         git("commit", "-q", "-am", "flip")
         assert any("only ADDS" in p for p in verify(r, "main"))
+    # PROGRAMME SOURCE (RESEARCH-LOOP-AUDIT RC2/RC3): a node unlocks on its prerequisite's CLOSED
+    # verdict, a branch not taken is moot, needs_authoring goes to the queue ranked goal-first,
+    # an emitted unit re-renders under verify(), and a node that was NOT ready is refused.
+    with tempfile.TemporaryDirectory() as td:
+        r = Path(td)
+        subprocess.run(["git", "init", "-q", "-b", "main", str(r)], check=True)
+        for sub in ("research/templates", "research/queue", "research/programmes", "config", "comms/strategy_evidence"):
+            (r / sub).mkdir(parents=True)
+        _fixture_config(r)
+        git = lambda *a: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=str(r), check=True, capture_output=True)  # noqa: E731
+        (r / QUEUE / "RQ-20300101-900.yaml").write_text(
+            "id: RQ-20300101-900\nstatus: done\ngrading:\n  verdict: fail\n", encoding="utf-8")
+        (r / QUEUE / "RQ-20300101-901.yaml").write_text("id: RQ-20300101-901\nstatus: queued\n", encoding="utf-8")
+        unit_body = ("    unit:\n      title: refine after the fail\n      question: does the refinement clear it?\n"
+                     "      theme: own_losses\n      priority: 1\n      compute: cpu_light\n"
+                     "      decision_rule:\n        id: RULE-PX-1\n        pass_if: x > 0\n"
+                     "      run:\n        command: [python3, scripts/research/x.py, --out, '{out_dir}']\n"
+                     "      lands:\n        store: research/results/\n        min_rows: 1\n")
+        (r / PROGRAMMES / "01.yaml").write_text(
+            "programme: P1\nplan: docs/research/programmes/01.md\nnodes:\n"
+            "  - id: P1-Q1.fail\n    goal: G1\n    roadmap: [M20]\n    value: {usd_at_stake_per_month: 100, confidence: 0.5}\n"
+            "    after: [{unit: RQ-20300101-900, verdict: fail}]\n" + unit_body +
+            "  - id: P1-Q1.pass\n    goal: G1\n    after: [{unit: RQ-20300101-900, verdict: pass}]\n"
+            + unit_body.replace("RULE-PX-1", "RULE-PX-2") +
+            "  - id: P1-Q2\n    goal: G1\n    after: [{unit: RQ-20300101-901, verdict: any}]\n" + unit_body.replace("RULE-PX-1", "RULE-PX-3") +
+            "  - id: P1-Q3\n    goal: G4\n    value: {usd_at_stake_per_month: 900, confidence: 0.9}\n    needs_authoring: a G4 question\n"
+            "  - id: P1-Q4\n    goal: G1\n    value: {usd_at_stake_per_month: 50, confidence: 0.5}\n    needs_authoring: a G1 question\n"
+            "  - id: P1-Q5\n    goal: G1\n    after: [{node: P1-Q1.fail, verdict: pass}]\n    needs_authoring: next rung\n",
+            encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "base")
+        units, _ = existing_units(r)
+        pp = programme_plan(r, units)
+        states = {n["node"]: n["state"] for n in pp["nodes"]}
+        assert states == {"P1-Q1.fail": "ready", "P1-Q1.pass": "moot", "P1-Q2": "waiting",
+                          "P1-Q3": "ready", "P1-Q4": "ready", "P1-Q5": "waiting"}, states
+        assert [n[3]["id"] for n in pp["emit"]] == ["P1-Q1.fail"]
+        assert [a["node"] for a in pp["authoring_queue"]] == ["P1-Q4", "P1-Q3"], pp["authoring_queue"]   # G1 before G4
+        pl = plan(r, day="2030-01-02", target=0)
+        assert [u["key"] for u in pl["new_units"]] == ["programme:P1-Q1.fail"], pl["new_units"]
+        newu = pl["new_units"][0]
+        y = _yaml().safe_load(newu["text"])
+        assert y["decision_rule"]["registered_before_run"] is True and y["roadmap"] == ["M20"] and y["value"]["usd_at_stake_per_month"] == 100
+        assert y["generated"]["key"] == "programme:P1-Q1.fail" and y["programme_node"]["goal"] == "G1"
+        git("checkout", "-q", "-b", "gen")
+        (r / QUEUE / f"{newu['id']}.yaml").write_text(newu["text"], encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "gen")
+        assert verify(r, "main") == [], verify(r, "main")
+        # dedupe: the node now has a unit, so nothing more is emitted; P1-Q5 waits on that unit's verdict
+        units2, _ = existing_units(r)
+        pp2 = programme_plan(r, units2)
+        assert pp2["emit"] == [] and {n["node"]: n["state"] for n in pp2["nodes"]}["P1-Q1.fail"] == "in_queue"
+        # forged: a unit for the MOOT pass branch reproduces byte-for-byte but was not ready -> refused
+        git("checkout", "-q", "-b", "forged", "main")
+        prog_path, sha, doc = load_programmes(r)[0]
+        node = next(n for n in doc["nodes"] if n["id"] == "P1-Q1.pass")
+        (r / QUEUE / "RQ-20300102-050.yaml").write_text(render_node(node, prog_path, sha, "P1", "RQ-20300102-050", "2030-01-02"), encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "forged")
+        assert any("was moot" in x for x in verify(r, "main")), verify(r, "main")
+        # a malformed node is refused at load
+        bad = r / PROGRAMMES / "02.yaml"
+        bad.write_text("programme: P2\nnodes:\n  - id: P2-Q1\n    needs_authoring: x\n    unit: {question: q}\n", encoding="utf-8")
+        try:
+            load_programmes(r)
+            raise AssertionError("a node with both unit: and needs_authoring: must be refused")
+        except ValueError:
+            pass
+        bad.unlink()
     print("queue_replenish self-test OK")
     return 0
 
@@ -761,6 +1079,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--verify", action="store_true", help="re-derive every unit this branch adds")
     ap.add_argument("--base", default="origin/main")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--authoring-queue", action="store_true",
+                    help="print the ranked programme authoring queue (ready needs_authoring nodes) as JSON")
+    ap.add_argument("--programme-state", action="store_true",
+                    help="print every programme node's state (answered/in_queue/ready/waiting/moot/retired) as JSON")
     args = ap.parse_args(argv)
     # `--verify --base` grades a COMMIT RANGE, so the verdict is about the
     # committed tree. Say so when that is not the tree you edited
@@ -776,6 +1098,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(f"::error::queue_replenish --verify: {p}")
         print("queue_replenish --verify: " + ("OK" if not problems else f"FAIL ({len(problems)})"))
         return 1 if problems else 0
+    if args.authoring_queue or args.programme_state:
+        units, _bad = existing_units(_REPO)
+        pp = programme_plan(_REPO, units)
+        out = pp["authoring_queue"] if args.authoring_queue else pp["nodes"]
+        print(json.dumps(out, indent=2))
+        return 0
     day = args.date or datetime.now(timezone.utc).date().isoformat()
     date.fromisoformat(day)
     pl = plan(_REPO, day=day, target=args.target)
@@ -790,6 +1118,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     else:
         print(f"queue_replenish: runnable {pl['runnable_before']} / target {pl['target']} -> deficit {pl['deficit']}; "
               f"candidates {pl['candidates']}; allocation {pl['allocation']}"
+              + f"; programme nodes ready {pl['programme_ready']}, authoring queue {pl['authoring_queue']}"
               + (f"; UNREADABLE units: {pl['unreadable']}" if pl["unreadable"] else ""))
         for u in summary["new_units"]:
             print(f"  {'WROTE' if args.write else 'would write'} {u['id']}  {u['family']:<20} {u['key']}")

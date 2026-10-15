@@ -321,14 +321,14 @@ def _load_train_rows(
     if datasets_root is None:
         return None, frozenset(), frozenset()
     try:
-        from ..experiments.runner import _load_jsonl
+        from ..datasets.parquet_sidecar import dataset_present, load_dataset_rows
         from ..manifest import TrainingManifest
 
         manifest = TrainingManifest.from_dict(dict(entry.manifest))
-        data_path = manifest.dataset.path_under(Path(datasets_root)) / "data.jsonl"
-        if not data_path.is_file():
+        dataset_dir = manifest.dataset.path_under(Path(datasets_root))
+        if not dataset_present(dataset_dir):
             return None, frozenset(), frozenset()
-        rows = _load_jsonl(data_path)
+        rows = load_dataset_rows(dataset_dir)
         exclude: set[str] = set()
         for cfg in (manifest.trainer_config, manifest.evaluator_config):
             for key in ("target_column", "time_column"):

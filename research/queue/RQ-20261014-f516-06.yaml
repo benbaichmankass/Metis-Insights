@@ -1,7 +1,7 @@
 id: RQ-20261014-f516-06
 title: 'Programme 05 Q2 sizing: does any challenger sizing beat tradeify_1''s configured sizing on E[profit per life] with no worse
   survival, under tradeify_247_1step'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -101,3 +101,16 @@ related:
 - scripts/research/prop_ev_grid.py
 - config/prop_rulesets/tradeify_247_1step.yaml
 last_dispatched_at: '2026-10-14T20:47:22+00:00'
+grading:
+  attested: RULE-RQ1014-F516-06-SIZING-TRADEIFY_1
+  auto: true
+  decision_rule_id: RULE-RQ1014-F516-06-SIZING-TRADEIFY_1
+  evidence:
+  - research/results/RQ-20261014-f516-06/38635063080.jsonl
+  graded_at: '2026-10-15'
+  grader: scripts/research/queue_grade.py
+  note: 'hand-written unit, every row graded under its own registered rule: FAIL closes it (no template
+    confirmatory re-run)'
+  reason: 1 row(s), all measured, all fail
+  rows: 1
+  verdict: fail

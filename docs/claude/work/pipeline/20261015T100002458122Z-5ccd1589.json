@@ -1,0 +1,18 @@
+{
+  "based_on": "20261015T081450085403Z-61bccc33.json",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a branch that touches tools/phone-executor/** gets a completed phone-executor-apk run without a manual re-run while other branches merge main (compile no longer shares the signing concurrency group, or pending runs are no longer cancelled)",
+    "kind": "observation"
+  },
+  "id": "PI-20261015-QC5PFG9A-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01TCAAkyPavusAKCqc5Pfg9a",
+    "rerun": "list phone-executor-apk.yml runs (GitHub MCP actions_list list_workflow_runs) and count conclusion=cancelled on push events within a few seconds of each other"
+  },
+  "state": "done",
+  "terminal_reason": "FIXED by #18234 (merged 2026-10-15 09:30Z): phone-executor-apk.yml split into check (per-ref group) and apk (main/dispatch only, shared signing group). OBSERVED: branch run 226 (#18234) and run 229 (#18217) ran check without queueing behind other branches; main dispatch run 230 ran check -> apk and uploaded phone-executor-1b-apk (09:47Z). Note: the auto-merge bot's merges (GITHUB_TOKEN) do not trigger the push workflow on main, so a bot-merged phone change needs a workflow_dispatch on main for its signed APK.",
+  "what": "PHONE-APK CI CANCELS ITSELF (lane PHONE-FGS-EXEC, 2026-10-15): phone-executor-apk.yml runs on every push touching tools/phone-executor/** and its job sits in ONE concurrency group (phone-executor-apk-signing). When #18158 merged, ~6 branches merged main at 08:06Z; each queued an APK job and GitHub cancelled every PENDING one but the newest (runs 215-219 cancelled; #18217's run 212 cancelled after 14 min queued). A PR's Kotlin compile proof is then silently absent until someone re-runs it. Proposed fix: compile+unit-test under a per-ref group, and sign/upload only under the shared group (or only on main). Tier-1 (CI)."
+}

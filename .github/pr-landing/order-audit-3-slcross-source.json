@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 order-path change (src/runtime/order_monitor.py live close branch + the bracket-order relabel sweep). Lane ORDER-AUDIT-3: the manager merges; the worker does not. Deploy is a pull-and-deploy after merge.",
+  "why": "PI-20260929-TWEW1FZJ-0002: monitor-verdict closes (sl_cross, tp_cross, stale_stop, ...) wrote exit_reason with no exit_reason_source. Live 2026-10-15: 4 of 4 real-money sl_cross closes since 2026-10-08 unstamped (6565, 6566, 6593, 6594), and all 4 were really ended by the venue's own SL order before the monitor wrote the close. Fix stamps strategy_verdict (monitor sent the close) or strategy_verdict_venue_flat (venue already flat), never overwriting an existing stamp, and lets the bracket-order sweep resolve the venue-flat marker from venue order identity. No order is placed, cancelled or amended differently; only the trades.notes stamp and one sweep predicate change."
+}

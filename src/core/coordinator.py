@@ -40,6 +40,18 @@ logger = logging.getLogger(__name__)
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _UNITS_YAML = os.path.join(_REPO_ROOT, "config", "units.yaml")
 _ACCOUNTS_YAML = os.path.join(_REPO_ROOT, "config", "accounts.yaml")
+
+
+def _default_accounts_path() -> str:
+    """The accounts.yaml a call with no explicit path reads: the
+    ``ACCOUNTS_YAML_PATH`` env var when set, else ``config/accounts.yaml``.
+
+    Same resolution as ``src.config.accounts_loader._resolve_path`` for the
+    no-argument case, which is how ``strategy_monocle._accounts_declaring``
+    (the per-account open-package gate) reads the file. Dispatch ignored the
+    env var, so with it set the gate and the dispatcher read different files
+    (PI-20260930-MEK2XMWT-0006, ORDER-AUDIT-3)."""
+    return os.environ.get("ACCOUNTS_YAML_PATH") or _ACCOUNTS_YAML
 _INSTRUMENTS_YAML = os.path.join(_REPO_ROOT, "config", "instruments.yaml")
 
 
@@ -790,8 +802,7 @@ class Coordinator:
             Path to accounts.yaml.  Defaults to ``config/accounts.yaml``.
         """
         from src.units.accounts import load_accounts
-        import os as _os
-        path = accounts_path or _os.path.join(_REPO_ROOT, "config", "accounts.yaml")
+        path = accounts_path or _default_accounts_path()
         try:
             tradeaccs = load_accounts(path)
         except FileNotFoundError:
@@ -957,7 +968,6 @@ class Coordinator:
         """
         from src.units.accounts import load_accounts
         from src.units.accounts.account import RiskBreach
-        import os as _os
         from src.runtime.runtime_flags import is_halted
 
         # TRADER HALT FLAG — the real second, independent layer
@@ -979,7 +989,7 @@ class Coordinator:
             )
             return []
 
-        path = accounts_path or _os.path.join(_REPO_ROOT, "config", "accounts.yaml")
+        path = accounts_path or _default_accounts_path()
         try:
             accounts = load_accounts(path)
         except FileNotFoundError:
@@ -1230,6 +1240,17 @@ class Coordinator:
                     f"symbol_exchange_routing: {pkg.symbol} routes to "
                     f"{inst_exchange}, account is {acct_exchange}"
                 )
+            # Per-account election round scope (E35; pipeline._dispatch_rounds).
+            # NARROWING ONLY: it can subtract an account from the eligible set
+            # but never add one. `None` = no fan-out in play = unchanged
+            # behaviour. It is checked BEFORE the strategies mapping because
+            # the legacy no-mapping early return below used to skip it, so an
+            # account with no `strategies:` key received every package even
+            # when the round was scoped to other accounts
+            # (PI-20260927-ECILBBVH-0005, ORDER-AUDIT-3).
+            if account_scope is not None:
+                if str(getattr(account_obj, "name", "")) not in account_scope:
+                    return "outside_account_scope"
             assigned = getattr(account_obj, "strategies", None)
             if assigned is None:
                 return None  # legacy / no-mapping account
@@ -1243,13 +1264,6 @@ class Coordinator:
                     f"strategy_not_assigned: {pkg.strategy} not in "
                     f"{sorted(str(a) for a in assigned)}"
                 )
-            # Per-account election round scope (E35; pipeline._dispatch_rounds).
-            # LAST, and NARROWING ONLY: every rule above has already passed, so
-            # this can subtract an account from the eligible set but can never
-            # add one. `None` = no fan-out in play = unchanged behaviour.
-            if account_scope is not None:
-                if str(getattr(account_obj, "name", "")) not in account_scope:
-                    return "outside_account_scope"
             return None
 
         # Keep the reasons, not just the survivors — an empty eligible set is
@@ -1985,6 +1999,13 @@ class Coordinator:
                             if _cs.settlement_mode() != "off":
                                 _sb = _cs.resolve_for_account(account.name, client)
                                 _bind = _cs.may_apply(account.name)
+                                # Venue figure BEFORE replacement, and whether
+                                # the basis actually BOUND -- `applied` used to
+                                # be stamped from the allowlist alone and the
+                                # reduction read 0 on the very rows it reduced
+                                # (PI-20260927-ECILBBVH-0008).
+                                _venue_available = available_usd
+                                _replaced = False
                                 if (
                                     _bind
                                     and _sb.basis_usd is not None
@@ -1994,11 +2015,13 @@ class Coordinator:
                                     )
                                 ):
                                     available_usd = _sb.basis_usd
+                                    _replaced = True
                                 _cs.record_observation(
                                     account_id=account.name,
                                     basis=_sb,
                                     available_usd=available_usd,
-                                    applied=bool(_bind),
+                                    applied=_replaced,
+                                    venue_available_usd=_venue_available,
                                 )
                         except Exception as _cs_exc:  # noqa: BLE001
                             # Never break dispatch on an observability path.
@@ -2073,6 +2096,7 @@ class Coordinator:
             # caps the conviction-implied fraction to min(2%, risk_pct) so a
             # daily-loss-throttled account can't be re-inflated). Fail-inert.
             from src.runtime.conviction_sizing import apply_conviction_sizing
+            _pre_multiplier_qty = sized_qty
             sized_qty = apply_conviction_sizing(
                 pkg, sized_qty, account_name=account.name,
                 balance_usd=balance,
@@ -2127,6 +2151,57 @@ class Coordinator:
                 min_qty=getattr(account.risk_manager, "min_qty", 0.0),
                 qty_precision=getattr(account.risk_manager, "qty_precision", 3),
             )
+
+            # WHOLE-UNIT RE-QUANTIZE after the reductive multiplier chain
+            # (PI-20260927-ECILBBVH-0007, ORDER-AUDIT-3 -- TIER 3, sizing).
+            # position_size quantized to whole shares, but the conviction /
+            # advisory / news multipliers above then scaled that qty with no
+            # re-quantize: on a whole-unit venue 3 x 0.85 = 2.55 was placed as
+            # 3 (the broker rounds -- downsize erased), and 1 x 0.5 = 0.5 was
+            # refused as below_venue_min_qty (downsize became an unlabelled
+            # veto). When the chain REDUCED the qty, floor it to whole units;
+            # a floor to zero is its own per-trade refusal, `downsized_to_zero`,
+            # distinct from a lot-minimum miss. An unreduced (or enlarged) qty
+            # is untouched.
+            if (
+                not _is_prop_bridge
+                and 0 < sized_qty < _pre_multiplier_qty
+                and (requires_whole_unit_qty(account.exchange)
+                     or _market_type == "equity")
+            ):
+                _floored = float(int(sized_qty + 1e-9))
+                if _floored != sized_qty:
+                    logger.info(
+                        "multi_account_execute: whole-unit re-quantize %s/%s "
+                        "%g -> %g (risk-sized %g)", account.name, pkg.symbol,
+                        sized_qty, _floored, _pre_multiplier_qty,
+                    )
+                sized_qty = _floored
+                if sized_qty <= 0:
+                    error_msg = (
+                        f"downsized_to_zero: risk-sized qty "
+                        f"{_pre_multiplier_qty:g} reduced below one whole unit "
+                        f"by the sizing multipliers for {pkg.symbol} "
+                        f"(account={account.name})"
+                    )
+                    from src.units.accounts.execute import log_rejection_to_journal
+                    log_rejection_to_journal(
+                        pkg, _early_account_cfg,
+                        reason=error_msg,
+                        status="rejected",
+                        sized_qty=0.0,
+                        margin_basis=margin_basis or None,
+                    )
+                    sized_qty_by_account[account.name] = 0.0
+                    results.append({
+                        "name": account.name,
+                        "exchange": account.exchange,
+                        "account_type": account.account_type,
+                        "trade_id": None,
+                        "sized_qty": 0.0,
+                        "error": error_msg,
+                    })
+                    continue
 
             # Clean per-trade refusal when the risk-sized qty is below the
             # EXCHANGE lot minimum (BL-20260619-ETHMIN). The account-level
@@ -3048,6 +3123,9 @@ class Coordinator:
                 # execute_pkg-catch benign path and the sized-path pre-check's
                 # ``below_venue_min_qty: sized_qty=… < …`` detail string.
                 or err.startswith("below_venue_min_qty")
+                # A reductive multiplier taking a whole-unit qty below one
+                # share (ORDER-AUDIT-3) -- a sizing decision, not a failure.
+                or err.startswith("downsized_to_zero:")
                 or err.startswith("reentry_suppressed_netting_guard:")
                 # A shelved dry_run account / prop mission-skip declining is a
                 # deliberate policy hold, not a dispatch failure — a round where
@@ -3275,9 +3353,8 @@ class Coordinator:
         each time), so 'reloading' just verifies the file is readable.
         """
         from src.units.accounts import load_accounts
-        import os as _os
 
-        path = accounts_path or _os.path.join(_REPO_ROOT, "config", "accounts.yaml")
+        path = accounts_path or _default_accounts_path()
         try:
             accounts = load_accounts(path)
         except FileNotFoundError:

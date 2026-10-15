@@ -1,0 +1,32 @@
+{
+  "id": "RESEARCH-OPS-20261015-0847",
+  "title": "Research-ops pass 2026-10-15 08:47Z",
+  "phase": "research",
+  "state": "landed_unproven",
+  "owner": "manager",
+  "lane": "research-ops-lane-20261015-0847",
+  "model": null,
+  "ceiling_usd": 5,
+  "spend_usd": 3,
+  "tier": 1,
+  "prs": [
+    18236
+  ],
+  "blocked_on": [],
+  "note": "[lane done] 13 results read p6/f6/census1; 2 S0-C confirmation units authored (4941-01/-02); 4 producer_failed units root-caused and re-queued (080 dotenv import on the runner, 009 prop_ev_sim --costs, 4591-01/-06 old Kaggle GPU route); runnable 24->31 (static floor 25 met; computed floor 54 NOT, refill capacity 0); ML-TABPFN-LICENCE blocked_on named; no incident. Record comms/research/ops/20261015T0915Z.json. Hold PR.",
+  "updated_at": "2026-10-15T09:04:19Z",
+  "updated_by": "research-ops-lane-20261015-0847",
+  "roadmap": [
+    "L-LADDER"
+  ],
+  "writeback": {
+    "roadmap": "none: operations pass",
+    "arch": "none: no component changed"
+  },
+  "observation": {
+    "what": "manager merges the hold PR; RQ-20261015-4941-01/-02 and the re-queued RQ-20261007-080/-009 and RQ-20261014-4591-01/-06 dispatch and land read_state measured (080 no longer producer_failed on the dotenv import)",
+    "how_to_check": "python3 scripts/ci/check_research_queue_throughput.py --json; ls comms/research/RQ-20261015-4941-0* comms/research/RQ-20261007-080",
+    "due_by": "2026-10-17"
+  },
+  "_seq": 512
+}

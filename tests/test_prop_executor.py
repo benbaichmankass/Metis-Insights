@@ -345,6 +345,30 @@ def test_classify_confirmation(positions, orders, want):
     assert pe.classify_confirmation(SPEC, found) == want
 
 
+def test_classify_confirmation_bracket_tolerance_is_one_price_step():
+    # OA-07(b), PI-20261004-GCFA5DOR-0004: a 2% relative tolerance let a
+    # terminal-default SL within 2% of the typed one (118.0 -> 116.5, 1.3%)
+    # read as bracketed. With the venue's price_step declared, SL/TP must
+    # agree within ONE step.
+    stepped = {**SPEC, "price_step": 0.01}
+    for leg, far_px in (("stop_loss", 116.5), ("take_profit", 124.0)):
+        far = {leg: far_px}
+        assert pe.classify_confirmation(stepped, {"orders": [_o(**far)], "positions": []}) == "partial_no_sl_tp", leg
+        assert pe.classify_confirmation(stepped, {"orders": [], "positions": [_p(**far)]}) == "partial_no_sl_tp", leg
+    # Within one step (the terminal rounds what it shows) still confirms.
+    assert pe.classify_confirmation(stepped, {"orders": [_o(stop_loss=118.01, take_profit=125.99)],
+                                              "positions": []}) == "placed"
+    assert pe.classify_confirmation(stepped, {"orders": [], "positions": [_p(stop_loss=117.99)]}) == "open"
+    assert pe.classify_confirmation(stepped, {"orders": [_o(stop_loss=118.02)], "positions": []}) == "partial_no_sl_tp"
+
+
+def test_classify_confirmation_without_a_price_step_keeps_the_relative_tolerance():
+    # No step resolvable (a legacy ledger row): the previous behaviour, never a failure.
+    for spec in (SPEC, {**SPEC, "price_step": None}, {**SPEC, "price_step": 0}):
+        assert pe.classify_confirmation(spec, {"orders": [_o(stop_loss=116.5)], "positions": []}) == "placed"
+        assert pe.classify_confirmation(spec, {"orders": [_o(stop_loss=110.0)], "positions": []}) == "partial_no_sl_tp"
+
+
 def test_open_from_fills_keeps_the_newest_row_per_identity():
     fills = [
         {"id": 1, "account_id": "b", "symbol": "SOLUSDT", "direction": "long", "status": "open", "created_at": "1"},
@@ -2009,6 +2033,38 @@ def test_submit_label_mismatch_refuses_the_opposite_side():
     assert submit_label_mismatch("Sell 0.01 ETH/USD at 2,678.650", short_eth) == ""
     assert "states side 'Sell'" in submit_label_mismatch("Sell 0.01 ETH/USD at 2,678.650", long_eth)
     assert "states side 'Buy'" in submit_label_mismatch("Buy 0.01 ETH/USD at 2,678.650", short_eth)
+
+
+def test_submit_label_mismatch_refuses_a_limit_price_that_moved():
+    # OA-07(a), PI-20261004-GCFA5DOR-0004: tradeify's price field reverts to a
+    # market-derived price unless it sees typing; a label moved from
+    # "at 120.91" to "at 120.94". A LIMIT spec with a declared price_step now
+    # refuses a label price more than one step from the typed limit.
+    from src.prop.platform.dxtrade import submit_label_mismatch
+    sol = BracketSpec("t", "SOLUSD", "long", 65.78, 119.77, 127.75, "limit", 120.91, price_step=0.01)
+    assert submit_label_mismatch("Buy 65.78 SOLUSD at 120.91", sol) == ""
+    assert submit_label_mismatch("Buy 65.78 SOLUSD at 120.92", sol) == ""   # one tick: display rounding
+    why = submit_label_mismatch("Buy 65.78 SOLUSD at 120.94", sol)
+    assert "states price 120.94, not the typed limit 120.91" in why, why
+    # The measured tradeify revert (#15930): typed 2683.59, label at 2,683.584.
+    eth = BracketSpec("t", "ETHUSD", "long", 0.01, 2656.75, 2710.43, "limit", 2683.59, price_step=0.001)
+    assert "states price 2683.584" in submit_label_mismatch("Buy 0.01 ETH/USD at 2,683.584", eth)
+    assert submit_label_mismatch("Buy 0.01 ETH/USD at 2,683.590", eth) == ""
+    # The measured fixed fill (#16003): typed 2680.645 holds exactly.
+    eth_ok = BracketSpec("t", "ETHUSD", "long", 0.01, 2656.75, 2710.43, "limit", 2680.645, price_step=0.001)
+    assert submit_label_mismatch("Buy 0.01 ETH/USD at 2,680.645", eth_ok) == ""
+    # A LIMIT label with no readable price is refused (cannot be compared).
+    assert "no readable 'at <price>'" in submit_label_mismatch("Buy 65.78 SOLUSD", sol)
+
+
+def test_submit_label_price_is_not_compared_for_market_or_undeclared_step():
+    from src.prop.platform.dxtrade import submit_label_mismatch
+    # MARKET: the label states the market price; nothing to compare.
+    mkt = BracketSpec("t", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None, price_step=0.01)
+    assert submit_label_mismatch("Buy 0.01 SOLUSD at 130.00", mkt) == ""
+    # No price_step declared: previous behaviour (display precision unknown).
+    nostep = BracketSpec("t", "SOLUSD", "long", 0.01, 118.0, 126.0, "limit", 120.0)
+    assert submit_label_mismatch("Buy 0.01 SOLUSD at 120.94", nostep) == ""
 
 
 def test_measured_sidebar_label_stating_the_typed_qty_passes(tpage):

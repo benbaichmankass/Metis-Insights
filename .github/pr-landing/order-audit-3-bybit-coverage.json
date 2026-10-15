@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Manager approval sought: the Bybit over-cover trip in order_monitor now grades each book against its own size when the venue reports a LIVE sibling hedge book, so a fully covered hedge position stops paging at ERROR (PI-20261009-GXEDZJQE-0001); re-arm logic and order placement are unchanged.",
+  "why": "False ERROR page reproduced live on bybit_1/ETHUSDT (four OVER-COVER TRIP lines 2026-10-15 05:01-05:09Z: long 0.12 covered 100% by its own leg, the 19.69 excess is a live Sell 19.69 positionIdx=2 book's own SL); detect/page path only, revert by dropping this commit."
+}

@@ -83,8 +83,14 @@ import kotlin.math.round
  * BACKGROUND ENGINE (PHONE-AUTOLOGIN-2, 2026-10-10: the bring-to-front was refused by Android's background-activity-start
  * limits, "bring-to-front already requested" at ~12:33Z with a retry due): those same login checks, the re-login and the
  * account panel read now run in BgWeb, a second WebView sharing this one's session, attached to a transparent
- * non-touchable overlay only while a job runs. Bring-to-front stays for tickets, and for login checks only after two
- * engine jobs in a row got no answer from the page. The heartbeat reports the engine (bg, bg_runs, bg_ok, bg_last).
+ * non-touchable overlay only while a job runs. Bring-to-front stays for login checks only after two engine jobs in a
+ * row got no answer from the page. The heartbeat reports the engine (bg, bg_runs, bg_ok, bg_last).
+ *
+ * BACKGROUND TICKETS (PHONE-FGS-EXEC, operator 2026-10-15 "Phone fills in background"): a waiting ticket no longer
+ * brings this Activity forward. The engine job claims it and runs the SAME execute()/executeAmend() on the engine's
+ * page: every page call goes through [cur] (the kiosk page, or the engine's while a background ticket runs), so each
+ * gate, read-back, server verify and go-token is unchanged. Bring-to-front is the fallback (BgTicket): no engine, no
+ * claim reached, or a bad background result (6 h). The heartbeat reports bg_tickets / bg_ticket_last / bg_ticket_off_min.
  */
 class MainActivity : Activity() {
     private lateinit var web: WebView
@@ -95,6 +101,7 @@ class MainActivity : Activity() {
     private var busy = false
     private var lastHbMs = 0L
     private var lastAcctMs = 0L
+    private var lastSheetMissMs = 0L
     private var sheetOkPosted = false   // the first clean sheet read posts its shape once (opened_by, uPnL sign)
     private var lastPosMissMs = 0L
     private var lastStatus = ""
@@ -127,6 +134,12 @@ class MainActivity : Activity() {
     private var claimBackoffUntilMs = 0L
     private var bgWakeUntilMs = 0L      // a bring-to-front was requested; retried only after this passes
     private var wokeAtMs = 0L           // > 0 while WE brought the Activity forward (it goes back afterwards)
+    // BACKGROUND TICKETS (PHONE-FGS-EXEC): the page every ticket call drives; fg except while an engine ticket runs
+    private lateinit var cur: Page
+    private var lastClaimId = ""; private var lastClaimKind = ""   // what the last claimAndRun() claimed ("" = nothing)
+    private var bgTickets = 0; private var bgTicketLast = ""
+    private var bgTicketOffUntilMs = 0L // tickets go to the front until this (BgTicket fallback)
+    private var bgTicketNextMs = 0L     // an engine ticket job that reached no claim is not repeated before this
 
     companion object {
         /** The live Activity in this process (null once destroyed): the watchdog restarts its loop or relaunches it. */
@@ -144,6 +157,7 @@ class MainActivity : Activity() {
         // BREAKOUT-SL-AMEND-CLICK: the sheet's pencil click (and Confirm) stays OFF until a live amend_sheet_unmeasured
         // dump has shown the Stop row's icons (the ⓧ next to the pencil CANCELS the stop); the read path runs live
         const val SHEET_EDIT_MEASURED = false
+        const val SHEET_MISS_MS = 600_000L              // a sheet read that failed is dumped at most every 10 min
         const val QTY_TOL_FRAC = 0.02                   // sheet "Total open volume" vs the ticket qty (venue rounding)
         const val PRICE_BUF_FRAC = 0.001                // the new stop clears the venue's current price by max(2 steps, 0.1%)
         const val USER_HOLD_MS = 5 * 60_000L
@@ -186,6 +200,7 @@ class MainActivity : Activity() {
 
         web = WebView(this)
         fg = Page(web, execSrc)
+        cur = fg
         // TOUCH-HOLD counts only a real finger-down on the page (fix 2026-10-06 09:06Z: the operator saw "paused because
         // you are using it" with the app open and untouched; Activity.onUserInteraction also fires for keys, resumes and
         // system-dispatched events). Our own dispatchKeyEvent typing never reaches a touch listener.
@@ -368,13 +383,14 @@ class MainActivity : Activity() {
 
     // ---------------- page bridge ----------------
     /** Every page call is bounded (Page): a frozen (backgrounded) WebView never answers, and an unbounded wait wedged the loop. */
-    private suspend fun js(code: String): String = fg.js(code)
-    private suspend fun ensure() = fg.ensure()
-    private suspend fun jsObj(code: String): JSONObject? = fg.obj(code)
+    /** [cur]: the kiosk page, or the background engine's while a background ticket runs (PHONE-FGS-EXEC). */
+    private suspend fun js(code: String): String = cur.js(code)
+    private suspend fun ensure() = cur.ensure()
+    private suspend fun jsObj(code: String): JSONObject? = cur.obj(code)
     private fun q(s: String) = JSONObject.quote(s)
     private fun typeKeys(s: String) {
         val evs = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD).getEvents(s.toCharArray()) ?: return
-        for (e in evs) web.dispatchKeyEvent(e)
+        for (e in evs) cur.web.dispatchKeyEvent(e)
     }
 
     private suspend fun tick() {
@@ -462,8 +478,10 @@ class MainActivity : Activity() {
             when {
                 paused() -> setStatus("background: paused" + if ((n ?: 0) > 0) " ($n ticket(s) waiting)" else "")
                 now < bgWakeUntilMs -> setStatus("background: bring-to-front already requested")
-                // tickets (orders) stay on the foreground path
-                (n ?: 0) > 0 -> { bgWakeUntilMs = now + BG_WAKE_MAX_MS; setStatus("background: $n ticket(s) waiting; bringing the executor to the front"); bringToFront() }
+                // tickets run in the background engine (PHONE-FGS-EXEC); the front is the fallback (BgTicket)
+                (n ?: 0) > 0 && now < bgTicketNextMs -> setStatus("background: $n ticket(s) waiting; engine retry in ${(bgTicketNextMs - now) / 1000 + 1} s")
+                (n ?: 0) > 0 && BgTicket.route(now, bgNoAnswer, bgTicketOffUntilMs) == BgTicket.Route.ENGINE -> bgJob("$n ticket(s) waiting", ticket = true)
+                (n ?: 0) > 0 -> ticketToFront("$n ticket(s) waiting; " + if (bgNoAnswer >= 2) "engine unavailable" else "engine fallback for ${(bgTicketOffUntilMs - now) / 60_000 + 1} min")
                 bgWhy != null && bgNoAnswer < 2 -> bgJob(bgWhy)
                 loginWhy != null -> { bgWakeUntilMs = now + BG_WAKE_MAX_MS; setStatus("background: $loginWhy; engine unavailable, bringing the executor to the front"); bgNoAnswer = 0; bringToFront() }
                 n == null -> setStatus("background: pending check failed (VM unreachable or refused); no claim")
@@ -478,10 +496,10 @@ class MainActivity : Activity() {
     /** One BACKGROUND ENGINE job (BgWeb): read the page; logged out -> the same re-login as the kiosk; logged in -> open
      *  the terminal and post account_status. Never a ticket. A job whose page never answers counts toward the
      *  bring-to-front fallback (2 in a row), which resets the count so the engine is tried again afterwards. */
-    private suspend fun bgJob(why: String) {
+    private suspend fun bgJob(why: String, ticket: Boolean = false) {
         val p = BgWeb.attach(this, execSrc)
         bgRuns += 1; bgLastMs = System.currentTimeMillis()
-        if (p == null) { bgLast = "no_engine"; bgNoAnswer = 2; setStatus("background: $why; engine could not be created"); return }
+        if (p == null) { bgLast = "no_engine"; bgNoAnswer = 2; setStatus("background: $why; engine could not be created"); if (ticket) ticketToFront("$why; engine could not be created"); return }
         setStatus("background: $why; checking in the background engine (${BgWeb.engine})")
         try {
             p.load(home())
@@ -511,6 +529,7 @@ class MainActivity : Activity() {
                     if (!s.optBoolean("onAccount") && s.optString("singleAccountLink").startsWith("https://trade.breakoutprop.com/")) {
                         p.load(s.optString("singleAccountLink")); s = p.settle(20_000L) ?: s
                     }
+                    if (ticket) { bgTicket(p, s); bgLast = "ticket+$bgTicketLast"; return }
                     var acct = "busy"
                     for (i in 0 until 10) { acct = readAccount(p); if (acct != "busy") break; delay(2000) }
                     if (acct == "posted") lastAcctMs = System.currentTimeMillis()
@@ -519,8 +538,52 @@ class MainActivity : Activity() {
                 "challenged" -> setStatus("background: challenge page (not solved); re-checked on the next background check")
                 else -> setStatus("background: engine not on the terminal (${s.optString("host")})")
             }
-        } catch (e: JsTimeout) { bgNoAnswer += 1; bgLast = "js_timeout" }
-        finally { BgWeb.detach(this) }
+            // a ticket job that never reached a logged-in page: not repeated every tick (the login path has its own backoff);
+            // a re-login that just succeeded lets the next tick claim at once
+            if (ticket && lastState != "logged_in") bgTicketNextMs = System.currentTimeMillis() + 2 * 60_000L
+        } catch (e: JsTimeout) { bgNoAnswer += 1; bgLast = "js_timeout"; if (ticket) bgTicketNextMs = System.currentTimeMillis() + 60_000L }
+        finally { cur = fg; BgWeb.detach(this) }
+    }
+
+    /** BACKGROUND TICKET (PHONE-FGS-EXEC): the engine page is logged in. Open the account terminal on it, then the SAME
+     *  claimAndRun() the kiosk runs, with [cur] = the engine page. No claim reached -> this ticket goes to the front.
+     *  A bad result (BgTicket.countsAgainst) -> tickets go to the front for BAD_RESULT_RETRY_MS, one event says so. */
+    private suspend fun bgTicket(p: Page, s0: JSONObject) {
+        var s = s0
+        if (!s.optBoolean("onAccount")) {
+            val saved = Store.get(this, Store.TERMINAL_URL)
+            if (saved != null && saved.startsWith("https://trade.breakoutprop.com/")) { p.load(saved); s = p.settle(20_000L) ?: s }
+        }
+        cur = p
+        lastClaimId = ""; lastClaimKind = ""
+        try {
+            if (!s.optBoolean("onAccount") || !ensureTerminal()) {
+                bgTicketLast = "no_terminal"
+                bgTicketNextMs = System.currentTimeMillis() + BgTicket.NO_CLAIM_RETRY_MS
+                ticketToFront("engine logged in but not on the account terminal")
+                return
+            }
+            claimedThisTick = false
+            claimAndRun()
+            if (!claimedThisTick) {   // backoff / VM unreachable / refused: no ticket held; the next tick asks again
+                bgTicketLast = "no_claim"; bgTicketNextMs = System.currentTimeMillis() + 60_000L; return
+            }
+            bgTickets += 1
+            val st = if (lastClaimId.isEmpty()) null else ledger.last(lastClaimId)
+            bgTicketLast = (if (lastClaimKind == "amend") "amend:" else "") + (st ?: "none")
+            if (BgTicket.countsAgainst(lastClaimKind, st)) {
+                bgTicketOffUntilMs = System.currentTimeMillis() + BgTicket.BAD_RESULT_RETRY_MS
+                api.event("bg_ticket_fallback", "background ticket ended $st (${BgWeb.engine}); next tickets bring the app to the front for ${BgTicket.BAD_RESULT_RETRY_MS / 3_600_000} h, then the engine is retried", lastClaimId)
+            }
+        } finally { cur = fg }
+    }
+
+    /** The pre-PHONE-FGS-EXEC path, kept as the fallback: bring the Activity forward so the resumed tick claims. */
+    private fun ticketToFront(why: String) {
+        bgWakeUntilMs = System.currentTimeMillis() + BG_WAKE_MAX_MS
+        bgNoAnswer = 0   // as on the login path: the engine is tried again after this front run
+        setStatus("background: $why; bringing the executor to the front")
+        bringToFront()
     }
 
     /** Allowed from the background because the operator granted "Display over other apps" (as for the boot restart). */
@@ -551,6 +614,9 @@ class MainActivity : Activity() {
             // background engine: which one, jobs run / jobs whose page answered, the last job's result and its age
             .put("bg", BgWeb.engine).put("bg_runs", bgRuns).put("bg_ok", bgOk).put("bg_last", bgLast)
             .put("bg_last_min", if (bgLastMs > 0) (now - bgLastMs) / 60_000 else -1L)
+            // PHONE-FGS-EXEC: tickets the engine claimed, the last one's ledger state, minutes left on the front fallback
+            .put("bg_tickets", bgTickets).put("bg_ticket_last", bgTicketLast)
+            .put("bg_ticket_off_min", if (bgTicketOffUntilMs > now) (bgTicketOffUntilMs - now) / 60_000 + 1 else 0L)
             // PHONE-KEEPALIVE: what keeps this app alive, and what had to bring it back
             .put("battery_exempt", getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName))
             .put("overlay", Settings.canDrawOverlays(this)).put("fgs_running", Liveness.fgsRunning)
@@ -685,11 +751,11 @@ class MainActivity : Activity() {
 
     private suspend fun ensureTerminal(): Boolean {
         if (terminalReady()) return true
-        if (userActive()) { setStatus("logged in, not on the terminal; you are using the screen, so no navigation"); return false }
+        if (cur === fg && userActive()) { setStatus("logged in, not on the terminal; you are using the screen, so no navigation"); return false }
         val href = js("__ex.terminalHref()")
         if (!href.startsWith("https://trade.breakoutprop.com/")) { setStatus("logged in, not on the terminal and no account path: tap into the account once"); return false }
         setStatus("logged in: opening the account's terminal")
-        web.loadUrl(href)
+        cur.load(href)
         for (i in 0 until 12) { delay(2500); ensure(); if (terminalReady()) return true }
         setStatus("terminal did not load (no Order/Order form control, Buy-Sell tabs, panels or buy+sell markers): no claim")
         // Self-diagnosing miss (fix 06:17Z): post the page's control texts once per load attempt, never a report.
@@ -991,7 +1057,8 @@ class MainActivity : Activity() {
     // ---------------- tickets ----------------
     private suspend fun claimAndRun() {
         // NEVER claim while backgrounded: the page cannot be driven, and a claimed ticket is one attempt only.
-        if (!resumed) { setStatus("backgrounded: no claim"); return }
+        // (PHONE-FGS-EXEC: the background engine's page CAN be driven; cur !== fg only inside bgTicket())
+        if (!resumed && cur === fg) { setStatus("backgrounded: no claim"); return }
         val now = System.currentTimeMillis()
         if (now < claimBackoffUntilMs) { setStatus("logged in · VM busy (5xx); backing off ${(claimBackoffUntilMs - now) / 1000 + 1} s (no claim)"); return }
         // accepts amend: this build executes trail amends (PROP-TRAIL-PHONE); the VM serves them to no older build
@@ -1012,6 +1079,8 @@ class MainActivity : Activity() {
         claimedThisTick = true
         val t = r.optJSONObject("ticket")
         if (t == null) { setStatus("logged in · waiting for a ticket (none queued) · ${java.text.DateFormat.getTimeInstance().format(Date())}"); return }
+        lastClaimKind = if (t.optString("kind") == "amend") "amend" else "entry"
+        lastClaimId = if (lastClaimKind == "amend") t.optString("amend_id") else t.optString("ticket_id")
         if (t.optString("kind") == "amend") {
             val aid = t.optString("amend_id")
             try { executeAmend(t, r.optJSONObject("config") ?: JSONObject()) }
@@ -1175,7 +1244,7 @@ class MainActivity : Activity() {
             if (g?.optBoolean("go") == true) api.event("mismatch", "server said go on a DRY token; not submitted", id)
             ledger.append(id, "dry_filled")
             report(id, "dry_filled", (if (test) "test ticket (always dry)" else "server mode dry") + "; server verify ok, ${v.optString("mode")} token, $goTxt", tk)
-            api.event("dry_fill_ok", "filled + read back + SERVER verified (${v.optString("mode")} token, $goTxt), NOT submitted: $sideTab ${fmt(qty, qStep)} $venue lim ${fmt(entry, pStep)} tp ${fmt(tp, pStep)} sl ${fmt(sl, pStep)}", id)
+            api.event("dry_fill_ok", engTag() + "filled + read back + SERVER verified (${v.optString("mode")} token, $goTxt), NOT submitted: $sideTab ${fmt(qty, qStep)} $venue lim ${fmt(entry, pStep)} tp ${fmt(tp, pStep)} sl ${fmt(sl, pStep)}", id)
             js("__ex.setByLabel('quantity', '', '')")
             setStatus("DRY ticket $id filled and read back; not submitted")
             return
@@ -1220,7 +1289,7 @@ class MainActivity : Activity() {
                     api.post("report", JSONObject().put("kind", "fill").put("status", "placed").put("ticket_id", id)
                         .put("symbol", sym).put("direction", if (long) "long" else "short")
                         .put("entry", entry).put("sl", sl).put("tp", tp).put("qty", qty).put("source", "phone_executor"))
-                    api.event("submitted", "placed $sideTab ${fmt(qty, qStep)} $venue lim ${fmt(entry, pStep)} (seen in ${view.trim('^', '$')})", id)
+                    api.event("submitted", engTag() + "placed $sideTab ${fmt(qty, qStep)} $venue lim ${fmt(entry, pStep)} (seen in ${view.trim('^', '$')})", id)
                     setStatus("LIVE ticket $id placed and seen")
                     return
                 }
@@ -1354,15 +1423,24 @@ class MainActivity : Activity() {
         if (p.obj("__ex.sheetInfo(${q(sym)})")?.optBoolean("open") == true) sheetClose(p, sym)
         val tries = JSONArray()
         var opened = ""
+        // BREAKOUT-NATIVE-TAP (1b.210, 08:37Z): click() and a synthetic pointer tap reached the cells on both rows and
+        // opened no sheet (the group tap only expanded the row). Each row is now touched NATIVELY (a MotionEvent the
+        // WebView receives as a trusted touch) at the centre exec.js re-checked; every miss still records what the page
+        // showed after it (viewport, new visible texts, the touched cell's ancestor chain)
+        var probe: JSONObject? = null
         for (which in listOf("child", "group")) {
-            val r = p.js("__ex.sheetOpen(${q(sym)}, ${q(which)})")
-            tries.put("$which:$r")
-            if (r != "clicked") continue
+            p.js("__ex.domMark()")
+            val r = nativeTap(p, sym, which)
+            tries.put("$which/native:$r".take(40))
+            if (!r.startsWith("touched")) { if (r == "no_grid") break; continue }
             delay(1200); p.ensure()
-            if (p.obj("__ex.sheetInfo(${q(sym)})")?.optBoolean("open") == true) { opened = which; break }
-            tries.put("$which:no_sheet")
+            if (p.obj("__ex.sheetInfo(${q(sym)})")?.optBoolean("open") == true) { opened = "$which/native"; break }
+            delay(1500); p.ensure()
+            if (p.obj("__ex.sheetInfo(${q(sym)})")?.optBoolean("open") == true) { opened = "$which/native"; break }
+            tries.put("$which/native:no_sheet")
+            probe = p.obj("__ex.domDiff()")?.put("at", "$which/native")
         }
-        if (opened.isEmpty()) return JSONObject().put("ok", false).put("why", "sheet_not_open").put("tries", tries)
+        if (opened.isEmpty()) return JSONObject().put("ok", false).put("why", "sheet_not_open").put("tries", tries).apply { if (probe != null) put("probe", probe) }
         val si = p.obj("__ex.sheetInfo(${q(sym)})") ?: JSONObject()
         if (!si.optBoolean("title_ok")) {
             val c = sheetClose(p, sym)
@@ -1373,6 +1451,22 @@ class MainActivity : Activity() {
         d.put("opened_by", opened).put("tries", tries)
         if (!d.optBoolean("ok")) { if (!d.has("why")) d.put("why", "details_unread"); d.put("close", sheetClose(p, sym)) }
         return d
+    }
+
+    /** One NATIVE touch on the Positions row cell for [which] (BREAKOUT-NATIVE-TAP): exec.js centres the cell, then
+     *  re-checks it right before the touch (sheetTarget: the ONE cell, not denied, and elementFromPoint at its centre
+     *  is that cell or inside it with nothing denied up to it); only then is the point touched. The denylist is the same
+     *  one every click goes through. "touched k=<css scale>" or why not (none | no_grid | rows_<n> | covered@<tag> |
+     *  point_deny_* | deny_* | offscreen | sheet_open | unanswered). */
+    private suspend fun nativeTap(p: Page, sym: String, which: String): String {
+        val s = p.obj("__ex.sheetTarget(${q(sym)}, ${q(which)}, true)") ?: return "unanswered"
+        if (!s.optBoolean("ok")) return s.optString("why", "refused")
+        delay(350)
+        val r = p.obj("__ex.sheetTarget(${q(sym)}, ${q(which)}, false)") ?: return "unanswered"
+        if (!r.optBoolean("ok")) return r.optString("why", "refused") + (if (r.optString("top").isNotEmpty()) "@" + r.optString("top") else "")
+        // which WebView took the touch (PHONE-FGS-EXEC: the background engine's non-touchable overlay or the kiosk);
+        // MotionEvents go to the view directly, never through the window, but the two are measured apart
+        return p.tap(r.getDouble("x"), r.getDouble("y"), r.getDouble("vw")) + (if (p === fg) " fg" else " bg")
     }
 
     /** Close the sheet: Escape first, then its header close icon. closed | escape | x | still_open(..) */
@@ -1387,8 +1481,9 @@ class MainActivity : Activity() {
     /** The sheet's evidence as short masked lines for the visible positions diag (state sheet_* / amend_sheet_*). No
      *  values: the server masks digits in cells, and only shapes (tries, misses, uPnL text shape, icon dump) go in. */
     private suspend fun sheetMiss(state: String, d: JSONObject, orders: JSONObject? = null, force: Boolean = false) {
-        if (!force && System.currentTimeMillis() - lastPosMissMs < POS_MISS_MS) return
-        lastPosMissMs = System.currentTimeMillis()
+        // its own clock (manager 06:09Z): sharing lastPosMissMs with the Positions miss hid every sheet dump for 30 min
+        if (!force && System.currentTimeMillis() - lastSheetMissMs < SHEET_MISS_MS) return
+        lastSheetMissMs = System.currentTimeMillis()
         val h = JSONArray()
         d.optJSONArray("tries")?.let { a -> for (i in 0 until a.length()) h.put(a.optString(i).take(40)) }
         if (d.has("opened_by")) h.put("opened_by=${d.optString("opened_by")}")
@@ -1396,6 +1491,12 @@ class MainActivity : Activity() {
         if (d.has("upnl_shape")) h.put("upnl=${d.optString("upnl_shape")} signed=${d.optBoolean("upnl_signed")}".take(40))
         if (d.has("close")) h.put("close=${d.optString("close")}".take(40))
         val ctl = JSONArray()
+        d.optJSONObject("probe")?.let { pr ->
+            ctl.put("${pr.optString("at")} w=${pr.optInt("w")} h=${pr.optInt("h")} new=${pr.optInt("n_new")} dlg=${pr.optInt("dialogs")}".take(40))
+            ctl.put("tabs details=${pr.optInt("details_tabs")} tpsl=${pr.optInt("tpsl_tabs")}")
+            pr.optJSONArray("leaves")?.let { a -> for (i in 0 until a.length()) ctl.put("new: " + a.optString(i).take(34)) }
+            pr.optJSONArray("chain")?.let { a -> for (i in 0 until a.length()) ctl.put("up: " + a.optString(i).take(35)) }
+        }
         orders?.optJSONArray("rows")?.let { rs ->
             for (i in 0 until rs.length()) {
                 val r = rs.optJSONObject(i) ?: continue
@@ -1415,12 +1516,42 @@ class MainActivity : Activity() {
         val rows = pos.optJSONArray("rows") ?: return pos
         val syms = (0 until rows.length()).map { rows.optJSONObject(it)?.optString("symbol") ?: "" }
         if (syms.isEmpty() || syms.any { it.isEmpty() } || syms.toSet().size != syms.size) return pos
+        // BREAKOUT-NATIVE-TAP finding (a): on 1b.210 a tap on the GROUP row expanded it and the child row showed the
+        // side as TEXT ("Short"). A row read as the collapsed group (row_kind group) is expanded with ONE native touch
+        // and Positions is re-read: a side the row now shows in text is read like any grid cell (side_source row,
+        // MEASURED), with no sheet. Expanded stays expanded, so later reads find the child row without touching.
+        val grp = (0 until rows.length()).mapNotNull { rows.optJSONObject(it) }.filter { it.optString("row_kind") == "group" && (it.isNull("side") || it.optString("side").isEmpty()) }
+        val pre = JSONArray()
+        if (grp.size == 1 && rows.length() == 1) {
+            val x = nativeTap(p, syms[0], "group")
+            delay(1200); p.ensure()
+            if (p.obj("__ex.sheetInfo(${q(syms[0])})")?.optBoolean("open") != true) {
+                val again = p.obj("__ex.positionsRead()")
+                val ar = again?.optJSONArray("rows")
+                if (again?.optString("state") == "read" && ar != null && ar.length() == 1 && ar.optJSONObject(0)?.optString("symbol") == syms[0]) {
+                    val r0 = JSONObject(ar.getJSONObject(0).toString()).put("side_source", "row")
+                    return JSONObject(again.toString()).put("rows", JSONArray().put(r0)).put("provenance", "MEASURED")
+                }
+                // still no side: the expanded row's shape (cell count, nesting, whether childRows picked it) rides on the
+                // sheet diag below, so the two measurements never overwrite each other
+                pre.put("group/expand:$x".take(40)).put("child_read=${again?.optString("state") ?: "unanswered"}".take(40))
+                p.obj("__ex.childShape()")?.let { cs ->
+                    pre.put("hdr=${cs.optInt("hdr")} grp=${cs.optInt("groups")} child=${cs.optInt("child_rows")}")
+                    cs.optJSONArray("sides")?.let { a -> for (j in 0 until a.length()) a.optJSONObject(j)?.let { o ->
+                        pre.put("${o.optString("side")} c=${o.optInt("cells")} d=${o.optInt("depth")}/${o.optInt("row_depth")} ${o.optString("role")} pk=${o.optBoolean("picked")} ts=${o.optInt("tpsl")}".take(40)) } }
+                }
+            } else pre.put("group/expand:$x opened_sheet".take(40))
+        }
         val out = JSONArray()
         for (i in 0 until rows.length()) {
             val r = JSONObject(rows.getJSONObject(i).toString())
             if (!r.isNull("side") && r.optString("side").isNotEmpty()) { out.put(r); continue }
             val d = sheetRead(p, syms[i])
-            if (!d.optBoolean("ok")) { sheetMiss("sheet_${d.optString("why")}", d); return pos }
+            if (!d.optBoolean("ok")) {
+                if (pre.length() > 0) { val tr = JSONArray(); for (j in 0 until pre.length()) tr.put(pre.get(j))
+                    d.optJSONArray("tries")?.let { a -> for (j in 0 until a.length()) tr.put(a.get(j)) }; d.put("tries", tr) }
+                sheetMiss("sheet_${d.optString("why")}", d); return pos
+            }
             d.put("close", sheetClose(p, syms[i]))
             r.put("side", d.getString("side")).put("side_source", "sheet").put("qty", d.getDouble("qty")).put("qty_src", "sheet")
                 .put("entry", d.getDouble("entry")).put("upnl_signed", d.optBoolean("upnl_signed"))
@@ -1445,7 +1576,7 @@ class MainActivity : Activity() {
         if (tpChange) return amendRefuse(t, "the sheet path edits the stop only; a TP revision is not built", null)
         if (if (long) sl <= fromSl + pStep / 2 else sl >= fromSl - pStep / 2) return amendRefuse(t, "sheet path: the new stop is not tighter", null)
         // 1-2. the sheet and its [Position details], MEASURED
-        val d = sheetRead(fg, venue)
+        val d = sheetRead(cur, venue)
         if (!d.optBoolean("ok")) {
             val tries = d.optJSONArray("tries")?.let { a -> (0 until a.length()).map { a.optString(it) } } ?: emptyList()
             if (d.optString("why") == "sheet_not_open" && tries.all { it.endsWith(":none") || it.endsWith(":no_grid") }) {
@@ -1455,7 +1586,7 @@ class MainActivity : Activity() {
             sheetMiss("amend_sheet_${d.optString("why")}", d, force = true)
             return amendRefuse(t, "position sheet unread: ${d.optString("why")} ${d.optJSONArray("miss") ?: ""} ${tries.joinToString(" ")}", d)
         }
-        suspend fun bail(why: String, dump: JSONObject?) { val c = sheetClose(fg, venue); amendRefuse(t, "$why (sheet close: $c)", dump) }
+        suspend fun bail(why: String, dump: JSONObject?) { val c = sheetClose(cur, venue); amendRefuse(t, "$why (sheet close: $c)", dump) }
         val tq = t.optDouble("qty", Double.NaN); val sq = d.optDouble("qty", Double.NaN)
         if (d.optString("side") != want) return bail("sheet side ${d.optString("side")} != ticket $want", d)
         if (tq.isNaN() || sq.isNaN() || abs(sq - tq) > max(1e-9, QTY_TOL_FRAC * tq)) return bail("sheet volume $sq != ticket qty $tq", d)
@@ -1464,14 +1595,14 @@ class MainActivity : Activity() {
         val buf = max(2 * pStep, mark * PRICE_BUF_FRAC)
         if (if (long) sl > mark - buf else sl < mark + buf) return bail("new stop ${fmt(sl, pStep)} within ${fmt(buf, pStep)} of the current price ${fmt(mark, pStep)}", d)
         // 3. [1 TP / 1 SL]: the ONE Stop row, its trigger == the resting stop the VM expects
-        fg.js("__ex.sheetTab('tpsl')"); delay(800); ensure()
+        cur.js("__ex.sheetTab('tpsl')"); delay(800); ensure()
         val so = jsObj("__ex.sheetOrders()") ?: return bail("sheet orders unanswered", d)
         if (so.optInt("n_stop") != 1) return bail("sheet stop rows n=${so.optInt("n_stop")}", so)
         val rs = so.optJSONArray("rows") ?: JSONArray()
         val stop = (0 until rs.length()).map { rs.optJSONObject(it) }.first { it?.optString("type") == "stop" }!!
         val trig = if (stop.isNull("trigger")) null else stop.optDouble("trigger")
         if (!close(trig, fromSl, pStep)) {
-            val c = sheetClose(fg, venue)
+            val c = sheetClose(cur, venue)
             return amendHuman(t, "terminal stop $trig != expected ${fmt(fromSl, pStep)} (sheet close: $c)", so)
         }
         // FIRST-RUN GATE (BREAKOUT-SL-AMEND-CLICK): the read path above runs live; the pencil sits next to the ⓧ that
@@ -1492,7 +1623,7 @@ class MainActivity : Activity() {
         if (m0.optString("side") != want || mq.isNaN() || abs(mq - sq) > max(1e-9, QTY_TOL_FRAC * sq)) return mbail("modal header ${m0.optString("side")} $mq != $want $sq", m0)
         if (m0.optInt("triggers") != 1) return mbail("modal Trigger inputs n=${m0.optInt("triggers")}", m0)
         val mt = num(jsObj("__ex.modalTrigger()")?.optString("value"))
-        if (!close(mt, fromSl, pStep)) { js("__ex.modalCancel()"); delay(600); val c = sheetClose(fg, venue); return amendHuman(t, "modal trigger $mt != expected ${fmt(fromSl, pStep)} (sheet close: $c)", m0) }
+        if (!close(mt, fromSl, pStep)) { js("__ex.modalCancel()"); delay(600); val c = sheetClose(cur, venue); return amendHuman(t, "modal trigger $mt != expected ${fmt(fromSl, pStep)} (sheet close: $c)", m0) }
         fun qtyField(m: JSONObject?): String {
             val ins = m?.optJSONArray("inputs") ?: return "?"
             return (0 until ins.length()).map { ins.optJSONObject(it) }.filter { Regex("(?i)quantity|\\bqty\\b|size").containsMatchIn(it?.optString("label") ?: "") }
@@ -1507,7 +1638,7 @@ class MainActivity : Activity() {
         if (st?.optInt("n") != 1 || !close(tr, sl, pStep)) return mbail("trigger read-back $tr", m1)
         if (qtyField(m1) != q0) return mbail("modal quantity changed ($q0 -> ${qtyField(m1)})", m1)
         if (!live) {
-            val c = js("__ex.modalCancel()"); delay(600); val sc = sheetClose(fg, venue)
+            val c = js("__ex.modalCancel()"); delay(600); val sc = sheetClose(cur, venue)
             ledger.append(aid, "dry_amended")
             amendResult(t, "dry_amended", "sheet: trigger typed + read back, NOT confirmed (server mode dry; cancel: $c, sheet close: $sc)", tr, null, m1)
             setStatus("DRY amend $aid read back on the sheet; not saved"); return
@@ -1517,16 +1648,16 @@ class MainActivity : Activity() {
         if (cf != "clicked") { ledger.append(aid, "refused"); return mbail("modal confirm control: $cf", m1) }
         delay(1500); ensure()
         if ((jsObj("__ex.modalInfo()")?.optInt("n") ?: 0) > 0) {
-            js("__ex.modalCancel()"); delay(600); val c = sheetClose(fg, venue); ledger.append(aid, "unconfirmed")
+            js("__ex.modalCancel()"); delay(600); val c = sheetClose(cur, venue); ledger.append(aid, "unconfirmed")
             return amendResult(t, "mismatch", "edit modal still open after Confirm (sheet close: $c)", null, null, jsObj("__ex.modalInfo()"))
         }
         // 6. re-read the Stop row on the sheet
-        fg.js("__ex.sheetTab('tpsl')"); delay(1000); ensure()
+        cur.js("__ex.sheetTab('tpsl')"); delay(1000); ensure()
         val so2 = jsObj("__ex.sheetOrders()")
         val rs2 = so2?.optJSONArray("rows") ?: JSONArray()
         val stops2 = (0 until rs2.length()).map { rs2.optJSONObject(it) }.filter { it?.optString("type") == "stop" }
         val vSl = if (stops2.size == 1 && !stops2[0]!!.isNull("trigger")) stops2[0]!!.optDouble("trigger") else null
-        val c = sheetClose(fg, venue)
+        val c = sheetClose(cur, venue)
         if (close(vSl, sl, pStep)) {
             ledger.append(aid, "amended")
             amendResult(t, "amended", "confirmed and read back on the position sheet (sheet close: $c)", vSl, null, so2)
@@ -1641,13 +1772,17 @@ class MainActivity : Activity() {
     private suspend fun refuse(id: String, why: String, dump: JSONObject?) {
         ledger.append(id, "refused")
         report(id, "refused", why, dump)
-        api.event("refusal", why, id)
+        api.event("refusal", engTag() + why, id)
         try { js("(function(){var t=__ex.ticket();t.inputs.forEach(function(i){if(/quantity/i.test(i.label))__ex.setInput(i.k,'')});return 'ok'})()") } catch (_: Exception) {}
         setStatus("ticket $id REFUSED: $why")
     }
 
+    /** "(bg:overlay) " while a background ticket runs, else "": which page did the work rides the report and the event
+     *  (PHONE-FGS-EXEC; parentheses survive the server's reason scrub, brackets do not). */
+    private fun engTag(): String = if (cur === fg) "" else "(bg:${BgWeb.engine}) "
+
     private suspend fun report(id: String, result: String, why: String, dump: JSONObject?) {
         api.post("report", JSONObject().put("kind", "ticket_result").put("ticket_id", id).put("result", result)
-            .put("reason", why).put("form", dump ?: JSONObject()))
+            .put("reason", engTag() + why).put("form", dump ?: JSONObject()))
     }
 }

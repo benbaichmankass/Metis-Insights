@@ -101,3 +101,14 @@ related:
 - docs/research/exit-refinement-coverage.json
 - docs/research/M20-exit-refinement-2026-07-12.md
 last_dispatched_at: '2026-10-08T14:55:04+00:00'
+grading:
+  decision_rule_id: RULE-RQ1007-043-MOMENTUM-STALE-STOP
+  graded_at: '2026-10-15'
+  graded_by: session_01AHy9CTrdF2hMBAWNBzB5wN (lane RESEARCH-GRADE-BACKLOG)
+  needs_review: true
+  read_state: measured
+  reason: 'NOT GRADABLE as registered: provisional PASS on eth_4h ms12_a20/ms12_a25 and eth_prop ms8_a25
+    from the harness gate, but the rule also needs yearly wf fold counts and the stale-swapped base (b)
+    for eth_prop, which the rows lack. Instrument gap filed on checklist RESEARCH-GRADE-PILE (generic-gate
+    rows).'
+  verdict: null

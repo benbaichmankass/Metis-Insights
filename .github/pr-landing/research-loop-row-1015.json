@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Checklist register only: row RESEARCH-LOOP-AUDIT-AND-DRIVER gains its PR list and a phase-2 note, via scripts/ops/checklist.py. No code, config/, workflow or live path."
+}

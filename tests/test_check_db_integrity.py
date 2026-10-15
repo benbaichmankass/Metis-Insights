@@ -607,3 +607,85 @@ def test_inv7_alert_message_is_not_labelled_recent():
 def test_inv7_runs_in_the_report(real_schema_db):
     rep = _run(real_schema_db())
     assert _check(rep, "INV-7")["read_state"] == "checked"
+
+
+# ---------------------------------------------------------------------------
+# INV-8 — terminal package with an OPEN leg (ORDER-AUDIT-4, PI-20260930-3QNHBGND-0003)
+# Live shape 2026-10-15: alpaca_paper pkg-32a5162b (closed
+# exchange_flat_reconciled 08-18) -> open trade 4347 SPY, venue long 11.
+# ---------------------------------------------------------------------------
+
+
+def _open_leg(db, pkg=None, ts=None):
+    ts = ts or _recent_ts()
+    return insert_trade(
+        db, is_backtest=0, status="open", account_class="paper",
+        symbol="SPY", direction="long", entry_price=755.62, position_size=11.0,
+        order_package_id=pkg, created_at=ts, timestamp=ts,
+    )
+
+
+def test_inv8_closed_package_with_open_leg_recent_alerts(real_schema_db):
+    db = real_schema_db()
+    rid = _open_leg(db, pkg="op-8r")
+    insert_order_package(db, order_package_id="op-8r", status="closed",
+                         close_reason="exchange_flat_reconciled",
+                         linked_trade_id=rid, updated_at=_recent_ts())
+    # LEGACY instance (the two live paper packages are this shape).
+    lid = _open_leg(db, pkg="op-8l", ts=_legacy_ts())
+    insert_order_package(db, order_package_id="op-8l", status="closed",
+                         linked_trade_id=lid, updated_at=_legacy_ts())
+    inv8 = _check(_run(db), "INV-8")
+    assert inv8["recent_count"] == 1
+    assert inv8["total_count"] == 2
+    assert inv8["alert"] is True
+    assert inv8["sample_ids"] == ["op-8r"]
+
+
+def test_inv8_legacy_only_reported_not_alerted(real_schema_db):
+    db = real_schema_db()
+    lid = _open_leg(db, pkg="op-8l", ts=_legacy_ts())
+    insert_order_package(db, order_package_id="op-8l", status="closed",
+                         linked_trade_id=lid, updated_at=_legacy_ts())
+    inv8 = _check(_run(db), "INV-8")
+    assert (inv8["recent_count"], inv8["total_count"], inv8["alert"]) == (0, 1, False)
+    assert inv8["sample_ids"] == ["op-8l"]
+
+
+def test_inv8_either_link_direction_counts(real_schema_db):
+    db = real_schema_db()
+    # Forward link only: the open leg carries no back-ref.
+    rid = _open_leg(db, pkg=None)
+    insert_order_package(db, order_package_id="op-fwd", status="orphaned",
+                         linked_trade_id=rid, updated_at=_recent_ts())
+    # Back-ref only: the package links some other (closed) trade.
+    _open_leg(db, pkg="op-back")
+    insert_order_package(db, order_package_id="op-back", status="cancelled",
+                         linked_trade_id=None, updated_at=_recent_ts())
+    inv8 = _check(_run(db), "INV-8")
+    assert inv8["recent_count"] == 2
+    assert set(inv8["sample_ids"]) == {"op-fwd", "op-back"}
+
+
+def test_inv8_open_package_or_closed_leg_not_flagged(real_schema_db):
+    db = real_schema_db()
+    rid = _open_leg(db, pkg="op-live")
+    insert_order_package(db, order_package_id="op-live", status="open",
+                         linked_trade_id=rid, updated_at=_recent_ts())
+    cid = insert_trade(
+        db, is_backtest=0, status="closed", account_class="paper",
+        symbol="TLT", direction="short", entry_price=1.0, position_size=1.0,
+        pnl=1.0, order_package_id="op-done", closed_at=_recent_ts(),
+        created_at=_recent_ts(), timestamp=_recent_ts(),
+    )
+    insert_order_package(db, order_package_id="op-done", status="closed",
+                         linked_trade_id=cid, updated_at=_recent_ts())
+    # A BACKTEST open row under a closed package is not a live leg.
+    insert_trade(db, is_backtest=1, status="open", symbol="SPY",
+                 direction="long", entry_price=1.0, position_size=1.0,
+                 order_package_id="op-bt", created_at=_recent_ts(),
+                 timestamp=_recent_ts())
+    insert_order_package(db, order_package_id="op-bt", status="closed",
+                         updated_at=_recent_ts())
+    inv8 = _check(_run(db), "INV-8")
+    assert (inv8["recent_count"], inv8["total_count"]) == (0, 0)

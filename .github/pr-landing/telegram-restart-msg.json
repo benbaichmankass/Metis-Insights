@@ -1,0 +1,11 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2: rewrites the trader-restart Telegram ping (src/runtime/boot_audit.py + new src/runtime/restart_cause.py, called from src/main.py boot) and adds a restart-intent marker write to scripts/deploy_pull_restart.sh, scripts/ops/restart_bot.sh and scripts/check_heartbeat.py. Notify path only; no order path, no mode/roster change. Manager merges under TELEGRAM-RESTART-MSG.",
+  "recorded_decision": {
+    "kind": "operator_decision",
+    "ref": "TELEGRAM-RESTART-MSG"
+  },
+  "why": "TELEGRAM-RESTART-MSG: operator 2026-10-15 ~08:20Z (relayed by the manager): more selective restart pings, sectioned/collapsible by venue, a status headline, a cause line, and per-account live-trade accounting with measured broker SL/TP."
+}

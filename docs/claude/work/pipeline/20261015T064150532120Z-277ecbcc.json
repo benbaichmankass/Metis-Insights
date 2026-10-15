@@ -1,0 +1,22 @@
+{
+  "based_on": "20261014T055621284549Z-c0e54953.json",
+  "due_when": {
+    "due_date": "2026-10-29",
+    "kind": "date"
+  },
+  "id": "PI-20261011-FM7LEINS-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "TELEGRAM-CHANNELS lane session_01VPrdzHeQzf956LfM7LEiNs (full-suite run 2026-10-11)",
+    "rerun": "python3 -m pytest -q tests/test_econ_calendar_snapshot_backfill.py -k probe_is_a_diagnostic -- FINDING STILL APPLIES while it fails with \"probe must not implement alternate adoption\""
+  },
+  "redate": {
+    "evidence": "BACKLOG-DRAIN-20261015 (session_019p3X1tJAdUdV2dKaw9no8r)",
+    "observation": "Re-read 2026-10-15, still open on its row: tests/test_econ_calendar_snapshot_backfill.py (~L405-423) strips the docstring with src.replace(doc,''), a no-op on Python 3.13's dedented __doc__, so 'alternate' is found only in the docstring (econ_calendar_snapshot_backfill.py ~L305). ~6-line ast-based fix; pytest not available in this lane to prove it.",
+    "observed_at": "2026-10-15"
+  },
+  "routed_to": "ROUTE-CI-LANDING-FIXES | [ROUTING-ALARM-20261014] routed from daily review WR-20261014-0530Z; the row owns this item and carries the rerun command",
+  "state": "routed",
+  "what": "tests/test_econ_calendar_snapshot_backfill.py::TestIdProbe::test_probe_is_a_diagnostic_not_a_fallback FAILS on origin/main (measured 2026-10-11 in a clean worktree of origin/main): the test greps the probe function source for the word 'alternate' and finds it in a docstring/comment ('...does not try alternates and silently adopt whichever...'). Either the probe's prose trips a too-literal assertion (fix the test to check behaviour, not the word) or the probe really grew an alternate-adoption path (fix the probe). Not caused by any telegram change; found while running the full suite for PR #17542."
+}

@@ -1,7 +1,7 @@
 id: RQ-20261010-353c-04
 title: 'Stage-0 breadth for the prop book: trend harness on HYPEUSDT 1h (RESEARCH-NIGHT-1010, PI-20261006-APBY4NTV-0001 batch
   3)'
-status: queued
+status: retired
 cadence: once
 theme: new_strategy_prop
 priority: 1
@@ -67,3 +67,11 @@ related:
 - RQ-20261007-224
 - scripts/ops/fetch_backtest_corpus.py
 last_dispatched_at: '2026-10-11T01:03:46+00:00'
+grading:
+  decision_rule_id: RULE-RQ-20261010-353c-04-TREND-HYPEUSDT-1h-STAGE0
+  graded_at: '2026-10-15'
+  graded_by: session_01AHy9CTrdF2hMBAWNBzB5wN (lane RESEARCH-GRADE-BACKLOG)
+  read_state: producer_failed
+  reason: two producer_failed rows (build job failure); superseded by its retry RQ-20261011-8025-02 (same
+    leg, measured PASS).
+  verdict: null

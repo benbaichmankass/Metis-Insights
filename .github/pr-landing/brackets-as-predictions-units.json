@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "Six NEW hand-written research/queue units carrying pre-registered decision rules (E57: a rule must not self-land in the act that registers it), plus the research script they run (tp_prediction_derive.py), its tests, dukascopy-python on research-script-run.yml and docs. No runtime, order path, config, roster or TP changed. Stacked on #18203 (TP-REACH-FLOOR guard).",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Six new research/queue units are registrations, not dispatch stamps (E57): a human merges them so the pre-registered rules do not land themselves. Also stacked on #18203."
+}

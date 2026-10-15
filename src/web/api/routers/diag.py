@@ -3490,6 +3490,48 @@ def get_position_telemetry(
     return read_records(limit=limit, strategy=strategy)
 
 
+@router.get("/position_path_history")
+def get_position_path_history(
+    request: Request,
+    order_package_id: str | None = None,
+    trade_id: str | None = None,
+    strategy: str | None = None,
+    since: str | None = None,
+    limit: int = 2000,
+) -> dict[str, Any]:
+    """EXIT-PATH-TELEMETRY-LIVE — the per-bar PATH of each open position.
+
+    ``position_telemetry`` (above) holds ONE upserted row per package, so a
+    trade's trajectory is overwritten bar by bar. ``position_path_history`` is
+    its append-only twin: one row per (package, bar), projected from the same
+    record on the same pass, plus ``mae_r``, ``sl_r``/``tp_r`` and ATR/ADX. It
+    is the live side of the in-trade exit model's parity check (row
+    IN-TRADE-EXIT-MODEL).
+
+    Filter by ``order_package_id`` or ``trade_id`` to get one trade's path in
+    BAR order; otherwise rows are newest-written first. ``present: false`` =
+    the table does not exist yet (not "no rows"). ``peak_r``/``mae_r`` are
+    bar-extreme reconstructions — ESTIMATED, never measured. ``passes`` says
+    how many exit-loop passes a bar row summarises; ``atr_source`` says
+    whether ATR is the trail's own (``monitor``), recomputed
+    (``computed_wilder14``), or ``unavailable``.
+
+    Observe-only: one read-only SQLite connection, no socket, no order path.
+    Tier 2.5, token-gated.
+    """
+    _require_diag_token(request)
+    try:
+        from src.runtime.position_path_history import read_history
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503
+        logger.warning("get_position_path_history: import failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "path_history_unavailable", "detail": str(exc)},
+        ) from exc
+    return read_history(order_package_id=order_package_id, trade_id=trade_id,
+                        strategy=strategy, since=since, limit=limit)
+
+
 @router.get("/tick_cost")
 def get_tick_cost(request: Request) -> dict[str, Any]:
     """Per-tick wall-clock cost of the trader's hook chain (2026-08-09).

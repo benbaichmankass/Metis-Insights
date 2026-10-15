@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "TP-REACH-FLOOR CI guard: check_tp_doctrine.py grades a declared TP reached by <10% of the leg's uncapped harness trades as non-compliant (prop baseline R->ER), its tests, the ARCHITECTURE-CANONICAL TP-doctrine write-back and two checklist row updates. No runtime, order path, config, roster or TP changed. The research script + six queue units ride a separate hold PR (E57)."
+}

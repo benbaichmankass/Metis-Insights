@@ -285,7 +285,12 @@ jobs:
     timeout-minutes: 330
     strategy:
       fail-fast: false
-      max-parallel: 10
+      # 10 -> 3 (GH-CAPACITY-INFRA-FIRST, 2026-10-15, operator: infra gets preference on GitHub
+      # capacity). The repo has 20 concurrent runner jobs (measured 20/20 in progress at 08:24Z,
+      # 150+ queued) shared with system-actions, vm-ops and deploys; a census-default 10-leg sweep
+      # took half of them for up to 330 min. 3 matches research_compute.yaml github_runner
+      # max_concurrent. Wall time grows; per-job timeouts are unchanged.
+      max-parallel: 3
       matrix:
         leg: ${{ fromJSON(needs.plan.outputs.legs) }}
     steps:
