@@ -1,0 +1,18 @@
+{
+  "based_on": "20261015T132157659574Z-150eb239.json",
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "#18344 merged and OBSERVED: an open prop ticket whose replay is through the price shows last_plan action=exit and an emitted tighten-only exit amend (phone) or a trail_amend toward the exit stop (VM)",
+    "kind": "observation"
+  },
+  "id": "PI-20261015-JWMGXOTH-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "session_0184UHpxPYGr9v7rjWmGXoTh",
+    "rerun": "curl /api/bot/prop/tickets?account_id=breakout_2 -> phone_trail.last_plan_why for an open ticket reading 'replayed stop X is through the current price Y: not amended' while last_plan_action=hold; code: src/prop/prop_trail.py::plan_trail (the 'through the current price' early return)"
+  },
+  "routed_to": "PR #18344 (claude/trail-crossed-exit, Tier-3 HOLD; manager merges + notifies operator)",
+  "state": "routed",
+  "what": "TRAIL CROSSED -> HOLD FOREVER (money at risk; manager 13:22Z, filed by lane BREAKOUT-SL-AMEND-CLICK). MEASURED 2026-10-15 13:01Z on breakout_2 prop-manual-f6552263ed1d (ETH short, entry 2458.24, venue SL 2504.25): phone_trail.last_plan action=hold, replay_sl 2351.13, why 'replayed stop 2351.13 is through the current price 2353.04: not amended' -> the resting stop stays 2504.25 (~150 pts give-back on a prop account). ROOT CAUSE: src/prop/prop_trail.py::plan_trail returns action 'hold' when the replayed stop is on the wrong side of price (to avoid an instant stop-out), and neither the phone trail (src/prop/phone_trail.py::plan_amends) nor the VM trail has any path for that state, so the trade runs on the stale stop indefinitely. EVIDENCE OF THE INTENDED RULE: the harness the leg was promoted on, scripts/backtest_trend.py::_stop_or_target, exits a short as 'trail_stop' AT the trail when a bar's high >= trail (long: low <= trail), so the backtest's position is already closed once price trades through the trail; plan_trail's docstring claims harness parity. PROPOSED TIER-3 FIX (exact): in plan_trail, when the replayed stop is through the current price, return action 'exit' (replay_sl kept) instead of 'hold'; phone_trail.plan_amends maps 'exit' to an SL amend at the tightest SAFE stop = current price + max(2*price_step, PRICE_BUF_FRAC*price) for a short (price - buf for a long), tighten-only through the existing amend channel (no new close path, no close-control click, denylist unchanged), which fills on the next adverse tick (approximates the harness exit at the trail, worse by the buffer); the VM prop_trail.run_trail_step maps 'exit' to the same price+buffer modify_bracket under the ModifyRollout guard. One alert per ticket on 'exit'. Needs operator approval (exit logic = Tier 3); the phone half also needs SHEET_EDIT_MEASURED before it can execute."
+}
