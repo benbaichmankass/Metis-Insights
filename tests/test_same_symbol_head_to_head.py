@@ -64,3 +64,13 @@ def test_apply_cost_policy_sets_the_module_globals():
 def test_xrp_legs_registered_in_roster():
     bs = h._load_bs()
     assert {"trend_donchian_xrp_4h", "xrp_pullback_2h", "trend_donchian_eth_4h", "trend_donchian_eth_prop"} <= set(bs.ROSTER)
+
+
+def test_unavailable_paths_emit_contract_read_state():
+    """RQ-20261015-1631-01/-02 landed producer_failed on read_state='unavailable' (script_run READ_STATES)."""
+    import inspect
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "research"))
+    import script_run
+    src = inspect.getsource(h.run)
+    assert 'read_state="unavailable"' not in src
+    assert 'read_state="no_data"' in src and "no_data" in script_run.READ_STATES

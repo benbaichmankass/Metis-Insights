@@ -275,6 +275,10 @@ def measure(a, fetch=_fetch) -> dict[str, Any]:
             "skipped": skipped, "missing_months": {s: f.missing for s, f in feeds.items() if f.missing}}
 
 
+#: domain class -> script_run contract verdict (NEEDED clears the registered 2% bar; MIXED is between the bars)
+VERDICT_MAP = {"NEEDED": "pass", "NOT_NEEDED": "no_action_warranted", "MIXED": "indeterminate"}
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--out")
@@ -298,18 +302,21 @@ def main(argv: list[str] | None = None) -> int:
         ap.error("--out is required")
     m = measure(a)
     n = sum(F[str(float(a.tp_r.split(",")[0]))]["n"] for F in m["families"].values()) if m["families"] else 0
-    rec = {"verdict": m["verdict"], "read_state": "measured" if m["eligible_families"] else "no_data", "n": n,
+    # script_run's contract allows only pass|fail|no_action_warranted|indeterminate|not_applicable: the domain class
+    # (NEEDED / NOT_NEEDED / MIXED) rides in measurement.fidelity_class, never in `verdict` (RQ-20261014-da7a-01 landed
+    # producer_failed on 'MIXED').
+    rec = {"verdict": VERDICT_MAP.get(m["verdict"], m["verdict"]), "read_state": "measured" if m["eligible_families"] else "no_data", "n": n,
            "population": (f"newest committed ledger per leg under {a.ledgers}, resamples excluded, Binance USD-M USDT legs only, "
                           f"<= {a.max_trades_per_leg} trades per leg, legs passing the initial-SL-before-exit alignment control; "
                           f"{len(m['legs'])} legs walked, {len(m['skipped'])} skipped (listed)"),
-           "measurement": {"bars": {"tp_r": a.tp_r, "horizon_bars": a.horizon_bars, "min_n": a.min_n,
+           "measurement": {"fidelity_class": m["verdict"], "bars": {"tp_r": a.tp_r, "horizon_bars": a.horizon_bars, "min_n": a.min_n,
                                     "needed_frac": a.needed_frac, "not_needed_frac": a.not_needed_frac}, **m},
            "note": ("Fixed bracket (initial SL at -1R, TP at +K R) re-walked on Binance Vision 1m klines; MISLABEL = the bar "
                     "touched both levels and 1m says TP came first, i.e. the SL-first convention mislabelled it. Label-fidelity "
                     "measurement for the 1m archive decision, NOT an edge or promotion case.")}
     Path(a.out).mkdir(parents=True, exist_ok=True)
     (Path(a.out) / "verdict.json").write_text(json.dumps(rec, indent=2, default=str) + "\n", encoding="utf-8")
-    print(f"intrabar_label_fidelity: verdict={rec['verdict']} read_state={rec['read_state']} n={n}")
+    print(f"intrabar_label_fidelity: class={m['verdict']} verdict={rec['verdict']} read_state={rec['read_state']} n={n}")
     return 0
 
 

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research tooling only: intrabar_label_fidelity and same_symbol_head_to_head emit contract-valid verdict.json (script_run VERDICTS/READ_STATES) + tests. No config, runtime or order-path change."
+}

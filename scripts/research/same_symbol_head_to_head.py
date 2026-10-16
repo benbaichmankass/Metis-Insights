@@ -139,25 +139,25 @@ def run(unit_path: Path, out_dir: Path) -> int:
     if missing:
         return finish({"verdict": "indeterminate",
                        "reason": f"legs not registered in backtest_system.ROSTER: {missing} — harness gap, not a verdict"},
-                      f"{symbol} {legs}", "null", read_state="unavailable")
+                      f"{symbol} {legs}", "null", read_state="no_data")
     from src.research import risk_basis
     from src.runtime.intents import aggregate_intents  # noqa: F401  (import proves the live election is reachable)
 
     try:
         src = bs._backtest_data_source.resolve_or_refuse(symbol, "5m", h.get("data"))
-    except (OSError, ValueError, KeyError) as exc:  # allow-silent: not swallowed -- landed as read_state=unavailable with the reason in verdict.json
+    except (OSError, ValueError, KeyError) as exc:  # allow-silent: not swallowed -- landed as read_state=no_data with the reason in verdict.json
         return finish({"verdict": "indeterminate", "reason": f"data source: {exc}"},
-                      f"{symbol} {legs}", "null", read_state="unavailable")
+                      f"{symbol} {legs}", "null", read_state="no_data")
     if not src.ok:
         return finish({"verdict": "indeterminate",
                        "reason": "no 5m candle source for the symbol: " + str(getattr(src, "reason", "unresolved"))},
-                      f"{symbol} {legs}", "null", read_state="unavailable")
+                      f"{symbol} {legs}", "null", read_state="no_data")
     from src.research.run_costs import resolve_run_costs
     cost = resolve_run_costs(symbol)  # the full fee+slippage+funding stack, applied via costs= below
     live = risk_basis.live_risk(h.get("risk_account", risk_basis.DEFAULT_REFERENCE_ACCOUNT))
     if not live.ok or live.percent is None:
         return finish({"verdict": "indeterminate", "reason": f"live risk unresolved: {live.describe()}"},
-                      f"{symbol} {legs}", "null", read_state="unavailable")
+                      f"{symbol} {legs}", "null", read_state="no_data")
     base5m = bs._load_candles(src.path)
 
     def one(roster: List[str]) -> Dict[str, Any]:
