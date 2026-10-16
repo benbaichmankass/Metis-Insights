@@ -1,0 +1,64 @@
+# scripts/research/family_retirement_policy.yaml -- what a FAMILY RETIREMENT must carry (lane RESEARCH-ENGINE-1016).
+#
+# OPERATOR DIRECTIVE (2026-10-16, via the manager): "do not give up on an IDEA because one configuration
+# failed a few tests; a few tests don't prove a line of thinking is wasteful -- it may mean we tested it
+# wrong. Equally, don't sink resources into ideas with no potential: if an idea is viable there should be
+# outside information on how to do it better; if there is none anywhere, it probably isn't viable."
+#
+# TWO DIFFERENT ACTS, NEVER CONFLATED:
+#   * "this CONFIG failed"   -- a cell / unit closes FAIL against its own pre-registered rule. Automatic,
+#                               fine, and it closes ONLY the exact configuration tested (lever values,
+#                               leg, symbol, timeframe, window, features). The grader does this.
+#   * "this FAMILY is retired" -- nobody should spend more on the idea itself. Needs a REVIEW RECORD at
+#                               research/family_reviews/<family>.yaml meeting the minimums below, and
+#                               scripts/research/family_retirement_guard.py refuses any retirement without one.
+#
+# A FAMILY is the idea, not a config: an exit-lever kind (giveback stop, TP extension), an entry axis, a
+# model family (docs/plans/ml-plan-items.yaml `families:`), a strategy family (donchian, pullback, ...),
+# an information class (news veto, PM surprise). Name it the way the work names it.
+#
+# THE PROTOCOL is lane IDEA-REVIEW-1016's (PR #18560, docs/research/idea-family-review-2026-10-16.md § "Proposed
+# NEGATIVE-RESULT PROTOCOL"), folded in by RESEARCH-ENGINE-1016. Verdict vocabulary from that review:
+#   A  viable, tested wrong  -- outside evidence names a condition we did not test -> a pre-registered re-test
+#   B  viable, not testable  -- needs data / a harness we lack -> a checklist row with its first step
+#   C  no supporting evidence -- retire, with the sources checked as the denominator
+# Only C retires a family, and only with ALL six items below; a record missing any leaves the family open.
+# Numbers are configurable here; change one with the evidence for it in the PR body.
+policy_version: 2
+provisional: true
+retiring_verdicts: [C]
+minimums:
+  configs_tested: 3          # (2) on the family's PRIMARY axis; each with n + power; indeterminate counts zero
+  windows_disjoint: 2        # (2) disjoint windows ...
+  folds_alternative: 4       #     ... or at least this many folds
+  instruments_tested: 2      # (2) unless breadth.instrument_specific_why says the idea is instrument-specific
+  outside_sources: 3         # (4) primary where possible ...
+  searches_if_no_sources: 3  #     ... or, where none is found, the searches that were run
+  reason_chars: 40           # (6) one sentence about the MECHANISM, not "every cell failed"
+# (1) the test-design review: every check named, each answered (why it does not apply, or what was done).
+test_design_checks: [window_vs_mechanism, metric_vs_baseline, label_vs_payoff, gate_vs_size, harness_validity,
+                     reference_distribution]
+# (5) the not-tested list: every dimension either covered_by a unit/row or irrelevant_because a reason.
+not_tested_dimensions: [horizon, instrument, conditioning, cost, label, sizing, exit, regime, holding_period]
+# Words that, on an ADDED line in a research surface, assert a family-level closure. Each such line must
+# cite its review (`family_review: <family>` or the path research/family_reviews/<family>.yaml) -- otherwise
+# the guard refuses it. Config-level language ("this cell FAILED", "honest negative for this config") is fine.
+closure_language:
+  - '\b(family|idea|line of (research|thinking)|approach)\s+(is\s+)?(dead|retired|exhausted|closed|killed|abandoned)\b'
+  - '\b(retire|kill|close|abandon)s?\s+(the|this|that)\s+(whole\s+)?(family|idea|line|approach)\b'
+  - '\bline\s+is\s+exhausted\b'
+  - '\bfamily\s+exhausted\b'
+# Where the text check looks (added lines only, so history is never re-litigated).
+text_surfaces:
+  - research/queue/**
+  - research/programmes/**
+  - research/templates/**
+  - docs/plans/ml-plan-items.yaml
+  - docs/research/programmes/**
+  - comms/research/ops/**
+  - comms/perf_followup/**
+# A structured retirement is any of these; each must name a family with a valid review record.
+#   docs/plans/ml-plan-items.yaml   families.<f>.state in retired_states
+#   any research/queue unit          retires_family: <f>
+#   any research/programmes node     retires_family: <f>
+retired_states: [retired, exhausted, closed, dead, killed]

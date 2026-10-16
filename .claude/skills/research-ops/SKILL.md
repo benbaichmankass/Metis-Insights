@@ -197,8 +197,17 @@ written after seeing the number:
 - **pass →** the follow-up the rule names: another queue unit, or — if it implies a
   strategy/params/risk/roster change — a **Tier-3 proposal written as a note on the owning
   checklist row for the manager**. Never a config edit, never a claim a leg is promoted.
-- **fail →** the rule's disposition plus a kill or redirect follow-up (retire the dependent
-  units whose `requires_result` can no longer be met).
+- **fail →** the rule's disposition plus a REFINE or redirect follow-up (retire the dependent
+  units whose `requires_result` can no longer be met). **A FAIL closes the CONFIGURATION it tested** (honest
+  negative on that cell: lever values, leg, window, features) -- write it that way. It never retires the idea:
+  a FAMILY retirement needs a review record (`scripts/research/family_retirement_policy.yaml`: test-design check,
+  breadth across configs/windows/instruments, outside evidence with sources, a reason the idea is dead), and
+  `family-retirement-guard` refuses family-closure wording or a `retires_family:` without one. When a family has
+  several config FAILs and no review, the follow-up is a review or a differently-designed test, not a kill.
+  Write ONE line per FAIL in the run record's `results_read` (and the unit's follow-up note):
+  **"configuration closed: <what was tested>; family <name> stays open; next test = <unit id or the question>"**.
+  A unit may carry `family: <name>` (and `retires_family:` defaults to false); only a C-verdict review record
+  with all six protocol items (`research/family_reviews/README.md`) retires one.
 - **indeterminate →** extend n or redesign, in one line, and a unit that does it.
 
 Record each disposition with `research_disposition.py --record` (it routes to `append` and

@@ -310,7 +310,8 @@ def diversity(plan: dict, mf: dict, registry_stages: dict | None = None) -> tupl
         if len(tail) == streak_max and all(v == "FAIL" for v in tail) and f["open_units"]:
             findings.append(
                 f"FAIL-STREAK: {fam} last {streak_max} graded units all FAIL and {f['open_units']} new "
-                "unit(s) still open -- retire the line by its exhaustion rule or change the lever class"
+                "unit(s) still open -- change the lever class / test design, or open a family-retirement review "
+                "(scripts/research/family_retirement_policy.yaml); a FAIL streak closes configurations, not the family"
             )
     n_man = sum(f["manifests"] for f in fams.values())
     if n_man:

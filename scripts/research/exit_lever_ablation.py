@@ -58,13 +58,19 @@ flags, never defaults chosen here:
       fail / ``live_without_lever``    otherwise (the lever's measured value is
                                         inside the declared materiality bar, so
                                         declared == executable is the cheaper
-                                        fix: strip it, Tier-3, not done here);
+                                        fix for THESE legs/window: a Tier-3 proposal
+                                        to remove this lever SETTING, not done here --
+                                        it does not retire the lever family, which
+                                        needs research/family_reviews/<family>.yaml);
       indeterminate                    if the control fails or n(B) < n_floor.
   * ``sweep`` -- baseline B (lever removed) vs every other non-control arm.
     A candidate C passes iff ``net_r(C) - net_r(B) >= delta_r`` AND
     ``maxDD(C) <= maxDD(B)`` AND fold_wins(C over B) >= fold_majority.
       pass   if any candidate passes (best by delta named);
-      fail   if none does (the removed lever's lines are dead: strip them);
+      fail   if none does (THESE lever settings are dead config on these legs and this
+             window: honest negative for the configurations tested; removing them is
+             a Tier-3 proposal; the lever FAMILY stays open -- family retirement needs a
+             review record, scripts/research/family_retirement_policy.yaml);
       indeterminate if the control fails, a ``--same-as`` pair differs, or
                     n(B) < n_floor.
     ``--same-as S=N`` asserts two arms are IDENTICAL (n and net_r): the shipped
@@ -420,8 +426,10 @@ def grade_sweep(arms: dict[str, dict[str, Any]], *, baseline: str, candidates: l
                 "why": f"{best} beats the removed-lever baseline by {best_d} R with no worse drawdown and "
                        f">= {fold_majority}/{N_FOLDS} fold wins: a Tier-3 proposal to declare it (not done here)"}
     return {"verdict": "fail", "label": "no_reachable_lever_beats_removed", **m,
-            "why": "no candidate clears the bar: the declared lever's lines are dead config and nothing reachable "
-                   "earns its place -- strip them (Tier-3, not done here)"}
+            "why": "no candidate clears the bar: honest negative for the lever settings tested on these legs and "
+                   "this window -- removing those config lines is a Tier-3 proposal (not done here); it closes "
+                   "these CONFIGURATIONS, not the lever family (family retirement needs a review record, "
+                   "scripts/research/family_retirement_policy.yaml)"}
 
 
 def grade_stage0(arms: dict[str, dict[str, Any]], *, baseline: str, fold_majority: int, n_floor: int,

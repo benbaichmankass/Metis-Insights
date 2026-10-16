@@ -42,6 +42,10 @@ its verdict (research-ops grades them). Append the graded verdict (`PASS`/`FAIL`
 configuration tested** (checkpoint, input, target, horizon) — write down what was and was NOT tested
 before moving the family's status. The frozen-TSFM result is the cautionary case: Chronos-Bolt-Tiny,
 frozen, on a 4.6%-base-rate volatility label closed *that*, not "time-series foundation models".
+Retiring a FAMILY is a separate act with its own record (operator, 2026-10-16: "a few tests don't prove a line of
+thinking is wasteful -- it may mean we tested it wrong"): a test-design check, breadth across configs / windows /
+instruments, outside evidence with sources (this skill's scan is where that evidence comes from), and a stated
+reason the idea itself is dead -- `scripts/research/family_retirement_policy.yaml`, enforced by `family-retirement-guard`.
 
 ## Step 1 — measure where we are concentrated
 
@@ -56,7 +60,9 @@ family-tagged plan items, and graded history. Findings:
 
 - `CONCENTRATION` — more than `diversity.max_family_share` (60%) of open family-tagged plan items in one family;
 - `FAIL-STREAK` — a family whose last `diversity.max_fail_streak` (3) graded units all FAILed and that
-  is **still getting new units** → retire the line by its registered exhaustion rule, or change the *kind* of lever;
+  is **still getting new units** → change the *kind* of lever or the test design, or open a **family-retirement
+  review** (`scripts/research/family_retirement_policy.yaml`; the guard `family-retirement-guard` refuses a retired family
+  without `research/family_reviews/<family>.yaml`). A streak of config FAILs is not a retirement;
 - `MANIFEST-CONCENTRATION` — reported, not failed: the registry predates this scan (2026-10-11
   measurement: 75 of 96 registered models, 78%, are `gbdt`).
 

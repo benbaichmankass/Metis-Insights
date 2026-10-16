@@ -593,6 +593,22 @@ def headline_checks(rule: Dict[str, Any], deltas: Dict[str, Any], baseline: str)
 
 
 # ── unit driver ──────────────────────────────────────────────────────────────
+def metric_caveats(metric: str, baseline_kind: Optional[str], k: int) -> List[str]:
+    """Reading caveats recorded beside the verdict (never change it: the rule is registered).
+
+    IDEA-REVIEW-1016 (2026-10-16): on a k>=3-class DIRECTION label, macro-F1 of the class PRIOR is below
+    chance (it predicts one class, so it scores F1>0 on one class only: ~0.22 measured on the 3-class
+    direction labels, vs ~1/k = 0.33 for a uniform coin). A "lift vs prior" on macro-F1 can therefore be
+    pure chance. Log-loss / Brier vs the prior is a proper, chance-calibrated comparison -- prefer it
+    when registering a direction unit (research/queue/PLANNING.md section 1)."""
+    out: List[str] = []
+    if metric in ("macro_f1", "accuracy") and baseline_kind == "prior" and k >= 3:
+        out.append(f"{metric} vs a class-prior baseline on a {k}-class label is not chance-corrected "
+                   f"(a uniform coin scores ~{1.0 / k:.2f} macro-F1 while the prior scores below it); a lift "
+                   "here may be chance -- read logloss/brier for the same arms before acting")
+    return out
+
+
 def run_spec(spec: Dict[str, Any], *, unit: str = "(inline)") -> Dict[str, Any]:
     """Run one ml_bakeoff block end to end; returns the verdict.json dict."""
     t0 = time.time()
@@ -626,7 +642,10 @@ def run_spec(spec: Dict[str, Any], *, unit: str = "(inline)") -> Dict[str, Any]:
     licences = {n: {"kind": ls["kind"], "licence": LEARNERS[ls["kind"]][1] if ls["kind"] in LEARNERS else "?",
                     "research_only": LEARNERS[ls["kind"]][2] if ls["kind"] in LEARNERS else False,
                     "weights": ls.get("weights_note", "")} for n, ls in learners.items()}
+    caveats = metric_caveats(metric, learners.get(baseline, {}).get("kind"),
+                             max((len(gr.get("classes") or []) for gr in groups.values()), default=0))
     measurement = {"engine": "scripts/research/ml_bakeoff.py", "metric": metric, "higher_is_better": better_high,
+                   "metric_caveats": caveats,
                    "delta_sign": "positive = learner better than reference", "baseline": baseline,
                    "controls": controls, "candidates": candidates, "arm_status": arm_status,
                    "groups": groups, "deltas": deltas, "rule_evaluation": graded,
@@ -647,7 +666,8 @@ def run_spec(spec: Dict[str, Any], *, unit: str = "(inline)") -> Dict[str, Any]:
             "population": (f"{len(groups)} group(s) {sorted(groups)}; baseline {baseline}; candidates "
                            f"{candidates}; metric {metric}; n = baseline OOS test rows summed over groups; "
                            f"cv folds per group >= {folds_seen}"),
-            "note": graded["why"] + (f" | UNAVAILABLE ARMS: {unavailable}" if unavailable else ""),
+            "note": graded["why"] + (f" | UNAVAILABLE ARMS: {unavailable}" if unavailable else "")
+                    + (f" | METRIC CAVEAT: {caveats[0]}" if caveats else ""),
             "measurement": measurement}
 
 
@@ -661,7 +681,14 @@ def load_unit_spec(unit: str, queue_dir: Optional[Path] = None) -> Dict[str, Any
     return spec
 
 
+def _self_test_caveats() -> None:
+    assert metric_caveats("macro_f1", "prior", 3) and metric_caveats("accuracy", "prior", 4)
+    assert metric_caveats("macro_f1", "prior", 2) == [] and metric_caveats("logloss", "prior", 3) == []
+    assert metric_caveats("macro_f1", "lightgbm", 3) == []
+
+
 def _self_test() -> int:
+    _self_test_caveats()
     spec = {"task": "classification", "metric": "macro_f1",
             "dataset": {"kind": "synthetic", "groups": ["A", "B"], "n": 2400, "signal": 2.0, "ts_col": "ts",
                         "target": "label", "features": ["x0", "x1", "x2", "x3"]},
