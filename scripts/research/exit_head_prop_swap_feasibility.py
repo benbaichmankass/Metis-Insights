@@ -84,6 +84,9 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 sys.path.insert(0, os.path.join(_REPO_ROOT, "scripts", "ml"))
 
+#: Bars of pre-entry history handed to the feature builder per scored bar.
+REPLAY_LOOKBACK_BARS = 500
+
 _TF_HOURS = {"5m": 5 / 60, "15m": 0.25, "30m": 0.5, "1h": 1.0, "2h": 2.0,
              "4h": 4.0, "1d": 24.0}
 
@@ -178,7 +181,10 @@ def main(argv: List[str]) -> int:
     # exit_head_action in YAML, so the counterfactual always asks "if this
     # leg were wired to CLOSE, unconditionally on the head's fire".
     action = "close"
-    records = [replay_trade(df, t, artifact, predict, action) for t in trades]
+    # lookback bounds _feature_row's per-bar cost (see replay_trade's docstring);
+    # without it this leg's multi-year 1h history ran past the 60-min relay cap.
+    records = [replay_trade(df, t, artifact, predict, action, lookback=REPLAY_LOOKBACK_BARS)
+               for t in trades]
 
     tf_hours = _TF_HOURS.get(a.timeframe, 1.0)
     swap_r_per_bar_by_trade = []
