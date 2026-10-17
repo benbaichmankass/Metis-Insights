@@ -727,6 +727,9 @@
   // the ONE Positions row cell to tap for `sym`: which = "child" -> the position row's Market cell ("ETH 5x", a
   // leverage badge); "group" -> the group row's ("ETH 1", the symbol + a count). Only inside the Positions grid panel.
   // The element, or why not: no_grid | no_panel | none | rows_<n>
+  // MEASURED 1b.261 20:03Z (hd: map): the Market cell's content is an <a> with its OWN onClick ("upe a Click") and
+  // the ROW carries the opener ("uph div Click"), so a touch on the Market cell never reaches the row; a plain cell
+  // (Opening price / Current price: no in-cell handler) does.
   // which = "child_entry" / "child_tpsl" (2026-10-17, 1b.253 08:03Z): the child row's Market cell received click(), a
   // synthetic pointer tap AND a trusted finger touch (pdown:touch w9 tr1 ... click:touch tr1) and none opened the sheet,
   // while click() on the group cell did reach the row's handler (it expanded). So the event was never the problem; the
@@ -749,8 +752,13 @@
   function rowCell(sym, key) {
     var m = sheetHit(sym, "child"); if (typeof m === "string") return m;
     var h = gridHeaders(POS_COLS)[0], hs = kids(h).map(t), n = hs.length;
-    var pool = childRows(h, gridRowsOf(h).rows.filter(isGroupRow)).concat(gridRowsOf(h).rows);
-    var row = pool.filter(function (r) { return r.contains(m) && kids(r).length === n && !isGroupRow(r); })[0];
+    // the row is the hit's nearest ancestor with the header's cell count (1b.261 20:03Z: the grid-row pool missed the
+    // expanded child row -> no_row, while this same walk in handlerMap found it and its onClick, "uph div Click")
+    var row = null;
+    for (var a = m.parentElement, k = 0; a && k < 12 && a !== document.body; a = a.parentElement, k++) {
+      if (a.contains(h)) break;
+      if (kids(a).length === n) { row = isGroupRow(a) ? null : a; break; }
+    }
     if (!row) return "no_row";
     var idx = -1; hs.forEach(function (s, i) { if (idx < 0 && (key === "tpsl" ? /^tp\s*\/\s*sl$/i.test(s) : colKey(s, POS_COLS) === key)) idx = i; });
     if (idx < 0) return "no_col";

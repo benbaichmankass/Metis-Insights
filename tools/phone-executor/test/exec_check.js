@@ -928,6 +928,11 @@ document.getElementById('mok').onclick=function(){window.__saved++;document.getE
   eq([hdm.includes("upa span Click"), hdm.includes("tpsl in Click") || hdm.includes("tpsl cell Click"), hdm.includes("no_react"), hdm.every((x) => x.length <= 34)], [true, true, false, true], "targets: domDiff.hd names the React handler on the tapped text and its column");
   eq((await (await onHost(sheetPage())).evaluate("__ex.sheetTarget('ETHUSD','child_tpsl',false)")).why, "no_tpsl", "targets: an empty TP / SL cell is never a target");
   eq((await (await onHost(sheetPage({noChild: true}))).evaluate("__ex.sheetTarget('ETHUSD','child_entry',false)")).why, "none", "targets: no child row -> none for the other cells too");
+  // 1b.261 20:03Z: child_entry / child_tpsl read no_row on the live grid while handlerMap found the row by walking up
+  // from the Market hit. The row is now found the same way, wherever the expanded child row is nested.
+  const deep = tpslRow(sheetPage()).replace('<div class=r id=chd>', '<div class=sub><div class=sub2><div class=r id=chd>').replace('✕</button></div></div>\n</div></div>', '✕</button></div></div></div></div>\n</div></div>');
+  const dp = await onHost(deep);
+  eq([await dp.evaluate("document.querySelector('.sub2 #chd') !== null"), await tapAt(dp, "child_entry"), await dp.evaluate("__ex.sheetInfo('ETHUSD').open"), await dp.evaluate("window.__danger")], [true, "touched", true, 0], "targets: a child row nested two wrappers deep is still found; its Opening price cell opens the sheet");
   await rowOpens.evaluate("__ex.domMark()");
   eq((await rowOpens.evaluate("__ex.domDiff()")).hd, ["no_react"], "targets: a page without React props says so (no_react), never an empty map read as 'no handler'");
   // finding (a): the EXPANDED child row carries the side as text; childShape measures it and positionsRead reads it

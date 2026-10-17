@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "BREAKOUT-SL-AMEND-CLICK (manager session_01VduHYzdaXe27wTDBLSu8ao). Tier 2 by path (phone-executor APK). The position sheet is touched FIRST at the child row's Opening price cell, then its '1 TP / 1 SL' text, then (last) its Market cell; the child row behind those targets is found by walking up from the Market hit to the nearest ancestor with the header's cell count (the walk handlerMap used on the live page). Same native finger touch, denylist, elementFromPoint re-check, never-Confirm modal stop and tighten-only amend path. Revert = revert this PR + reinstall the prior APK. The manager merges, then sends the operator the APK.",
+  "why": "live phone_sheet_diag breakout_2 2026-10-17T20:03:49Z on 1b.261 (amend #a5 2452.65 -> 2431.59 refused sheet_not_open): hd: map MEASURED the Market cell's content is an <a> with its own onClick ('upe a Click') and the ROW carries an onClick ('uph div Click'); the trusted touch on the Market cell opened nothing (n0 d0). child_entry / child_tpsl never touched: rowCell returned no_row."
+}

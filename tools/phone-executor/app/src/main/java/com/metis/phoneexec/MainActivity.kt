@@ -1464,11 +1464,12 @@ class MainActivity : Activity() {
         // showed after it (viewport, new visible texts, the touched cell's ancestor chain)
         // TARGETS (2026-10-17, 1b.253 08:03Z + 12:03Z MEASURED): the Market cell got a fully trusted finger touch
         // (pdown:touch w9 tr1 .. click:touch tr1) and opened nothing, while click() on the group cell reaches the row's
-        // handler; so the cell was wrong, not the touch. The child row is tried at its Market cell, then its Opening
-        // price cell, then its "n TP / n SL" text. The GROUP row only toggles expand: it is touched ONLY when no child
+        // handler; so the cell was wrong, not the touch. 1b.261 20:03Z (hd: map) MEASURED why: the Market cell is an
+        // <a> with its own onClick and the ROW holds the opener. The child row is tried at its Opening price cell, then
+        // its "n TP / n SL" text, then (last) its Market cell. The GROUP row only toggles expand: it is touched ONLY when no child
         // row is in the DOM (to expand it, then the child targets run), never while one is (08:03Z: that collapsed it).
         var probe: JSONObject? = null
-        val queue = ArrayDeque(if (opened.isEmpty()) listOf("child", "child_entry", "child_tpsl") else emptyList())
+        val queue = ArrayDeque(if (opened.isEmpty()) listOf("child_entry", "child_tpsl", "child") else emptyList())
         var grouped = false
         while (queue.isNotEmpty()) {
             val which = queue.removeFirst()
@@ -1478,7 +1479,7 @@ class MainActivity : Activity() {
             lastTapGeom.forEach { tries.put(it.take(40)) }
             if (!r.startsWith("touched")) {
                 if (r == "no_grid" || (which == "group" && r == "none")) break
-                if (which == "child" && r == "none" && !grouped) { grouped = true; queue.clear(); queue.addAll(listOf("group", "child", "child_entry", "child_tpsl")) }
+                if ((which == "child_entry" || which == "child") && r == "none" && !grouped) { grouped = true; queue.clear(); queue.addAll(listOf("group", "child_entry", "child_tpsl", "child")) }
                 continue
             }
             delay(1200); p.ensure()
