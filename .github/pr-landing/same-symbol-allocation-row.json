@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Checklist row SAME-SYMBOL-ALLOCATION only: state in_flight -> landed_unproven after #18439 merged, with the observations that close it and the next-step order. No code, config, queue-unit or order-path change."
+}
