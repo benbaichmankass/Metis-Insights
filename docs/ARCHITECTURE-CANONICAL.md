@@ -291,6 +291,40 @@ is genuine selection. Design + single-account simulation:
 The decider remains research-stage — no live simulator script is wired
 yet; research harnesses live under `scripts/research/`.
 
+**Slice accounts (NETTED-SLICES, 2026-10-15, operator-ordered; Tier-2 hold
+until merged).** An account declaring `position_model: slices` in
+`config/accounts.yaml` (today: `bybit_1` only) does NOT elect one strategy per
+symbol. Operator, verbatim: *"We can have different strategies working with
+netted positions as long as we know how much of that position belongs to each
+strategy, and each piece of that position has its own brackets."* Built on what
+already existed, with no parallel allocator:
+- **Ledger and admission** extend `src/runtime/positions.py` from Option A to
+  per-slice. A slice is one open `trades` row (strategy, qty, entry, SL, TP,
+  `sl_order_id`/`tp_order_id`). The venue net must equal the signed sum of the
+  open slices (`reconcile`: reconciled / divergent / unreadable).
+- **Allocation** extends `src/runtime/allocator_ev.py` with
+  `intent_allocation_score`. It is the existing `conviction.compute_conviction`
+  blend over the stamped c_strat/c_setup/c_wr/c_reg, plus two new inputs:
+  c_bt (measured backtest expectancy) and c_live (live win rate). It also
+  records the cost-aware EV_R. Weights live in `config/slice_allocation.yaml`
+  and are Tier-3 to change.
+- **Planning.** The planner (`arbitration_fanout.plan_per_account_election`)
+  still runs `elect_from_gated` once to pick the tick's side. It then splits
+  the per-symbol risk budget across the same-side candidates by
+  `score / Σ score`, with one round per allocated strategy.
+- **Admission** (`positions.admit_slice`) runs in the coordinator after the
+  RiskManager sizes the trade. The delta basis is the strategy's OWN slice,
+  and Option A's same-strategy guard is kept. It refuses, per trade, an add
+  when:
+  - the book is divergent or unreadable;
+  - the book is non-flat and not in Partial TP/SL mode;
+  - the slice is opposite to the book on a ONE-WAY book (it is admitted on a
+    hedge book);
+  - the symbol's budget is exhausted.
+- **Brackets.** A slice is never resized or reversed by a later signal. It
+  exits through its own qty-scoped Partial bracket or its strategy's
+  per-trade close. Every other account is unchanged.
+
 ### Step 4 — Risk gating
 Before any order reaches broker execution, risk controls decide whether
 to allow the signal:
@@ -1429,6 +1463,8 @@ filtered to architecture-level deltas only.
 | 2026-10-15 | SOAK-REDEFINE (lane, governance + guard, landing hold) | **The Stage-1 soak is a MECHANICAL verification passed on 1–2 clean trades — no sample size, no calendar** (operator, verbatim: "A soak is a mechanical verification that was already proven in backtesting, and nothing needs to soak for more than one or two trades"). `SOAKS.json` contracts now carry a mechanical `checklist` and `n_needed` ≤ 2; `soak-contract-guard` refuses `n_needed` > 2 and `end_date` / `duration_days` / `expected_per_week` / `power`. `soak_state.py` grades each closed trade (signal → package, size/side, at-entry SL+TP real and resting — `exit_plan` stop/final, venue ids stamped on Bybit, no `naked_rearm` repair — management, a clean exit reason with a price, pnl + fee recorded), each shadow package (complete, sized, recorded dry) and each live prop signal (`grade_prop_signal`), and computes `passed` / `mechanical_fail` / `in_progress` / `awaiting_first_trade` / `unknown`. All 50 contracts migrated; PASS dispositions cite their trades and `comms/research/soak_mechanics/2026-10-15.json`. Readers moved to the new states: the brief, the work report, the attention watch, the mandate soak snapshot, `MD-S1-CUT-ON-STAGE0-FAIL` `bar.soak_states` (re-mapped `[ready, overdue]` → `[passed, mechanical_fail]`), `prop-roster-gate-guard` (`prop_live` source = n_needed ≤ 2 + checklist). R3 / R5 / live-vs-backtest become ongoing monitoring. `MD-PROMOTE-S1-S2`'s per-leg R3 `consistent` clause is unchanged; its amendment is PROPOSED (`MD-PROMOTE-S1-S2-SOAK-AMEND`). | `scripts/ops/soak_state.py`, `scripts/ops/soak_mechanics_record.py` (NEW), `scripts/ci/check_soak_contracts.py`, `scripts/ci/check_prop_roster_gate.py`, `scripts/ops/{render_daily_brief,work_report,attention_watch,snapshot_soak_state_for_mandate,mandate_resolver,soak_book_grade}.py`, `config/mandates.yaml`, `docs/claude/work/SOAKS.json`, `comms/research/soak_mechanics/2026-10-15.json`, `docs/plans/OPERATING-PLAN-2026-09-21.md`, `CLAUDE.md`, this file | No order-path change. On merge + deploy the brief / work report / Telegram watch show the mechanical states (computed live on the VM). Not deployed or observed as of this row. |
 | 2026-10-16 | PROMOTION-BAR-HOLDOUT-1016 (lane, Tier-3 hold) | **Promotion needs a pass on a held-back span** (operator, verbatim on checklist row PROMOTION-BAR-MULTIPLICITY: "From now on, promotion needs a pass on the held-back 25% you just approved. That's one setting tested once, so no deflation is needed. Live legs are not demoted on this number (live net-of-cost results still govern demotion), but all 8 real-money legs get holdout re-runs first."). `MD-PROMOTE-S0-S1` / `MD-PROMOTE-S1-S2` bars gain `holdout_required` / `holdout_min_n: 25`; resolver clause `R-HOLDOUT`: no valid `holdout_confirmation` or too few held-back trades → `NEEDS_DATA` naming the holdout unit, a valid confirmation that failed → `REFUSE`. The ablation harness gains `--grade holdout` (boundary from entry times only; selection on discovery trades only, guarded; the selected arm read once). Holdout re-runs `RQ-20261016-077e-01..08` for the 8 real-money legs. `MD-DEMOTE-S2-S1` unchanged. | `config/mandates.yaml`, `scripts/ops/mandate_resolver.py`, `scripts/research/exit_lever_ablation.py`, `research/queue/RQ-20261016-077e-0{1..8}.yaml`, `docs/plans/OPERATING-PLAN-2026-09-21.md`, this file | No order-path or roster change. Merged ≠ observed: the clause bites on the next promotion the resolver evaluates. |
 | 2026-10-16 | PAIRS-ALPACA-BUILD-1016 (lane, Tier-3-by-path hold) | **The pairs session venue (Alpaca) refuses to size on an inflated R unit.** `pairs_engine.entry_signal` sizes and stops on `risk = stop_z · std` of the log-spread; with `hedge_beta: rolling` that std is taken over a series whose β moves every bar, so β drift × the log-price level inflates it and every leg is undersized by the same factor (checklist PAIRS-R-SCALE: ~775x measured in the harness; ~87x on the planted SOL/ETH-like fixture). New `pairs_engine.fixed_beta_risk` = `stop_z ×` std of `logA − β_entry·logB` over the same shift-1 window, β frozen at entry; `entry_signal` reports `risk_fixed_beta` and `risk_scale_ratio`, and every open/skip_size soak row on every venue carries both. `decide_pair(require_fixed_beta_risk=True)` (passed by `run_pairs_tick` for session venues only) returns `skip_risk_scale` and sizes nothing when the ratio is off 1 by more than `RISK_SCALE_TOLERANCE` (1%). `hedge_beta: one` passes by construction. Not a gate: a per-decision refusal on a measured quantity, like `skip_size`. The Bybit sleeve is unchanged (operator 2026-10-16: its paper legs keep running while PAIRS-R-SCALE is fixed); the full fix (freeze β at entry, read stop/revert on the fixed-β spread) lands with the harness fix. | `src/units/strategies/pairs_engine.py`, `src/units/strategies/pairs_executor.py`, `tests/test_pairs_risk_scale.py` | On merge + deploy: `pairs_gld_gdx` soak rows carry `risk_scale_ratio` 1.0; Bybit rows carry the measured inflation. Not deployed or observed as of this row. |
+
+| 2026-10-15 | NETTED-SLICES (lane, Tier-2 hold) | **Per-strategy slices on one (account, symbol), replacing pick-one on `position_model: slices` accounts** (§ Step 3). Built by EXTENDING existing modules: `positions.py` Option A → per-slice ledger + `admit_slice` (per-trade refusals, delta basis = own slice); `allocator_ev.intent_allocation_score` = the existing `conviction` blend + c_bt + c_live (weights `config/slice_allocation.yaml`). `accounts_in_more_than_one_round` now allows an account in several rounds only when every one allocates it a share, never twice for one strategy. Brackets: existing qty-scoped Partial TP/SL with per-slice leg ids. Opposite slices are admitted only on hedge books. | `src/runtime/positions.py`, `src/runtime/allocator_ev.py`, `src/runtime/arbitration_fanout.py`, `src/runtime/intent_multiplexer.py`, `src/core/coordinator.py`, `src/units/accounts/__init__.py`, `config/accounts.yaml` (bybit_1), `config/slice_allocation.yaml` | `tests/test_slice_*.py`; mirror test `test_mirror_carries_the_same_position_model_as_live`. Live: 1–2 clean multi-slice trades on bybit_1 before bybit_2 + bybit_portfolio. |
 
 ## Known gaps
 

@@ -1491,6 +1491,9 @@ class Coordinator:
                 # prop_rulesets/breakout.yaml. None for non-prop accounts.
                 # TRADEIFY-WIRE 2026-09-30.
                 "backtest_ruleset": getattr(account, "backtest_ruleset", None),
+                # NETTED-SLICES: `position_model: slices` switches the intent
+                # path to per-strategy slices (src/runtime/positions.py::admit_slice).
+                "position_model": getattr(account, "position_model", None),
             }
 
             # Per-account live/dry resolution. The caller-supplied
@@ -2406,9 +2409,64 @@ class Coordinator:
                         note_open_trade_read,
                         position_netting_guard_active_for,
                     )
-                    current_signed_qty = current_net_position_qty(
-                        account.name, pkg.symbol,
-                    )
+                    # NETTED-SLICES (operator 2026-10-15): on an account that
+                    # declares `position_model: slices` the position is a sum
+                    # of per-strategy slices, so the delta basis is THIS
+                    # strategy's own slice qty, not the account net — a second
+                    # strategy's same-side signal used to resolve to
+                    # `noop at_target` against another strategy's position.
+                    # positions.admit_slice also sizes the slice inside the symbol's
+                    # risk budget (never above sized_qty) and refuses, per
+                    # trade, an add the ledger cannot carry.
+                    from src.runtime.positions import account_uses_slices
+                    _slice_mode = account_uses_slices(account_cfg)
+                    if _slice_mode:
+                        from src.runtime.positions import admit_slice
+                        _adm = admit_slice(
+                            account_id=account.name,
+                            account_cfg=account_cfg,
+                            strategy=pkg.strategy,
+                            symbol=pkg.symbol,
+                            direction=pkg.direction,
+                            entry=pkg.entry,
+                            sl=pkg.sl,
+                            meta=pkg.meta,
+                            sized_qty=sized_qty,
+                            dry=bool(effective_dry),
+                        )
+                        pkg.meta["slice_admission"] = {
+                            "ok": _adm["ok"], "reason": _adm["reason"],
+                            "qty": _adm["qty"], **(_adm.get("detail") or {}),
+                        }
+                        if not _adm["ok"]:
+                            logger.info(
+                                "[coordinator] slice refused for %s/%s/%s: %s",
+                                account.name, pkg.symbol, pkg.strategy,
+                                _adm["reason"],
+                            )
+                            from src.units.accounts.execute import log_rejection_to_journal
+                            log_rejection_to_journal(
+                                pkg, account_cfg,
+                                reason=str(_adm["reason"]),
+                                status="rejected",
+                                sized_qty=0.0,
+                                margin_basis=margin_basis or None,
+                            )
+                            results.append({
+                                "name": account.name,
+                                "exchange": account.exchange,
+                                "account_type": account.account_type,
+                                "trade_id": None,
+                                "sized_qty": 0.0,
+                                "error": str(_adm["reason"]),
+                            })
+                            continue
+                        sized_qty = float(_adm["qty"])
+                        current_signed_qty = _adm["own_signed"]
+                    else:
+                        current_signed_qty = current_net_position_qty(
+                            account.name, pkg.symbol,
+                        )
                     # FIX-CA-07 (CA-A02): an unreadable journal is "could not
                     # look", not flat — reading it as 0.0 dispatched a fresh
                     # full-size open on an account already holding the symbol.
@@ -2560,6 +2618,29 @@ class Coordinator:
                             "trade_id": None,
                             "sized_qty": 0.0,
                             "error": _guard_reason,
+                        })
+                        continue
+                    if _slice_mode and delta.action in ("reduce", "close", "flip"):
+                        # A slice is never resized or reversed by a later
+                        # signal: it exits through its OWN bracket or its
+                        # strategy's per-trade close, which reduces only its
+                        # own qty. Same shape as hold-to-bracket below.
+                        _slice_hold = f"intent_noop:slice_hold_to_bracket_{delta.action}"
+                        from src.units.accounts.execute import log_rejection_to_journal
+                        log_rejection_to_journal(
+                            pkg, account_cfg,
+                            reason=_slice_hold,
+                            status="rejected",
+                            sized_qty=0.0,
+                            margin_basis=margin_basis or None,
+                        )
+                        results.append({
+                            "name": account.name,
+                            "exchange": account.exchange,
+                            "account_type": account.account_type,
+                            "trade_id": None,
+                            "sized_qty": 0.0,
+                            "error": _slice_hold,
                         })
                         continue
                     if delta.action == "noop":

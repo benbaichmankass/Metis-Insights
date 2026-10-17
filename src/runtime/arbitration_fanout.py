@@ -358,8 +358,25 @@ def plan_per_account_election(
     elect_fn,
     intents_before_gate: Optional[int] = None,
     keep_desired: bool = False,
+    slice_score_fn=None,
 ) -> Dict[str, Any]:
     """Elect a winner PER ACCOUNT from one ALREADY-GATED candidate set.
+
+    ⚠️ **SLICE ACCOUNTS ALLOCATE INSTEAD OF ELECTING** (NETTED-SLICES,
+    operator 2026-10-15). An account declaring ``position_model: slices``
+    still runs ``elect_fn`` once — that picks the tick's SIDE by the same
+    evidence-ranked key every other account uses — and then, instead of
+    keeping one winner, ALLOCATES among every candidate on that side with
+    complete geometry: ``weight = score / Σ score``
+    (``allocator_ev.allocation_weights``; ``slice_score_fn`` defaults to
+    ``allocator_ev.intent_allocation_score`` — the conviction blend extended
+    with the backtest and live-track-record inputs). The account then appears in one
+    round PER ALLOCATED STRATEGY, and each such round carries
+    ``allocation[account] = weight``. That is the only way an account may be
+    named by more than one round (:func:`accounts_in_more_than_one_round`).
+    Candidates on the other side are recorded as ``opposite_side`` and not
+    dispatched this tick: in a one-way book they could only net against the
+    elected side's slices.
 
     ``keep_desired=True`` additionally returns ``_desired_by_strategy`` —
     ``{strategy: DesiredPosition}`` from the (alphabetically) first account
@@ -431,6 +448,7 @@ def plan_per_account_election(
 
     rounds_by_strategy: Dict[str, list] = {}
     desired_by_strategy: Dict[str, Any] = {}
+    alloc_by_strategy: Dict[str, Dict[str, float]] = {}
     for account_id, row in sorted(per_account.items()):
         own = tuple(by_name[s] for s in row["candidates"])
         if not own:
@@ -462,6 +480,13 @@ def plan_per_account_election(
                 elected, account_id, row["candidates"],
             )
             row["state"] = "unknown"
+            continue
+        if _is_slice_account((accounts or {}).get(account_id)):
+            _allocate_slices(
+                account_id, row, own, side, elect_fn, intents_before_gate,
+                slice_score_fn, rounds_by_strategy, desired_by_strategy,
+                alloc_by_strategy,
+            )
             continue
         row["elected"] = elected
         row["state"] = "elected"
@@ -495,7 +520,7 @@ def plan_per_account_election(
                 per_account[account_id]["undispatchable"] = strategy
                 per_account[account_id]["elected"] = None
             continue
-        rounds.append({
+        _round = {
             "strategy": strategy,
             "accounts": sorted(accts),
             "side": side,
@@ -503,7 +528,10 @@ def plan_per_account_election(
             "sl": float(sl),
             "tp": float(tp),
             "confidence": float(getattr(cand, "confidence", 0.0) or 0.0),
-        })
+        }
+        if alloc_by_strategy.get(strategy):
+            _round["allocation"] = dict(sorted(alloc_by_strategy[strategy].items()))
+        rounds.append(_round)
     out = {
         "fanout_schema": FANOUT_SCHEMA,
         "roster_state": "read",
@@ -513,7 +541,7 @@ def plan_per_account_election(
         # how many actually came out with something to place.
         "accounts_planned": len(per_account),
         "accounts_elected": sum(
-            1 for r in per_account.values() if r["state"] == "elected"
+            1 for r in per_account.values() if r["state"] in ("elected", "allocated")
         ),
     }
     if keep_desired:
@@ -534,12 +562,90 @@ def accounts_in_more_than_one_round(rounds: Any) -> List[str]:
     packages on one account for one tick.
     """
     seen: Dict[str, int] = {}
+    unallocated: Dict[str, int] = {}
+    strat_seen: Dict[Tuple[str, str], int] = {}
     for r in rounds or ():
         if not isinstance(r, Mapping):
             continue
+        alloc = r.get("allocation") or {}
+        strategy = str(r.get("strategy") or "")
         for a in r.get("accounts") or ():
             seen[str(a)] = seen.get(str(a), 0) + 1
-    return sorted(a for a, n in seen.items() if n > 1)
+            if str(a) not in alloc:
+                unallocated[str(a)] = unallocated.get(str(a), 0) + 1
+            key = (str(a), strategy)
+            strat_seen[key] = strat_seen.get(key, 0) + 1
+    # NETTED-SLICES: an account may sit in several rounds only when EVERY one of
+    # them allocates it a slice, and never twice for the same strategy.
+    dup = {a for a, n in seen.items() if n > 1 and unallocated.get(a, 0) > 0}
+    dup |= {a for (a, _s), n in strat_seen.items() if n > 1}
+    return sorted(dup)
+
+
+def _is_slice_account(cfg: Any) -> bool:
+    try:
+        from src.runtime.positions import account_uses_slices
+        return account_uses_slices(dict(cfg) if isinstance(cfg, Mapping) else cfg)
+    except Exception:  # noqa: BLE001 — an unreadable flag keeps the election
+        return False
+
+
+def _has_geometry(cand: Any) -> bool:
+    return all(getattr(cand, k, None) is not None for k in ("entry", "sl", "tp"))
+
+
+def _allocate_slices(
+    account_id, row, own, side, elect_fn, intents_before_gate, score_fn,
+    rounds_by_strategy, desired_by_strategy, alloc_by_strategy,
+) -> None:
+    """Fill *row* for a slice account and add it to one round per allocated
+    strategy. See :func:`plan_per_account_election`. Never raises past a
+    per-candidate failure: a candidate that cannot be scored or rendered is
+    left out of the split and named in ``row["dropped"]``."""
+    from src.runtime import allocator_ev as _ae
+
+    score_fn = score_fn or _ae.intent_allocation_score
+    contenders = [c for c in own if str(getattr(c, "side", "")) == side and _has_geometry(c)]
+    row["opposite_side"] = sorted(
+        str(c.strategy) for c in own
+        if str(getattr(c, "side", "")) in ("long", "short") and str(c.side) != side
+    )
+    row["dropped"] = sorted(
+        str(c.strategy) for c in own if str(getattr(c, "side", "")) == side and not _has_geometry(c)
+    )
+    scores: Dict[str, float] = {}
+    detail: Dict[str, Any] = {}
+    desired_one: Dict[str, Any] = {}
+    for c in contenders:
+        name = str(c.strategy)
+        try:
+            d1 = elect_fn((c,), symbol=_symbol_of((c,)), intents_before_gate=intents_before_gate)
+            if getattr(d1, "winning_intent", None) is None:
+                row["dropped"].append(name)
+                continue
+            sc = score_fn(c)
+            scores[name] = float(sc.get("score", 0.0)) if isinstance(sc, Mapping) else float(sc)
+            detail[name] = sc
+            desired_one[name] = d1
+        except Exception:  # noqa: BLE001
+            logger.warning("arbitration_fanout: slice scoring failed for %s on %s",
+                           name, account_id, exc_info=False)
+            row["dropped"].append(name)
+    weights, basis = _ae.allocation_weights(scores)
+    if not weights:
+        row["state"] = "elected_undispatchable"
+        return
+    row["state"] = "allocated"
+    # DISPLAY LABEL ONLY (the largest share, for the per-account summary): every
+    # strategy in `allocation` is dispatched, so this never decides anything.
+    row["elected"] = max(sorted(weights), key=lambda k: weights[k])
+    row["allocation"] = {k: round(v, 6) for k, v in sorted(weights.items())}
+    row["allocation_basis"] = basis
+    row["scores"] = detail
+    for name, w in weights.items():
+        rounds_by_strategy.setdefault(name, []).append(str(account_id))
+        desired_by_strategy.setdefault(name, desired_one[name])
+        alloc_by_strategy.setdefault(name, {})[str(account_id)] = round(w, 6)
 
 
 def _symbol_of(candidates: Sequence[Any]) -> str:

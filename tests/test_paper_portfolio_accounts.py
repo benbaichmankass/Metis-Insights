@@ -298,3 +298,14 @@ def test_paper_role_surfaced_on_config_api():
         import pytest
         pytest.skip("bot_config router not importable in this environment")
     assert "paper_role" in _ACCOUNT_PUBLIC_FIELDS
+
+
+def test_mirror_carries_the_same_position_model_as_live():
+    """NETTED-SLICES: `position_model: slices` changes which trades an account
+    takes (several strategies may each hold a slice), so a mirror must carry
+    exactly the live book's value — the rollout puts it on bybit_2 and
+    bybit_portfolio TOGETHER. Named so a one-sided edit reads by name in CI."""
+    accts = _accounts()
+    assert accts["bybit_portfolio"].get("position_model") == accts["bybit_2"].get("position_model")
+    assert _trade_shaping_diff({"position_model": "slices"}, {}) == {
+        "position_model": ("slices", None)}

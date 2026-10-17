@@ -1,0 +1,22 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Before NETTED-SLICES extends to bybit_2 + bybit_portfolio: the untracked-leg count on bybit_1 slice opens since merge is read and is 0, or the untracked-trail refusal is built.",
+    "kind": "event",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261015-FBLTJK1G-0002",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-15",
+    "how_to_check": "diag sql: SELECT COUNT(*), SUM(sl_order_id IS NULL) FROM trades WHERE account_id='bybit_1' AND created_at >= <merge date> AND COALESCE(is_backtest,0)=0",
+    "what": "Count of bybit_1 slice opens since merge with sl_order_id NULL (untracked leg)."
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "Lane NETTED-SLICES session_012ogCc58pJF5f9xFBLtjk1G, PR branch claude/netted-slices, 2026-10-15",
+    "rerun": "diag sql on trade_journal.db: SELECT COUNT(*), SUM(sl_order_id IS NULL) FROM trades WHERE account_id='bybit_1' AND created_at >= <merge date> AND COALESCE(is_backtest,0)=0"
+  },
+  "state": "queued",
+  "what": "NETTED-SLICES residual: a slice whose entry-time leg-id capture failed (sl_order_id NULL) is trailed through modify_open_order's LEGACY Partial add-a-leg path, which leaves its previous leg resting. On a single-position book that was a leg-count leak (BL-20260721 XRP LEGCAP); on a multi-slice book the stale leg is sized to this slice but can fire against the whole net -- it can close another slice's qty. Measure how often a slice account opens with an untracked leg before bybit_2 adoption; if > 0, the fix is to refuse trailing an untracked slice (or backfill-tpsl-leg-ids it) on slice accounts."
+}

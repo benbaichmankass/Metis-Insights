@@ -1,0 +1,55 @@
+# Slice allocation — how several strategies share ONE (account, symbol).
+#
+# Checklist row NETTED-SLICES. Operator, verbatim, 2026-10-15:
+#   "We can have different strategies working with netted positions as long as
+#    we know how much of that position belongs to each strategy, and each piece
+#    of that position has its own brackets. ... We don't need to collapse it, we
+#    just need to make sure we know how to allocate between the trades
+#    correctly. And it should be based on those other things, not just
+#    backtesting. It's just that backtesting is also a parameter here."
+#
+# Applies ONLY to accounts that declare `position_model: slices` in
+# config/accounts.yaml. Every other account keeps the one-strategy-per-symbol
+# election unchanged.
+#
+# ⚠️ CHANGING ANY NUMBER IN THIS FILE IS TIER-3 (sizing / risk meaning).
+#
+# The score IS the existing conviction blend (src/runtime/conviction.py
+# compute_conviction — the same function the signal builders stamp observe-only
+# on meta.conviction), run with THESE weights over SIX inputs, each a P(win)
+# proxy in [0, 1]. An input that is absent is DROPPED and the weights are
+# renormalised over what remains (compute_conviction's own contract):
+#   c_strat  the strategy's calibrated signal confidence (stamped, else the
+#            intent's raw confidence).
+#   c_setup  setup-quality head (stamped when a model covers the leg).
+#   c_wr     trade-outcome head (stamped when a model covers the leg).
+#   c_reg    regime-alignment calibrator (stamped when one exists).
+#   c_bt     BACKTEST: 0.5 + expectancy_r_oos from comms/strategy_evidence/
+#            <leg>.json, net of the full cost stack, ONLY when
+#            coverage_state is `measured`.
+#   c_live   LIVE TRACK RECORD: (wins + 1) / (n + 2) over the leg's last
+#            `live_window_trades` closed journal trades.
+# Code: src/runtime/allocator_ev.py::intent_allocation_score, which also
+# records the cost-aware EV_R at that p_win beside the weight. A strategy's
+# share of the symbol budget is score_i / Σ score over the account's same-side
+# contenders this tick. The name never decides; if no score is positive the
+# split is equal and labelled `equal_split_last_resort`.
+# The observe-only stamp's own DEFAULT_CONVICTION_WEIGHTS are NOT these and are
+# untouched.
+weights:
+  c_strat: 0.35
+  c_setup: 0.10
+  c_wr: 0.10
+  c_reg: 0.10
+  c_bt: 0.20
+  c_live: 0.15
+
+# Rolling window for the `live` term.
+live_window_trades: 30
+
+# Per-(account, symbol) risk budget, in units of the account's per-trade risk
+# (the RiskManager's size for one trade). 1.0 = the same total risk a symbol
+# could carry under the old pick-one election, so slices never RAISE risk on a
+# symbol by default. Open slices of strategies NOT contending this tick count
+# against it at their CURRENT stop (a stop trailed to break-even frees budget).
+symbol_budget_trades: 1.0

@@ -220,6 +220,13 @@ accounts:
     market_type: linear                # USDT-margined linear perpetuals — same
                                        # as bybit_2. set-leverage fires at boot
                                        # via _apply_per_account_leverage.
+    position_model: slices             # NETTED-SLICES (operator 2026-10-15, Tier-2 soak):
+                                       # several strategies may each hold a SLICE of one
+                                       # symbol, each with its own qty-scoped Partial bracket;
+                                       # allocation by config/slice_allocation.yaml instead of
+                                       # pick-one. bybit_1 first; bybit_2 + bybit_portfolio
+                                       # together after 1-2 clean multi-slice trades here
+                                       # (mirror equality test). ROLLBACK: delete this line.
     strategies: [trend_donchian_1h, trend_donchian_eth_4h, trend_donchian_xrp_4h, xrp_pullback_2h, ada_pullback_2h, trend_donchian_eth_prop, trend_donchian_sol_prop]
                                        # 2026-10-15 PROP-GATE-PARITY (Tier-3 roster add on PAPER, operator 'Yes, 1, 2 and 3a'):
                                        # trend_donchian_eth_prop + trend_donchian_sol_prop join the Stage-1 soak. Operator: "if anything,

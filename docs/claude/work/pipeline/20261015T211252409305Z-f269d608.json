@@ -1,0 +1,22 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "One bybit_1 slice exit by TP observed with its own sl_order_id NOT resting afterwards and venue net == \u03a3 open slices (or the orphan observed, which opens a fix: cancel the sibling leg on attribution).",
+    "kind": "event",
+    "last_checked": "2026-10-15"
+  },
+  "id": "PI-20261015-FBLTJK1G-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-15",
+    "how_to_check": "GET /api/diag/bybit_open_orders (bybit_1, symbol) vs the closed row's trades.sl_order_id; GET /api/diag/exchange_positions vs SUM of open journal slices on that symbol.",
+    "what": "After a bybit_1 slice exits by TP on a multi-slice book: is that slice's own sl_order_id still resting, and does the venue net equal the sum of open slices?"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "Lane NETTED-SLICES session_012ogCc58pJF5f9xFBLtjk1G, PR branch claude/netted-slices, 2026-10-15",
+    "rerun": "After the first bybit_1 multi-slice trade closes on a TP: diag bybit_open_orders for bybit_1 + the symbol (GET /api/diag/bybit_open_orders) and compare the closed slice's trades.sl_order_id against the resting legs; then /api/diag/exchange_positions vs sum of open journal slices."
+  },
+  "state": "queued",
+  "what": "NETTED-SLICES soak (bybit_1): when one slice's TP fires on a multi-slice book, does Bybit cancel THAT slice's paired Partial SL leg? The netting reconciler's leg-gone attribution (_netting_rows_to_attribute) keys on sl_order_id only, and Bybit's /position/trading-stop docs do not say whether partial TP and SL are one-cancels-other. If the SL leg survives, it is an orphan reduce-only leg sized to a closed slice that can later close ANOTHER slice's qty -- cross-slice contamination of the ledger. Also confirm the \u03a3 leg sizes == venue net after each slice exit."
+}

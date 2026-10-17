@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane NETTED-SLICES, dispatched by the manager (session_01VduHYzdaXe27wTDBLSu8ao) on the operator's 2026-10-15 order: 'Landing: Tier-2 hold. The manager merges after review.' Order-path change (src/core/coordinator.py intent dispatch, src/runtime/arbitration_fanout.py per-account election, config/accounts.yaml bybit_1 position_model). Do not auto-merge.",
+  "why": "Per-strategy slices on one (account, symbol): ledger reconcile vs venue, per-slice Partial brackets, score-weighted allocation replacing pick-one, Option-A delta basis moved to the strategy's own slice. Scoped to bybit_1 (paper) via position_model: slices."
+}

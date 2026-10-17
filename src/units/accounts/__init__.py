@@ -203,6 +203,11 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
         # (``account_rulesets.unit_for_account``), which is right only for
         # breakout_1 (whose value IS that file). TRADEIFY-WIRE 2026-09-30.
         account.backtest_ruleset = cfg.get("backtest_ruleset")
+        # ``position_model: slices`` (NETTED-SLICES, operator 2026-10-15):
+        # several strategies may each hold a slice of one (account, symbol).
+        # Carried onto the object for the same reason as backtest_ruleset —
+        # the coordinator forwards it into the execution account_cfg.
+        account.position_model = cfg.get("position_model")
         accounts.append(account)
     _stamp_accounts(config_path, source_text, accounts)
     return accounts

@@ -1,4 +1,6 @@
-"""Open-position helpers — read the live net position for an account+symbol.
+"""Open-position helpers — read the live net position for an account+symbol,
+and (NETTED-SLICES, 2026-10-15) the per-strategy SLICE ledger + admission for
+accounts declaring ``position_model: slices`` (see the block at the bottom).
 
 The trade journal (``trade_journal.db::trades``) is the authoritative
 record of every live order the executor has placed. Rows transition from
@@ -40,7 +42,7 @@ import logging
 import os
 import sqlite3
 import time as _time
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -408,3 +410,387 @@ def get_existing_position_info(
             account_id, symbol, exc,
         )
         return None
+
+
+# ---------------------------------------------------------------------------
+# Per-strategy SLICES — the successor to Option A on `position_model: slices`
+# accounts (NETTED-SLICES, operator 2026-10-15)
+# ---------------------------------------------------------------------------
+#
+# Operator, verbatim: "We can have different strategies working with netted
+# positions as long as we know how much of that position belongs to each
+# strategy, and each piece of that position has its own brackets. ... We don't
+# need to collapse it, we just need to make sure we know how to allocate
+# between the trades correctly."
+#
+# Option A (above) restored per-trade = per-position by forbidding a netted ADD
+# for the SAME strategy. That half stays: a strategy never double-enters. What
+# blocked a DIFFERENT strategy was never Option A -- it was the coordinator
+# computing the intent delta against the ACCOUNT net (a second strategy's
+# same-side signal read `noop at_target`). On a slice account the delta basis
+# is the strategy's OWN slice (`strategy_signed_qty`) and `admit_slice` decides
+# whether the book can carry one more slice and how big it may be.
+#
+# THE LEDGER IS THE TRADE JOURNAL. A slice is one open, non-backtest `trades`
+# row: strategy_name, direction, position_size (the slice qty), entry_price,
+# stop_loss, take_profit_1 and the venue leg ids sl_order_id / tp_order_id that
+# carry its own qty-scoped Partial bracket (captured at entry since
+# 2026-07-21). No new table. INVARIANT: the venue net on (account, symbol)
+# equals the signed sum of open slices; `reconcile` reports three states,
+# never collapsed -- reconciled / divergent / unreadable.
+#
+# Every refusal is per trade, journalled with its reason, and re-asked next
+# tick. Nothing here closes, halts or latches ("There is no halting", operator
+# 2026-10-09). Repairing a divergent book is the existing netting reconciler's
+# job (order_monitor: leg-gone attribution, then FIFO residual).
+#
+# ⚠️ OPPOSITE SLICES on a ONE-WAY book are refused (`opposite_slice_one_way_book`).
+# Bybit sizes position TP/SL to the open position ("adjust the qty according to
+# the size of the open position", v5 /position/trading-stop), so an opposite
+# slice shrinks the net below the same-side slices' legs and a firing leg
+# closes LESS than its slice -- the ledger stops describing the venue. The same
+# mechanism stranded 8 of 8 SOL/ETH pairs legs (bybit_position_mode.py, T.2).
+# On a HEDGE book (Option B of the 2026-06-08 audit, the existing positionIdx
+# plumbing) the opposite slice opens in its own book with its own Partial legs.
+
+POSITION_MODEL_KEY = "position_model"
+POSITION_MODEL_SLICES = "slices"
+#: Package meta key the per-account allocation writes and admit_slice reads.
+ALLOCATION_META_KEY = "slice_allocation"
+
+
+def account_uses_slices(account_cfg: Optional[Dict[str, Any]]) -> bool:
+    """True when the account declares ``position_model: slices``."""
+    if not isinstance(account_cfg, dict):
+        return False
+    return str(account_cfg.get(POSITION_MODEL_KEY) or "").strip().lower() == POSITION_MODEL_SLICES
+
+
+RECONCILED = "reconciled"
+DIVERGENT = "divergent"
+UNREADABLE = "unreadable"
+
+#: Relative tolerance for ledger-vs-venue equality. Journal rows record the
+#: legalised qty actually sent (``_submit_order`` writes it back), so the two
+#: should agree exactly; the tolerance absorbs float repr only.
+REL_TOL = 0.005
+ABS_TOL = 1e-9
+
+
+def _journal_path() -> str:
+    from src.utils.paths import trade_journal_db_path
+    return trade_journal_db_path()
+
+
+def open_slices(
+    account_id: str, symbol: str, *, db_path: Optional[str] = None,
+) -> Optional[List[Dict[str, Any]]]:
+    """Every open slice on (account, symbol), oldest first. ``None`` = could not look."""
+    path = db_path or _trade_journal_path()
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        with sqlite3.connect(path) as conn:
+            conn.row_factory = sqlite3.Row
+            # SELECT * so a journal predating the sl_order_id/tp_order_id
+            # migration still reads (those keys are then simply absent).
+            rows = conn.execute(
+                "SELECT * FROM trades "
+                " WHERE account_id = ? AND symbol = ? AND status = 'open' "
+                "   AND COALESCE(is_backtest, 0) = 0 "
+                " ORDER BY id ASC",
+                (account_id, symbol),
+            ).fetchall()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("open_slices: read failed for %s/%s: %s", account_id, symbol, exc)
+        return None
+    keep = ("id", "strategy_name", "direction", "position_size", "entry_price",
+            "stop_loss", "take_profit_1", "sl_order_id", "tp_order_id")
+    return [{k: dict(r).get(k) for k in keep} for r in rows]
+
+
+def _signed(row: Mapping[str, Any]) -> float:
+    try:
+        q = abs(float(row.get("position_size") or 0.0))
+    except (TypeError, ValueError):
+        return 0.0
+    d = str(row.get("direction") or "").lower()
+    return q if d == "long" else -q if d == "short" else 0.0
+
+
+def ledger_net(slices: Iterable[Mapping[str, Any]]) -> float:
+    """Signed sum of the slices (long +, short −)."""
+    return sum(_signed(r) for r in slices)
+
+
+def strategy_signed_qty(slices: Iterable[Mapping[str, Any]], strategy: Optional[str]) -> float:
+    """This strategy's OWN signed qty on the book — the delta basis on a slice account."""
+    return sum(_signed(r) for r in slices if r.get("strategy_name") == strategy)
+
+
+def venue_net(positions: Optional[Iterable[Mapping[str, Any]]], symbol: str) -> Optional[float]:
+    """Signed venue net for *symbol* from an ``account_open_positions`` list.
+
+    ``None`` in → ``None`` out (could not read). Both hedge books, if present,
+    are summed — that is the economic net.
+    """
+    if positions is None:
+        return None
+    net = 0.0
+    want = str(symbol).upper()
+    for p in positions:
+        if str(p.get("symbol") or "").upper() != want:
+            continue
+        try:
+            size = abs(float(p.get("size") or 0.0))
+        except (TypeError, ValueError):
+            return None
+        side = str(p.get("side") or "").lower()
+        if side in ("buy", "long"):
+            net += size
+        elif side in ("sell", "short"):
+            net -= size
+        else:
+            # A non-zero row whose side we cannot read makes the net unknown.
+            return None
+    return net
+
+
+def reconcile(
+    slices: Optional[Iterable[Mapping[str, Any]]],
+    positions: Optional[Iterable[Mapping[str, Any]]],
+    symbol: str,
+) -> Dict[str, Any]:
+    """``{state, ledger_net, venue_net, gap}`` — see the module docstring."""
+    if slices is None:
+        return {"state": UNREADABLE, "side": "journal", "ledger_net": None,
+                "venue_net": None, "gap": None}
+    rows = list(slices)
+    led = ledger_net(rows)
+    ven = venue_net(positions, symbol)
+    if ven is None:
+        return {"state": UNREADABLE, "side": "venue", "ledger_net": led,
+                "venue_net": None, "gap": None}
+    gap = led - ven
+    tol = max(ABS_TOL, REL_TOL * max(abs(led), abs(ven)))
+    return {
+        "state": RECONCILED if abs(gap) <= tol else DIVERGENT,
+        "ledger_net": led, "venue_net": ven, "gap": gap, "n_slices": len(rows),
+    }
+
+
+def held_stop_risk(
+    slices: Iterable[Mapping[str, Any]], *, exclude_strategies: Iterable[str] = (),
+) -> Optional[float]:
+    """Σ qty · loss-side distance to the CURRENT stop, over slices not excluded.
+
+    A stop already on the profit side of entry contributes 0 (trailed past
+    break-even). ``None`` when any counted slice has no readable entry or stop:
+    an unprotected slice's risk is unmeasured, and an unmeasured risk is never
+    read as zero.
+    """
+    skip = {str(s) for s in exclude_strategies}
+    total = 0.0
+    for r in slices:
+        if str(r.get("strategy_name")) in skip:
+            continue
+        try:
+            q = abs(float(r.get("position_size") or 0.0))
+            entry = float(r.get("entry_price"))
+            sl = float(r.get("stop_loss"))
+        except (TypeError, ValueError):
+            return None
+        if q <= 0:
+            continue
+        d = str(r.get("direction") or "").lower()
+        if d == "long":
+            total += q * max(0.0, entry - sl)
+        elif d == "short":
+            total += q * max(0.0, sl - entry)
+        else:
+            return None
+    return total
+
+
+def book_side(slices: Iterable[Mapping[str, Any]]) -> Optional[str]:
+    """``long`` / ``short`` / ``None`` (flat or empty) from the ledger net."""
+    net = ledger_net(slices)
+    if abs(net) <= ABS_TOL:
+        return None
+    return "long" if net > 0 else "short"
+
+
+def has_opposite_slices(slices: Iterable[Mapping[str, Any]], side: str) -> bool:
+    """True when any open slice runs opposite to *side*."""
+    other = "short" if side == "long" else "long"
+    return any(str(r.get("direction") or "").lower() == other for r in slices)
+
+
+def _default_positions_reader(account_cfg):
+    from src.units.accounts.clients import account_open_positions
+    return account_open_positions(dict(account_cfg))
+
+
+def _default_tpsl_mode() -> str:
+    from src.units.accounts.execute import _bybit_tpsl_mode
+    return _bybit_tpsl_mode()
+
+
+def _default_hedge(account_id: str, symbol: str) -> bool:
+    from src.runtime.bybit_position_mode import hedge_mode_enabled
+    return hedge_mode_enabled(account_id, symbol)
+
+
+def slice_qty(
+    *,
+    sized_qty: float,
+    entry: float,
+    sl: float,
+    weight: float,
+    budget_trades: float,
+    held_risk: float,
+) -> Dict[str, Any]:
+    """Turn a weight into a quantity, inside the symbol's risk budget.
+
+    * ``unit_risk = sized_qty · |entry − sl|`` — the RiskManager's one-trade
+      risk for this account (the per-trade cap, in quote currency).
+    * ``budget = budget_trades · unit_risk``.
+    * ``remaining = max(0, budget − held_risk)`` where ``held_risk`` is the
+      current stop-risk of open slices held by strategies NOT contending this
+      tick (contenders hold nothing of their own — the same-strategy guard).
+    * ``qty = min(sized_qty, weight · remaining / |entry − sl|)``.
+
+    Never above ``sized_qty``: a slice cannot exceed the per-trade size the
+    RiskManager approved.
+    """
+    dist = abs(float(entry) - float(sl))
+    sized = max(0.0, float(sized_qty))
+    w = min(1.0, max(0.0, float(weight)))
+    if dist <= 0 or sized <= 0:
+        return {"qty": 0.0, "unit_risk": 0.0, "budget": 0.0, "remaining": 0.0,
+                "reason": "no_risk_distance" if dist <= 0 else "no_size"}
+    unit_risk = sized * dist
+    budget = max(0.0, float(budget_trades)) * unit_risk
+    remaining = max(0.0, budget - max(0.0, float(held_risk)))
+    qty = min(sized, w * remaining / dist)
+    return {
+        "qty": qty,
+        "unit_risk": unit_risk,
+        "budget": budget,
+        "remaining": remaining,
+        "reason": "budget_exhausted" if remaining <= 0 else "allocated",
+    }
+
+
+
+
+def admit_slice(
+    *,
+    account_id: str,
+    account_cfg: Mapping[str, Any],
+    strategy: str,
+    symbol: str,
+    direction: str,
+    entry: Any,
+    sl: Any,
+    meta: Optional[Mapping[str, Any]],
+    sized_qty: float,
+    dry: bool,
+    slices_reader: Optional[Callable[[str, str], Optional[list]]] = None,
+    positions_reader: Optional[Callable[[Mapping[str, Any]], Optional[Iterable]]] = None,
+    tpsl_mode_fn: Optional[Callable[[], str]] = None,
+    hedge_fn: Optional[Callable[[str, str], bool]] = None,
+    budget_trades: Optional[float] = None,
+) -> Dict[str, Any]:
+    """May this strategy add a slice to (account, symbol) -- and how big?
+
+    Called by ``Coordinator.multi_account_execute`` for an intent-mode package
+    on a slice account, AFTER the RiskManager sized the trade. Returns
+    ``{ok, reason, qty, own_signed, detail}``. Checks, in order, each with the
+    token it journals:
+
+    1. ``slice_ledger_unreadable`` -- the journal could not be read.
+    2. The strategy already holds a slice -> ``ok`` with its own signed qty:
+       Option A's guard and ``slice_hold_to_bracket`` handle it.
+    3. ``opposite_slice_one_way_book`` -- see the block comment above.
+    4. ``slice_requires_partial_tpsl`` -- non-flat Bybit book while
+       ``BYBIT_TPSL_MODE`` is not ``partial`` (Full mode would REPLACE the
+       first slice's bracket).
+    5. ``slice_ledger_divergent`` / ``slice_ledger_venue_unreadable`` -- the
+       ledger does not reconcile to the venue (skipped on a dry account).
+    6. ``slice_risk_unmeasurable`` -- a non-contending slice has no stop.
+    7. ``slice_budget_exhausted`` -- see :func:`slice_qty`.
+    """
+    detail: Dict[str, Any] = {"position_model": "slices"}
+    slices = (slices_reader or open_slices)(account_id, symbol)
+    if slices is None:
+        return {"ok": False, "reason": "slice_ledger_unreadable", "qty": 0.0,
+                "own_signed": None, "detail": detail}
+    own = strategy_signed_qty(slices, strategy)
+    detail.update({"n_slices": len(slices), "ledger_net": ledger_net(slices),
+                   "own_signed": own})
+    if abs(own) > ABS_TOL:
+        detail["admission"] = "own_slice_open"
+        return {"ok": True, "reason": None, "qty": float(sized_qty),
+                "own_signed": own, "detail": detail}
+
+    exchange = str(account_cfg.get("exchange") or "").lower()
+    if slices:
+        if has_opposite_slices(slices, direction):
+            hedge = bool((hedge_fn or _default_hedge)(account_id, symbol))
+            detail["hedge_book"] = hedge
+            if not hedge:
+                return {"ok": False, "reason": "opposite_slice_one_way_book",
+                        "qty": 0.0, "own_signed": own, "detail": detail}
+        if exchange == "bybit":
+            mode = str((tpsl_mode_fn or _default_tpsl_mode)() or "")
+            detail["tpsl_mode"] = mode
+            if mode != "partial":
+                return {"ok": False, "reason": "slice_requires_partial_tpsl",
+                        "qty": 0.0, "own_signed": own, "detail": detail}
+
+    if dry:
+        detail["reconcile"] = "skipped_dry"
+    else:
+        try:
+            positions = (positions_reader or _default_positions_reader)(account_cfg)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("admit_slice: venue read failed for %s: %s", account_id, exc)
+            positions = None
+        rec = reconcile(slices, positions, symbol)
+        detail["reconcile"] = rec
+        if rec["state"] == UNREADABLE:
+            return {"ok": False, "reason": "slice_ledger_venue_unreadable", "qty": 0.0,
+                    "own_signed": own, "detail": detail}
+        if rec["state"] != RECONCILED:
+            return {"ok": False, "reason": "slice_ledger_divergent", "qty": 0.0,
+                    "own_signed": own, "detail": detail}
+
+    alloc = ((meta or {}).get(ALLOCATION_META_KEY) or {}).get(account_id) or {}
+    weight = float(alloc.get("weight", 1.0) if isinstance(alloc, Mapping) else 1.0)
+    contenders = list(alloc.get("contenders") or [strategy]) if isinstance(alloc, Mapping) else [strategy]
+    if strategy not in contenders:
+        contenders.append(strategy)
+    held = held_stop_risk(slices, exclude_strategies=contenders)
+    detail.update({"weight": weight, "contenders": sorted(contenders), "held_risk": held,
+                   "allocation_basis": (alloc.get("basis") if isinstance(alloc, Mapping) else None)})
+    if held is None:
+        return {"ok": False, "reason": "slice_risk_unmeasurable", "qty": 0.0,
+                "own_signed": own, "detail": detail}
+    if budget_trades is None:
+        from src.runtime.allocator_ev import load_allocation_config
+        budget_trades = float(load_allocation_config().get("symbol_budget_trades", 1.0))
+    try:
+        sizing = slice_qty(sized_qty=sized_qty, entry=float(entry), sl=float(sl),
+                               weight=weight, budget_trades=budget_trades, held_risk=held)
+    except (TypeError, ValueError):
+        return {"ok": False, "reason": "slice_risk_unmeasurable", "qty": 0.0,
+                "own_signed": own, "detail": detail}
+    detail["sizing"] = {k: (round(v, 10) if isinstance(v, float) else v)
+                        for k, v in sizing.items()}
+    detail["budget_trades"] = budget_trades
+    if sizing["qty"] <= 0:
+        return {"ok": False, "reason": "slice_budget_exhausted", "qty": 0.0,
+                "own_signed": own, "detail": detail}
+    return {"ok": True, "reason": None, "qty": float(sizing["qty"]),
+            "own_signed": own, "detail": detail}
