@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "standing open draft PR titled 'ops-flags (do not merge)' - operator 2026-10-13: the watchdog posts a comment per incident, the manager subscribes",
+  "why": "standing wake-channel PR, docs only; never merged"
+}
