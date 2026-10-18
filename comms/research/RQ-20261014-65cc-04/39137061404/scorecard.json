@@ -1,0 +1,160 @@
+{
+  "rows": [
+    {
+      "horizon_days": 1,
+      "n": 278,
+      "ic": -0.012886,
+      "ic_t": -0.214,
+      "overlap_factor": 1.0,
+      "n_eff": 278.0,
+      "ic_t_eff": -0.214,
+      "pearson": 0.028403,
+      "sign_hit_rate": 0.5,
+      "mean_fwd_return": 0.000718
+    },
+    {
+      "horizon_days": 3,
+      "n": 278,
+      "ic": -0.003145,
+      "ic_t": -0.052,
+      "overlap_factor": 1.0,
+      "n_eff": 278.0,
+      "ic_t_eff": -0.052,
+      "pearson": 0.04148,
+      "sign_hit_rate": 0.474638,
+      "mean_fwd_return": 0.003561
+    },
+    {
+      "horizon_days": 5,
+      "n": 278,
+      "ic": 0.042507,
+      "ic_t": 0.707,
+      "overlap_factor": 1.0,
+      "n_eff": 278.0,
+      "ic_t_eff": 0.707,
+      "pearson": 0.05737,
+      "sign_hit_rate": 0.489051,
+      "mean_fwd_return": 0.002746
+    }
+  ],
+  "summary": {
+    "max_n": 278,
+    "min_honest_n": 12,
+    "sufficient_history": true,
+    "any_flagged_horizon": false,
+    "any_flagged_horizon_overlap_corrected": false,
+    "strongest_ic_horizon_days": 5,
+    "strongest_ic": 0.042507,
+    "strongest_ic_t": 0.707,
+    "strongest_ic_t_eff": 0.707,
+    "t_flag": 2.0,
+    "verdict": "no_edge_at_tested_horizons"
+  },
+  "meta": {
+    "kind": "michigan_sentiment",
+    "symbol": "ES=F",
+    "snapshot_files": [
+      "comms/macro/econ_calendar_snapshots.jsonl",
+      "comms/macro/econ_calendar_snapshots_survey_backfill.jsonl"
+    ],
+    "releases": 278,
+    "releases_with_value": 278,
+    "price_bars": 5490,
+    "first_release": "2015-01-16",
+    "last_release": "2026-10-09",
+    "release_start": null,
+    "release_end": null,
+    "anchor_shift_td": 0,
+    "releases_after_window": 278,
+    "rows": [
+      {
+        "horizon_days": 1,
+        "n": 278,
+        "ic": -0.012886,
+        "ic_t": -0.214,
+        "overlap_factor": 1.0,
+        "n_eff": 278.0,
+        "ic_t_eff": -0.214,
+        "pearson": 0.028403,
+        "sign_hit_rate": 0.5,
+        "mean_fwd_return": 0.000718
+      },
+      {
+        "horizon_days": 3,
+        "n": 278,
+        "ic": -0.003145,
+        "ic_t": -0.052,
+        "overlap_factor": 1.0,
+        "n_eff": 278.0,
+        "ic_t_eff": -0.052,
+        "pearson": 0.04148,
+        "sign_hit_rate": 0.474638,
+        "mean_fwd_return": 0.003561
+      },
+      {
+        "horizon_days": 5,
+        "n": 278,
+        "ic": 0.042507,
+        "ic_t": 0.707,
+        "overlap_factor": 1.0,
+        "n_eff": 278.0,
+        "ic_t_eff": 0.707,
+        "pearson": 0.05737,
+        "sign_hit_rate": 0.489051,
+        "mean_fwd_return": 0.002746
+      }
+    ],
+    "summary": {
+      "max_n": 278,
+      "min_honest_n": 12,
+      "sufficient_history": true,
+      "any_flagged_horizon": false,
+      "any_flagged_horizon_overlap_corrected": false,
+      "strongest_ic_horizon_days": 5,
+      "strongest_ic": 0.042507,
+      "strongest_ic_t": 0.707,
+      "strongest_ic_t_eff": 0.707,
+      "t_flag": 2.0,
+      "verdict": "no_edge_at_tested_horizons"
+    },
+    "rule": {
+      "primary": [
+        1,
+        3,
+        5
+      ],
+      "min_n": 100,
+      "t_bar": 2.4,
+      "expected_sign": "positive"
+    },
+    "per_horizon": [
+      {
+        "horizon_days": 1,
+        "n": 278,
+        "ic": -0.012886,
+        "ic_t_eff": -0.214,
+        "n_ok": true,
+        "t_reached": false,
+        "sign_ok": false
+      },
+      {
+        "horizon_days": 3,
+        "n": 278,
+        "ic": -0.003145,
+        "ic_t_eff": -0.052,
+        "n_ok": true,
+        "t_reached": false,
+        "sign_ok": false
+      },
+      {
+        "horizon_days": 5,
+        "n": 278,
+        "ic": 0.042507,
+        "ic_t_eff": 0.707,
+        "n_ok": true,
+        "t_reached": false,
+        "sign_ok": true
+      }
+    ]
+  }
+}

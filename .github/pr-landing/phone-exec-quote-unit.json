@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "P0 follow-through (manager session_01VduHYzdaXe27wTDBLSu8ao, operator 2026-10-18): after #18977 the hold on breakout_2 prop-manual-c1dba3c376b3 was released and amend #a8 emitted, but the phone (1b.300, captures on) STILL read the stop as null. The capture (step 003-stop_row) shows why: the [1 TP / 1 SL] Stop row is 'Long | Stop loss | 2,452.65 USD | 0.52 ETH' with number and unit in separate spans, so the reader found TWO bare price-shaped leaves (trigger + QUANTITY) and returned null; the terminal's stop equals the server's. Tier 2 by path: src/prop/phone_trail.py (planner backoff) + the signed exec.js the live amend path runs. What lands: exec.js 2026-10-18.4 picks the trigger by the QUOTE unit (USD/USDT/USDC; the coin-unit leaf is the quantity) and reports n_usd/why/shapes; a real-page fixture built from that capture proves it in CI; the planner waives a running backoff ONCE when a newer signed exec.js is served (fails=7 = 8 bars otherwise), so the fix is tried on the next plan. No order path change. Revert = revert this PR (the trigger reads null again on this row shape; backoff clock unchanged).",
+  "why": "operator 2026-10-18: the system must move the stop on its own; the first live attempt with captures showed the reader cannot tell the price cell from the quantity cell on the real sheet."
+}

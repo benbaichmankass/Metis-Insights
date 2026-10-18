@@ -785,6 +785,22 @@ retried, one Telegram per live attempt naming the stop the plan wants and the st
 history row), so the trail resumes on its own with no journal edit by hand. A report naming two numbers (*"terminal
 stop 2470 != expected 2450"*) or carrying a read-back value stays a human move and still holds.
 
+**Why the stop read null, MEASURED (2026-10-18 14:32Z, app 1b.300, amend #a8, capture step `003-stop_row`).** The
+[1 TP / 1 SL] Stop row is `Long | Stop loss | 2,452.65 USD | 0.52 ETH` with the number and the unit in separate
+spans, so `sheetOrderRows` found TWO bare price-shaped leaves — the trigger and the QUANTITY — and returned null; the
+terminal's stop equalled the server's. exec.js 2026-10-18.4 picks the trigger by the **quote unit**
+(`unitOf(leaf)`: the unit in the leaf's own text, else the first word after it in the nearest ancestor whose text
+starts with it; USD/USDT/USDC = price, the coin = quantity), reports `n_usd` / `why` (`no_price`,
+`many_prices_no_unit`, `many_quote_prices`) and the units in `px_shapes`, and the real-page fixture
+`tools/phone-executor/test/fixtures/breakout-sheet-tpsl-stop-row` (built from that capture with
+`fixture_from_capture.py`) proves the read in CI. Same day, the planner: a running backoff is waived ONCE when a
+NEWER signed exec.js is served than the one the last attempt ran (`backoff.exec_js`, `_served_exec_js`), so a reader
+fix is tried on the next plan instead of after the 8-bar cap (#a8 sat at `fails: 7`). And the planner emits **no
+amend while the `sheet_edit` gate is closed** (drill passes < 3 and no pin): the app would refuse the pencil by
+design and every such refusal counted as a failure; instead the plan is logged, ONE alert per ticket names what arms
+the gate, nothing backs off, and the first plan after the gate opens emits at once (a gated plan never consumes the
+exec.js waiver).
+
 **UNMEASURED:** no capture has shown Breakout's Positions row edit control or its dialog. The headless fixtures
 (`test/exec_check.js`, "amend") prove the helpers' mechanics on synthetic DOM only. The first real amend, dry or live,
 either passes or refuses with the dump (row headers and controls, dialog inputs and buttons) that names the label to fix.

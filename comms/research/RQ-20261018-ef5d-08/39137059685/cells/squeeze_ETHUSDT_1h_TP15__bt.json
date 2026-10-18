@@ -1,0 +1,84 @@
+{
+  "strategy": "squeeze_breakout",
+  "symbol": "ETHUSDT",
+  "timeframe": "1h",
+  "params": {
+    "bb_period": 20,
+    "bb_std": 2.0,
+    "kc_mult": 1.5,
+    "atr_stop_mult": 2.5,
+    "trail_mult": 3.5,
+    "min_confidence": 0.0,
+    "vol_pctl_window": 200,
+    "trail_vol_above_pctl": 0.0,
+    "trail_vol_below_pctl": 0.0,
+    "trail_vol_tight_mult": 0.0
+  },
+  "total_trades": 1510,
+  "fee_bps_roundtrip": 7.5,
+  "slippage_bps_roundtrip": 3.0,
+  "funding_bps_per_window": 1.0,
+  "data_start": "2021-01-01 00:00:00+00:00",
+  "data_end": "2026-10-17 00:00:00+00:00",
+  "run_date": "2026-10-18",
+  "tp_r_effective_n": 1510,
+  "tp_r_effective_median": 1.5,
+  "tp_r_effective_min": 0.447,
+  "tp_r_effective_max": 1.5,
+  "win_rate_pct": 44.04,
+  "net_total_r": -61.9536,
+  "net_total_r_long": -45.4914,
+  "net_total_r_short": -16.4622,
+  "net_expectancy_r": -0.041,
+  "net_total_r_fee_only": -29.5665,
+  "net_expectancy_r_fee_only": -0.0196,
+  "mean_cost_r": {
+    "fee_r": 0.03896,
+    "slippage_r": 0.01558,
+    "funding_r": 0.00587,
+    "total_cost_r": 0.06041,
+    "funding_windows": 1.17219
+  },
+  "trades_long": 795,
+  "trades_short": 715,
+  "max_drawdown_r": 74.2461,
+  "by_outcome": {
+    "timeout": 783,
+    "stop": 276,
+    "take_profit": 249,
+    "trail_stop": 202
+  },
+  "by_year": {
+    "2021": {
+      "trades": 259,
+      "net_r": -2.3926
+    },
+    "2022": {
+      "trades": 249,
+      "net_r": -14.0365
+    },
+    "2023": {
+      "trades": 275,
+      "net_r": -22.1086
+    },
+    "2024": {
+      "trades": 266,
+      "net_r": -24.7026
+    },
+    "2025": {
+      "trades": 242,
+      "net_r": 2.2047
+    },
+    "2026": {
+      "trades": 219,
+      "net_r": -0.9188
+    }
+  },
+  "consistency": null,
+  "bar_minutes": 60.0,
+  "position_days": 593.125,
+  "capital_days": 593.125,
+  "mean_bars_held": 9.427,
+  "net_r_per_position_day": -0.1045,
+  "net_r_per_capital_day": -0.1045
+}

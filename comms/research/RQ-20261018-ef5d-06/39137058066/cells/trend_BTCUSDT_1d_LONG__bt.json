@@ -1,0 +1,89 @@
+{
+  "strategy": "trend_donchian",
+  "symbol": "BTCUSDT",
+  "timeframe": "1d",
+  "params": {
+    "donchian": 20,
+    "atr_stop_mult": 2.5,
+    "trail_mult": 5.0,
+    "min_confidence": 0.0
+  },
+  "total_trades": 36,
+  "fee_bps_roundtrip": 7.5,
+  "slippage_bps_roundtrip": 3.0,
+  "funding_bps_per_window": 1.0,
+  "data_start": "2020-01-01 00:00:00+00:00",
+  "data_end": "2026-10-17 00:00:00+00:00",
+  "run_date": "2026-10-18",
+  "tp_r_effective_n": 0,
+  "tp_r_effective_median": null,
+  "tp_r_effective_min": null,
+  "tp_r_effective_max": null,
+  "rr_floor_state": "off",
+  "rr_min_n": 0,
+  "rr_min_p10": null,
+  "rr_min_median": null,
+  "rr_min_p90": null,
+  "rr_floor_exits": 0,
+  "win_rate_pct": 38.89,
+  "total_r": 23.747,
+  "net_total_r": 19.0082,
+  "net_total_r_long": 19.0082,
+  "net_total_r_short": 0,
+  "net_expectancy_r": 0.528,
+  "net_total_r_fee_only": 23.436,
+  "net_expectancy_r_fee_only": 0.651,
+  "mean_cost_r": {
+    "fee_r": 0.00864,
+    "slippage_r": 0.00346,
+    "funding_r": 0.11954,
+    "total_cost_r": 0.13163,
+    "funding_windows": 107.75
+  },
+  "trades_long": 36,
+  "trades_short": 0,
+  "avg_win_r": 3.1542,
+  "max_mfe_r": 8.838,
+  "max_drawdown_r": 7.9951,
+  "by_outcome": {
+    "stop": 17,
+    "trail_stop": 18,
+    "timeout": 1
+  },
+  "by_year": {
+    "2020": {
+      "trades": 4,
+      "net_r": 12.2721
+    },
+    "2021": {
+      "trades": 7,
+      "net_r": -1.6997
+    },
+    "2022": {
+      "trades": 6,
+      "net_r": -6.2955
+    },
+    "2023": {
+      "trades": 6,
+      "net_r": 8.4631
+    },
+    "2024": {
+      "trades": 7,
+      "net_r": 6.0055
+    },
+    "2025": {
+      "trades": 3,
+      "net_r": -0.7259
+    },
+    "2026": {
+      "trades": 3,
+      "net_r": 0.9882
+    }
+  },
+  "bar_minutes": 1440.0,
+  "position_days": 1293.0,
+  "capital_days": 1293.0,
+  "mean_bars_held": 35.917,
+  "net_r_per_position_day": 0.0147,
+  "net_r_per_capital_day": 0.0147
+}

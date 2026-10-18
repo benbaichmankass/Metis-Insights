@@ -1,0 +1,84 @@
+{
+  "strategy": "squeeze_breakout",
+  "symbol": "AVAXUSDT",
+  "timeframe": "1h",
+  "params": {
+    "bb_period": 20,
+    "bb_std": 2.0,
+    "kc_mult": 1.5,
+    "atr_stop_mult": 2.5,
+    "trail_mult": 3.5,
+    "min_confidence": 0.0,
+    "vol_pctl_window": 200,
+    "trail_vol_above_pctl": 0.0,
+    "trail_vol_below_pctl": 0.0,
+    "trail_vol_tight_mult": 0.0
+  },
+  "total_trades": 1428,
+  "fee_bps_roundtrip": 7.5,
+  "slippage_bps_roundtrip": 3.0,
+  "funding_bps_per_window": 1.0,
+  "data_start": "2021-01-01 00:00:00+00:00",
+  "data_end": "2026-10-17 00:00:00+00:00",
+  "run_date": "2026-10-18",
+  "tp_r_effective_n": 1428,
+  "tp_r_effective_median": 2.0,
+  "tp_r_effective_min": 0.472,
+  "tp_r_effective_max": 2.0,
+  "win_rate_pct": 47.06,
+  "net_total_r": 19.1885,
+  "net_total_r_long": -9.2386,
+  "net_total_r_short": 28.427,
+  "net_expectancy_r": 0.0134,
+  "net_total_r_fee_only": 39.3774,
+  "net_expectancy_r_fee_only": 0.0276,
+  "mean_cost_r": {
+    "fee_r": 0.02503,
+    "slippage_r": 0.01001,
+    "funding_r": 0.00412,
+    "total_cost_r": 0.03917,
+    "funding_windows": 1.2535
+  },
+  "trades_long": 699,
+  "trades_short": 729,
+  "max_drawdown_r": 18.9755,
+  "by_outcome": {
+    "trail_stop": 184,
+    "stop": 276,
+    "timeout": 821,
+    "take_profit": 147
+  },
+  "by_year": {
+    "2021": {
+      "trades": 264,
+      "net_r": -8.6414
+    },
+    "2022": {
+      "trades": 238,
+      "net_r": 1.3262
+    },
+    "2023": {
+      "trades": 248,
+      "net_r": 4.4637
+    },
+    "2024": {
+      "trades": 249,
+      "net_r": 6.5352
+    },
+    "2025": {
+      "trades": 231,
+      "net_r": -1.3747
+    },
+    "2026": {
+      "trades": 198,
+      "net_r": 16.8777
+    }
+  },
+  "consistency": null,
+  "bar_minutes": 60.0,
+  "position_days": 588.5833,
+  "capital_days": 588.5833,
+  "mean_bars_held": 9.892,
+  "net_r_per_position_day": 0.0326,
+  "net_r_per_capital_day": 0.0326
+}

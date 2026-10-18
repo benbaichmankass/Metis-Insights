@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "as_of": "2026-10-18T15:16:47Z",
+ "as_of": "2026-10-18T16:08:44Z",
  "producer": "scripts/research/research_slo.py",
  "config": "scripts/research/research_slo.yaml",
  "counts": {
@@ -12,12 +12,12 @@
   {
    "slo": "runnable_floor",
    "state": "breach",
-   "value": 45,
+   "value": 46,
    "op": ">=",
-   "threshold": 57,
+   "threshold": 55,
    "what": "runnable units >= the computed floor (queue_throughput.computed_floor: max(25, ceil(fired_24h x 19/24)))",
    "evidence": {
-    "fired_24h_stamps": 72,
+    "fired_24h_stamps": 69,
     "queued": 157,
     "basis": "queue_replenish.runnable(); floor = queue_throughput.computed_floor(fired_24h)",
     "read_state": "measured"
@@ -26,12 +26,12 @@
   {
    "slo": "fires_24h",
    "state": "ok",
-   "value": 63,
+   "value": 61,
    "op": ">=",
    "threshold": 24,
    "what": "units fired in the last 24 h (sum of `dispatched` over comms/research/utilization/ records)",
    "evidence": {
-    "dispatch_runs_24h": 22,
+    "dispatch_runs_24h": 21,
     "basis": "sum(len(dispatched)) over comms/research/utilization records in 24 h",
     "read_state": "measured"
    }
@@ -39,7 +39,7 @@
   {
    "slo": "lands_24h",
    "state": "ok",
-   "value": 116,
+   "value": 114,
    "op": ">=",
    "threshold": 12,
    "what": "result rows landed in the last 24 h whose read_state is a verdict (not producer_failed / no_data)",
@@ -105,13 +105,13 @@
   {
    "slo": "authoring_supply_ratio_7d",
    "state": "ok",
-   "value": 1.2,
+   "value": 1.21,
    "op": ">=",
    "threshold": 1.0,
    "what": "authored (non-generated) units created in 7 d / authored units first-or-re-fired in 7 d",
    "evidence": {
     "authored_7d": 431,
-    "consumed_7d": 358,
+    "consumed_7d": 355,
     "authored_since_yesterday": 52,
     "basis": "non-generated units: id date in 7 d / last_dispatched_at in 7 d",
     "read_state": "measured"
@@ -225,7 +225,7 @@
   {
    "slo": "dispatcher_age_h",
    "state": "ok",
-   "value": 0.61,
+   "value": 1.47,
    "op": "<=",
    "threshold": 3,
    "what": "hours since the newest dispatcher utilization record on main (one per dispatch cycle that ran; lands ~1 h late)",
@@ -238,7 +238,7 @@
   {
    "slo": "collector_age_h",
    "state": "ok",
-   "value": 0.29,
+   "value": 1.16,
    "op": "<=",
    "threshold": 6,
    "what": "hours since the newest commit on main touching research/results/ (a result landed)",
@@ -251,7 +251,7 @@
   {
    "slo": "grader_age_h",
    "state": "ok",
-   "value": 1.6,
+   "value": 2.47,
    "op": "<=",
    "threshold": 14,
    "what": "hours since the last SUCCESSFUL research-queue-grade.yml run (GitHub; could_not_look without a token)",
@@ -264,13 +264,13 @@
   {
    "slo": "research_ops_age_h",
    "state": "ok",
-   "value": 5.78,
+   "value": 0.98,
    "op": "<=",
    "threshold": 8,
    "what": "hours since the newest research-ops pass record (comms/research/ops/*.json finished_at); the pass runs 4x/day",
    "evidence": {
-    "newest": "20261018T0930Z.json",
-    "finished_at": "2026-10-18T09:30:00+00:00",
+    "newest": "20261018T1510Z.json",
+    "finished_at": "2026-10-18T15:10:00+00:00",
     "basis": "newest comms/research/ops record",
     "read_state": "measured"
    }
@@ -283,11 +283,11 @@
    "threshold": 2,
    "what": "steps the newest research-ops pass declared not_run",
    "evidence": {
-    "record": "20261018T0930Z.json",
+    "record": "20261018T1510Z.json",
     "not_run": [
-     "step C per-file audit of research/queue/blocked/ (78 files)",
-     "authoring beyond one node: budget",
-     "routing of unrouted due items (22 unrouted, no alarm breached, oldest 0 days; soak items route to SOAK-WATCH)"
+     "step C per-file audit of research/queue/blocked/ (80 files) -- not_run on consecutive passes",
+     "authoring beyond the 3 prop nodes: budget",
+     "local end-to-end run of the new prop_ev_grid command: not possible here (prop_ev_sim does not finish 20 lives on a 1,085-trade book in 100 s); the commands were"
     ],
     "basis": "not_run of the newest research-ops record",
     "read_state": "measured"
@@ -296,20 +296,13 @@
   {
    "slo": "hold_pr_wait_h",
    "state": "ok",
-   "value": 0.22,
+   "value": 0.0,
    "op": "<=",
    "threshold": 24,
    "what": "hours the oldest open non-automation PR adding research/queue/ unit files has waited (hold PRs)",
    "evidence": {
-    "open_unit_prs": 1,
-    "oldest": [
-     {
-      "pr": 18987,
-      "hours": 0.22,
-      "title": "research-ops 2026-10-18 14:47Z: prop EV nodes for eth_prop trail 4.5, ff8f-03 re-queue, ro"
-     }
-    ],
-    "basis": "open non-automation PRs adding research/queue/*.yaml, age since creation",
+    "open_unit_prs": 0,
+    "basis": "no open non-automation PR adds research/queue/ files",
     "read_state": "measured"
    }
   }
@@ -500,6 +493,22 @@
     "ops_flags_comment": true,
     "ops_flags_pr": 17895
    }
+  },
+  {
+   "at": "2026-10-18T16:08:44Z",
+   "counts": {
+    "ok": 12,
+    "breach": 4,
+    "could_not_look": 0
+   },
+   "not_ok": [
+    "runnable_floor",
+    "grade_latency_p90_d",
+    "theme_share_min_ratio",
+    "research_ops_not_run"
+   ],
+   "alert": null,
+   "delivered": null
   }
  ]
 }

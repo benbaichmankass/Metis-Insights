@@ -786,8 +786,8 @@ ${opts.noChild ? "" : `<div class=r id=chd><div id=chm>ETH <span>5x</span></div>
 <div class=kv><span>Initial margin</span><span>265.84 USD</span></div><div class=kv><span>Total open volume</span><span>${opts.qty || "0.54"} ETH</span></div>
 <div class=kv><span>uPnL</span><span>${opts.upnl || "20.88 USD"}</span></div><div class=kv><span>RoE</span><span>7.85%</span></div></div>
 <div id=ps style="display:none"><div class=th><span>SIDE</span><span>TYPE</span><span>TRIGGER PRICE</span></div>
-<div class=or id=slrow><span>Long</span><span>Stop l…</span><span id=slpx>2,504.25 USD</span>${pen}<button class=ib data-danger>ⓧ</button></div>
-<div class=or><span>Long</span><span>Take p…</span><span>2,214.87 USD</span><button class=ib aria-label='Edit'>✎</button><button class=ib data-danger>ⓧ</button></div></div></div>
+<div class=or id=slrow><span>Long</span><span>Stop l…</span><span id=slpx>2,504.25 USD</span><span><span>0.54</span><span class=u><span>ETH</span></span></span>${pen}<button class=ib data-danger>ⓧ</button></div>
+<div class=or><span>Long</span><span>Take p…</span><span>2,214.87 USD</span><span><span>0.54</span><span class=u><span>ETH</span></span></span><button class=ib aria-label='Edit'>✎</button><button class=ib data-danger>ⓧ</button></div></div></div>
 <div id=modal style="display:none"><h3 id=mt>Edit Stop loss</h3><p>Short 0.54 ETH @ 2,461.52 USD</p>
 <label for=mq>Quantity</label><input id=mq value="0.54"><label for=mtr>Trigger USD</label><input id=mtr value="2504.25"><label for=md>Entry distance %</label><input id=md value="1.74">
 <label for=mr>R:R</label><input id=mr value="2.6"><button id=mc>Cancel</button><button id=mok>Confirm</button></div>
@@ -828,6 +828,9 @@ document.getElementById('mok').onclick=function(){window.__saved++;document.getE
   let so = await ev("__ex.sheetOrders()");
   const stopRow = so.rows.find((r) => r.type === "stop");
   eq([so.n_stop, so.n_take, stopRow.trigger, stopRow.close_side, stopRow.pencils, stopRow.icons.length], [1, 1, 2504.25, "long", 1, 2], "sheet orders: one stop @ 2504.25 (closing side long), one pencil among two icons");
+  // 2026-10-18 #a8: the row ALSO carries the quantity "0.54" + "ETH" (number and unit in separate spans) — a second
+  // bare price-shaped leaf. The quote unit (USD) picks the trigger; the coin-unit leaf is never the trigger.
+  eq([stopRow.n_px, stopRow.n_usd, stopRow.why === undefined, stopRow.px_shapes], [2, 1, true, ["d,ddd.dd USD", "d.dd ETH"]], "sheet orders: two price-shaped leaves, ONE in the quote unit -> that one is the trigger; shapes carry the units");
   eq(stopRow.icon_lines.every((x) => x.length <= 40) && !/\d/.test(JSON.stringify(stopRow.icons)), true, "sheet orders: icon dump masked, fits the 40-char scrub");
   // 4. ONLY the stop row's pencil; the modal is "Edit Stop loss" with the header side + qty
   eq([await ev("__ex.sheetEditStop()"), await ev("window.__danger")], ["clicked", 0], "edit: the stop row's pencil clicked, never the ⓧ");

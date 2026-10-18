@@ -31,3 +31,10 @@ rehearsal drill's job on the phone (`phone-drill` system-action).
 
 `sample-positions-sheet-synthetic` is built from `exec_check.js`'s synthetic sheet page, not from a phone
 capture: it proves the tooling end to end and is replaced by the first real one.
+
+## Fixtures
+
+| fixture | source | what it proves |
+|---|---|---|
+| `sample-positions-sheet-synthetic` | `exec_check.js`'s synthetic sheet page | the tooling end to end (replaced by real ones) |
+| `breakout-sheet-tpsl-stop-row` | breakout_2, app 1b.300, 2026-10-18 14:32Z, amend #a8 step `003-stop_row` | the REAL [1 TP / 1 SL] rows carry the trigger (USD) **and** the quantity (ETH) as separate bare numbers; `sheetOrders` reads the trigger by the quote unit (exec.js ≥ 2026-10-18.4; ≤ .3 returned null here and the app reported `human_moved`) and the row's Edit control is the one pencil |

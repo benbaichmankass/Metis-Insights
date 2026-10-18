@@ -1,0 +1,16 @@
+{
+  "note": "REAL capture: breakout_2, app 1b.300, 2026-10-18 14:32Z, amend #a8 step 003-stop_row — the position sheet on its [1 TP / 1 SL] tab. The Stop row reads 'Long | Stop loss | <price> USD | <qty> ETH' with number and unit in separate spans: TWO bare price-shaped leaves. exec.js <= 2026-10-18.3 returned trigger null here and the app reported human_moved; the operator had not touched the stop. Every number is replaced; the SHAPE is the phone's.",
+  "checks": [
+    {"call": "__ex.sheetInfo('ETHUSD')", "expect": {"open": true, "n": 1, "title_ok": true, "subtitle": "Position – ID", "tabs": {"details": 1, "trades": 1, "tpsl": 1}},
+     "note": "sheet: open, titled with the symbol, the position id redacted on the device, three tabs"},
+    {"call": "__ex.sheetOrders()", "expect": {"ok": true, "n_stop": 1, "n_take": 1, "rows": [{"type": "stop", "n_px": 2, "n_usd": 1, "px_shapes": ["d,ddd.dd USD", "d.dd ETH"], "close_side": "long", "pencils": 1}, {"type": "take", "n_px": 2, "n_usd": 1, "px_shapes": ["d,ddd.dd USD", "d.dd ETH"], "close_side": "long", "pencils": 1}]},
+     "note": "sheet orders: each row holds TWO price-shaped leaves (trigger in USD, quantity in ETH); exactly one in the quote unit; the row's Edit control reads as the one pencil"},
+    {"call": "__ex.sheetOrders().rows[0].trigger > 0 && __ex.sheetOrders().rows[0].why === undefined", "expect": true,
+     "note": "sheet orders: the stop trigger READS (the USD leaf), not null — the #a8 null read is fixed"},
+    {"call": "__ex.sheetOrders().rows[0].icons.map(function (c) { return [c.pencil, c.deny]; })", "expect": [[true, ""], [false, "deny_word"]],
+     "note": "sheet orders: the Edit control is the pencil; the Cancel-order control is denied"},
+    {"call": "__ex.sheetDetails().ok", "expect": false, "note": "sheet details: NOT readable while the orders tab is shown (the flow reads details first, then switches tabs)"},
+    {"call": "__ex.modalInfo()", "expect": {"n": 0}, "note": "no edit modal open"},
+    {"call": "__ex.modalsOpen()", "expect": {"n": 0}, "note": "no stray modal"}
+  ]
+}

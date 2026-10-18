@@ -11,8 +11,8 @@
   "tier": 2,
   "prs": [],
   "blocked_on": [],
-  "note": "2026-10-18 ~14:00Z P0 (manager): breakout_2 prop-manual-c1dba3c376b3 held as human_moved on a NULL stop read (1b.265 heartbeat 13:01:56Z \"terminal stop null != expected 2452.65\"; diag #18975). Fix branch claude/phone-trail-unread-stop: the server classifier records an unread stop as status \"unread\" (fail + backoff, never a hold) and releases the existing hold on the next plan (hold_released history row); exec.js 2026-10-18.3 (signed) + the app refuse UNREAD instead of human_moved. APK 1b.300 (run 39132307213) is the one install; signature 2026-10-18.2 served (match true).",
-  "updated_at": "2026-10-18T14:04:12Z",
+  "note": "2026-10-18 ~15:40Z P0 follow-through: #18977 MERGED+DEPLOYED (web-api restarted 14:33Z; exec.js .3 served) and OBSERVED server-side \u2014 the hold was released at 14:32:18Z and #a8 emitted; the phone (1b.300, captures on) still read the stop as null and the server recorded it as `unread` (no hold). Capture 003-stop_row shows why: the Stop row carries the trigger (USD) and the QUANTITY (ETH) as two bare numbers. Branch claude/phone-exec-quote-unit: exec.js 2026-10-18.4 picks the trigger by the quote unit; real-page fixture breakout-sheet-tpsl-stop-row proves it in CI; the planner waives a running backoff once when a newer signed exec.js is served (fails=7 = 8 bars otherwise). Observation that closes the row: amend #a9+ lands on the terminal with sl_read and captures.",
+  "updated_at": "2026-10-18T15:24:09Z",
   "updated_by": "session_01Cqmpr14msnNhk7ZQrmYRfS",
   "roadmap": [
     "L-PROP"

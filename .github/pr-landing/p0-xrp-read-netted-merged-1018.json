@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "MANAGER DISPATCH (acting with the operator's authority, docs/CLAUDE-RULES-CANONICAL.md § 'Lanes answer to the manager'), 2026-10-18 06:30Z, verbatim: \"LANDING: Tier-1 `landing: hold` (manager merges) as each piece is green; Tier-2/3 held for the operator.\" Register-only: the operator-raised XRP live-trade check (classification (a) with its evidence) on the lane row, and the NETTED-SLICES row moved to landed_unproven with MERGED 9ec728105 / DEPLOYED 26c51b3d0 recorded and the observation pending. No code, config, roster, order path, runtime or VM change.",
+  "why": "The XRP note was pushed to #18978's branch seconds after that PR merged, so it never reached main; this carries it. The NETTED-SLICES row is where the manager asked for merged / deployed / observed to be written."
+}

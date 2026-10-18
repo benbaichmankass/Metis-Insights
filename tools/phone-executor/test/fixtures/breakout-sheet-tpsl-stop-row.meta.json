@@ -1,0 +1,20 @@
+{
+ "name": "breakout-sheet-tpsl-stop-row",
+ "source": "amend-prop-manual-c1dba3c376b3-a8-20261018T143229Z/003-stop_row",
+ "note": "1b.300 14:32Z amend #a8 step 003-stop_row: the [1 TP / 1 SL] tab with the Stop row 'Long | Stop loss | <price> USD | <qty> ETH' (number and unit in separate spans) -- the quantity cell is a second bare number, so the pre-.4 reader returned trigger null and the app reported human_moved",
+ "snapshot_version": "2026-10-18.2",
+ "vw": 411,
+ "vh": 733,
+ "dpr": 2.625,
+ "path": "/app/account/ACCT/trade/eth-usd",
+ "roots": [
+  "sheet",
+  "grid",
+  "body"
+ ],
+ "nodes_in_snapshot": 614,
+ "nodes_rendered": 613,
+ "cut": false,
+ "numbers": "replaced (same length + leading digit, seeded by the value)",
+ "redaction": "on device + server"
+}

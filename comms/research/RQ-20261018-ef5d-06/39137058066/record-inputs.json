@@ -1,0 +1,18 @@
+{
+  "artifact_locator": "comms/research/RQ-20261018-ef5d-06/39137058066/ (run-manifest.json + verdict.json + logs/)",
+  "artifact_store": "comms/research/RQ-20261018-ef5d-06/39137058066",
+  "data_fingerprint": "{\"state\": \"not_established\", \"why\": \"the run named no existing input file or directory in its argv or in verdict.json data_inputs\"}",
+  "decision_rule_id": "RULE-P7-A4-REGIME-FILTERED-DAILY",
+  "decision_rule_registered_at": "2026-10-18",
+  "measurement_file": "comms/research/RQ-20261018-ef5d-06/39137058066/measurement.json",
+  "min_rows": "1",
+  "n": "716",
+  "note": "PASS: arm LONG passes (pooled net_r 109.7931); 1 of 4 arms pass. Thresholds: n_floor 20, pooled_n_floor 39, folds 6 majority 4, breadth 0.5 over >= 2 powered cells, holm alpha 0.05, baseline B with materiality 0.1 R/trade. Crypto candles are Binance USD-M (PROXY for Bybit linear); the cost stack is the harness's venue-aware fee + slippage + funding. A pass is an input to a re-entry case, never a roster act.",
+  "population": "family=trend timeframe=1d symbols=BTCUSDT,ETHUSDT,SOLUSDT,XRPUSDT,ADAUSDT,AVAXUSDT arms=['B', 'ADX20', 'VOL50', 'LONG'] window=2020-01-01..2026-10-17 days=2600; 24 of 24 cells measured; trades net of fee+slippage+funding",
+  "power_state": "accruing",
+  "read_state": "measured",
+  "records_file": "",
+  "research_unit": "RQ-20261018-ef5d-06",
+  "tool": "python3 scripts/research/harness_stage0.py",
+  "verdict": "pass"
+}

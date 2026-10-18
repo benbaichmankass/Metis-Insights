@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01Cqmpr14msnNhk7ZQrmYRfS",
+  "branch": "claude/phone-exec-quote-unit",
+  "claimed_at": "2026-10-18T15:21:39Z",
+  "purpose": "P0: exec.js picks the sheet trigger by the quote unit; real-page fixture; backoff waived once on a new signed script"
+}

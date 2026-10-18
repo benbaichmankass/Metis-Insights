@@ -6,7 +6,7 @@
   // PHONE-EXEC-OBSERVABLE-1018: this file is also served SIGNED by our own API and swapped in at runtime
   // (RemoteJs.kt): a newer version replaces the installed helpers on the next ensure(); the same version is
   // never injected twice. Bump on every change (CI signs the file; the app pins by version).
-  var EXEC_VERSION = "2026-10-18.3";
+  var EXEC_VERSION = "2026-10-18.4";
   if (window.__ex && window.__ex.version === EXEC_VERSION) return;
   function hostOk() { return /(^|\.)breakoutprop\.com$/.test(location.hostname || ""); }
   function vis(el) { if (!el) return false; var r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }
@@ -863,17 +863,39 @@
     return {n: 1, value: null, why: "no_value"};
   }
   var PRICE_LEAF = /^[-+−]?\s*\d[\d,]*(\.\d+)?\s*(USD[TC]?)?$/i;
-  // the [n TP / n SL] tab's order rows: each TYPE cell ("Stop l…" / "Take p…") and its smallest ancestor holding ONE
-  // price and no other TYPE cell
+  var QUOTE_UNIT = /^USD[TC]?$/i;
+  // The unit beside a bare number: in its own text ("2,452.65 USD"), else the first word that follows it in the
+  // nearest ancestor whose text starts with it ("2,452.65" + "USD" in sibling spans -> "USD"; "0.52" + "ETH" -> "ETH").
+  // MEASURED 2026-10-18 (1b.300 amend #a8, capture 003-stop_row): the [1 TP / 1 SL] Stop row is "Long | Stop loss |
+  // 2,452.65 USD | 0.52 ETH" with number and unit in separate spans, so the QUANTITY cell is a second bare
+  // price-shaped leaf and the trigger read null -> reported as a human move. The quote unit decides.
+  function unitOf(leaf) {
+    var s = t(leaf), m = /\s([A-Z]{2,6})$/i.exec(s);
+    if (m) return m[1].toUpperCase();
+    for (var a = leaf.parentElement, k = 0; a && k < 3; a = a.parentElement, k++) {
+      var w = t(a);
+      if (w.length > s.length && w.indexOf(s) === 0) return (w.slice(s.length).trim().split(/\s+/)[0] || "").toUpperCase();
+      if (w !== s) break;
+    }
+    return "";
+  }
+  // the [n TP / n SL] tab's order rows: each TYPE cell ("Stop l…" / "Take p…") and its smallest ancestor holding at
+  // least one price-shaped leaf and no other TYPE cell. `usd` = the leaves whose unit is the quote currency: the
+  // trigger is the ONE of those; with no units at all the ONE bare leaf still counts (synthetic pages).
   function sheetOrderRows(root) {
     var types = textEls(root, /^(stop|take)\b/i, 30), out = [];
     types.forEach(function (ty) {
       for (var a = ty.parentElement, k = 0; a && k < 5 && a !== root; a = a.parentElement, k++) {
         if (types.some(function (o) { return o !== ty && a.contains(o); })) break;
         var px = textEls(a, PRICE_LEAF);
-        if (px.length) { out.push({type: /^stop/i.test(t(ty)) ? "stop" : "take", el: a, typeEl: ty, px: px}); return; }
+        if (px.length) {
+          var usd = px.filter(function (p) { return QUOTE_UNIT.test(unitOf(p)); });
+          out.push({type: /^stop/i.test(t(ty)) ? "stop" : "take", el: a, typeEl: ty, px: px, usd: usd,
+            pick: usd.length === 1 ? usd[0] : (px.length === 1 ? px[0] : null)});
+          return;
+        }
       }
-      out.push({type: /^stop/i.test(t(ty)) ? "stop" : "take", el: null, typeEl: ty, px: []});
+      out.push({type: /^stop/i.test(t(ty)) ? "stop" : "take", el: null, typeEl: ty, px: [], usd: [], pick: null});
     });
     return out;
   }
@@ -1774,9 +1796,12 @@
         var ic = rowIcons(o.el, [o.typeEl].concat(o.px)).map(iconDump);
         // trigger reads ONLY from exactly one price cell; otherwise null with `why` + the cells' digit-masked shapes,
         // so an UNREAD stop is diagnosable from the dump and is never mistaken for a moved one (2026-10-18, #a7).
-        return {type: o.type, trigger: o.px.length === 1 ? firstNumber(t(o.px[0])) : null, n_px: o.px.length,
-          why: o.px.length === 1 ? undefined : (o.px.length ? "many_prices" : "no_price"),
-          px_shapes: o.px.slice(0, 4).map(function (x) { return t(x).replace(/\d/g, "d").slice(0, 16); }),
+        return {type: o.type, trigger: o.pick ? firstNumber(t(o.pick)) : null, n_px: o.px.length, n_usd: o.usd.length,
+          why: o.pick ? undefined : (o.px.length ? (o.usd.length ? "many_quote_prices" : "many_prices_no_unit") : "no_price"),
+          px_shapes: o.px.slice(0, 4).map(function (x) {
+            var s = t(x).replace(/\d/g, "d"), u = unitOf(x);
+            return (u && !new RegExp("\\b" + u + "$", "i").test(s) ? s + " " + u : s).trim().slice(0, 20);
+          }),
           close_side: sideOf(wt(o.el)) || "", icons: ic, icon_lines: iconLines(ic), pencils: ic.filter(function (c) { return c.pencil; }).length};
       });
       return {ok: true, n_stop: rows.filter(function (x) { return x.type === "stop"; }).length,

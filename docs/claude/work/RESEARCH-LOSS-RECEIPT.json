@@ -1,16 +1,15 @@
 {
-  "generated_at": "2026-10-18T04:47:36Z",
-  "overall": "findings",
+  "generated_at": "2026-10-18T16:00:27Z",
+  "overall": "could_not_read",
   "produced_by": {
-    "run_id": "39098282796",
+    "run_id": "39142932893",
     "workflow": "research-loss-detector"
   },
   "questions": {
     "A_stuck_research_prs": {
-      "findings": [],
-      "population": "18 open PRs; 1 automation/*; 0 carry research; 1 automation/* carry none (not graded here)",
-      "state": "clean",
-      "threshold_hours": 6.0
+      "error": "GET https://api.github.com/repos/benbaichmankass/Metis-Insights/pulls/18963/files?per_page=100&page=1: HTTP Error 422: Unprocessable Entity",
+      "findings": null,
+      "state": "could_not_read"
     },
     "B_unlanded_result_runs": {
       "findings": [
@@ -58,12 +57,12 @@
         }
       ],
       "pending_merge": [],
-      "population": "315 completed run(s) of 7 workflow(s) calling ./.github/actions/research-result since 2026-10-04 (dukascopy-span-probe.yml, ict-scalp-exit-sweep.yml, m20-exit-lever-sweep.yml, research-exit-head-build.yml, research-exit-head-replay-trainer.yml, research-harness-dispatch.yml, soak-book-grade-weekly.yml); 960 produced no result by design (skipped); 846 result file(s) on origin/main",
+      "population": "316 completed run(s) of 7 workflow(s) calling ./.github/actions/research-result since 2026-10-04 (dukascopy-span-probe.yml, ict-scalp-exit-sweep.yml, m20-exit-lever-sweep.yml, research-exit-head-build.yml, research-exit-head-replay-trainer.yml, research-harness-dispatch.yml, soak-book-grade-weekly.yml); 1000 produced no result by design (skipped); 893 result file(s) on origin/main",
       "state": "findings"
     },
     "C_expiring_unlanded_artifacts": {
       "findings": [],
-      "population": "2325 artifact(s) listed, 2325 unexpired, 1516 expire within 72.0h across 1432 run(s); 4 of those from research workflows (research-watchdog.yml); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
+      "population": "2204 artifact(s) listed, 2204 unexpired, 1407 expire within 72.0h across 1331 run(s); 4 of those from research workflows (research-watchdog.yml); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
       "state": "clean"
     }
   },

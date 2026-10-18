@@ -1,0 +1,91 @@
+{
+  "strategy": "trend_donchian",
+  "symbol": "XRPUSDT",
+  "timeframe": "1d",
+  "params": {
+    "donchian": 20,
+    "atr_stop_mult": 2.5,
+    "trail_mult": 5.0,
+    "min_confidence": 0.0,
+    "adx_min": 20.0,
+    "adx_period": 14
+  },
+  "total_trades": 31,
+  "fee_bps_roundtrip": 7.5,
+  "slippage_bps_roundtrip": 3.0,
+  "funding_bps_per_window": 1.0,
+  "data_start": "2020-01-06 00:00:00+00:00",
+  "data_end": "2026-10-17 00:00:00+00:00",
+  "run_date": "2026-10-18",
+  "tp_r_effective_n": 0,
+  "tp_r_effective_median": null,
+  "tp_r_effective_min": null,
+  "tp_r_effective_max": null,
+  "rr_floor_state": "off",
+  "rr_min_n": 0,
+  "rr_min_p10": null,
+  "rr_min_median": null,
+  "rr_min_p90": null,
+  "rr_floor_exits": 0,
+  "win_rate_pct": 35.48,
+  "total_r": 19.3593,
+  "net_total_r": 17.1352,
+  "net_total_r_long": 22.1907,
+  "net_total_r_short": -5.0556,
+  "net_expectancy_r": 0.5527,
+  "net_total_r_fee_only": 19.1833,
+  "net_expectancy_r_fee_only": 0.6188,
+  "mean_cost_r": {
+    "fee_r": 0.00568,
+    "slippage_r": 0.00227,
+    "funding_r": 0.0638,
+    "total_cost_r": 0.07175,
+    "funding_windows": 106.83871
+  },
+  "trades_long": 16,
+  "trades_short": 15,
+  "avg_win_r": 3.1473,
+  "max_mfe_r": 12.019,
+  "max_drawdown_r": 5.5847,
+  "by_outcome": {
+    "stop": 11,
+    "trail_stop": 19,
+    "timeout": 1
+  },
+  "by_year": {
+    "2020": {
+      "trades": 8,
+      "net_r": 4.1703
+    },
+    "2021": {
+      "trades": 3,
+      "net_r": 5.5609
+    },
+    "2022": {
+      "trades": 3,
+      "net_r": 0.1721
+    },
+    "2023": {
+      "trades": 6,
+      "net_r": -1.2994
+    },
+    "2024": {
+      "trades": 5,
+      "net_r": 9.9675
+    },
+    "2025": {
+      "trades": 3,
+      "net_r": -1.1638
+    },
+    "2026": {
+      "trades": 3,
+      "net_r": -0.2723
+    }
+  },
+  "bar_minutes": 1440.0,
+  "position_days": 1104.0,
+  "capital_days": 1104.0,
+  "mean_bars_held": 35.613,
+  "net_r_per_position_day": 0.0155,
+  "net_r_per_capital_day": 0.0155
+}
