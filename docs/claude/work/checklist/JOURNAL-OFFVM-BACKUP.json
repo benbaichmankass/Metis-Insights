@@ -13,8 +13,8 @@
     17847
   ],
   "blocked_on": [],
-  "note": "Operator-approved 2026-10-13 ('yes make the off-vm backup'). Actions cron 03:23Z SSHes live VM read-only, online-backup snapshot + integrity_check, uploads to bucket ict-journal-backups (NoPublicAccess, versioning on); 30d daily + 12w weekly pruning. Not observed until first run + restore test. Revert: delete journal-offvm-backup.yml.",
-  "updated_at": "2026-10-13T12:28:40Z",
+  "note": "MERGED 6cc27be0 (#17847); DEPLOYED (workflow on main); first run OBSERVED 2026-10-13 (run 38406257010, issue #17870): bucket ict-journal-backups created private+versioned (asserted from bucket fields), trade_journal raw 2,019,954,688 B -> gz 220,906,826 B integrity ok 17 tables, trainer_store 4.36 MB gz 7 tables; restore test from the stored object: sha match, integrity ok, 0 count mismatches vs snapshot, shrunk_in_live=0. Still landed_unproven: needs 7 consecutive daily objects (see observation). Capacity: ~221 MB/day => ~9 GB steady state vs 20 GB Always Free - re-check size when status runs. Revert: delete .github/workflows/journal-offvm-backup.yml (bucket contents stay).",
+  "updated_at": "2026-10-13T13:49:35Z",
   "updated_by": "session_JOURNAL-OFFVM-BACKUP",
   "roadmap": [
     "L-OPS"

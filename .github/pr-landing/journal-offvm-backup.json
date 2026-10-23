@@ -1,11 +1,7 @@
 {
-  "tier": 2,
+  "tier": 1,
   "landing": "hold",
   "hold_reason": "tier_2_3_needs_approval",
-  "hold_text": "Tier-2: adds the daily journal-offvm-backup workflow (read-only on the live VM; private versioned OCI bucket). Manager merges under JOURNAL-OFFVM-BACKUP.",
-  "recorded_decision": {
-    "kind": "operator_decision",
-    "ref": "JOURNAL-OFFVM-BACKUP"
-  },
-  "why": "JOURNAL-OFFVM-BACKUP: read-only-on-live scripts for a versioned, private off-VM backup of trade_journal.db (online-backup snapshot, integrity check, OCI bucket upload, retention prune, restore test). Operator approval 2026-10-13, verbatim: \"yes make the off-vm backup\". No order path, service or live DB write."
+  "hold_text": "Docs-only checklist note refresh for JOURNAL-OFFVM-BACKUP; the manager merges it.",
+  "why": "Checklist row note refresh recording the first-run evidence. The Tier-2 workflow merged in #17847 under the operator's recorded approval; this PR changes no code or workflow."
 }
