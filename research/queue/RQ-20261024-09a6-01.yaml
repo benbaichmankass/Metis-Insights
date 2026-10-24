@@ -1,7 +1,11 @@
 id: RQ-20261024-09a6-01
 title: 'AI-ATM rung A1: on the money legs AS TRADED, does a per-bar state with momentum and ADX slope predict ''holding from here loses
   to exiting now'' beyond where the trade is (open R, peak, bars, room to the IN-FORCE stop and target)? Linear first.'
-status: blocked
+status: queued
+status_reason: >-
+  2026-10-24 lane FIRST-PASSAGE-ON-PATHS: promoted from blocked/ -- first_passage.py --harness-legs (scripts/research/first_passage_paths.py)
+  builds per-bar as-traded events from config-exact harness --emit-paths rows; its self-test grades a driftless walk FAIL/INDETERMINATE
+  and a planted signal PASS. The decision rule below is unchanged; blocked_on is kept as history.
 cadence: once
 roadmap:
 - L-ATM
@@ -77,8 +81,35 @@ routing:
   basis: 'Estimate: six harness passes with --emit-paths (one per leg, ~1-2 min each MEASURED for exit_lever_ablation arms 2026-10-16)
     plus the fit.'
 run:
-  workflow: null
-  note: Null until the blocked_on build lands; then git mv to research/queue/, status queued, fill run.command.
+  workflow: research-script-run.yml
+  command:
+  - python3
+  - scripts/research/first_passage.py
+  - --harness-legs
+  - trend_donchian_eth_4h,trend_donchian_xrp_4h,xrp_pullback_2h,ada_pullback_2h,trend_donchian_eth_prop,trend_donchian_sol_prop
+  - --days
+  - '2330'
+  - --start
+  - '2020-07-01'
+  - --end
+  - '2026-10-15 23:59'
+  - --mode
+  - baseline
+  - --min-gain-nats
+  - '0.002'
+  - --min-folds
+  - '4'
+  - --min-n
+  - '600'
+  - --n-folds
+  - '6'
+  - --n-boot
+  - '2000'
+  - --out
+  - '{out_dir}'
+  timeout_minutes: 120
+  inputs:
+    research_unit: RQ-20261024-09a6-01
 lands:
   store: research/results/
   assert_field: read_state

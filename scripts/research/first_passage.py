@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# wiring: research/queue units RQ-20261014-d6e7-01..05 (run.command) via research-script-run.yml -- the token-free runner
+# wiring: research/queue units RQ-20261014-d6e7-01..06, RQ-20261024-09a6-01 (run.command) via research-script-run.yml -- the token-free runner
 """First passage in an open trade: P(SL before TP | state at bar t), and an exit-now policy graded net of cost.
 
 WHY THIS EXISTS (checklist row IN-TRADE-EXIT-MODEL; operator direction 2026-10-14, verbatim on the row:
@@ -78,6 +78,11 @@ no journal, no live path; nothing it prints changes a bracket (every flip is Tie
 
     python3 scripts/research/first_passage.py --mode census --out <dir>
     python3 scripts/research/first_passage.py --self-test
+    python3 scripts/research/first_passage.py --harness-legs <leg,...> --mode baseline|policy --out <dir>
+
+AS TRADED (FIRST-PASSAGE-ON-PATHS): `--paths <glob>` / `--harness-legs` route to scripts/research/first_passage_paths.py,
+which reads the harness's own per-bar emit (the stop and target in force at every bar) instead of re-walking a fixed
+bracket. Without those flags this file's output is byte-identical to before (tests/test_first_passage_paths.py).
 """
 from __future__ import annotations
 
@@ -705,6 +710,8 @@ def _args(argv: Optional[List[str]]) -> argparse.Namespace:
     ap.add_argument("--cache-dir", default=None)
     ap.add_argument("--out", default=None)
     ap.add_argument("--self-test", action="store_true")
+    from first_passage_paths import add_args  # the AS-TRADED reader's options (--paths / --harness-legs)
+    add_args(ap)
     return ap.parse_args(argv)
 
 
@@ -815,7 +822,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not a.out:
         print("--out is required", file=sys.stderr)
         return 2
-    v = run(a)
+    if a.paths or a.harness_legs:  # AS TRADED (harness per-bar paths); --ledgers mode below is unchanged
+        from first_passage_paths import run_paths
+        v = run_paths(a)
+    else:
+        v = run(a)
     print(json.dumps({k: v[k] for k in ("verdict", "read_state", "n", "note")}, indent=2))
     return 0
 

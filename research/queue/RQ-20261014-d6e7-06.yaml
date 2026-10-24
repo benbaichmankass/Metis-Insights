@@ -2,7 +2,11 @@ id: RQ-20261014-d6e7-06
 title: >-
   In-trade exit line, rung 6: the first-passage census and the exit-now policy on HARNESS-NATIVE per-bar paths of the real-money
   legs -- the leg as it trades, not a fixed bracket. BLOCKED: no harness emits per-bar paths (EXIT-PATH-EMIT-OFFLINE)
-status: blocked
+status: queued
+status_reason: >-
+  2026-10-24 lane FIRST-PASSAGE-ON-PATHS: promoted from blocked/ -- first_passage.py --harness-legs (scripts/research/first_passage_paths.py)
+  builds per-bar as-traded events from config-exact harness --emit-paths rows; its self-test grades a driftless walk FAIL/INDETERMINATE
+  and a planted signal PASS. The decision rule below is unchanged; blocked_on is kept as history. The registered '6-fold yearly walk-forward' is run as 6 equal calendar folds by entry over 2020-07-01 .. 2026-10-15 (~1.05 years each), purged on each trade's last bar; the policy is the R1 linear value head (exit at the first bar whose OOS predicted exit_r - open_r_t < -c_exit), the 8.4 rich state named in blocked_on. Population: the six Programme 01 money legs.
 cadence: once
 theme: live_strategy
 priority: 1
@@ -74,8 +78,35 @@ routing:
   est_minutes: 60
   basis: 'Estimate: config-exact harness runs of ~7 legs plus the policy pass.'
 run:
-  workflow: null
-  note: Null until FIRST-PASSAGE-ON-PATHS lands (blocked_on; the emit itself landed 2026-10-16, #18536).
+  workflow: research-script-run.yml
+  command:
+  - python3
+  - scripts/research/first_passage.py
+  - --harness-legs
+  - trend_donchian_eth_4h,trend_donchian_xrp_4h,xrp_pullback_2h,ada_pullback_2h,trend_donchian_eth_prop,trend_donchian_sol_prop
+  - --days
+  - '2330'
+  - --start
+  - '2020-07-01'
+  - --end
+  - '2026-10-15 23:59'
+  - --mode
+  - policy
+  - --min-trade-gain-r
+  - '0.05'
+  - --min-folds
+  - '5'
+  - --min-n
+  - '100'
+  - --n-folds
+  - '6'
+  - --n-boot
+  - '2000'
+  - --out
+  - '{out_dir}'
+  timeout_minutes: 120
+  inputs:
+    research_unit: RQ-20261014-d6e7-06
 lands:
   store: research/results/
   assert_field: read_state

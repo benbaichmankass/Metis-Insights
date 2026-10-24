@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-28",
+    "kind": "date"
+  },
+  "id": "PI-20261024-FPPATHS-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane FIRST-PASSAGE-ON-PATHS (session_01PTe7EDdMjXTYEDfPDDgGYe), PR #19955",
+    "rerun": "python3 scripts/research/dispatch_queue.py --json | jq '.[]? | select(.id==\"RQ-20261024-09a6-01\" or .id==\"RQ-20261014-d6e7-06\") | {id,power_state,required_n,expected_n}'"
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": "1",
+  "what": "[research] RQ-20261024-09a6-01 and RQ-20261014-d6e7-06 read power_state=accruing in the dispatcher dry run (2026-10-24): declared expected_n 600 against computed floors 1,255,834 (09a6-01: sd 0.8, mde 0.002 nats, one_sample) and 2,009 (d6e7-06), so dispatch_queue marks their output 'must not be read as a test result'. MEASURED locally (first_passage --harness-legs, six legs, 2020-07-01..2026-10-15, branch claude/first-passage-on-paths): 09a6-01's trade-cluster bootstrap CI was [0.00095, 0.00361] nats at n=2,558 OOS trades -> SE ~0.00068, per-trade gain sd ~0.034, about 23x below the declared 0.8. The decision rule is pre-registered and unchanged; the power DECLARATION needs a manager call (re-declare sd from the measured dispersion, or accept the accruing label)."
+}

@@ -2,23 +2,34 @@
   "id": "FIRST-PASSAGE-ON-PATHS",
   "title": "first_passage.py reads harness --emit-paths rows (the leg AS TRADED) instead of re-walking ledgers with a fixed bracket -- the instrument Programme 01 Q8.6 / blocked RQ-20261014-d6e7-06 waits on",
   "phase": "research-infra",
-  "state": "in_flight",
+  "state": "landed_unproven",
   "owner": "manager (Tier-1 build lane)",
   "lane": "session_01PTe7EDdMjXTYEDfPDDgGYe",
   "model": "claude-opus-5-5",
   "ceiling_usd": 15,
   "spend_usd": null,
   "tier": 1,
-  "prs": [],
+  "prs": [
+    19955
+  ],
   "blocked_on": [],
-  "note": "[2026-10-24 lane ATM-AI-MERGE] RANK 1 on the AI active trade management critical path (Programme 01 section 'AI active trade management'): it gates d6e7-06 and the new rung A1 (blocked/RQ-20261024-09a6-01). VERIFIED 2026-10-24: first_passage.py argparse still has no --paths (only --ledgers); no *__paths.jsonl is committed under comms/. SPEC ADDITIONS for 09a6-01: (1) no committed corpus is needed -- reuse scripts/research/path_metric_giveback.run_leg_paths, which already runs each leg config-exact with --emit-paths inside the unit; (2) an AS-TRADED label beside the TP/SL-first one: L_t = 1 if exit_r - open_r_t < -c_exit (the leg's own exit loses to exiting now, cost from resolve_cost_policy); (3) reference R0 = open_r, peak_r, bars_in, bars_since_peak, dist_to_stop_r/atr_r, dist_to_target_r/atr_r (+ absent-target indicator), leg FE -- room-to-stop is the measured dominant predictor (AUC ~0.81, EXIT-PATH-METRICS-W43) so it belongs in the reference, not the candidate; (4) R1 = R0 + momentum 3/6 bars in ATR, adx_14, 3-bar ADX slope, range contraction, close location; (5) 6 purged calendar folds, trade-cluster bootstrap. Path rows already carry dist_to_stop_r, dist_to_target_r, atr_r, adx_14 (scripts/research/harness_emit.py). [2026-10-24T21:02Z manager session_01EfjqotNYj6MppcEBqbGvkA] Dispatched: Opus (it carries the exit-now policy replay the AI-ATM programme rests on), fresh, $15. Critical path per #19943.",
-  "updated_at": "2026-10-24T21:02:01Z",
-  "updated_by": "session_01EfjqotNYj6MppcEBqbGvkA",
+  "note": "[2026-10-24 lane ATM-AI-MERGE] RANK 1 on the AI active trade management critical path (Programme 01 section 'AI active trade management'): it gates d6e7-06 and the new rung A1 (blocked/RQ-20261024-09a6-01). VERIFIED 2026-10-24: first_passage.py argparse still has no --paths (only --ledgers); no *__paths.jsonl is committed under comms/. SPEC ADDITIONS for 09a6-01: (1) no committed corpus is needed -- reuse scripts/research/path_metric_giveback.run_leg_paths, which already runs each leg config-exact with --emit-paths inside the unit; (2) an AS-TRADED label beside the TP/SL-first one: L_t = 1 if exit_r - open_r_t < -c_exit (the leg's own exit loses to exiting now, cost from resolve_cost_policy); (3) reference R0 = open_r, peak_r, bars_in, bars_since_peak, dist_to_stop_r/atr_r, dist_to_target_r/atr_r (+ absent-target indicator), leg FE -- room-to-stop is the measured dominant predictor (AUC ~0.81, EXIT-PATH-METRICS-W43) so it belongs in the reference, not the candidate; (4) R1 = R0 + momentum 3/6 bars in ATR, adx_14, 3-bar ADX slope, range contraction, close location; (5) 6 purged calendar folds, trade-cluster bootstrap. Path rows already carry dist_to_stop_r, dist_to_target_r, atr_r, adx_14 (scripts/research/harness_emit.py). [2026-10-24T21:02Z manager session_01EfjqotNYj6MppcEBqbGvkA] Dispatched: Opus (it carries the exit-now policy replay the AI-ATM programme rests on), fresh, $15. Critical path per #19943. [2026-10-24 lane FIRST-PASSAGE-ON-PATHS] BUILT in PR #19955 (landing: hold / unvouchable_paths, merge-slot claimed): scripts/research/first_passage_paths.py via first_passage.py --paths/--harness-legs; --ledgers mode byte-identical (golden sha256 test). Self-test: driftless walk FAIL/INDETERMINATE, planted signal PASS, broken parity INDETERMINATE, gambler's ruin holds. Units 09a6-01 and d6e7-06 promoted to research/queue/ (rules unchanged), both dispatch dry-run would_dispatch. LOCAL feasibility run only, NOT the graded record (6 legs, 2020-07-01..2026-10-15, 2,627 trades, parity 1.0 on all six): info +0.00229 nats CI [0.00095,0.00361] 6/6 slope 0.947; policy trend_donchian -0.024 R/trade CI [-0.048,-0.001], pullback -0.014 CI [-0.043,0.013]. Power declaration filed as PI-20261024-FPPATHS-0001. Merged != run: landed_unproven until the runner lands 09a6-01's record.",
+  "updated_at": "2026-10-24T22:16:22Z",
+  "updated_by": "session_01PTe7EDdMjXTYEDfPDDgGYe",
   "roadmap": [
     "L-ATM",
     "M23"
   ],
   "rank": 1,
   "priority_rank": 1,
+  "writeback": {
+    "roadmap": "L-ATM: the as-traded reader exists (first_passage.py --paths/--harness-legs); rungs A1 (RQ-20261024-09a6-01) and A1-policy (RQ-20261014-d6e7-06) are queued, not graded",
+    "arch": "none: offline research script + tests + queue units; no runtime component, path or contract changed"
+  },
+  "observation": {
+    "what": "the first graded run of RQ-20261024-09a6-01 lands a verdict (research/results/RQ-20261024-09a6-01/) with every leg parity included",
+    "how_to_check": "ls research/results/RQ-20261024-09a6-01/ ; jq .verdict,.measurement.legs research/results/RQ-20261024-09a6-01/*/verdict.json",
+    "due_by": "2026-11-01"
+  },
   "_seq": 559
 }

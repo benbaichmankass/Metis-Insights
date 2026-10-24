@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "promotes two hand-written pre-registered research units (research/queue/blocked/ -> research/queue/: RQ-20261024-09a6-01, RQ-20261014-d6e7-06); decision rules unchanged; the manager merges",
+  "why": "Tier-1 research tooling: first_passage.py --paths/--harness-legs (new scripts/research/first_passage_paths.py) + tests; --ledgers mode byte-identical; no src/, config/, deploy/ or workflow path"
+}
