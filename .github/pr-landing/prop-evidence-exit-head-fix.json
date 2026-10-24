@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "Research tooling only: opt-in lookback on scripts/ml/exit_head_replay.replay_trade (default unchanged) and the RQ-20260927-003 driver passes it. Feature vectors pinned equal by test. No src/, config, order path or runtime file touched.",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Tier-1 research tooling; diff touches scripts/ml/exit_head_replay.py, which is outside TIER1_SURFACE so the guard cannot certify self-landing (R5 failed on 2026-10-12 CI). A human merges."
+}

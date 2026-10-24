@@ -183,3 +183,40 @@ def test_exit_head_replay_repo_root_resolves_to_the_actual_repo_root():
         "_REPO_ROOT landed on scripts/ — this is the exact off-by-one dirname "
         "count that issue #8646 hit on the trainer"
     )
+
+
+def test_bounded_lookback_scores_the_same_features_as_the_full_prefix():
+    """lookback=500 must feed the head the SAME vectors as the full prefix.
+
+    The bound exists for speed (RQ-20260927-003 ran past the 60-minute relay
+    cap); it is only legitimate if it changes nothing the head sees. Wilder
+    ATR's seed decays as (13/14)**N, so at 500 bars the difference is at
+    float-rounding level; every other pre-entry feature reads <= 21 bars.
+    """
+    import math
+    from src.runtime.exit_head_shadow import _feature_row
+
+    df = _candles()
+    trades = [t for t in _trades(df) if t.entry_index > 600]
+    assert trades, "fixture must have trades deeper than the lookback or the test is vacuous"
+    probe = _feature_row(df.iloc[:trades[0].entry_index + 3], trades[0].entry,
+                         trades[0].risk, trades[0].direction, trades[0].entry_index + 1)
+    feats = sorted(k for k, v in probe.items() if isinstance(v, (int, float)))
+    art = {"features": feats, "shape": {"policy": "below_half_r", "tau": 0.1, "below_r": 0.5}}
+
+    def run(lb):
+        seen = []
+
+        def predict(vec):
+            seen.append(vec[0])
+            return 0.99                     # never fires: every in-trade bar is scored
+        recs = [replay.replay_trade(df, t, art, predict, "close", lookback=lb) for t in trades]
+        return recs, seen
+
+    full, v_full = run(None)
+    bounded, v_bounded = run(500)
+    assert [r["bars_scored"] for r in full] == [r["bars_scored"] for r in bounded]
+    assert len(v_full) == len(v_bounded) > 0
+    for a, b in zip(v_full, v_bounded):
+        for x, y in zip(a, b):
+            assert (math.isnan(x) and math.isnan(y)) or x == pytest.approx(y, rel=1e-9, abs=1e-9)
