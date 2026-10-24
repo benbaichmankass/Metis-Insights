@@ -1,0 +1,107 @@
+id: RQ-20261024-1eb9-01
+title: 'Confirmation of the f08c-22 PASS (path metrics at bar 24 predict giveback on the prop legs, ll clause only): same statistic and bar on
+  the three trend legs it was NOT selected on'
+status: queued
+cadence: once
+roadmap:
+- L-ATM
+- M20
+theme: live_strategy
+priority: 2
+kind: experiment
+question: On trend_donchian_sol_4h, trend_donchian_ada_4h and trend_donchian_avax_4h (4h, legs RQ-20261024-f08c-22 never saw), do path metrics
+  read at bar 24 predict peak-to-exit giveback beyond bars-in-trade and current R, by R2 >= 0.02 or log-loss >= 0.01 in >= 4 of 6 folds? Same
+  script, features, label, folds, k and bar as f08c-22, pooled over the three legs.
+why_this_matters: 'RQ-20261024-f08c-22 PASSED on one window and one configuration (pooled ll_gain +0.0135, 5/6 folds, n 250; the R2 clause did
+  not hold, gain -0.0172; per-leg eth_prop was negative: ll_gain -0.0378, 1/6 folds). A PASS on one window is a discovery, not a confirmation
+  (research-ops, RESEARCH-OPS-BENCHMARK-1016). Every calendar window of the data is already inside f08c-22 (2020-07..2026-10), so the only disjoint
+  axis left is LEGS: this unit asks the same question on three trend legs not selected on. Multiple-testing denominator for the PASS being confirmed:
+  the f08c-18..22 path-state / path-metric variants (5 configurations: X 1.0/1.5, w 6/12, k 12/24) and eba2-01/-02 before them; this is configuration
+  1 of 1 on this population. Caveat carried: harness exits fill at the stop price (favours tight-trail arms); any Tier-3 note needs a gap-adjusted
+  re-run.'
+power:
+  expected_n: 300
+  min_detectable_effect: 0.1
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: 'ESTIMATE, not measured: three 4h trend legs over 2020-07..2026-10 with ~150-250 trades each, of which the share still open after bar
+    24 (4h bars = 4 days) is the pooled n; the rule reads INDETERMINATE under 100 rather than FAIL on thin n. One-sample MDE 2.8/sqrt(300)=0.16
+    sd.'
+  feasibility:
+    source: none
+    accrual_basis: Replays history on freshly fetched public candles for a pinned window; nothing accrues.
+decision_rule:
+  id: RULE-1EB9-01-PATH-METRIC-K24-CONFIRM
+  registered_at: '2026-10-24'
+  registered_before_run: true
+  statistic: 'scripts/research/path_metric_giveback.py (the SAME features, label, ridge/logistic models as RQ-20261022-eba2-02) at k=24 bars (1h),
+    legs trend_donchian_sol_4h, trend_donchian_ada_4h and trend_donchian_avax_4h, window 2020-07-01 .. 2026-10-15 23:59, 6 calendar folds, pooled
+    over legs: r2_gain, ll_gain, fold wins, net of the harness venue-aware stack (fee 7.5 bps round trip, slippage 3.0 bps round trip, funding
+    1.0 bps per 8h window; MEASURED in the parent verdicts'' cost_stack).'
+  rule: 'INDETERMINATE IF pooled n < 100. PASS IF (r2_gain >= 0.02 AND r2 fold wins >= 4 of 6) OR (ll_gain >= 0.01 AND ll fold wins >= 4 of 6),
+    the SAME bar as f08c-22: the f08c-22 PASS transfers to legs it was not selected on (then a lever-arm unit is pre-registered, gap-adjusted,
+    never a config change). FAIL otherwise: the f08c-22 PASS is recorded as not confirmed on other legs; the idea is not retired (family stays
+    open through the k and label variants). Thresholds are not changed after any result.'
+what_it_does_not_do: 'Edits no config and places no order. Not a promotion case: a PASS is a discovery needing one disjoint-window confirmation.
+  HARNESS CAVEAT (code-read 2026-10-24, scripts/backtest_pullback.py / backtest_trend.py): a stop or ratcheted trail that the bar trades through
+  fills AT the stop price, not at a gap-open worse than it, and lever exits fill at the bar close; that flatters every arm in proportion to its
+  stop exits, so it favours tight-trail arms. A PASS must be re-run gap-adjusted before any Tier-3 note. A label study: edits no config, places
+  no order. k is a single pre-registered choice. Volatility is an uncontrolled confound on these legs.'
+compute: cpu_light
+value:
+  bucket: own_losses
+  usd_at_stake_per_month: 300
+  confidence: 0.2
+  basis: 'stand-in: live exit lever on a rostered leg; not a P&L measurement.'
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 30
+  why_runner: Fetches keyless public candles for a pinned window and runs the harness; reads no trainer data.
+run:
+  command:
+  - python3
+  - scripts/research/path_metric_giveback.py
+  - --leg
+  - trend_donchian_sol_4h
+  - --leg
+  - trend_donchian_ada_4h
+  - --leg
+  - trend_donchian_avax_4h
+  - --k
+  - '24'
+  - --days
+  - '2330'
+  - --start
+  - '2020-07-01'
+  - --end
+  - 2026-10-15 23:59
+  - --folds
+  - '6'
+  - --fold-majority
+  - '4'
+  - --n-floor
+  - '100'
+  - --min-r2-gain
+  - '0.02'
+  - --min-ll-gain
+  - '0.01'
+  - --big-quantile
+  - '0.5'
+  - --out
+  - '{out_dir}'
+  timeout_minutes: 120
+  inputs:
+    research_unit: RQ-20261024-1eb9-01
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- research/queue/RQ-20261024-f08c-22.yaml
+- research/queue/RQ-20261022-eba2-01.yaml
+- scripts/research/path_metric_giveback.py
+programme: P1

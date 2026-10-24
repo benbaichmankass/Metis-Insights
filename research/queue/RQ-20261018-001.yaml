@@ -110,7 +110,7 @@ generated:
   key: programme:P3-Q8-sol4h-overlap
   params:
     node: P3-Q8-sol4h-overlap
-last_dispatched_at: '2026-10-18T20:38:51+00:00'
+last_dispatched_at: null
 grading:
   auto: true
   decision_rule_id: RULE-P3-Q8-SOL4H-OVERLAP-REPORT

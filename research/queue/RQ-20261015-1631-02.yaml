@@ -100,7 +100,7 @@ related:
 - scripts/research/same_symbol_head_to_head.py
 - scripts/ci/check_same_symbol_allocation.py
 - src/runtime/intents.py
-last_dispatched_at: '2026-10-17T22:25:46+00:00'
+last_dispatched_at: null
 grading:
   attested: RULE-RQ-20261015-1631-02-SAME-SYMBOL-REPORT
   auto: true

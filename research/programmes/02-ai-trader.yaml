@@ -1331,13 +1331,124 @@ nodes:
     roadmap: [M23]
     value: {usd_at_stake_per_month: 80, confidence: 0.3}
     after: []
-    needs_authoring: >-
-      OPERATOR IDEA (IDEAS.md 2026-10-21): a multivariate linear / VAR model that predicts the NEXT-BAR PRICE VECTOR
-      (returns of BTC, ETH, SOL, XRP, ADA jointly, lags fixed by BIC on the training fold only) as a BASELINE arm in the
-      forecaster bake-off track (plan item ML-F1). It is the honest linear floor every TSFM / GBDT forecaster must beat:
-      graded on out-of-fold MSE and directional log-loss vs a per-symbol AR(p) and vs the random walk, purged walk-forward
-      folds, published 1h market_features shards (metis-market-data, compute auto). Register it as an arm of the next ML-F1
-      bake-off unit rather than a stand-alone race; if no bake-off is due within two weeks, register it alone.
+    unit:
+      theme: ml_health
+      priority: 2
+      kind: experiment
+      title: 'AI trader / linear floor (P2-Q4-var-price-vector): does a causal rolling VAR price-vector feature set lift the BTC/ETH/SOL 1h regime head over the six shared features, and over a HAR-RV control, on the PUBLISHED shards?'
+      question: 'On the published 1h v002 market_features shards (regime_label, the six shared features), under purged 5-fold walk-forward CV with the same rows for every arm, does adding the causal rolling ridge VAR(4) next-bar [return, |return|] vector for BTC/ETH/SOL (refit every 24 bars on the trailing 2000, block var_price_vector) lift LightGBM macro_f1 over (a) the six shared features alone and (b) the same features plus HAR-RV regressors (day/week/month realised variance, 24 bars per day)?'
+      why_this_matters: 'Operator idea 2026-10-21 (IDEAS.md): a multivariate linear price-vector model is the honest linear floor every TSFM / GBDT forecaster must beat. RQ-20261011-9da8-01 ran it as a control arm at 15m on the trainer only (headline checks har_rv_ge_incumbent_btc / var_ge_incumbent_btc did not hold on BTC; no grade on the VAR arm itself at 1h). This is its 1h, off-trainer twin on published data, so the floor is measured at the timeframe the regime-cell work uses and without a trainer slot. SCOPE, stated: this grades the feature-lift on the existing head metric (macro_f1), NOT the out-of-fold price MSE / directional log-loss vs AR(p) and a random walk that the plan node names; that forecaster-metric grading needs a regression task in ml_bakeoff.py that does not exist -- filed as the lever below, not hidden.'
+      power:
+        expected_n: 24000
+        min_detectable_effect: 0.1
+        effect_units: sd
+        design: one_sample
+        alpha: 0.05
+        power: 0.8
+        basis: 'Unit = OOS row per symbol. tail_rows 40000 at min_train_frac 0.4 leaves ~24,000 OOS rows per symbol over 5 folds (same plan as RQ-20261016-65ff-25, ESTIMATE until the first run replaces it with the measured n). d=0.1 needs ~785 rows so rows are not the limit; bars are autocorrelated, so the rule also requires fold-mean deltas (min_folds 3) on all three symbols.'
+        feasibility:
+          source: none
+          accrual_basis: Fixed published shard; nothing accrues.
+      decision_rule:
+        id: RULE-P2-Q4-VAR-PRICE-VECTOR-1H-FEATURE-LIFT
+        statistic: 'Paired per-fold macro_f1 difference on identical purged folds (5, embargo 24) and on the holdout (rows after 2026-07-12), per symbol: lgbm_var minus lgbm_base, and lgbm_var minus lgbm_har (the HAR-RV control); mean over folds. Reported, not graded: every arm minus the class prior.'
+        rule: 'PASS IF lgbm_var - lgbm_base >= +0.005 on the CV mean on ALL THREE symbols AND lgbm_var - lgbm_har >= 0 on the CV mean on all three AND lgbm_var - lgbm_base >= 0 on the holdout on all three: the linear price vector adds information the shared features and a classical volatility control do not (a disjoint-window confirmation unit follows before any candidate-manifest note; this PASS was chosen from ONE configuration, trial count 1). FAIL IF lgbm_var - lgbm_base < 0 on the CV mean on EVERY symbol (the linear floor adds nothing at 1h; record the exact configuration in families.linear_logit.history, family not closed: another lag order or a return-only vector is a variant unit). INDETERMINATE otherwise (mixed by symbol), or if folds < 3 or an arm is unavailable.'
+        min_n: 3 usable CV folds per symbol; holdout >= 200 rows per symbol.
+        what_it_does_not_do: Trains nothing that serves; touches no config, registry, roster or order path; compares feature sets on unweighted LightGBM arms (the shipped heads weight classes), not shipped models. A feature-lift PASS is not edge and is not a P&L claim. Does not grade price-forecast MSE vs AR(p) / random walk (no regression task in the engine -- lever row ML-BAKEOFF-REGRESSION-TASK).
+      compute: auto
+      value:
+        bucket: ai_trader
+        usd_at_stake_per_month: 80
+        confidence: 0.3
+        basis: 02 node P2-Q4-var-price-vector planning weight; the linear floor for the forecaster track, not a measured P&L
+      routing:
+        needs_trainer_resident_data: false
+        needs_gpu: false
+        published_data: metis-market-data
+        peak_memory_gb: 4.0
+        est_minutes: 45
+        basis: 'Estimate, NOT measured: 3 shards x 3 LightGBM arms x 5 folds at 40,000 tail rows (65ff-25 plan) plus a VAR refit every 24 bars over ~40,000 rows (1,700 ridge solves of a 24 x 24 system per symbol, the VAR peers stream only ts + log_return). Re-declare from the first run.'
+      ml_bakeoff:
+        task: classification
+        metric: macro_f1
+        dataset:
+          kind: jsonl
+          groups:
+            BTCUSDT:
+              path: datasets-out/market_features/BTCUSDT/1h/v002/data.jsonl
+            ETHUSDT:
+              path: datasets-out/market_features/ETHUSDT/1h/v002/data.jsonl
+            SOLUSDT:
+              path: datasets-out/market_features/SOLUSDT/1h/v002/data.jsonl
+          ts_col: ts
+          target: regime_label
+          features:
+          - rolling_log_return_vol
+          - log_return
+          - log_return_lag_1
+          - log_return_lag_2
+          - hour_of_day
+          - dayofweek
+          tail_rows: 40000
+          holdout_after: '2026-07-12'
+        cv:
+          folds: 5
+          embargo_rows: 24
+          min_train_frac: 0.4
+        baseline: lgbm_base
+        controls:
+        - prior
+        - lgbm_har
+        candidates:
+        - lgbm_var
+        learners:
+          prior:
+            kind: prior
+          lgbm_base:
+            kind: lightgbm
+            params: &lgbm
+              n_estimators: 200
+              learning_rate: 0.05
+              num_leaves: 31
+              min_child_samples: 50
+          lgbm_har:
+            kind: lightgbm
+            params: *lgbm
+            feature_blocks:
+            - {kind: har_rv, d: 1, w: 5, m: 22, bars_per_unit: 24}
+          lgbm_var:
+            kind: lightgbm
+            params: *lgbm
+            feature_blocks:
+            - kind: var_price_vector
+              own: '<group>'
+              lags: 4
+              window: 2000
+              refit_every: 24
+              peer_tail_rows: 40000
+              peers:
+                BTCUSDT: datasets-out/market_features/BTCUSDT/1h/v002/data.jsonl
+                ETHUSDT: datasets-out/market_features/ETHUSDT/1h/v002/data.jsonl
+                SOLUSDT: datasets-out/market_features/SOLUSDT/1h/v002/data.jsonl
+        rule:
+          min_folds: 3
+          pass_if:
+          - {group: [BTCUSDT, ETHUSDT, SOLUSDT], vs: baseline, window: cv, op: '>=', value: 0.005}
+          - {group: [BTCUSDT, ETHUSDT, SOLUSDT], vs: lgbm_har, window: cv, op: '>=', value: 0.0}
+          - {group: [BTCUSDT, ETHUSDT, SOLUSDT], vs: baseline, window: holdout, op: '>=', value: 0.0}
+          fail_if_no_candidate_reaches:
+          - {group: any, vs: baseline, window: cv, op: '>=', value: 0.0}
+      run:
+        command: [python3, scripts/research/ml_bakeoff.py, --unit, '{unit}', --out, '{out_dir}']
+        timeout_minutes: 120
+      lands:
+        store: research/results/
+        assert_field: read_state
+        min_rows: 1
+      related:
+      - RQ-20261011-9da8-01
+      - ML-F1
+      - docs/claude/work/IDEAS.md
   - id: P2-Q4-cross-asset-features
     goal: G4
     roadmap: [M23]

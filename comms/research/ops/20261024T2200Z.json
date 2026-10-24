@@ -1,0 +1,117 @@
+{
+  "run": "RESEARCH-OPS-20261024-2047",
+  "finished_at": "2026-10-24T22:00:00Z",
+  "by": "session_017CC7HsxYRqXUoT5HYnDLWt",
+  "floor": 59,
+  "floor_basis": "computed_floor(fired_24h 74)",
+  "authoring_queue_depth": 31,
+  "idle_backends": [
+    "github_runner_data",
+    "kaggle",
+    "kaggle_cpu",
+    "trainer"
+  ],
+  "needs_review_triaged": 0,
+  "needs_review_left": 30,
+  "needs_review_note": "NOT run this pass: 30 measured at start by queue_grade.py --health (29 at the 14:47Z pass + the new f08c-20 non-verdict), all already owned (result_disposition_check UNOWNED 0). No unit could be closed by applying its rule: the gaps recorded at 14:47Z are instrument gaps, not session decisions. Declared here as not_run rather than counted as triaged.",
+  "throughput": {
+    "runnable_before": 66,
+    "runnable_after": null,
+    "queued": 156,
+    "fired_24h": 74,
+    "results_landed_24h": 71,
+    "hours_since_last_dispatch": 1.3,
+    "idle_alarm": false,
+    "after_basis": "runnable_before measured 20:49Z by check_research_queue_throughput. runnable_after NOT measured on the merged tree: this PR adds RQ-20261024-1eb9-01, re-queues 3 units (1631-01/-02, 001) and one programme node that the replenisher emits on its next run (dry run: RQ-20261024-010); none counts runnable until the held PR merges."
+  },
+  "mechanism": {
+    "dispatch_receipt": "ok (last dispatch 19:33Z, 1.3 h)",
+    "collector": "ok (71 results 24h, 0 unreadable)",
+    "stranded_stamp_prs": [],
+    "stranded_stamp_prs_note": "RE-LISTED via GitHub MCP list_pull_requests (open, 30): automation/research-queue PRs open are #19945 (stamps) and #19944 (receipt), both created 20:57Z, minutes old at 21:00Z -- not stranded; #19812/#19787 from the 14:47Z record are no longer open. Older open non-automation PRs (#17194, #16233, #12564 ...) are not research-queue stamps and were not judged.",
+    "incident": null,
+    "watchdog": "comms/research/ops/watchdog_incidents.jsonl not re-read this pass (previous record: newest row 09:09Z resolved)"
+  },
+  "results_read": {
+    "pass": 1,
+    "fail": 10,
+    "indeterminate": 0,
+    "units": [
+      "RQ-20261024-f08c-22 PASS (pooled ll clause only: ll_gain +0.0135, 5/6 folds, n 250; r2_gain -0.0172; eth_prop alone negative) -> confirmation RQ-20261024-1eb9-01 on the 3 trend legs it was not selected on",
+      "RQ-20261024-f08c-20 graded FAIL but is a NON-VERDICT (all folds unusable, base_rate 0.0, NaN) -> PI-20261024-ON017CC7-0001",
+      "RQ-20261024-f08c-18/-19/-21 fail (path-state / path-metric variants, graded by their own rules, nothing to add)",
+      "RQ-20261024-4ef5-01/-02 and f08c-01..05 fail incumbent_stands / no_reachable_lever_beats_removed (exit-lever variants; graded by their own rules; not individually re-derived)",
+      "RQ-20261011-9da8-01 FAIL (Chronos-2 only) -> families.ts_foundation_model.history FAIL appended, ML-F1 closed with scope (other TSFM arms have no loader, FRONTIER-LEVER-TSFM)"
+    ]
+  },
+  "unlocked": [
+    {
+      "unit": "RQ-20261015-1631-01",
+      "how": "driver fetches public Binance-Vision 5m when no local source; last_dispatched_at null"
+    },
+    {
+      "unit": "RQ-20261015-1631-02",
+      "how": "same"
+    },
+    {
+      "unit": "RQ-20261018-001",
+      "how": "same"
+    }
+  ],
+  "retired": [],
+  "levers_filed": [
+    {
+      "lever": "5m candle source for same_symbol_head_to_head.py",
+      "ref": "BUILT in this PR (fetch_5m); SAME-SYMBOL-ALLOCATION note appended"
+    },
+    {
+      "lever": "path_state_giveback.py emits fail on an all-NaN label",
+      "ref": "PI-20261024-ON017CC7-0001"
+    },
+    {
+      "lever": "regression task in ml_bakeoff.py (price MSE vs AR(p) / random walk) for P2-Q4-var-price-vector",
+      "ref": "stated in the unit's why_this_matters; not filed as a row (no owner yet) -- handoff"
+    }
+  ],
+  "units_authored": [
+    "RQ-20261024-1eb9-01 (hand unit, confirmation of f08c-22)",
+    "programme node P2-Q4-var-price-vector as unit: (the replenisher emits it; dry run id RQ-20261024-010)"
+  ],
+  "followups_filed": [
+    {
+      "what": "f08c-22 PASS (one window)",
+      "ref": "RQ-20261024-1eb9-01"
+    },
+    {
+      "what": "9da8-01 FAIL",
+      "ref": "ml-plan-items.yaml ML-F1 + families.ts_foundation_model.history"
+    },
+    {
+      "what": "f08c-20 non-verdict",
+      "ref": "PI-20261024-ON017CC7-0001"
+    }
+  ],
+  "authoring": {
+    "queue_depth": 31,
+    "nodes_drafted": 1,
+    "nodes": [
+      "P2-Q4-var-price-vector"
+    ],
+    "theme_shortfall": {
+      "ml_health": 9,
+      "new_strategy_prop": 1
+    },
+    "why_short": "One programme node drafted (ml_health, the largest shortfall) plus one hand unit; ml_health holds 1 of 9 needed after the replenisher emits it. Not drafted: the other 30 authoring-queue nodes. Several are not queue questions at all but Tier-3 PACKETS for the manager (P2-R3.c01..c04-pass regime-gate packets, P1-Q6-*-declare) or reads already done (P1-Q11-transfer-read: eba2-07/-08 are out of blocked/ since EXIT-BUILDS-W43) and cannot be converted to a `unit:` body: a node with neither stays in the authoring queue forever."
+  },
+  "not_run": [
+    "needs_review triage: 0 units dispositioned by a write (all 30 owned, none closable by its rule)",
+    "blocked/ audit not re-run (done in full at 14:47Z, 6 h ago)",
+    "SAME-SYMBOL fix verified end to end: fetch verified on SOLUSDT (15,264 bars), tests pass; the full SOL backtest was still running when this record was written"
+  ],
+  "handoff": [
+    "MANAGER (held PR): merge this run PR (queue + programme edits hold under E57); merge-slot claim committed on the branch",
+    "MANAGER decision: programme nodes that are Tier-3 packets or already-done reads (P2-R3.c01..c04-pass, P1-Q11-transfer-read, P1-Q6-*-declare) clog the 31-deep authoring queue and keep OPS-AUTHOR-SKIPPED live; they need a node state that is not `unit:`/`needs_authoring:` (e.g. `discharged:` with a reason) -- a queue_replenish.py change, or the manager writes the packets",
+    "next research-ops: read RQ-20261015-1631-01/-02 and 20261018-001 once re-fired (verify a measured verdict, not producer_failed); read RQ-20261024-1eb9-01 and the P2-Q4-var-price-vector unit; author ml_health units (8 short)",
+    "next research-ops: P2-Q4-var-price-vector's forecaster-metric half needs a regression task in ml_bakeoff.py (lever not yet a row)"
+  ]
+}

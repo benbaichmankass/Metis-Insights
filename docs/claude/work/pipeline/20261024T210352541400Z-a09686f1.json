@@ -1,0 +1,22 @@
+{
+  "due_when": {
+    "due_date": "2026-10-31",
+    "kind": "date"
+  },
+  "id": "PI-20261024-ON017CC7-0001",
+  "next_action": "dispatch_lane",
+  "observation": {
+    "due_by": "2026-10-31T00:00Z",
+    "how_to_check": "rerun command",
+    "what": "f08c-20 no longer reads fail on an all-NaN record"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "RESEARCH-OPS-20261024-2047 (session_017CC7HsxYRqXUoT5HYnDLWt)",
+    "rerun": "python3 -c \"import json,glob;r=[json.loads(l) for l in open(glob.glob('research/results/RQ-20261024-f08c-20/*.jsonl')[0])][-1];print(r['verdict'],r['measurement']['per_leg']['trend_donchian_eth_prop']['by_x']['1.5']['base_rate'])\"  # fail + 0.0 = still misgraded"
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": "1",
+  "what": "[research] RQ-20261024-f08c-20 (path-state giveback, X=1.5, w=6, prop legs) was graded FAIL by queue_grade but its record is a NON-VERDICT: every fold usable=false, base_rate 0.0, auc/ll_gain NaN, 0/0 folds (no positive labels at X=1.5 with w=6). path_state_giveback.py emits verdict fail on an empty label instead of producer_failed/indeterminate, so the unit reads 'fail' and would count toward a 'the idea failed' read. Fix: emit read_state producer_failed (or indeterminate) when no fold is usable / base_rate is 0; re-queue f08c-20 with last_dispatched_at null once fixed. Not a verdict on the path-state idea (rule: INDETERMINATE if < 100 states; states n 4213 so n was not the limit)."
+}

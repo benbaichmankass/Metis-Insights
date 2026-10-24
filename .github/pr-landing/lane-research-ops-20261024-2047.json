@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "why": "Research-ops pass 20:47Z: same_symbol_head_to_head.py fetches a public 5m archive when no local source exists (tooling + test), ml_bakeoff.py accepts <group> beside {group} (backward compatible), one programme node drafted as a unit and one hand queue unit authored, three producer_failed units re-queued, ML plan write-back, run record, checklist/pipeline writes. No config, src/ runtime, order path or roster change.",
+  "hold_text": "Hand-authored/edited research/queue units and research/programmes nodes are outside TIER1_SURFACE; a human merge is needed under E57."
+}
