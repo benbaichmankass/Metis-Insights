@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Moves the hand-written research unit RQ-20261024-09a6-03 from research/queue/blocked/ to research/queue/ with run.command set (its decision rule is byte-unchanged), which the guard cannot vouch for; the manager merges. MANAGER DISPATCH (acting with the operator's authority, docs/CLAUDE-RULES-CANONICAL.md 'Lanes answer to the manager'), 2026-10-24: lane REMAINING-MOVE-HEAD.",
+  "why": "Builds scripts/research/remaining_move_head.py (rung B1 of AI active trade management: a per-bar remaining-move quantile head and a pull-in-only truncation-honest TP replay) with its self-tests, and unblocks the unit that grades it. Tier-1 research tooling only: no config/, no src/ runtime, no order path."
+}

@@ -1,7 +1,7 @@
 id: RQ-20261024-09a6-03
 title: 'AI-ATM rung B1: a remaining-move quantile head that PULLS the TP in to where the move is now expected to run out -- calibration
   first, then net R per capital-day vs the leg as traded (truncation-honest, pull-in only).'
-status: blocked
+status: queued
 cadence: once
 roadmap:
 - L-ATM
@@ -56,12 +56,6 @@ decision_rule:
     is the TP-revision answer (a rule, cheaper than a model). P&L WITHOUT PREDICTION (clause 2 passes, clause 1 fails) is a FAIL by
     the TP doctrine. Thresholds are not changed after any result.'
   min_n: 600 trades pooled
-blocked_on:
-- kind: work_item
-  ref: docs/claude/work/checklist/REMAINING-MOVE-HEAD.json
-  what: No tool fits a per-bar remaining-move quantile head on harness paths or replays a pull-in-only TP truncation-honestly.
-  clears_when: REMAINING-MOVE-HEAD lands scripts/research/remaining_move_head.py (paths via path_metric_giveback.run_leg_paths; Q vs
-    Q0; the pull-in-only replay; a self-test that a random-walk path set shows no calibration gain and that a TP never moves up).
 compute: cpu_light
 value:
   bucket: ai_trader
@@ -78,8 +72,58 @@ routing:
   basis: 'Estimate: six harness passes with --emit-paths (one per leg, ~1-2 min each MEASURED for exit_lever_ablation arms 2026-10-16)
     plus the fit.'
 run:
-  workflow: null
-  note: Null until the blocked_on build lands; then git mv to research/queue/, status queued, fill run.command.
+  command:
+  - python3
+  - scripts/research/remaining_move_head.py
+  - --leg
+  - trend_donchian_eth_4h
+  - --leg
+  - trend_donchian_xrp_4h
+  - --leg
+  - xrp_pullback_2h
+  - --leg
+  - ada_pullback_2h
+  - --leg
+  - trend_donchian_eth_prop
+  - --leg
+  - trend_donchian_sol_prop
+  - --days
+  - '2330'
+  - --start
+  - '2020-07-01'
+  - --end
+  - '2026-10-15 23:59'
+  - --tau
+  - '0.5'
+  - --tau
+  - '0.7'
+  - --folds
+  - '6'
+  - --clause1-folds
+  - '4'
+  - --clause2-folds
+  - '5'
+  - --cov-tol
+  - '0.05'
+  - --atr-buffer
+  - '0.25'
+  - --min-diff
+  - '-0.02'
+  - --ci-lb
+  - '-0.05'
+  - --dd-mult
+  - '1.35'
+  - --min-trades
+  - '600'
+  - --min-fill-share
+  - '0.05'
+  - --bootstrap
+  - '2000'
+  - --out
+  - '{out_dir}'
+  inputs:
+    research_unit: RQ-20261024-09a6-03
+  timeout_minutes: 120
 lands:
   store: research/results/
   assert_field: read_state

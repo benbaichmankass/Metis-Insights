@@ -2,22 +2,33 @@
   "id": "REMAINING-MOVE-HEAD",
   "title": "Per-bar remaining-move quantile head + pull-in-only truncation-honest TP replay on harness paths",
   "phase": "research-infra",
-  "state": "in_flight",
-  "owner": null,
+  "state": "landed_unproven",
+  "owner": "session_01LpzNqKr2gFgKfaN2GB4T69",
   "lane": "session_01LpzNqKr2gFgKfaN2GB4T69",
   "model": "claude-sonnet-5-5",
   "ceiling_usd": 12,
   "spend_usd": null,
   "tier": 1,
-  "prs": [],
+  "prs": [
+    19953
+  ],
   "blocked_on": [],
-  "note": "[2026-10-24 lane ATM-AI-MERGE] WHY: AI active trade management rung B1 (blocked/RQ-20261024-09a6-03): a model that moves the TP to where the move is now expected to run out (operator 2026-10-16, DECIDED on IN-TRADE-EXIT-MODEL: a moving TP based on where we think we should exit is preferred). BUILD scripts/research/remaining_move_head.py: paths via path_metric_giveback.run_leg_paths (config-exact harness + --emit-paths); target M_t = max future peak - open_r_t; linear quantile head Q_tau on the 09a6-01 R1 state vs Q0 = per-leg train-fold bucketed quantile; 6 purged calendar folds; replay where TP only moves DOWN (min of previous TP, in-force target, open_r_t + Q) and fills on the first later bar whose favourable extreme reaches it, else the trade's own exit; capital-days via scripts/capital_efficiency.py; cost via resolve_cost_policy. Self-tests: random-walk paths show no calibration gain; a TP never moves up. Tier 1. CLOSES WHEN: 09a6-03 leaves blocked/ with run.command set. Relation: TP-PREDICT-HEAD is the entry-time version (RQ-20261009-900/901). [2026-10-24T21:19Z manager session_01EfjqotNYj6MppcEBqbGvkA] Dispatched: Sonnet (offline research build, no order path), fresh, $12. Runs beside FIRST-PASSAGE-ON-PATHS; told not to edit first_passage.py.",
+  "note": "[2026-10-24 lane REMAINING-MOVE-HEAD] BUILT scripts/research/remaining_move_head.py + tests/test_remaining_move_head.py; self-tests: random-walk null (rel pinball gain ~-0.01, verdict FAIL), TP never moves up (rising/falling/random head), planted extent PASSES. Real-data smoke on trend_donchian_eth_4h (260 graded trades of 275; 15 exit on the entry bar and carry no path rows): as-traded net_r recomputed from path+cost policy matches the harness to <1e-4 R; verdict INDETERMINATE on n<600 as expected for one leg. RQ-20261024-09a6-03 moved to research/queue/ with run.command set, decision_rule untouched; dispatch_queue dry run = would_dispatch (runner). Local copy of the R1 feature code (first_passage.py's shared function not on main): consolidate when FIRST-PASSAGE-ON-PATHS lands. NOT observed: the real six-leg verdict. [2026-10-24T21:19Z manager session_01EfjqotNYj6MppcEBqbGvkA] Dispatched: Sonnet (offline research build, no order path), fresh, $12. Runs beside FIRST-PASSAGE-ON-PATHS; told not to edit first_passage.py. ",
   "priority_rank": 2,
-  "updated_at": "2026-10-24T21:18:48Z",
-  "updated_by": "session_01EfjqotNYj6MppcEBqbGvkA",
+  "updated_at": "2026-10-24T21:43:46Z",
+  "updated_by": "session_01LpzNqKr2gFgKfaN2GB4T69",
   "roadmap": [
     "L-ATM",
     "M23"
   ],
-  "_seq": 635
+  "writeback": {
+    "roadmap": "none: milestone M23 text updated only when the first graded RQ-20261024-09a6-03 verdict lands (this PR is the tool, not a result)",
+    "arch": "none: no architecture change; tool and queue unit only"
+  },
+  "observation": {
+    "what": "first graded RQ-20261024-09a6-03 verdict (research/results verdict.json, read_state measured, six legs, pooled n>=600)",
+    "how_to_check": "find the 09a6-03 result under research/results/ after the dispatcher fires it; read verdict and per_tau why",
+    "due_by": "2026-10-31"
+  },
+  "_seq": 636
 }
