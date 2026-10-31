@@ -1,9 +1,9 @@
 {
   "_doc": "Receipt for the last WORK DIGEST that actually landed. Written in the SAME commit as the pending-pings.jsonl row it attests, so it can never claim a digest that did not reach the queue. Read by scripts/ops/digest_due.py (the interval gate) and scripts/ci/check_digest_liveness.py (the staleness guard).",
   "schema": 1,
-  "generated_at": "2026-10-31T17:07:23Z",
-  "window_base": "59fae5cfc544461841cb517d3c52b663638098b3",
-  "window_head": "818f26adb89d8fbb3d18baca22fef1c4f0e10799",
+  "generated_at": "2026-10-31T18:13:47Z",
+  "window_base": "818f26adb89d8fbb3d18baca22fef1c4f0e10799",
+  "window_head": "95bb2b1100c82eb07e07bab4bd4126429eedbaf1",
   "trigger": "push",
-  "run_url": "https://github.com/benbaichmankass/JTA-Trader/actions/runs/41222628389"
+  "run_url": "https://github.com/benbaichmankass/JTA-Trader/actions/runs/41228071984"
 }
