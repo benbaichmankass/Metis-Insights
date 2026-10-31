@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research tooling and data off the trade path: a new corpus producer script, a research/templates family plus its generated queue units (queue_replenish --verify reproduces them), a new ml/datasets read-only family and tests. No order path, no strategy or risk config, no src/, no deploy/. Row ML-LINE-S1-CORPUS (Tier 1)."
+}

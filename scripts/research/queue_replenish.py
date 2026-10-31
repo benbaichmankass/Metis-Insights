@@ -68,7 +68,7 @@ TEMPLATES = Path("research/templates")
 # is "landing machinery" (check_pr_landing R12) and would force a human read of every such change.
 # A template may still override with its own `roadmap:` field.
 FAMILY_ROADMAP = {"e35-bracket": ["M20"], "m20-exit-lever": ["M20"], "macro-valuation": ["M28"],
-                  "prop-fit-breakout": ["L-PROP"], "roster-walkforward": ["L-LADDER"]}
+                  "prop-fit-breakout": ["L-PROP"], "roster-walkforward": ["L-LADDER"], "leg-corpus-s1": ["L-ML-LIVE"]}
 QUEUE = Path("research/queue")
 DEFAULT_TARGET = 25
 _PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
@@ -131,7 +131,8 @@ def repo_facts(root: Path) -> Dict[str, Any]:
             evidence[leg] = {"trades_file": rows.relative_to(root).as_posix(), "n_trades": n}
         except (OSError, ValueError, KeyError, TypeError):
             continue
-    return {"legs": legs, "evidence": evidence}
+    from scripts.research.leg_corpus_s1 import money_families
+    return {"legs": legs, "evidence": evidence, "money_families": sorted(money_families(root))}
 
 
 # ── expansion ───────────────────────────────────────────────────────────────
@@ -163,6 +164,11 @@ def _leg_source(name: str, tpl: Dict[str, Any], facts: Dict[str, Any]) -> List[D
         for leg, info in legs.items():
             if leg in sweepable:
                 out.append({"leg": leg, **info})
+    elif name == "money_leg_families":
+        # one point per FAMILY that has a money leg right now (ML-LINE-S1-CORPUS): the producer re-resolves
+        # the family's legs from config at run time, so a roster change never needs a new unit.
+        for fam in facts["money_families"]:
+            out.append({"family": fam, "family_key": fam})
     elif name == "evidence_legs_with_breakout_market":
         markets = tpl.get("markets") or {}
         for leg, info in legs.items():

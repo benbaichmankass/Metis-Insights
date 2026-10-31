@@ -11,6 +11,7 @@ from .families.conviction_meta import ConvictionMetaBuilder
 from .families.corpus_panel import CorpusPanelBuilder
 from .families.execution_quality import ExecutionQualityBuilder
 from .families.exit_candidates import ExitCandidatesBuilder
+from .families.leg_corpus import LegCorpusBuilder
 from .families.market_features import MarketFeaturesBuilder
 from .families.market_raw import MarketRawBuilder
 from .families.market_sequences import MarketSequencesBuilder
@@ -28,6 +29,7 @@ FAMILY_REGISTRY: Mapping[str, Type[DatasetBuilder]] = {
     CorpusPanelBuilder.family: CorpusPanelBuilder,
     ExecutionQualityBuilder.family: ExecutionQualityBuilder,
     ExitCandidatesBuilder.family: ExitCandidatesBuilder,
+    LegCorpusBuilder.family: LegCorpusBuilder,
     MarketFeaturesBuilder.family: MarketFeaturesBuilder,
     MarketRawBuilder.family: MarketRawBuilder,
     MarketSequencesBuilder.family: MarketSequencesBuilder,
